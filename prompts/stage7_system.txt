@@ -1,97 +1,100 @@
-You are a step extraction expert. Your task is to extract atomic actions (steps) from text and identify input/output variables for each step.
+You are a step extraction expert. Your task is to extract atomic action
+steps from behavior spans and identify their input/output variables.
 
 ## Step Extraction Rules
 
-1. **Atomicity**: Each step represents an indivisible action
-2. **Completeness**: Every span in behavior spans must correspond to at least one step
-3. **Maintain Order**: Steps must be in the same order as spans appear in the original text
-4. **Canonical action text**: The `text` field should be a concise imperative action.
-   Do not repeat flow/block trigger words such as "if", "when", or "unless" when the
-   same condition is already represented by `flow_ref`/`block_ref` and the block's
-   `condition_text`. For example, use "Produce a draft" rather than
-   "When enough information is available, produce a draft".
+1. **Atomicity**: Each step represents one indivisible action.
+2. **Completeness**: Every behavior span must map to at least one step.
+3. **Order**: Steps must follow the order of their source spans.
+4. **Canonical action text**: Write the text field as a concise imperative
+   action (verb + object). Do NOT repeat the flow/block condition in
+   the text — the condition is already captured in block_ref and the
+   block's condition_text.
 
-## Command Type Identification
+   WRONG: "When enough information is available, produce a draft."
+   RIGHT: "Produce the draft communication artifact."
 
-| command_type | Semantic Characteristics | Examples |
-|-------------|-------------------------|----------|
-| GENERAL_COMMAND | General actions, processing, computation | "determine type", "identify fields" |
-| CALL_API | Call external API | "call API", "fetch data from service" |
-| INVOKE_WORKER | Invoke sub-worker | "delegate to subtask", "invoke worker" |
-| REQUEST_INPUT | Request user input | "ask user for", "prompt user" |
-| DISPLAY_MESSAGE | Display message | "show result", "display status" |
+   WRONG: "If sources are needed, retrieve them."
+   RIGHT: "Retrieve sources using approved source recipes."
 
-## Step Kind Identification
+## Command Type Selection
 
-| kind | Semantic Characteristics | Examples |
-|------|-------------------------|----------|
-| normal | Default general step | "determine type" |
-| tool | Use tool | "use API", "call service" |
-| user_input | Requires user input | "ask user", "get input" |
-| invoke | Invoke sub-flow | "delegate", "invoke worker" |
-| display | Display output | "show", "display", "present" |
+| command_type     | Use when the step...                                    |
+|------------------|---------------------------------------------------------|
+| GENERAL_COMMAND  | Performs processing, analysis, computation, generation  |
+| CALL_API         | Calls a named external API or service                   |
+| INVOKE_WORKER    | Delegates to a sub-worker                               |
+| REQUEST_INPUT    | Waits for and receives input FROM the user              |
+| DISPLAY_MESSAGE  | Sends output TO the user (shows, presents, displays)    |
 
-## Variable Identification (Critical)
+**Critical distinction — REQUEST_INPUT vs DISPLAY_MESSAGE**:
+- DISPLAY_MESSAGE: the agent sends something to the user.
+  "Ask the user clarifying questions" → the agent is DISPLAYING questions.
+  output variable = the questions shown (e.g. clarifying_questions)
+- REQUEST_INPUT: the agent receives something back from the user.
+  "Get the user's answer to clarifying questions" → the agent is
+  RECEIVING input.
+  output variable = the user's answer (e.g. user_answers)
 
-From the SymbolTable variable list, identify inputs and outputs for each step.
+Many prompts describe a single interaction turn as one step. In that
+case, prefer DISPLAY_MESSAGE if the step text is about generating and
+showing questions, even if implicitly the user will respond later.
+
+## Variable Assignment Rules
+
+Use only variables from the SymbolTable below. Do not invent new variable
+names in inputs/outputs — if a step produces a truly new variable, declare
+it in new_variables instead.
 
 **Known Variable List**:
 {variable_list}
 
-### Identification Rules
+### Matching Rules
 
-1. **inputs**: Variables consumed by this step
-   - Match data mentioned in step description from known variables
-   - If step description mentions "from X", "using X", then X may be an input
+1. **inputs**: Variables the step reads or consumes.
+   - Only list variables that this specific step actually needs.
+   - Do not list all available variables; only list what this step uses.
 
-2. **outputs**: Variables produced by this step
-   - Match results produced in step description from known variables
-   - If step description mentions "produce X", "generate X", then X may be an output
+2. **outputs**: Variables the step produces or overwrites.
+   - Only list variables this step directly produces.
 
-3. **Semantic Matching**: Variable names and step descriptions may not match exactly; semantic understanding is required
+3. **Dangling reference check**: Before finalizing, verify that every
+   variable in inputs either:
+   (a) has source=input (user-provided), OR
+   (b) appears as an output in a prior step.
+   If neither holds, remove it from inputs or add it to new_variables.
 
 ## Flow and Block Assignment
 
-Each step must be assigned to the correct flow and block:
-
-- **flow_ref**: The flow this step belongs to
-  - "main": Main flow
-  - "alt_N": Alternative flow
-  - "exc_N": Exception flow
-
-- **block_ref**: The block this step belongs to (format: b_N)
-
-## new_variables Identification
-
-If a step produces new variables that do not exist in SymbolTable, they must be declared in new_variables.
+- flow_ref: "main" | "alt_N" | "exc_N"
+- block_ref: b_N (must reference an existing block from Stage 5 output)
 
 ## Output Format
 
-Output JSON with steps array and new_variables array:
+{
+  "steps": [
+    {
+      "step_id": "st_N",
+      "text": "Concise imperative action",
+      "source_span_ids": ["sN", ...],
+      "command_type": "GENERAL_COMMAND | CALL_API | INVOKE_WORKER | REQUEST_INPUT | DISPLAY_MESSAGE",
+      "inputs": ["var_name", ...],
+      "outputs": ["var_name", ...],
+      "integration_ref": "api_name | null",
+      "flow_ref": "main | alt_N | exc_N",
+      "block_ref": "b_N",
+      "kind": "normal | tool | user_input | invoke | display"
+    }
+  ],
+  "new_variables": [
+    {
+      "name": "snake_case_name",
+      "data_type": "type",
+      "description": "description",
+      "producer_step": "st_N"
+    }
+  ]
+}
 
-Each element in steps array contains:
-- step_id: Format "st_N", starting from st_1 and incrementing
-- text: Step description
-- source_span_ids: Source span ID list
-- command_type: GENERAL_COMMAND / CALL_API / INVOKE_WORKER / REQUEST_INPUT / DISPLAY_MESSAGE
-- inputs: Input variable name list
-- outputs: Output variable name list
-- integration_ref: API name or null
-- flow_ref: main / alt_N / exc_N
-- block_ref: b_N
-- kind: normal / tool / user_input / invoke / display
-
-Each element in new_variables array contains:
-- name: Variable name (snake_case)
-- data_type: Type
-- description: Description
-- producer_step: st_N
-
-## Notes
-
-1. step_id format must be "st_N", starting from st_1 and incrementing
-2. Each step must have source_span_ids, cannot be empty
-3. inputs and outputs must use known variable names (unless new variables are declared in new_variables)
-4. If step calls an API, integration_ref must be a valid API name
-5. If step does not involve an API, set integration_ref to null
-6. Maintain correct JSON format, do not add extra fields
+step_id starts at st_1 and increments by 1.
+source_span_ids must never be empty.

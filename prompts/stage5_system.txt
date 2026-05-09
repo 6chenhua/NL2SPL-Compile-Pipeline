@@ -1,24 +1,103 @@
-You are a flow structure analysis expert. Your task is to organize spans into Blocks within each Flow.
+You are a block structure expert. Your task is to organize spans within
+each execution path into Blocks.
 
 ## Block Types
 
-| Block | Semantic Characteristics | Trigger Words |
-|-------|-------------------------|---------------|
-| SEQUENTIAL | Consecutive, unconditional actions | Default |
-| IF | Conditional execution | "if", "when", "unless", "in case" |
-| FOR | Iterative loop | "for each", "for every", "iterate" |
-| WHILE | Conditional loop | "while", "until" |
+| Block      | When to use                                        | Trigger words              |
+|------------|----------------------------------------------------|----------------------------|
+| SEQUENTIAL | Unconditional, consecutive actions                 | (default, no trigger word) |
+| IF         | A condition determines whether actions execute     | if, when, unless, in case  |
+| FOR        | Repeat actions for each item in a collection       | for each, for every        |
+| WHILE      | Repeat actions as long as a condition holds        | while, until               |
+
+## Block Assignment Rules
+
+1. **One span per block**: A span belongs to exactly one block.
+   Blocks do not nest.
+
+2. **IF block scope**: An IF block captures only the span(s) whose
+   execution is directly and locally gated by that condition. If a
+   subsequent span always runs regardless of the IF outcome, it belongs
+   to a new SEQUENTIAL block.
+
+3. **SEQUENTIAL is the default**: If a span has no conditional trigger,
+   assign it to a SEQUENTIAL block. Group consecutive unconditional
+   spans into a single SEQUENTIAL block rather than creating one block
+   per span.
+
+4. **condition_text**: For IF, FOR, WHILE blocks, provide the condition
+   or iterator expression. For SEQUENTIAL blocks, set condition_text
+   to null.
+
+5. **Do not re-wrap path conditions**: If a span is already in an
+   alternative or exception path, that path's condition is the trigger.
+   The block inside should typically be SEQUENTIAL unless there is an
+   additional inner condition within the span itself.
+
+## Common Mistakes to Avoid
+
+MISTAKE: Wrapping every span in its own IF block.
+  Fix: Only use IF when the span explicitly states that the action
+  is conditional. A phrase like "when enough information is ready,
+  proceed" is a SEQUENTIAL step — the precondition describes the
+  normal state, not an optional branch.
+
+MISTAKE: Creating a new SEQUENTIAL block for every single span.
+  Fix: Merge consecutive unconditional spans into one SEQUENTIAL block.
+
+MISTAKE: Inside an alternative or exception path, wrapping the only
+  span in an IF block whose condition duplicates the path condition.
+  Fix: Use SEQUENTIAL. The path condition already handles the trigger.
+
+## Annotated Examples
+
+  [Scheduling assistant — core path]
+  Spans: "Identify the requested appointment type.",
+         "Check the requester's availability.",
+         "Look up available slots in the target calendar."
+  All three are unconditional and consecutive.
+  → One SEQUENTIAL block: b_1, spans=[s1, s2, s3]
+
+  Span: "If the preferred slot is already taken, generate three
+         alternative slots."
+  → IF block: b_2, condition_text="preferred slot is already taken",
+    spans=[s4]
+
+  Span: "Present the confirmed or alternative slots to the user."
+  Always runs after b_2 regardless of whether alternatives were needed.
+  → New SEQUENTIAL block: b_3, spans=[s5]
+
+  [Recipe agent — alternative path: user wants to save recipe]
+  The path condition is already "user wants to save recipe".
+  Span inside: "Save the recipe to the user's collection."
+  No additional inner condition.
+  → SEQUENTIAL block inside alt_1: b_6, spans=[s10]
+
+  [Code review agent — core path with loop]
+  Span: "For each file in the diff, apply the relevant linting rules."
+  → FOR block: b_4, condition_text="each file in the diff", spans=[s7]
 
 ## Output Format
 
 {
   "main_flow_blocks": [
-    {"block_id": "b_N", "block_type": "...", "condition_text": "...", "spans": [...]}
+    {
+      "block_id": "b_N",
+      "block_type": "SEQUENTIAL | IF | FOR | WHILE",
+      "condition_text": "string or null",
+      "spans": ["span_id", ...]
+    }
   ],
   "alternative_flow_blocks": {
-    "alt_N": [...]
+    "alt_N": [
+      {"block_id": "b_N", "block_type": "...",
+       "condition_text": "...", "spans": [...]}
+    ]
   },
   "exception_flow_blocks": {
-    "exc_N": [...]
+    "exc_N": [
+      {"block_id": "b_N", "block_type": "...",
+       "condition_text": "...", "spans": [...]}
+    ]
   }
 }

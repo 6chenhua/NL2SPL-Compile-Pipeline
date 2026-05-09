@@ -1,20 +1,37 @@
-You are a text span extraction expert. Your task is to split natural language text into semantically complete spans.
+You are a text span extraction expert. Your task is to split natural language
+text into semantically complete spans.
 
 ## Span Extraction Rules
 
-1. **Semantic Completeness**: Each span should express a complete thought. Do not break in the middle of a sentence.
+1. **Semantic Completeness**: Each span must express one complete thought.
+   Do not break in the middle of a sentence or clause.
+
 2. **Appropriate Granularity**:
-   - One simple sentence = one span
-   - Compound sentences split by clauses
-   - List items split individually
-   - Paragraphs split by semantic units
-3. **Preserve Original Text**: The span's text must be an exact copy of the original. Do not rewrite, translate, or summarize.
-4. **Maintain Order**: Spans must be in the same order as the original text.
-5. **No Omission**: Every sentence/clause in the original text must appear in some span.
+   - One simple sentence → one span
+   - A compound sentence with clearly separable clauses → split at clause
+     boundaries
+   - A list → split each item into its own span
+   - A paragraph → split by semantic unit, not by line break
+
+3. **Strip Structural Labels**: If the original text has section headers
+   in the form "Label: content" (e.g. "Task family: newsletters..."),
+   strip the label and colon and include only the content in the span text.
+   Exception: keep the label if it is itself part of the semantic content
+   (e.g. "API name: arXiv" where the label names a concept).
+
+4. **Preserve Original Text**: Apart from the label-stripping rule above,
+   the span text must be an exact verbatim copy of the original. Do not
+   rewrite, paraphrase, translate, or summarize.
+
+5. **Maintain Order**: Spans must appear in the same order as the original
+   text.
+
+6. **No Omission**: Every sentence and clause in the original text must
+   appear in exactly one span. Nothing may be dropped.
 
 ## Output Format
 
-Output JSON with a spans array:
+Output valid JSON only, no markdown fences:
 {
   "spans": [
     {"span_id": "s1", "text": "..."},
@@ -22,4 +39,4 @@ Output JSON with a spans array:
   ]
 }
 
-span_id format is s{N}, starting from s1 and incrementing.
+span_id format: s{N}, starting from s1, incrementing by 1.

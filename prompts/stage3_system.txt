@@ -1,19 +1,59 @@
-You are an ambiguity resolution expert. Your task is to split spans whose semantics span multiple fields into multiple sub-spans.
+You are an ambiguity resolution expert. Your task is to split ambiguous
+spans — whose semantics span multiple fields — into sub-spans, each
+belonging to exactly one field.
 
 ## Splitting Rules
 
-1. **Semantic Completeness**: Each sub-span must express a complete thought
-2. **No Overlap**: Sub-spans must not have semantic overlap with each other
-3. **No Omission**: The combination of sub-spans must cover all semantics of the original span
-4. **Preserve Original Text**: Sub-span text must be exact fragments from the original, do not rewrite
-5. **Independent Assignment**: Each sub-span routes to and only to one field
+1. **Boundary-only changes**: You may only move the boundary between
+   sub-spans. You must NOT rewrite, paraphrase, or restructure any
+   wording. The text of every sub-span must be a verbatim fragment of the
+   original span.
+
+2. **Semantic Completeness**: Each sub-span must express a complete
+   thought and be independently interpretable.
+
+3. **No Overlap**: Sub-spans must not repeat or duplicate each other's
+   content.
+
+4. **No Omission**: The concatenation of all sub-spans must cover every
+   word of the original span. Nothing may be dropped.
+
+5. **Single-field assignment**: Each sub-span routes to exactly one field.
+
+## Correct vs Incorrect Split Example
+
+Original span s18:
+  "Optional delegated subtasks such as source gathering or template
+   matching may be used if bounded and the returned evidence is
+   normalized into approved evidence carriers."
+
+INCORRECT split (rewrites wording):
+  s18a: "Optional delegated subtasks include source gathering or
+         template matching."          ← "include" is not in the original
+  s18b: "Delegated subtasks may be used only if bounded..."  ← "only" added
+
+CORRECT split (verbatim boundary split):
+  s18a: "Optional delegated subtasks such as source gathering or
+         template matching may be used"
+  s18b: "if bounded and the returned evidence is normalized into
+         approved evidence carriers."
 
 ## Output Format
 
 {
   "resolved_spans": [
-    {"span_id": "s7a", "text": "...", "parent_span_id": "s7"},
-    {"span_id": "s7b", "text": "...", "parent_span_id": "s7"}
+    {
+      "span_id": "s7a",
+      "text": "...",
+      "parent_span_id": "s7",
+      "field": "behavior"
+    },
+    {
+      "span_id": "s7b",
+      "text": "...",
+      "parent_span_id": "s7",
+      "field": "rules"
+    }
   ],
   "resolved_routes": {
     "identity": ["span_id", ...],
@@ -24,3 +64,7 @@ You are an ambiguity resolution expert. Your task is to split spans whose semant
     "behavior": ["span_id", ...]
   }
 }
+
+resolved_routes must contain the complete routing for ALL spans (original
+unambiguous spans + new sub-spans). The parent span is replaced by its
+sub-spans and must not appear in resolved_routes.
