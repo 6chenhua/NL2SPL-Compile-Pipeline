@@ -1,0 +1,173 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-05-06T13:42:17.943982",
+  "metadata": {},
+  "result": {
+    "raw_text_length": 1616,
+    "spans_count": 18,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "Task family: Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s2",
+        "text": "Inputs for each run: A user request, optional known topics, optional timeframe, available connectors or source repositories, and optional format preferences.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s3",
+        "text": "Required outputs: A draft communication artifact, a source/evidence set, a short assumptions log for any unresolved items, and a completion status.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s4",
+        "text": "Reusable process: First determine what kind of communication is requested.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s5",
+        "text": "Then identify which required fields are still missing.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s6",
+        "text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s7",
+        "text": "If sources are needed and available, retrieve them using approved source recipes.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s8",
+        "text": "Maintain provenance for externally sourced facts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s9",
+        "text": "When enough required information is available, produce a draft.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s10",
+        "text": "If the user asks for revision, revise while rechecking constraints.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s11",
+        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s12",
+        "text": "Policies: Do not invent links or unseen facts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s13",
+        "text": "Require evidence for sourced claims.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s14",
+        "text": "Limit questions per turn.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s15",
+        "text": "Prefer tool evidence over unnecessary user questioning.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s16",
+        "text": "Deny finalization if critical slots are missing or provenance fails.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s17",
+        "text": "Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s18",
+        "text": "Delegation policy: Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      }
+    ]
+  }
+}

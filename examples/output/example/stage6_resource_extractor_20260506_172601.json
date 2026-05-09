@@ -1,0 +1,358 @@
+{
+  "stage": "stage6_resource_extractor",
+  "timestamp": "2026-05-06T17:26:01.226597",
+  "metadata": {},
+  "result": {
+    "resources": {
+      "variables": [
+        {
+          "name": "user_request",
+          "data_type": "text",
+          "required": true,
+          "description": "A user-provided request for the run.",
+          "source": "input"
+        },
+        {
+          "name": "known_topics",
+          "data_type": "text",
+          "required": false,
+          "description": "Optional known topics provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "timeframe",
+          "data_type": "text",
+          "required": false,
+          "description": "Optional timeframe provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "available_connectors",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "Available connectors or source repositories for the run.",
+          "source": "input"
+        },
+        {
+          "name": "format_preferences",
+          "data_type": "text",
+          "required": false,
+          "description": "Optional format preferences provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "draft_communication_artifact",
+          "data_type": "text",
+          "required": true,
+          "description": "A draft communication artifact generated as output.",
+          "source": "output"
+        },
+        {
+          "name": "source_evidence_set",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "A set of sources or evidence generated as output.",
+          "source": "output"
+        },
+        {
+          "name": "assumptions_log",
+          "data_type": "text",
+          "required": true,
+          "description": "A short log of assumptions for unresolved items.",
+          "source": "output"
+        },
+        {
+          "name": "completion_status",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Completion status of the process.",
+          "source": "output"
+        },
+        {
+          "name": "required_fields_missing",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether required fields are still missing.",
+          "source": "step"
+        },
+        {
+          "name": "clarifying_questions",
+          "data_type": "List[text]",
+          "required": false,
+          "description": "Highest-value clarifying questions needed to move forward.",
+          "source": "step"
+        },
+        {
+          "name": "sources_needed",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether sources are needed.",
+          "source": "step"
+        },
+        {
+          "name": "sources_available",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether sources are available.",
+          "source": "step"
+        },
+        {
+          "name": "provenance_status",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether provenance for externally sourced facts is maintained.",
+          "source": "step"
+        },
+        {
+          "name": "revision_requested",
+          "data_type": "boolean",
+          "required": false,
+          "description": "Indicates whether the user has requested a revision.",
+          "source": "step"
+        },
+        {
+          "name": "required_slots_missing",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether required slots remain missing.",
+          "source": "step"
+        },
+        {
+          "name": "assumption_bearing_draft",
+          "data_type": "boolean",
+          "required": false,
+          "description": "Indicates whether the draft is explicitly marked as assumption-bearing.",
+          "source": "step"
+        },
+        {
+          "name": "user_confirmation",
+          "data_type": "boolean",
+          "required": false,
+          "description": "Indicates whether the user confirms the assumption-bearing draft.",
+          "source": "step"
+        },
+        {
+          "name": "failure_conditions",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "Conditions that lead to failure, such as missing timeframe or conflicting instructions.",
+          "source": "step"
+        }
+      ],
+      "files": [],
+      "apis": [],
+      "types": []
+    },
+    "symbol_table": {
+      "user_request": {
+        "name": "user_request",
+        "data_type": "text",
+        "source": "input",
+        "description": "A user-provided request for the run.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "known_topics": {
+        "name": "known_topics",
+        "data_type": "text",
+        "source": "input",
+        "description": "Optional known topics provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "timeframe": {
+        "name": "timeframe",
+        "data_type": "text",
+        "source": "input",
+        "description": "Optional timeframe provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "available_connectors": {
+        "name": "available_connectors",
+        "data_type": "List[text]",
+        "source": "input",
+        "description": "Available connectors or source repositories for the run.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "format_preferences": {
+        "name": "format_preferences",
+        "data_type": "text",
+        "source": "input",
+        "description": "Optional format preferences provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "draft_communication_artifact": {
+        "name": "draft_communication_artifact",
+        "data_type": "text",
+        "source": "output",
+        "description": "A draft communication artifact generated as output.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "source_evidence_set": {
+        "name": "source_evidence_set",
+        "data_type": "List[text]",
+        "source": "output",
+        "description": "A set of sources or evidence generated as output.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "assumptions_log": {
+        "name": "assumptions_log",
+        "data_type": "text",
+        "source": "output",
+        "description": "A short log of assumptions for unresolved items.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "completion_status": {
+        "name": "completion_status",
+        "data_type": "boolean",
+        "source": "output",
+        "description": "Completion status of the process.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "required_fields_missing": {
+        "name": "required_fields_missing",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether required fields are still missing.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "clarifying_questions": {
+        "name": "clarifying_questions",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "Highest-value clarifying questions needed to move forward.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sources_needed": {
+        "name": "sources_needed",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether sources are needed.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sources_available": {
+        "name": "sources_available",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether sources are available.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "provenance_status": {
+        "name": "provenance_status",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether provenance for externally sourced facts is maintained.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "revision_requested": {
+        "name": "revision_requested",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether the user has requested a revision.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "required_slots_missing": {
+        "name": "required_slots_missing",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether required slots remain missing.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "assumption_bearing_draft": {
+        "name": "assumption_bearing_draft",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether the draft is explicitly marked as assumption-bearing.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "user_confirmation": {
+        "name": "user_confirmation",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether the user confirms the assumption-bearing draft.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "failure_conditions": {
+        "name": "failure_conditions",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "Conditions that lead to failure, such as missing timeframe or conflicting instructions.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      }
+    }
+  }
+}

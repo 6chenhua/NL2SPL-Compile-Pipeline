@@ -1,0 +1,92 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-05-06T13:35:07.150498",
+  "metadata": {},
+  "result": {
+    "raw_text_length": 431,
+    "spans_count": 9,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "Task family: Internal newsletters and announcements.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s2",
+        "text": "Inputs for each run: A user request, optional known topics.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s3",
+        "text": "Required outputs: A draft communication, completion status.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s4",
+        "text": "Reusable process: First determine communication type.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s5",
+        "text": "Then identify missing fields.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s6",
+        "text": "Policies: Do not invent facts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s7",
+        "text": "Require evidence for claims.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s8",
+        "text": "Failure handling: Missing timeframe, evidence shortage.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s9",
+        "text": "Delegation policy: Optional source gathering if bounded.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      }
+    ]
+  }
+}

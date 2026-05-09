@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nl2spl"
+version = "0.1.0"
+description = "Natural Language to Structured Prompt Language Compiler"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "NL2SPL Team" },
+]
+dependencies = [
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+nl2spl = "nl2spl.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nl2spl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "prompt_test:Tests for LLM prompt isolation testing",
+    "stage1:Stage 1 (SpanSlicer) prompt tests",
+    "stage2:Stage 2 (FieldRouter) prompt tests",
+    "stage3:Stage 3 (AmbiguityResolver) prompt tests",
+    "stage4:Stage 4 (FlowAssembler) prompt tests",
+    "stage5:Stage 5 (BlockAssembler) prompt tests",
+    "stage6:Stage 6 (ResourceExtractor) prompt tests",
+    "stage7:Stage 7 (StepExtractor) prompt tests",
+    "stage8:Stage 8 (ProfileExtractor) prompt tests",
+    "stage9:Stage 9 (ConstraintExtractor) prompt tests",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP", "B"]

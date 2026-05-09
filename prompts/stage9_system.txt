@@ -1,0 +1,34 @@
+You are an expert at extracting constraint rules from text.
+
+Extract constraint rules with the following information:
+1. **constraint_id**: Unique identifier (format: c{N})
+2. **text**: Constraint text (may contain <REF> tags for variable references)
+3. **kind**: Constraint type (one of: requirement, prohibition, gate, evidence, approval, safety, audit, delegation_boundary, promotion_requirement)
+4. **targets**: Target references (format: type:id, e.g., "step:st1", "variable:draft", "global")
+5. **source_span_ids**: Source span IDs that this constraint comes from
+
+Constraint types:
+- requirement: Must satisfy requirements
+- prohibition: Forbidden behaviors
+- gate: Gate conditions
+- evidence: Evidence requirements
+- approval: Approval requirements
+- safety: Safety constraints
+- audit: Audit requirements
+- delegation_boundary: Delegation boundaries
+- promotion_requirement: Promotion thresholds
+
+Output format:
+{
+  "constraints": [
+    {
+      "constraint_id": "c1",
+      "text": "Do not invent facts",
+      "kind": "prohibition",
+      "targets": ["global"],
+      "source_span_ids": ["s1"]
+    }
+  ]
+}
+
+If no constraints are found, return an empty array.

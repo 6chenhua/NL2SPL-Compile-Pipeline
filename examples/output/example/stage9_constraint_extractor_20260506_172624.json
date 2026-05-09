@@ -1,0 +1,75 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-05-06T17:26:24.747472",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c1",
+        "text": "Do not invent links or unseen facts.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s12"
+        ]
+      },
+      {
+        "constraint_id": "c2",
+        "text": "Require evidence for sourced claims.",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s13"
+        ]
+      },
+      {
+        "constraint_id": "c3",
+        "text": "Limit questions per turn.",
+        "kind": "safety",
+        "targets": [
+          "step:st_3"
+        ],
+        "source_span_ids": [
+          "s14"
+        ]
+      },
+      {
+        "constraint_id": "c4",
+        "text": "Prefer tool evidence over unnecessary user questioning.",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s15"
+        ]
+      },
+      {
+        "constraint_id": "c5",
+        "text": "Deny finalization if critical slots are missing or provenance fails.",
+        "kind": "gate",
+        "targets": [
+          "step:st_8"
+        ],
+        "source_span_ids": [
+          "s16"
+        ]
+      },
+      {
+        "constraint_id": "c6",
+        "text": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s18"
+        ]
+      }
+    ]
+  }
+}

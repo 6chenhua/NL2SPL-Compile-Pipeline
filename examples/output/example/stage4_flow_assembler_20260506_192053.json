@@ -1,0 +1,57 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-05-06T19:20:53.106397",
+  "metadata": {},
+  "result": {
+    "main_flow_spans": [
+      "s4",
+      "s5",
+      "s6",
+      "s9"
+    ],
+    "alternative_flows": [
+      {
+        "flow_id": "alt_1",
+        "condition_text": "If the user asks for revision",
+        "spans": [
+          "s10"
+        ]
+      }
+    ],
+    "exception_flows": [
+      {
+        "flow_id": "exc_1",
+        "condition_text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
+        "spans": [
+          "s11"
+        ]
+      },
+      {
+        "flow_id": "exc_2",
+        "condition_text": "Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure",
+        "spans": [
+          "s17"
+        ]
+      }
+    ],
+    "delegation_candidates": [
+      {
+        "candidate_id": "dc_1",
+        "spans": [
+          "s7",
+          "s8"
+        ],
+        "reason": "Source retrieval and provenance maintenance can be modularized as independent subtasks.",
+        "suggested_type": "child_worker",
+        "input_variables": [
+          "sources_needed",
+          "available_sources"
+        ],
+        "output_variables": [
+          "retrieved_sources",
+          "provenance_log"
+        ]
+      }
+    ]
+  }
+}

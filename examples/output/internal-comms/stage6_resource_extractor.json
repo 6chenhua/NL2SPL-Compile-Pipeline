@@ -1,0 +1,304 @@
+{
+  "stage": "stage6_resource_extractor",
+  "timestamp": "2026-05-09T15:23:43.493107",
+  "metadata": {},
+  "result": {
+    "resources": {
+      "variables": [
+        {
+          "name": "user_request",
+          "data_type": "text",
+          "required": true,
+          "description": "The communication request provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "known_topics",
+          "data_type": "List[text]",
+          "required": false,
+          "description": "Optional known topics provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "timeframe",
+          "data_type": "text",
+          "required": false,
+          "description": "Optional timeframe provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "available_connectors",
+          "data_type": "List[text]",
+          "required": false,
+          "description": "Available connectors or source repositories provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "format_preferences",
+          "data_type": "text",
+          "required": false,
+          "description": "Optional format preferences provided by the user.",
+          "source": "input"
+        },
+        {
+          "name": "draft_communication_artifact",
+          "data_type": "text",
+          "required": true,
+          "description": "The draft communication artifact generated as output.",
+          "source": "output"
+        },
+        {
+          "name": "source_evidence_set",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "The set of sources or evidence generated as output.",
+          "source": "output"
+        },
+        {
+          "name": "assumptions_log",
+          "data_type": "text",
+          "required": true,
+          "description": "A short log of assumptions for unresolved items.",
+          "source": "output"
+        },
+        {
+          "name": "completion_status",
+          "data_type": "boolean",
+          "required": true,
+          "description": "The completion status of the process.",
+          "source": "output"
+        },
+        {
+          "name": "sources_needed",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Indicates whether sources are needed for the task.",
+          "source": "step"
+        },
+        {
+          "name": "approved_source_recipes",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "Approved source recipes for retrieving sources.",
+          "source": "step"
+        },
+        {
+          "name": "retrieved_sources",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "The sources retrieved during the process.",
+          "source": "step"
+        },
+        {
+          "name": "provenance_data",
+          "data_type": "text",
+          "required": true,
+          "description": "Provenance information for externally sourced facts.",
+          "source": "step"
+        },
+        {
+          "name": "communication_type",
+          "data_type": "text",
+          "required": true,
+          "description": "The type of communication determined from the user request.",
+          "source": "step"
+        },
+        {
+          "name": "missing_fields",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "The fields identified as missing during the process.",
+          "source": "step"
+        },
+        {
+          "name": "clarifying_questions",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "The clarifying questions generated to move forward.",
+          "source": "step"
+        }
+      ],
+      "files": [],
+      "apis": [],
+      "types": []
+    },
+    "symbol_table": {
+      "user_request": {
+        "name": "user_request",
+        "data_type": "text",
+        "source": "input",
+        "description": "The communication request provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "known_topics": {
+        "name": "known_topics",
+        "data_type": "List[text]",
+        "source": "input",
+        "description": "Optional known topics provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "timeframe": {
+        "name": "timeframe",
+        "data_type": "text",
+        "source": "input",
+        "description": "Optional timeframe provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "available_connectors": {
+        "name": "available_connectors",
+        "data_type": "List[text]",
+        "source": "input",
+        "description": "Available connectors or source repositories provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "format_preferences": {
+        "name": "format_preferences",
+        "data_type": "text",
+        "source": "input",
+        "description": "Optional format preferences provided by the user.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "draft_communication_artifact": {
+        "name": "draft_communication_artifact",
+        "data_type": "text",
+        "source": "output",
+        "description": "The draft communication artifact generated as output.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "source_evidence_set": {
+        "name": "source_evidence_set",
+        "data_type": "List[text]",
+        "source": "output",
+        "description": "The set of sources or evidence generated as output.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "assumptions_log": {
+        "name": "assumptions_log",
+        "data_type": "text",
+        "source": "output",
+        "description": "A short log of assumptions for unresolved items.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "completion_status": {
+        "name": "completion_status",
+        "data_type": "boolean",
+        "source": "output",
+        "description": "The completion status of the process.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sources_needed": {
+        "name": "sources_needed",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Indicates whether sources are needed for the task.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "approved_source_recipes": {
+        "name": "approved_source_recipes",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "Approved source recipes for retrieving sources.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "retrieved_sources": {
+        "name": "retrieved_sources",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "The sources retrieved during the process.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "provenance_data": {
+        "name": "provenance_data",
+        "data_type": "text",
+        "source": "step",
+        "description": "Provenance information for externally sourced facts.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "communication_type": {
+        "name": "communication_type",
+        "data_type": "text",
+        "source": "step",
+        "description": "The type of communication determined from the user request.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "missing_fields": {
+        "name": "missing_fields",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "The fields identified as missing during the process.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "clarifying_questions": {
+        "name": "clarifying_questions",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "The clarifying questions generated to move forward.",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-05-06T17:26:18.562955",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "",
+      "aspects": []
+    },
+    "audience_aspects": [
+      {
+        "name": "Task family",
+        "text": "Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts."
+      }
+    ],
+    "concepts": []
+  }
+}

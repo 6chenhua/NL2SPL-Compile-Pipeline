@@ -1,0 +1,42 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-05-06T13:35:19.903554",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c1",
+        "text": "Do not invent facts",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s6"
+        ]
+      },
+      {
+        "constraint_id": "c2",
+        "text": "Require evidence for claims",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s7"
+        ]
+      },
+      {
+        "constraint_id": "c3",
+        "text": "Optional source gathering if bounded",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s9"
+        ]
+      }
+    ]
+  }
+}

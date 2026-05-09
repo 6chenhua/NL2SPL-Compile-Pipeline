@@ -1,0 +1,14 @@
+{
+  "stage": "stage6_resource_extractor",
+  "timestamp": "2026-05-06T13:35:13.863872",
+  "metadata": {},
+  "result": {
+    "resources": {
+      "variables": [],
+      "files": [],
+      "apis": [],
+      "types": []
+    },
+    "symbol_table": {}
+  }
+}

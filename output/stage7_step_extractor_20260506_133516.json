@@ -1,0 +1,52 @@
+{
+  "stage": "stage7_step_extractor",
+  "timestamp": "2026-05-06T13:35:16.207220",
+  "metadata": {},
+  "result": {
+    "steps": [
+      {
+        "step_id": "st_1",
+        "text": "Determine communication type.",
+        "source_span_ids": [
+          "s4"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [],
+        "outputs": [],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_1",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_2",
+        "text": "Identify missing fields.",
+        "source_span_ids": [
+          "s5"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [],
+        "outputs": [],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_1",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_3",
+        "text": "Handle failure: Missing timeframe, evidence shortage.",
+        "source_span_ids": [
+          "s8"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [],
+        "outputs": [],
+        "integration_ref": null,
+        "flow_ref": "exc_1",
+        "block_ref": "b_2",
+        "kind": "normal"
+      }
+    ],
+    "new_variables": []
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-05-09T15:23:31.729189",
+  "metadata": {},
+  "result": {
+    "main_flow_spans": [
+      "s4",
+      "s5",
+      "s6",
+      "s8",
+      "s9"
+    ],
+    "alternative_flows": [
+      {
+        "flow_id": "alt_1",
+        "condition_text": "If the user asks for revision",
+        "spans": [
+          "s10"
+        ]
+      }
+    ],
+    "exception_flows": [
+      {
+        "flow_id": "exc_1",
+        "condition_text": "If sources are needed and available",
+        "spans": [
+          "s7"
+        ]
+      },
+      {
+        "flow_id": "exc_2",
+        "condition_text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
+        "spans": [
+          "s11"
+        ]
+      },
+      {
+        "flow_id": "exc_3",
+        "condition_text": "Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure",
+        "spans": [
+          "s17"
+        ]
+      }
+    ],
+    "delegation_candidates": [
+      {
+        "candidate_id": "dc_1",
+        "spans": [
+          "s7",
+          "s8"
+        ],
+        "reason": "Source retrieval and provenance maintenance can be modularized as a subtask.",
+        "suggested_type": "child_worker",
+        "input_variables": [
+          "sources_needed",
+          "approved_source_recipes"
+        ],
+        "output_variables": [
+          "retrieved_sources",
+          "provenance_data"
+        ]
+      },
+      {
+        "candidate_id": "dc_2",
+        "spans": [
+          "s4",
+          "s5",
+          "s6"
+        ],
+        "reason": "Determining communication type, identifying missing fields, and asking clarifying questions form a cohesive subtask.",
+        "suggested_type": "child_worker",
+        "input_variables": [
+          "user_request",
+          "known_topics",
+          "timeframe"
+        ],
+        "output_variables": [
+          "communication_type",
+          "missing_fields",
+          "clarifying_questions"
+        ]
+      }
+    ]
+  }
+}

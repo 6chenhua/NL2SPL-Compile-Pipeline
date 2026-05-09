@@ -1,0 +1,31 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-05-06T13:35:12.011640",
+  "metadata": {},
+  "result": {
+    "main_flow_blocks": [
+      {
+        "block_id": "b_1",
+        "block_type": "SEQUENTIAL",
+        "condition_text": "",
+        "spans": [
+          "s4",
+          "s5"
+        ]
+      }
+    ],
+    "alternative_flow_blocks": {},
+    "exception_flow_blocks": {
+      "exc_1": [
+        {
+          "block_id": "b_2",
+          "block_type": "SEQUENTIAL",
+          "condition_text": "Failure handling: Missing timeframe, evidence shortage.",
+          "spans": [
+            "s8"
+          ]
+        }
+      ]
+    }
+  }
+}

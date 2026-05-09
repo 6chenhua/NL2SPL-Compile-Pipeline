@@ -1,0 +1,198 @@
+{
+  "stage": "stage7_step_extractor",
+  "timestamp": "2026-05-06T17:26:16.617562",
+  "metadata": {},
+  "result": {
+    "steps": [
+      {
+        "step_id": "st_1",
+        "text": "Determine what kind of communication is requested.",
+        "source_span_ids": [
+          "s4"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "user_request",
+          "known_topics",
+          "timeframe",
+          "available_connectors",
+          "format_preferences"
+        ],
+        "outputs": [],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_1",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_2",
+        "text": "Identify which required fields are still missing.",
+        "source_span_ids": [
+          "s5"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "user_request",
+          "known_topics",
+          "timeframe",
+          "available_connectors",
+          "format_preferences"
+        ],
+        "outputs": [
+          "required_fields_missing"
+        ],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_1",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_3",
+        "text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "source_span_ids": [
+          "s6"
+        ],
+        "command_type": "REQUEST_INPUT",
+        "inputs": [
+          "required_fields_missing"
+        ],
+        "outputs": [
+          "clarifying_questions"
+        ],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_1",
+        "kind": "user_input"
+      },
+      {
+        "step_id": "st_4",
+        "text": "If sources are needed and available, retrieve them using approved source recipes.",
+        "source_span_ids": [
+          "s7"
+        ],
+        "command_type": "INVOKE_WORKER",
+        "inputs": [
+          "sources_needed",
+          "sources_available"
+        ],
+        "outputs": [
+          "source_evidence_set"
+        ],
+        "integration_ref": "child_worker",
+        "flow_ref": "exc_1",
+        "block_ref": "b_6",
+        "kind": "invoke"
+      },
+      {
+        "step_id": "st_5",
+        "text": "Maintain provenance for externally sourced facts.",
+        "source_span_ids": [
+          "s8"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "source_evidence_set"
+        ],
+        "outputs": [
+          "provenance_status"
+        ],
+        "integration_ref": null,
+        "flow_ref": "main",
+        "block_ref": "b_3",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_6",
+        "text": "When enough required information is available, produce a draft.",
+        "source_span_ids": [
+          "s9"
+        ],
+        "command_type": "INVOKE_WORKER",
+        "inputs": [
+          "user_request",
+          "known_topics",
+          "timeframe",
+          "available_connectors",
+          "format_preferences",
+          "source_evidence_set"
+        ],
+        "outputs": [
+          "draft_communication_artifact"
+        ],
+        "integration_ref": "child_worker",
+        "flow_ref": "main",
+        "block_ref": "b_4",
+        "kind": "invoke"
+      },
+      {
+        "step_id": "st_7",
+        "text": "If the user asks for revision, revise while rechecking constraints.",
+        "source_span_ids": [
+          "s10"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "revision_requested",
+          "draft_communication_artifact"
+        ],
+        "outputs": [
+          "draft_communication_artifact"
+        ],
+        "integration_ref": null,
+        "flow_ref": "alt_1",
+        "block_ref": "b_5",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_8",
+        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "source_span_ids": [
+          "s11"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "required_slots_missing",
+          "assumption_bearing_draft",
+          "user_confirmation"
+        ],
+        "outputs": [
+          "completion_status"
+        ],
+        "integration_ref": null,
+        "flow_ref": "exc_2",
+        "block_ref": "b_7",
+        "kind": "normal"
+      },
+      {
+        "step_id": "st_9",
+        "text": "Handle failure conditions: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure.",
+        "source_span_ids": [
+          "s17"
+        ],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "failure_conditions"
+        ],
+        "outputs": [],
+        "integration_ref": null,
+        "flow_ref": "exc_3",
+        "block_ref": "b_8",
+        "kind": "normal"
+      }
+    ],
+    "new_variables": [
+      {
+        "name": "retrieved_sources",
+        "data_type": "List[text]",
+        "description": "Sources retrieved using approved source recipes.",
+        "producer_step": "st_4"
+      },
+      {
+        "name": "draft",
+        "data_type": "text",
+        "description": "Draft communication artifact produced.",
+        "producer_step": "st_6"
+      }
+    ]
+  }
+}

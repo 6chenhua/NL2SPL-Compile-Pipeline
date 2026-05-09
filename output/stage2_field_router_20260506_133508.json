@@ -1,0 +1,28 @@
+{
+  "stage": "stage2_field_router",
+  "timestamp": "2026-05-06T13:35:08.535012",
+  "metadata": {},
+  "result": {
+    "routes": {
+      "identity": [],
+      "audience": [],
+      "rules": [
+        "s6",
+        "s7",
+        "s9"
+      ],
+      "domain": [],
+      "integrations": [],
+      "behavior": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s8"
+      ]
+    },
+    "ambiguity_updates": [],
+    "overlaps": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-05-09T15:23:52.069588",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communications assistant",
+      "aspects": []
+    },
+    "audience_aspects": [
+      {
+        "name": "task_family",
+        "text": "Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts."
+      }
+    ],
+    "concepts": []
+  }
+}
