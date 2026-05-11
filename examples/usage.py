@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from nl2spl.config import load_config
+from nl2spl.config import load_config, LLMConfig
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -52,6 +52,7 @@ carriers.
         save_intermediate=True,
         output_dir=Path("output"),
         run_name="internal-comms",
+        enable_worker_boundary_planner=True,
     )
 
     # Create orchestrator

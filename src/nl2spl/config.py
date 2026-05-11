@@ -52,6 +52,9 @@ class PipelineConfig:
     validate_spl: bool = True
     strict_mode: bool = False
 
+    # Migration feature flags
+    enable_worker_boundary_planner: bool = False
+
     # Retry settings
     max_retries: int = 3
     retry_delay: float = 1.0

@@ -1,38 +1,79 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-05-09T15:26:39.356948",
+  "timestamp": "2026-05-11T16:00:09.511817",
   "metadata": {},
   "result": {
     "routes": {
       "identity": [],
-      "audience": [
+      "audience": [],
+      "rules": [
+        "s19",
+        "s20",
+        "s21",
+        "s22",
+        "s23",
+        "s24",
+        "s25",
+        "s26",
+        "s27",
+        "s28",
+        "s29"
+      ],
+      "domain": [
         "s1"
       ],
-      "rules": [
+      "integrations": [],
+      "behavior": [
+        "s11",
         "s12",
         "s13",
         "s14",
         "s15",
         "s16",
-        "s18"
-      ],
-      "domain": [],
-      "integrations": [],
-      "behavior": [
-        "s2",
-        "s3",
-        "s4",
-        "s5",
-        "s6",
-        "s7",
-        "s8",
-        "s9",
-        "s10",
-        "s11",
-        "s17"
+        "s17",
+        "s18",
+        "s30"
       ]
     },
     "ambiguity_updates": [],
-    "overlaps": []
+    "overlaps": [],
+    "adapter_consumed_spans": [
+      {
+        "span_id": "s2",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s3",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s4",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s5",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s6",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s7",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s8",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s9",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s10",
+        "reason": "seeded_as_hard_fact_required_output"
+      }
+    ]
   }
 }

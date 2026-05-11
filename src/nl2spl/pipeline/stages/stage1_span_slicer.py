@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
-
+from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.stages.base import PipelineStage
 
 
-class SpanSlicer(PipelineStage[str, list[SpanIR]]):
+class SpanSlicer(PipelineStage[str | CanonicalCompileInput, list[SpanIR]]):
     """Split raw text into semantic spans.
 
     This stage takes raw text and splits it into semantic spans,
@@ -22,7 +21,7 @@ class SpanSlicer(PipelineStage[str, list[SpanIR]]):
         """Stage name for logging and checkpointing."""
         return "stage1_span_slicer"
 
-    def execute(self, input_data: str) -> list[SpanIR]:
+    def execute(self, input_data: str | CanonicalCompileInput) -> list[SpanIR]:
         """Execute span slicing.
 
         Args:
@@ -34,7 +33,13 @@ class SpanSlicer(PipelineStage[str, list[SpanIR]]):
         Raises:
             StageError: If slicing fails
         """
-        raw_text = input_data
+        if isinstance(input_data, CanonicalCompileInput):
+            if input_data.source_schema == "generic_nl":
+                raw_text = input_data.raw_text
+            else:
+                return self._execute_canonical(input_data)
+        else:
+            raw_text = input_data
         self.logger.info("Starting span slicing for text of length %d", len(raw_text))
 
         # 1. Build prompts
@@ -85,7 +90,52 @@ class SpanSlicer(PipelineStage[str, list[SpanIR]]):
         self.save_checkpoint({
             "raw_text_length": len(raw_text),
             "spans_count": len(spans),
-            "spans": [asdict(s) for s in spans],
+            "spans": [s.to_dict() for s in spans],
         })
 
+        return spans
+
+    def _execute_canonical(self, canonical_input: CanonicalCompileInput) -> list[SpanIR]:
+        """Create packet- and section-aware spans without dropping section text."""
+        self.logger.info(
+            "Starting adapter-aware span slicing for schema %s",
+            canonical_input.source_schema,
+        )
+        spans: list[SpanIR] = []
+        next_id = 1
+        covered_section_ids: set[str] = set()
+
+        for packet in canonical_input.semantic_packets:
+            spans.append(
+                SpanIR(
+                    span_id=f"s{next_id}",
+                    text=packet.text,
+                    source_section_id=packet.source_section_id,
+                    source_packet_id=packet.packet_id,
+                )
+            )
+            next_id += 1
+            covered_section_ids.add(packet.source_section_id)
+
+        for section in canonical_input.raw_sections:
+            if section.section_id in covered_section_ids:
+                continue
+            if not section.text.strip():
+                continue
+            spans.append(
+                SpanIR(
+                    span_id=f"s{next_id}",
+                    text=section.text,
+                    source_section_id=section.section_id,
+                )
+            )
+            next_id += 1
+
+        self.logger.info("Created %d adapter-aware spans", len(spans))
+        self.save_checkpoint({
+            "source_schema": canonical_input.source_schema,
+            "raw_text_length": len(canonical_input.raw_text),
+            "spans_count": len(spans),
+            "spans": [s.to_dict() for s in spans],
+        })
         return spans

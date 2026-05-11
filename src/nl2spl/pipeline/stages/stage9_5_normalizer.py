@@ -10,6 +10,8 @@ from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, TypeSpec, VariableSpec
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR, WorkerSpecIR
+from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 
 
 class IRNormalizer:
@@ -27,6 +29,7 @@ class IRNormalizer:
         symbol_table: SymbolTable,
         steps: list[StepIR],
         constraints: list[ConstraintIR],
+        worker_plan: WorkerPlanIR | None = None,
     ) -> tuple[
         FlowStructureIR,
         BlockStructureIR,
@@ -61,10 +64,24 @@ class IRNormalizer:
         steps = self._reconcile_steps(steps, flow, blocks)
         self._sync_symbol_table_from_steps(steps, symbol_table)
 
-        # 3. Materialize child worker candidates into concrete invocations.
-        warnings.extend(
-            self._materialize_child_worker_invocations(flow, blocks, symbol_table, steps)
-        )
+        # 3. Materialize child worker invocations.
+        if worker_plan is not None:
+            worker_validation = WorkerPlanValidator().validate(worker_plan)
+            errors.extend(worker_validation.errors)
+            warnings.extend(worker_validation.warnings)
+            warnings.extend(
+                self._materialize_worker_plan_handoffs(
+                    worker_plan,
+                    flow,
+                    blocks,
+                    symbol_table,
+                    steps,
+                )
+            )
+        else:
+            warnings.extend(
+                self._materialize_child_worker_invocations(flow, blocks, symbol_table, steps)
+            )
         blocks.main_flow_blocks.sort(key=self._block_sort_key)
         blocks.main_flow_blocks = self._deduplicate_blocks(blocks.main_flow_blocks)
         steps = self._reconcile_steps(steps, flow, blocks)
@@ -72,7 +89,7 @@ class IRNormalizer:
 
         # 4. Normalize obvious dataflow gaps and resolve delegation targets.
         warnings.extend(self._normalize_source_retrieval_inputs(steps, symbol_table))
-        errors.extend(self._resolve_worker_invocations(flow, steps, warnings))
+        errors.extend(self._resolve_worker_invocations(flow, steps, warnings, worker_plan))
         warnings.extend(
             self._normalize_multi_output_steps(resources, symbol_table, steps)
         )
@@ -88,6 +105,16 @@ class IRNormalizer:
 
         # 7. Validate references
         errors.extend(self._validate_references(steps, constraints, symbol_table, resources))
+
+        if worker_plan is not None:
+            errors.extend(
+                self._validate_worker_plan_handoffs(
+                    worker_plan,
+                    steps,
+                    resources,
+                    symbol_table,
+                )
+            )
 
         # 8. Validate coverage
         warnings.extend(self._validate_coverage(flow, steps))
@@ -377,6 +404,247 @@ class IRNormalizer:
         self._sync_symbol_table_from_steps(steps, symbol_table)
         return warnings
 
+    def _materialize_worker_plan_handoffs(
+        self,
+        worker_plan: WorkerPlanIR,
+        flow: FlowStructureIR,
+        blocks: BlockStructureIR,
+        symbol_table: SymbolTable,
+        steps: list[StepIR],
+    ) -> list[str]:
+        """Create or repair steps from WorkerPlanIR handoffs."""
+        warnings = []
+        worker_by_id = {worker.worker_id: worker for worker in worker_plan.workers}
+        child_span_ids = {
+            span_id
+            for worker in worker_plan.workers
+            if worker.kind != "main"
+            for span_id in worker.owned_span_ids
+        }
+
+        retained_steps = [
+            step
+            for step in steps
+            if not child_span_ids.intersection(step.source_span_ids)
+            or step.command_type in {"INVOKE_WORKER", "CALL_API"}
+        ]
+        removed_step_ids = {step.step_id for step in steps} - {
+            step.step_id for step in retained_steps
+        }
+        for step_id in removed_step_ids:
+            warnings.append(
+                f"Removed child-owned behavior step {step_id}; WorkerPlanIR owns the handoff."
+            )
+
+        used_ids = {step.step_id for step in retained_steps}
+        for handoff in worker_plan.handoffs:
+            planned_step = self._planned_handoff_step(
+                handoff,
+                worker_by_id,
+                flow,
+                blocks,
+                used_ids,
+            )
+            if planned_step is None:
+                continue
+
+            existing = self._matching_worker_plan_step(retained_steps, planned_step)
+            if existing is None:
+                retained_steps.append(planned_step)
+                existing = planned_step
+                warnings.append(
+                    f"Materialized {planned_step.command_type} step "
+                    f"{planned_step.step_id} from handoff {handoff.handoff_id}."
+                )
+            else:
+                existing.text = planned_step.text
+                existing.source_span_ids = planned_step.source_span_ids
+                existing.command_type = planned_step.command_type
+                existing.inputs = planned_step.inputs
+                existing.outputs = planned_step.outputs
+                existing.integration_ref = planned_step.integration_ref
+                existing.flow_ref = planned_step.flow_ref
+                existing.block_ref = planned_step.block_ref
+                existing.kind = planned_step.kind
+                existing.handoff_id = planned_step.handoff_id
+                warnings.append(
+                    f"Reconciled step {existing.step_id} from handoff {handoff.handoff_id}."
+                )
+
+            target = worker_by_id.get(handoff.to_worker or "")
+            self._ensure_handoff_output_variables(symbol_table, existing, handoff, target)
+
+        retained_steps.sort(
+            key=lambda step: (
+                self._span_sort_key(step.source_span_ids[0])
+                if step.source_span_ids
+                else 10**9,
+                step.step_id,
+            )
+        )
+        steps[:] = retained_steps
+        self._sync_symbol_table_from_steps(steps, symbol_table)
+        return warnings
+
+    def _planned_handoff_step(
+        self,
+        handoff: WorkerHandoffIR,
+        worker_by_id: dict[str, WorkerSpecIR],
+        flow: FlowStructureIR,
+        blocks: BlockStructureIR,
+        used_ids: set[str],
+    ) -> StepIR | None:
+        """Build the StepIR that should represent one handoff."""
+        target = worker_by_id.get(handoff.to_worker or "")
+        if handoff.mode == "invoke":
+            if target is None:
+                return None
+            source_span_ids = self._handoff_source_spans(handoff, target)
+            flow_ref, block_ref = self._handoff_location(handoff, source_span_ids, flow, blocks)
+            return StepIR(
+                step_id=self._next_synthetic_step_id(used_ids),
+                text=handoff.condition_text or target.purpose or f"Invoke {target.worker_name}",
+                source_span_ids=source_span_ids,
+                command_type="INVOKE_WORKER",
+                inputs=[
+                    binding.parent_variable
+                    for binding in handoff.input_bindings
+                    if binding.parent_variable
+                ],
+                outputs=[
+                    binding.parent_variable
+                    for binding in handoff.output_bindings
+                    if binding.parent_variable
+                ],
+                integration_ref=target.worker_name,
+                flow_ref=flow_ref,
+                block_ref=block_ref,
+                kind="invoke",
+                handoff_id=handoff.handoff_id,
+            )
+
+        if handoff.mode == "api_call" and handoff.api_ref:
+            source_span_ids = self._handoff_source_spans(handoff, None)
+            flow_ref, block_ref = self._handoff_location(handoff, source_span_ids, flow, blocks)
+            return StepIR(
+                step_id=self._next_synthetic_step_id(used_ids),
+                text=handoff.condition_text or f"Call {handoff.api_ref}",
+                source_span_ids=source_span_ids,
+                command_type="CALL_API",
+                inputs=[
+                    binding.parent_variable
+                    for binding in handoff.input_bindings
+                    if binding.parent_variable
+                ],
+                outputs=[
+                    binding.parent_variable
+                    for binding in handoff.output_bindings
+                    if binding.parent_variable
+                ],
+                integration_ref=handoff.api_ref,
+                flow_ref=flow_ref,
+                block_ref=block_ref,
+                kind="tool",
+                handoff_id=handoff.handoff_id,
+            )
+
+        return None
+
+    def _handoff_source_spans(
+        self,
+        handoff: WorkerHandoffIR,
+        target: WorkerSpecIR | None,
+    ) -> list[str]:
+        spans = [
+            span_id
+            for span_id in [
+                handoff.invoke_location_hint.after_span_id,
+                handoff.invoke_location_hint.before_span_id,
+            ]
+            if span_id
+        ]
+        if not spans and target is not None:
+            spans = list(target.owned_span_ids)
+        return list(dict.fromkeys(spans))
+
+    def _handoff_location(
+        self,
+        handoff: WorkerHandoffIR,
+        source_span_ids: list[str],
+        flow: FlowStructureIR,
+        blocks: BlockStructureIR,
+    ) -> tuple[str, str]:
+        hint = handoff.invoke_location_hint
+        flow_ref = hint.flow_id or ("main" if hint.flow_kind == "main" else "")
+        for span_id in source_span_ids:
+            flow_ref = flow.get_flow_for_span(span_id) or flow_ref or "main"
+            block = blocks.get_block_for_span(span_id)
+            if block is not None:
+                return flow_ref, block.block_id
+        return flow_ref or "main", ""
+
+    def _matching_worker_plan_step(
+        self,
+        steps: list[StepIR],
+        planned_step: StepIR,
+    ) -> StepIR | None:
+        for step in steps:
+            if step.command_type != planned_step.command_type:
+                continue
+            if step.handoff_id and step.handoff_id == planned_step.handoff_id:
+                return step
+            if step.handoff_id:
+                continue
+            if not self._same_handoff_location_and_bindings(step, planned_step):
+                continue
+            if step.integration_ref == planned_step.integration_ref:
+                return step
+            if (
+                planned_step.command_type == "INVOKE_WORKER"
+                and step.integration_ref in {None, "Worker", "child_worker"}
+            ):
+                return step
+        return None
+
+    def _same_handoff_location_and_bindings(
+        self,
+        step: StepIR,
+        planned_step: StepIR,
+    ) -> bool:
+        """Match a handoff by location and IO, not only integration_ref."""
+        if step.flow_ref and planned_step.flow_ref and step.flow_ref != planned_step.flow_ref:
+            return False
+        if step.block_ref and planned_step.block_ref and step.block_ref != planned_step.block_ref:
+            return False
+        if set(step.source_span_ids) != set(planned_step.source_span_ids):
+            return False
+        if list(step.inputs) != list(planned_step.inputs):
+            return False
+        return list(step.outputs) == list(planned_step.outputs)
+
+    def _ensure_handoff_output_variables(
+        self,
+        symbol_table: SymbolTable,
+        step: StepIR,
+        handoff: WorkerHandoffIR,
+        target: WorkerSpecIR | None,
+    ) -> None:
+        contract_types = {
+            field.name: field.data_type
+            for field in (target.output_contract if target is not None else [])
+        }
+        for binding in handoff.output_bindings:
+            if binding.parent_variable not in symbol_table.variables:
+                symbol_table.declare(
+                    binding.parent_variable,
+                    contract_types.get(binding.child_output, "text"),
+                    "step",
+                    f"Output from handoff {handoff.handoff_id}.",
+                    step.flow_ref,
+                    step.block_ref,
+                )
+            symbol_table.add_producer(binding.parent_variable, step.step_id)
+
     def _normalize_delegated_step_io(
         self,
         symbol_table: SymbolTable,
@@ -469,9 +737,34 @@ class IRNormalizer:
         flow: FlowStructureIR,
         steps: list[StepIR],
         warnings: list[str],
+        worker_plan: WorkerPlanIR | None = None,
     ) -> list[str]:
         """Attach concrete child worker names to INVOKE_WORKER steps."""
         errors = []
+        if worker_plan is not None:
+            worker_by_id = {worker.worker_id: worker for worker in worker_plan.workers}
+            known_worker_names = {
+                worker_by_id[handoff.to_worker].worker_name
+                for handoff in worker_plan.handoffs
+                if handoff.mode == "invoke"
+                and handoff.to_worker in worker_by_id
+                and worker_by_id[handoff.to_worker].kind != "main"
+            }
+
+            for step in steps:
+                if step.command_type != "INVOKE_WORKER":
+                    continue
+                if not step.integration_ref or step.integration_ref in {"Worker", "child_worker"}:
+                    errors.append(
+                        f"Step {step.step_id} is INVOKE_WORKER but has no concrete child worker."
+                    )
+                elif step.integration_ref not in known_worker_names:
+                    errors.append(
+                        f"Step {step.step_id} invokes worker not present in WorkerPlanIR handoffs: "
+                        f"{step.integration_ref}."
+                    )
+            return errors
+
         child_candidates: list[DelegationCandidate] = [
             candidate
             for candidate in flow.delegation_candidates
@@ -505,6 +798,340 @@ class IRNormalizer:
                 )
 
         return errors
+
+    def _validate_worker_plan_handoffs(
+        self,
+        worker_plan: WorkerPlanIR,
+        steps: list[StepIR],
+        resources: ResourceRegistryIR,
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        """Validate final handoff steps against WorkerPlanIR contracts."""
+        errors: list[str] = []
+        worker_by_id = {worker.worker_id: worker for worker in worker_plan.workers}
+        final_outputs = {
+            variable.name
+            for variable in resources.variables
+            if variable.source == "output"
+        }
+        invoked_worker_names = {
+            worker_by_id[handoff.to_worker].worker_name
+            for handoff in worker_plan.handoffs
+            if handoff.mode == "invoke"
+            and handoff.to_worker in worker_by_id
+            and self._steps_for_worker_plan_handoff(
+                handoff,
+                "INVOKE_WORKER",
+                worker_by_id[handoff.to_worker].worker_name,
+                steps,
+            )
+        }
+        for worker in worker_plan.workers:
+            if worker.kind == "main":
+                continue
+            if worker.worker_name not in invoked_worker_names:
+                errors.append(
+                    f"Non-main worker has no parent invocation step: {worker.worker_name}"
+                )
+
+        for handoff in worker_plan.handoffs:
+            if handoff.mode == "invoke":
+                if handoff.to_worker is None:
+                    continue
+                target = worker_by_id.get(handoff.to_worker)
+                if target is None:
+                    continue
+
+                target_steps = self._steps_for_worker_plan_handoff(
+                    handoff,
+                    "INVOKE_WORKER",
+                    target.worker_name,
+                    steps,
+                )
+                if not target_steps:
+                    errors.append(
+                        f"Handoff {handoff.handoff_id} has no INVOKE_WORKER step for "
+                        f"{target.worker_name}."
+                    )
+                    continue
+
+                for step in target_steps:
+                    errors.extend(
+                        self._validate_handoff_step_bindings(
+                            handoff,
+                            target,
+                            step,
+                            final_outputs,
+                            symbol_table,
+                        )
+                    )
+                continue
+
+            if handoff.mode != "api_call":
+                continue
+
+            api_steps = self._steps_for_worker_plan_handoff(
+                handoff,
+                "CALL_API",
+                handoff.api_ref,
+                steps,
+            )
+            if not api_steps:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} has no CALL_API step for "
+                    f"{handoff.api_ref or '<missing api_ref>'}."
+                )
+                continue
+
+            for step in api_steps:
+                errors.extend(
+                    self._validate_api_handoff_step_bindings(
+                        handoff,
+                        step,
+                        final_outputs,
+                        symbol_table,
+                    )
+                )
+
+        return errors
+
+    def _steps_for_worker_plan_handoff(
+        self,
+        handoff: WorkerHandoffIR,
+        command_type: str,
+        integration_ref: str | None,
+        steps: list[StepIR],
+    ) -> list[StepIR]:
+        """Find final steps corresponding to one WorkerPlanIR handoff."""
+        by_handoff_id = [
+            step
+            for step in steps
+            if step.handoff_id == handoff.handoff_id
+            and step.command_type == command_type
+            and step.integration_ref == integration_ref
+        ]
+        if by_handoff_id:
+            return by_handoff_id
+
+        planned_inputs = [
+            binding.parent_variable
+            for binding in handoff.input_bindings
+            if binding.parent_variable
+        ]
+        planned_outputs = [
+            binding.parent_variable
+            for binding in handoff.output_bindings
+            if binding.parent_variable
+        ]
+        planned_spans = set(self._handoff_source_spans(handoff, None))
+
+        return [
+            step
+            for step in steps
+            if step.command_type == command_type
+            and step.integration_ref == integration_ref
+            and not step.handoff_id
+            and list(step.inputs) == planned_inputs
+            and list(step.outputs) == planned_outputs
+            and (
+                not planned_spans
+                or set(step.source_span_ids) == planned_spans
+            )
+        ]
+
+    def _validate_handoff_step_bindings(
+        self,
+        handoff: WorkerHandoffIR,
+        target: WorkerSpecIR,
+        step: StepIR,
+        final_outputs: set[str],
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        errors: list[str] = []
+        target_input_names = {field.name for field in target.input_contract}
+        target_output_names = {field.name for field in target.output_contract}
+
+        for binding in handoff.input_bindings:
+            if binding.child_input not in target_input_names:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} input binding targets unknown "
+                    f"child input: {binding.child_input}"
+                )
+            if binding.required and binding.parent_variable not in step.inputs:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required input "
+                    f"{binding.parent_variable} is missing from step {step.step_id}."
+                )
+            if (
+                binding.required
+                and binding.parent_variable not in symbol_table.variables
+                and binding.default_value is None
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required input "
+                    f"{binding.parent_variable} is not declared."
+                )
+
+        for binding in handoff.output_bindings:
+            if binding.child_output not in target_output_names:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} output binding references unknown "
+                    f"child output: {binding.child_output}"
+                )
+            parent_symbol = symbol_table.variables.get(binding.parent_variable)
+            if (
+                binding.required
+                and binding.parent_variable not in step.outputs
+                and not (parent_symbol and parent_symbol.producer_step)
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is missing from step {step.step_id}."
+                )
+            if (
+                not binding.required
+                and binding.parent_variable not in step.outputs
+                and binding.merge_strategy != "ignore_if_empty"
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} optional output "
+                    f"{binding.parent_variable} is ignored without ignore_if_empty."
+                )
+            if binding.required and binding.parent_variable not in symbol_table.variables:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is not declared."
+                )
+            if binding.required and not self._is_parent_output_used(
+                binding.parent_variable,
+                step.step_id,
+                final_outputs,
+                symbol_table,
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is not consumed or declared as a final output."
+                )
+
+        return errors
+
+    def _validate_api_handoff_step_bindings(
+        self,
+        handoff: WorkerHandoffIR,
+        step: StepIR,
+        final_outputs: set[str],
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        """Validate direct API handoff bindings against the materialized CALL_API step."""
+        errors: list[str] = []
+        if step.command_type != "CALL_API":
+            errors.append(
+                f"Handoff {handoff.handoff_id} expected CALL_API step, got {step.command_type}."
+            )
+        if step.integration_ref != handoff.api_ref:
+            errors.append(
+                f"Handoff {handoff.handoff_id} CALL_API target mismatch: "
+                f"{step.integration_ref} != {handoff.api_ref}."
+            )
+
+        errors.extend(
+            self._validate_parent_input_bindings(handoff, step, symbol_table)
+        )
+        errors.extend(
+            self._validate_parent_output_bindings(
+                handoff,
+                step,
+                final_outputs,
+                symbol_table,
+            )
+        )
+        return errors
+
+    def _validate_parent_input_bindings(
+        self,
+        handoff: WorkerHandoffIR,
+        step: StepIR,
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        errors: list[str] = []
+        for binding in handoff.input_bindings:
+            if binding.required and binding.parent_variable not in step.inputs:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required input "
+                    f"{binding.parent_variable} is missing from step {step.step_id}."
+                )
+            if (
+                binding.required
+                and binding.parent_variable not in symbol_table.variables
+                and binding.default_value is None
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required input "
+                    f"{binding.parent_variable} is not declared."
+                )
+        return errors
+
+    def _validate_parent_output_bindings(
+        self,
+        handoff: WorkerHandoffIR,
+        step: StepIR,
+        final_outputs: set[str],
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        errors: list[str] = []
+        for binding in handoff.output_bindings:
+            parent_symbol = symbol_table.variables.get(binding.parent_variable)
+            if (
+                binding.required
+                and binding.parent_variable not in step.outputs
+                and not (parent_symbol and parent_symbol.producer_step)
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is missing from step {step.step_id}."
+                )
+            if (
+                not binding.required
+                and binding.parent_variable not in step.outputs
+                and binding.merge_strategy != "ignore_if_empty"
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} optional output "
+                    f"{binding.parent_variable} is ignored without ignore_if_empty."
+                )
+            if binding.required and binding.parent_variable not in symbol_table.variables:
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is not declared."
+                )
+            if binding.required and not self._is_parent_output_used(
+                binding.parent_variable,
+                step.step_id,
+                final_outputs,
+                symbol_table,
+            ):
+                errors.append(
+                    f"Handoff {handoff.handoff_id} required output "
+                    f"{binding.parent_variable} is not consumed or declared as a final output."
+                )
+        return errors
+
+    def _is_parent_output_used(
+        self,
+        parent_variable: str,
+        producer_step_id: str,
+        final_outputs: set[str],
+        symbol_table: SymbolTable,
+    ) -> bool:
+        if parent_variable in final_outputs:
+            return True
+        variable = symbol_table.variables.get(parent_variable)
+        if variable is None:
+            return False
+        return any(
+            consumer_step_id != producer_step_id
+            for consumer_step_id in variable.consumer_steps
+        )
 
     def _matching_child_candidate(
         self,

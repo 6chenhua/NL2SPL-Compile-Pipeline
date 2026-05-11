@@ -31,6 +31,7 @@ class StepIR:
         flow_ref: Associated flow
         block_ref: Associated block
         kind: Step semantic type
+        handoff_id: WorkerPlanIR handoff that produced this step, when applicable
     """
 
     step_id: str
@@ -43,6 +44,7 @@ class StepIR:
     flow_ref: str = "main"
     block_ref: str = ""
     kind: StepKind = "normal"
+    handoff_id: str | None = None
 
     def __post_init__(self) -> None:
         """Validate step_id format."""

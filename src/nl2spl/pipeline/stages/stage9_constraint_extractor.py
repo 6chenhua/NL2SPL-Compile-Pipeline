@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
@@ -17,14 +18,23 @@ from nl2spl.pipeline.stages.base import PipelineStage
 
 
 class ConstraintExtractor(PipelineStage[
-    tuple[
-        list[SpanIR],
-        FieldRouteIR,
-        FlowStructureIR,
-        BlockStructureIR,
-        SymbolTable,
-        list[StepIR],
-    ],
+        tuple[
+            list[SpanIR],
+            FieldRouteIR,
+            FlowStructureIR,
+            BlockStructureIR,
+            SymbolTable,
+            list[StepIR],
+        ]
+        | tuple[
+            list[SpanIR],
+            FieldRouteIR,
+            FlowStructureIR,
+            BlockStructureIR,
+            SymbolTable,
+            list[StepIR],
+            CanonicalCompileInput,
+        ],
     list[ConstraintIR],
 ]):
     """Extract constraints from rules spans.
@@ -47,6 +57,15 @@ class ConstraintExtractor(PipelineStage[
             BlockStructureIR,
             SymbolTable,
             list[StepIR],
+        ]
+        | tuple[
+            list[SpanIR],
+            FieldRouteIR,
+            FlowStructureIR,
+            BlockStructureIR,
+            SymbolTable,
+            list[StepIR],
+            CanonicalCompileInput,
         ],
     ) -> list[ConstraintIR]:
         """Execute constraint extraction.
@@ -60,7 +79,11 @@ class ConstraintExtractor(PipelineStage[
         Raises:
             StageError: If extraction fails
         """
-        spans, routes, flow, blocks, symbol_table, steps = input_data
+        canonical_input: CanonicalCompileInput | None = None
+        if len(input_data) == 6:
+            spans, routes, flow, blocks, symbol_table, steps = input_data
+        else:
+            spans, routes, flow, blocks, symbol_table, steps, canonical_input = input_data
         self.logger.info("Starting constraint extraction with %d spans", len(spans))
 
         # 1. Filter rules spans
@@ -69,9 +92,10 @@ class ConstraintExtractor(PipelineStage[
         self.logger.info("Found %d rules spans", len(rules_spans))
 
         # 2. Build prompt
-        rules_json = json.dumps([asdict(s) for s in rules_spans], ensure_ascii=False)
+        rules_json = json.dumps([s.to_dict() for s in rules_spans], ensure_ascii=False)
         variable_list = symbol_table.get_variable_list_for_prompt()
         step_list = "\n".join([f"- {s.step_id}: {s.text}" for s in steps])
+        hint_context = self._constraint_hint_context(canonical_input)
 
         system_prompt = load_prompt("stage9")
 
@@ -90,6 +114,11 @@ rules spans：
 已知 steps：
 ---
 {step_list}
+---
+
+adapter constraint hints（仅作为提示，不是 ConstraintIR）：
+---
+{hint_context}
 ---
 
 输出 JSON："""
@@ -136,3 +165,15 @@ rules spans：
         self.save_checkpoint({"constraints": [asdict(c) for c in constraints]})
 
         return constraints
+
+    @staticmethod
+    def _constraint_hint_context(canonical_input: CanonicalCompileInput | None) -> str:
+        if canonical_input is None or canonical_input.source_schema == "generic_nl":
+            return "(No adapter constraint hints)"
+        hints = canonical_input.compile_hints.constraint_hints
+        if not hints:
+            return "(No adapter constraint hints)"
+        return "\n".join(
+            f"- {hint.text} (suggested_kind={hint.suggested_kind or 'unknown'})"
+            for hint in hints
+        )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from nl2spl.canonical import CanonicalCompileInput, VariableFact
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
@@ -26,7 +27,14 @@ from nl2spl.pipeline.stages.base import PipelineStage
 class ResourceExtractor(
     PipelineStage[
         tuple[list[SpanIR], FieldRouteIR]
-        | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR],
+        | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR]
+        | tuple[
+            list[SpanIR],
+            FieldRouteIR,
+            FlowStructureIR,
+            BlockStructureIR,
+            CanonicalCompileInput,
+        ],
         tuple[ResourceRegistryIR, SymbolTable],
     ]
 ):
@@ -44,7 +52,14 @@ class ResourceExtractor(
     def execute(
         self,
         input_data: tuple[list[SpanIR], FieldRouteIR]
-        | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR],
+        | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR]
+        | tuple[
+            list[SpanIR],
+            FieldRouteIR,
+            FlowStructureIR,
+            BlockStructureIR,
+            CanonicalCompileInput,
+        ],
     ) -> tuple[ResourceRegistryIR, SymbolTable]:
         """Execute resource extraction.
 
@@ -58,12 +73,15 @@ class ResourceExtractor(
         Raises:
             StageError: If resource extraction fails
         """
+        canonical_input: CanonicalCompileInput | None = None
         if len(input_data) == 2:
             spans, routes = input_data
             flow_structure = None
             block_structure = None
-        else:
+        elif len(input_data) == 4:
             spans, routes, flow_structure, block_structure = input_data
+        else:
+            spans, routes, flow_structure, block_structure, canonical_input = input_data
         self.logger.info(
             "Starting resource extraction with %d spans (%d behavior, %d integrations)",
             len(spans),
@@ -77,10 +95,10 @@ class ResourceExtractor(
 
         # 2. Build prompts
         behavior_json = json.dumps(
-            [asdict(s) for s in behavior_spans], ensure_ascii=False
+            [s.to_dict() for s in behavior_spans], ensure_ascii=False
         )
         integrations_json = json.dumps(
-            [asdict(s) for s in integrations_spans], ensure_ascii=False
+            [s.to_dict() for s in integrations_spans], ensure_ascii=False
         )
         structure_context = ""
         if flow_structure is not None and block_structure is not None:
@@ -198,7 +216,15 @@ integrations spans：
                 self.logger.warning("Skipping invalid type: %s", e)
                 continue
 
-        # 8. Build ResourceRegistryIR
+        # 8. Merge adapter hard facts, which seed worker contracts and symbols.
+        merge_warnings: list[str] = []
+        if canonical_input is not None and canonical_input.source_schema != "generic_nl":
+            variables, merge_warnings = self._merge_hard_fact_variables(
+                variables,
+                canonical_input,
+            )
+
+        # 9. Build ResourceRegistryIR
         resources = ResourceRegistryIR(
             variables=variables,
             files=files,
@@ -206,7 +232,7 @@ integrations spans：
             types=types,
         )
 
-        # 9. Build SymbolTable
+        # 10. Build SymbolTable
         symbol_table = SymbolTable()
         for var in variables:
             symbol_table.declare(
@@ -224,12 +250,72 @@ integrations spans：
             len(types),
         )
 
-        # 10. Save checkpoint
+        # 11. Save checkpoint
         self.save_checkpoint({
             "resources": asdict(resources),
             "symbol_table": {
                 name: asdict(var) for name, var in symbol_table.variables.items()
             },
+            "adapter_merge_warnings": merge_warnings,
         })
 
         return resources, symbol_table
+
+    def _merge_hard_fact_variables(
+        self,
+        variables: list[VariableSpec],
+        canonical_input: CanonicalCompileInput,
+    ) -> tuple[list[VariableSpec], list[str]]:
+        """Merge hard fact variables with LLM variables, preferring hard facts."""
+        warnings: list[str] = []
+        hard_fact_specs = [
+            self._variable_from_fact(fact, "input")
+            for fact in canonical_input.hard_facts.inputs
+        ] + [
+            self._variable_from_fact(fact, "output")
+            for fact in canonical_input.hard_facts.outputs
+        ]
+
+        merged: dict[str, VariableSpec] = {var.name: var for var in hard_fact_specs}
+        hard_fact_names = set(merged)
+
+        for var in variables:
+            existing = merged.get(var.name)
+            if existing is None:
+                merged[var.name] = var
+                continue
+
+            if var.name in hard_fact_names:
+                if existing.data_type != var.data_type:
+                    warnings.append(
+                        f"Hard fact variable {var.name} keeps type {existing.data_type}; "
+                        f"LLM suggested {var.data_type}."
+                    )
+                if existing.description != var.description and var.description:
+                    existing.description = (
+                        f"{existing.description} (LLM note: {var.description})"
+                    )
+                existing.required = existing.required or var.required
+                continue
+
+            if existing.data_type == var.data_type:
+                existing.required = existing.required or var.required
+                if not existing.description and var.description:
+                    existing.description = var.description
+            else:
+                warnings.append(
+                    f"Variable {var.name} has conflicting inferred types: "
+                    f"{existing.data_type} vs {var.data_type}; keeping first."
+                )
+
+        return list(merged.values()), warnings
+
+    @staticmethod
+    def _variable_from_fact(fact: VariableFact, source: str) -> VariableSpec:
+        return VariableSpec(
+            name=fact.name,
+            data_type=fact.data_type,
+            required=fact.required,
+            description=fact.description,
+            source=source,
+        )

@@ -7,9 +7,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.errors.exceptions import StageError
-from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
-from nl2spl.ir.flow_structure_ir import AlternativeFlow, ExceptionFlow, FlowStructureIR
+from nl2spl.ir.flow_structure_ir import (
+    AlternativeFlow,
+    DelegationCandidate,
+    ExceptionFlow,
+    FlowStructureIR,
+)
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage5_block_assembler import BlockAssembler
 
@@ -49,6 +53,53 @@ class TestBlockAssembler:
         assert len(result.main_flow_blocks) == 1
         assert result.main_flow_blocks[0].block_type == "SEQUENTIAL"
         assert result.main_flow_blocks[0].spans == ["s1", "s2"]
+
+    def test_prompt_uses_flow_json_with_span_text_only(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Stage 5 prompt should enrich flow spans with text and avoid extra span JSON."""
+        spans = [
+            SpanIR(span_id="s1", text="Determine type"),
+            SpanIR(span_id="s2", text="Retrieve sources"),
+        ]
+        routes = FieldRouteIR(behavior=["s1", "s2"])
+        flow = FlowStructureIR(
+            main_flow_spans=["s1"],
+            delegation_candidates=[
+                DelegationCandidate(
+                    candidate_id="dc_1",
+                    spans=["s2"],
+                    reason="Independent source lookup",
+                    suggested_type="child_worker",
+                    input_variables=["available_connectors"],
+                    output_variables=["retrieved_sources"],
+                )
+            ],
+        )
+        mock_client.call_json.return_value = {
+            "main_flow_blocks": [
+                {
+                    "block_id": "b1",
+                    "block_type": "SEQUENTIAL",
+                    "condition_text": None,
+                    "spans": ["s1"],
+                }
+            ],
+            "alternative_flow_blocks": {},
+            "exception_flow_blocks": {},
+        }
+        assembler = BlockAssembler(pipeline_config, mock_client)
+
+        assembler.execute((spans, routes, flow))
+
+        user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+        assert "Flow structure with span text" in user_prompt
+        assert '"span_id": "s1"' in user_prompt
+        assert '"text": "Determine type"' in user_prompt
+        assert '"span_id": "s2"' in user_prompt
+        assert '"text": "Retrieve sources"' in user_prompt
+        assert "behavior spans" not in user_prompt
+        assert "ambiguity" not in user_prompt
 
     def test_if_block(
         self, pipeline_config: MagicMock, mock_client: MagicMock

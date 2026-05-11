@@ -15,7 +15,6 @@ from tests.fixtures.usage_prompt_expectations import (
     usage_stage_response,
 )
 
-
 pytestmark = [pytest.mark.prompt_test, pytest.mark.stage5]
 
 
@@ -45,3 +44,7 @@ class TestUsageStage5Prompt:
         call_kwargs = mock_client.call_json.call_args.kwargs
         assert call_kwargs["stage_name"] == "stage5_block_assembler"
         assert "sources are needed and available" in call_kwargs["user_prompt"]
+        assert "Flow structure with span text" in call_kwargs["user_prompt"]
+        assert '"span_id": "s8"' in call_kwargs["user_prompt"]
+        assert "behavior spans" not in call_kwargs["user_prompt"]
+        assert "ambiguity" not in call_kwargs["user_prompt"]

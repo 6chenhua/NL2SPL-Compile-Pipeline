@@ -1,172 +1,341 @@
 {
   "stage": "stage1_span_slicer",
-  "timestamp": "2026-05-09T15:26:16.685108",
+  "timestamp": "2026-05-11T16:00:08.597391",
   "metadata": {},
   "result": {
+    "source_schema": "structural_nl",
     "raw_text_length": 1616,
-    "spans_count": 18,
+    "spans_count": 30,
     "spans": [
       {
         "span_id": "s1",
-        "text": "Task family: Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts.",
+        "text": "Internal newsletters, announcements, update digests, executive briefs, and related\ninternal-comms artifacts.",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_task_family_internal_newsletters_announcements_update_digests_executive_briefs_and_related_internal_comms_artifacts"
       },
       {
         "span_id": "s2",
-        "text": "Inputs for each run: A user request, optional known topics, optional timeframe, available connectors or source repositories, and optional format preferences.",
+        "text": "A user request",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_user_request"
       },
       {
         "span_id": "s3",
-        "text": "Required outputs: A draft communication artifact, a source/evidence set, a short assumptions log for any unresolved items, and a completion status.",
+        "text": "Optional known topics",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_known_topics"
       },
       {
         "span_id": "s4",
-        "text": "Reusable process: First determine what kind of communication is requested.",
+        "text": "Optional timeframe",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_timeframe"
       },
       {
         "span_id": "s5",
-        "text": "Then identify which required fields are still missing.",
+        "text": "Available connectors or\nsource repositories",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_connectors_or_source_repositories"
       },
       {
         "span_id": "s6",
-        "text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "text": "Optional format preferences",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_format_preferences"
       },
       {
         "span_id": "s7",
-        "text": "If sources are needed and available, retrieve them using approved source recipes.",
+        "text": "A draft communication artifact",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_draft_communication_artifact"
       },
       {
         "span_id": "s8",
-        "text": "Maintain provenance for externally sourced facts.",
+        "text": "A source/evidence set",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_source_evidence_set"
       },
       {
         "span_id": "s9",
-        "text": "When enough required information is available, produce a draft.",
+        "text": "A short assumptions log for any\nunresolved items",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_assumptions_log"
       },
       {
         "span_id": "s10",
-        "text": "If the user asks for revision, revise while rechecking constraints.",
+        "text": "A completion status",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_completion_status"
       },
       {
         "span_id": "s11",
-        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "text": "First determine what kind of communication is requested",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_first_determine_what_kind_of_communication_is_requested"
       },
       {
         "span_id": "s12",
-        "text": "Policies: Do not invent links or unseen facts.",
+        "text": "Then identify which required\nfields are still missing",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_then_identify_which_required_fields_are_still_missing"
       },
       {
         "span_id": "s13",
-        "text": "Require evidence for sourced claims.",
+        "text": "Ask only the highest-value clarifying questions needed to move\nforward",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward"
       },
       {
         "span_id": "s14",
-        "text": "Limit questions per turn.",
+        "text": "If sources are needed and available, retrieve them using approved source\nrecipes",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_if_sources_are_needed_and_available_retrieve_them_using_approved_source_recipes"
       },
       {
         "span_id": "s15",
-        "text": "Prefer tool evidence over unnecessary user questioning.",
+        "text": "Maintain provenance for externally sourced facts",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_maintain_provenance_for_externally_sourced_facts"
       },
       {
         "span_id": "s16",
-        "text": "Deny finalization if critical slots are missing or provenance fails.",
+        "text": "When enough required\ninformation is available, produce a draft",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_when_enough_required_information_is_available_produce_a_draft"
       },
       {
         "span_id": "s17",
-        "text": "Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure.",
+        "text": "If the user asks for revision, revise while re\nchecking constraints",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_if_the_user_asks_for_revision_revise_while_re_checking_constraints"
       },
       {
         "span_id": "s18",
-        "text": "Delegation policy: Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers.",
+        "text": "Do not finalize if required slots remain missing unless the draft is\nexplicitly marked as assumption-bearing and the user confirms",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms"
+      },
+      {
+        "span_id": "s19",
+        "text": "Do not invent links or unseen facts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_do_not_invent_links_or_unseen_facts"
+      },
+      {
+        "span_id": "s20",
+        "text": "Require evidence for sourced claims",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_require_evidence_for_sourced_claims"
+      },
+      {
+        "span_id": "s21",
+        "text": "Limit questions\nper turn",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_limit_questions_per_turn"
+      },
+      {
+        "span_id": "s22",
+        "text": "Prefer tool evidence over unnecessary user questioning",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_prefer_tool_evidence_over_unnecessary_user_questioning"
+      },
+      {
+        "span_id": "s23",
+        "text": "Deny finalization if\ncritical slots are missing or provenance fails",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_deny_finalization_if_critical_slots_are_missing_or_provenance_fails"
+      },
+      {
+        "span_id": "s24",
+        "text": "Missing timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_missing_timeframe"
+      },
+      {
+        "span_id": "s25",
+        "text": "Conflicting instructions",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_conflicting_instructions"
+      },
+      {
+        "span_id": "s26",
+        "text": "Insufficient source access",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_insufficient_source_access"
+      },
+      {
+        "span_id": "s27",
+        "text": "Evidence\nshortage",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_evidence_shortage"
+      },
+      {
+        "span_id": "s28",
+        "text": "User refusal to answer",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_user_refusal_to_answer"
+      },
+      {
+        "span_id": "s29",
+        "text": "Provenance failure",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_provenance_failure"
+      },
+      {
+        "span_id": "s30",
+        "text": "Optional delegated subtasks such as source gathering or template matching may be\nused if bounded and the returned evidence is normalized into approved evidence\ncarriers",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_delegation_rule_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers"
       }
     ]
   }

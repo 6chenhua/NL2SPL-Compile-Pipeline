@@ -1,80 +1,79 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-05-09T15:23:35.043792",
+  "timestamp": "2026-05-11T16:52:35.512411",
   "metadata": {},
   "result": {
-    "main_flow_blocks": [
-      {
-        "block_id": "b_1",
-        "block_type": "SEQUENTIAL",
-        "condition_text": null,
-        "spans": [
-          "s4",
-          "s5",
-          "s6"
-        ]
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s11",
+              "s12",
+              "s13"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "IF",
+            "condition_text": "enough required information is available",
+            "spans": [
+              "s16"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {
+          "alt_1": [
+            {
+              "block_id": "b_3",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s17"
+              ]
+            }
+          ]
+        },
+        "exception_flow_blocks": {
+          "exc_1": [
+            {
+              "block_id": "b_4",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s18"
+              ]
+            }
+          ]
+        }
       },
-      {
-        "block_id": "b_2",
-        "block_type": "IF",
-        "condition_text": "If sources are needed and available",
-        "spans": [
-          "s7"
-        ]
-      },
-      {
-        "block_id": "b_3",
-        "block_type": "SEQUENTIAL",
-        "condition_text": null,
-        "spans": [
-          "s8",
-          "s9"
-        ]
+      "worker_source_gathering": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "IF",
+            "condition_text": "sources are needed and available",
+            "spans": [
+              "s14"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s15"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
       }
-    ],
-    "alternative_flow_blocks": {
-      "alt_1": [
-        {
-          "block_id": "b_4",
-          "block_type": "IF",
-          "condition_text": "If the user asks for revision",
-          "spans": [
-            "s10"
-          ]
-        }
-      ]
     },
-    "exception_flow_blocks": {
-      "exc_1": [
-        {
-          "block_id": "b_5",
-          "block_type": "IF",
-          "condition_text": "If sources are needed and available",
-          "spans": [
-            "s7"
-          ]
-        }
-      ],
-      "exc_2": [
-        {
-          "block_id": "b_6",
-          "block_type": "IF",
-          "condition_text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
-          "spans": [
-            "s11"
-          ]
-        }
-      ],
-      "exc_3": [
-        {
-          "block_id": "b_7",
-          "block_type": "IF",
-          "condition_text": "Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure",
-          "spans": [
-            "s17"
-          ]
-        }
-      ]
-    }
+    "control_complexity_regions": [],
+    "warnings": []
   }
 }

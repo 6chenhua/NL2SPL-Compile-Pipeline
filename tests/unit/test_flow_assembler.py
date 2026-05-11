@@ -44,6 +44,31 @@ class TestFlowAssembler:
         assert len(result.exception_flows) == 0
         assert len(result.delegation_candidates) == 0
 
+    def test_prompt_uses_plain_text_without_span_json(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Stage 4 prompt should pass compact span text, not full SpanIR JSON."""
+        mock_client.call_json.return_value = {
+            "main_flow_spans": ["s1"],
+            "alternative_flows": [],
+            "exception_flows": [],
+            "delegation_candidates": [],
+        }
+        assembler = FlowAssembler(pipeline_config, mock_client)
+        spans = [
+            SpanIR(span_id="s1", text="Determine type"),
+            SpanIR(span_id="s2", text="The requested audience"),
+        ]
+        routes = FieldRouteIR(behavior=["s1"], audience=["s2"])
+
+        assembler.execute((spans, routes))
+
+        user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+        assert "s1: Determine type" in user_prompt
+        assert "s2: The requested audience" in user_prompt
+        assert '"span_id"' not in user_prompt
+        assert "ambiguity" not in user_prompt
+
     def test_exception_flow(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:

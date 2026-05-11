@@ -1,18 +1,39 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-05-09T15:23:52.069588",
+  "timestamp": "2026-05-11T16:53:05.941818",
   "metadata": {},
   "result": {
     "persona": {
-      "role": "Internal communications assistant",
-      "aspects": []
+      "role": "Internal communications specialist",
+      "aspects": [
+        {
+          "name": "InferredRole",
+          "text": "Role inferred from task context; no explicit identity description was provided in the source text."
+        }
+      ]
     },
-    "audience_aspects": [
+    "audience_aspects": [],
+    "concepts": [
       {
-        "name": "task_family",
-        "text": "Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts."
+        "term": "Internal newsletters",
+        "definition": "Periodic communications distributed within an organization to share updates, news, or announcements."
+      },
+      {
+        "term": "Announcements",
+        "definition": "Formal statements or notifications intended to inform members of an organization about specific events or updates."
+      },
+      {
+        "term": "Update digests",
+        "definition": "Summarized collections of recent updates or changes within an organization, typically shared in a concise format."
+      },
+      {
+        "term": "Executive briefs",
+        "definition": "Concise documents or summaries prepared for executives, focusing on key information and decisions."
+      },
+      {
+        "term": "Internal-comms artifacts",
+        "definition": "Documents or materials created for internal communication purposes within an organization."
       }
-    ],
-    "concepts": []
+    ]
   }
 }

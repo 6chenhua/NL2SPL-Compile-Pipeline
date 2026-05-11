@@ -58,10 +58,10 @@ class ProfileExtractor(PipelineStage[
         )
 
         # 2. Build prompt
-        all_spans_json = json.dumps([asdict(s) for s in spans], ensure_ascii=False)
-        identity_json = json.dumps([asdict(s) for s in identity_spans], ensure_ascii=False)
-        audience_json = json.dumps([asdict(s) for s in audience_spans], ensure_ascii=False)
-        domain_json = json.dumps([asdict(s) for s in domain_spans], ensure_ascii=False)
+        all_spans_json = json.dumps([s.to_dict() for s in spans], ensure_ascii=False)
+        identity_json = json.dumps([s.to_dict() for s in identity_spans], ensure_ascii=False)
+        audience_json = json.dumps([s.to_dict() for s in audience_spans], ensure_ascii=False)
+        domain_json = json.dumps([s.to_dict() for s in domain_spans], ensure_ascii=False)
         variable_list = symbol_table.get_variable_list_for_prompt()
 
         system_prompt = load_prompt("stage8")

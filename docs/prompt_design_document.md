@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-本文档定义 NL2SPL 管道中 9 个 LLM Stage + 2 个代码 Stage 的 Prompt 设计。每个 Prompt 遵循统一结构：
+本文档定义 NL2SPL 管道中 9 个 LLM Stage + 3 个代码 Stage（Stage 9.5、10、11）的 Prompt/IR 边界设计。每个 Prompt 遵循统一结构：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -544,26 +544,34 @@ suggested_type：
 ### 6.5 User Prompt
 
 ```
-请分析以下 span 的流程结构：
+Assemble flow structure from behavior spans.
 
-behavior spans（只有 behavior 字段的 span 需要判断 Flow）：
+Behavior spans to classify:
 ---
-{behavior_spans_json}
----
-
-所有 spans（用于上下文理解）：
----
-{all_spans_json}
+{behavior_text}
 ---
 
-输出 JSON：
+Full source text context:
+---
+{source_text}
+---
+
+Use span_id values in output span lists; do not copy span text into span lists.
+Return JSON only.
 ```
+
+其中：
+- `behavior_text` 是纯文本列表，格式为 `sN: 原文 span text`
+- `source_text` 是全量 span 的纯文本列表，格式相同
+- 不传 `SpanIR` 的完整 JSON，不传 `ambiguity` 字段
+- Stage 4 不再使用旧字段名 `behavior_json` / `all_json`
 
 ### 6.6 注意事项
 
 | 项目 | 说明 |
 |------|------|
 | 只分析 behavior spans | identity/audience/rules/domain/integrations 的 span 不参与 Flow 判断 |
+| Prompt 输入不带 ambiguity | ambiguity 属于 Stage 2/3 的职责，Stage 4 不消费该字段 |
 | main_flow_spans 可为空 | 如果所有 span 都属于 alternative/exception |
 | delegation_candidates 可为空 | 如果没有适合提取的子任务 |
 | flow_id 格式 | alternative = `alt_{N}`，exception = `exc_{N}` |
@@ -684,26 +692,30 @@ behavior spans（只有 behavior 字段的 span 需要判断 Flow）：
 ### 7.5 User Prompt
 
 ```
-请将以下 span 组织成 Block：
+Assemble block structure from the flow structure.
 
-Flow 结构：
+Flow structure with span text:
 ---
-{flow_structure_json}
----
-
-behavior spans：
----
-{behavior_spans_json}
+{flow_json}
 ---
 
-输出 JSON：
+Use span_id values in output span lists; do not copy span text into span lists.
+Return JSON only.
 ```
+
+其中：
+- Stage 5 只传 `flow_json`
+- `flow_json` 保留 Stage 4 的 flow 结构，但把每个 span id 展开为 `{"span_id": "sN", "text": "..."}`
+- Stage 5 不再额外传 `behavior_json`
+- 模型输出时仍必须把 `spans` 写成 span_id 字符串数组
 
 ### 7.6 注意事项
 
 | 项目 | 说明 |
 |------|------|
 | 只处理 behavior spans | identity/audience/rules/domain/integrations 的 span 不参与 Block 组装 |
+| Prompt 只接收 flow_json | span 文本已经内联到 flow_json，不再另传 behavior spans |
+| 输出仍用 span_id | 不允许把 span text 写回 `spans` 字段 |
 | block_id 格式 | `b{N}`，从 b1 开始递增 |
 | condition_text 可为 null | SEQUENTIAL_BLOCK 的 condition_text 为 null |
 | 不嵌套 | IF_BLOCK 内不能再包含 IF_BLOCK |
@@ -723,8 +735,10 @@ behavior spans：
 |------|------|------|
 | `spans` | List[SpanIR] | Stage 3 输出的 span 列表 |
 | `routes` | FieldRouteIR | Stage 3 输出的路由结果 |
+| `flow_structure` | FlowStructureIR | 可选结构上下文，用于帮助变量关联 flow |
+| `block_structure` | BlockStructureIR | 可选结构上下文，用于帮助变量关联 block |
 
-**注意**：不需要 FlowStructureIR 和 BlockStructureIR，变量提取只依赖 span 的语义内容。
+**注意**：Stage 6 支持两种调用形式：只传 spans/routes，或额外传 FlowStructureIR/BlockStructureIR。当前 orchestrator 传入 flow/block 上下文；它们用于辅助变量与流程位置关联，不改变 Stage 6 的输出 schema。
 
 ### 8.3 输出
 
@@ -1329,11 +1343,14 @@ rules spans：
 - `SymbolTable`
 - `List[StepIR]`
 - `List[ConstraintIR]`
-- `AgentProfileIR`
 
 ### 12.3 输出
 
-- 归一化后的所有 IR
+- 归一化后的 `FlowStructureIR`
+- 归一化后的 `BlockStructureIR`
+- 归一化后的 `List[StepIR]`
+- 归一化后的 `List[ConstraintIR]`
+- 归一化后的 `SymbolTable`
 - 校正报告（warnings + errors）
 
 ### 12.4 校正规则
@@ -1421,6 +1438,32 @@ def reconcile_ir(flow, blocks, steps, constraints, symbols):
     return flow, blocks, steps, constraints, symbols
 ```
 
+#### 4. Delegation 与 Worker invocation 校正
+
+```python
+def normalize_worker_invocations(flow, blocks, steps, symbols, resources):
+    """将 child-worker delegation candidates 物化为 concrete INVOKE_WORKER。"""
+    warnings = []
+    errors = []
+
+    # 1. 对 suggested_type == "child_worker" 的候选生成 child_dc_N worker name
+    # 2. 若候选 span 已经有 INVOKE_WORKER step，则把 integration_ref 修正为 child_dc_N
+    # 3. 若候选 span 没有 invocation，则在对应 flow/block 中补一个 INVOKE_WORKER step
+    # 4. 多输出候选聚合为一个结构化 result variable，并写入 ResourceRegistryIR.types
+    # 5. 任何仍指向 "Worker" / "child_worker" / 空 integration_ref 的 INVOKE_WORKER 都报 error
+
+    return steps, symbols, resources, warnings, errors
+```
+
+注意：Stage 9.5 不允许把 unresolved `INVOKE_WORKER` 降级为普通 COMMAND。正确做法是找出缺失的 worker 定义或报错。
+
+#### 5. Flow 语义校正
+
+- 普通主流程条件（例如 source retrieval 可用时执行）应移回 main flow，并在 Stage 5/Stage 9.5 中表示为 IF block。
+- 用户要求 revision 这类只影响主流程局部动作的条件，应保留在 main flow 中的 IF block，而不是 exception flow。
+- “required slots remain missing until...” 这类条件应表示为 WHILE block，而不是 exception flow。
+- Exception flow 应保留给失败、不可用、拒绝、证据不足、前置条件无法满足等负面路径。
+
 ### 12.5 注意事项
 
 | 项目 | 说明 |
@@ -1428,6 +1471,8 @@ def reconcile_ir(flow, blocks, steps, constraints, symbols):
 | 实现方式 | 代码，不需要 LLM |
 | 错误处理 | errors 阻断流程，warnings 记录但继续 |
 | new_variables 更新 | Stage 7 输出的 new_variables 需要更新到 SymbolTable |
+| unresolved worker | 不降级为普通 COMMAND，必须解析为 concrete child worker 或报错 |
+| 多输出 child worker | 聚合为结构化 result variable，必要时生成 `[DEFINE_TYPES:]` |
 
 ---
 
@@ -1527,13 +1572,205 @@ def format_step_list(steps: list[StepIR]) -> str:
 ### 14.4 Delegation 候选验证
 
 ```python
-def validate_delegation_candidates(candidates: list[dict], steps: list[StepIR]) -> list[dict]:
-    """验证 delegation 候选是否有效"""
+def validate_delegation_candidates(
+    candidates: list[dict],
+    steps: list[StepIR],
+) -> tuple[list[dict], list[str]]:
+    """验证 delegation 候选是否能生成 concrete child worker invocation。"""
     valid_candidates = []
+    errors = []
     for candidate in candidates:
-        # 检查候选 spans 是否有足够的 steps
         candidate_steps = [s for s in steps if set(s.source_span_ids) & set(candidate["spans"])]
-        if len(candidate_steps) >= 1:
-            valid_candidates.append(candidate)
-    return valid_candidates
+        if not candidate_steps:
+            errors.append(f"Delegation candidate {candidate['candidate_id']} has no backing step")
+            continue
+
+        if candidate["suggested_type"] == "child_worker":
+            worker_name = f"child_{candidate['candidate_id']}"
+            unresolved_invokes = [
+                s for s in candidate_steps
+                if s.command_type == "INVOKE_WORKER"
+                and s.integration_ref not in {worker_name, None, "", "Worker", "child_worker"}
+            ]
+            if unresolved_invokes:
+                errors.append(f"Candidate {candidate['candidate_id']} has inconsistent worker target")
+                continue
+
+        valid_candidates.append(candidate)
+
+    return valid_candidates, errors
 ```
+
+该验证只是一层兼容检查。长期设计中，delegation 候选应迁移到独立 `DelegationPlanIR` / `WorkerPlanIR`，由 worker plan 直接定义 child worker、handoff、input/output binding 和 failure policy。
+
+---
+
+## Stage 3.5: WorkerBoundaryPlanner
+
+Stage 3.5 runs after ambiguity resolution and before flow assembly. It proposes
+first-class worker boundaries and emits `WorkerPlanIR`.
+
+Input:
+
+- resolved `SpanIR` list, formatted as compact `span_id: text` lines
+- `FieldRouteIR`, formatted as route-name span lists
+- optional adapter metadata, formatted as compact section, hard fact, and delegation hint lines
+
+Output:
+
+- `WorkerPlanIR`
+- checkpoint: `stage3_5_worker_boundary_planner.json`
+
+Prompt rules:
+
+- Identify candidate task units.
+- Identify predicted control complexity regions when visible.
+- Decide accepted and rejected worker boundaries.
+- Create contracts and handoffs only for accepted child workers.
+- Do not emit flow, block, command, `CALL_API`, `INVOKE_WORKER`, or final SPL.
+- Reject weak candidates explicitly with a supported `rejection_reason`.
+- Treat explicit delegation words and nested control as evidence, not decisions.
+
+Accepted child workers require responsibility, input contract, output contract,
+invocation point, and result handoff. Accepted child workers also need at least
+one strong positive signal and no blocking negative signal.
+
+Rejection categories include `no_clear_input_contract`, `no_clear_output_contract`,
+`no_parent_invocation_point`, `simple_control_flow`, `ordinary_sequential_step`,
+`policy_or_constraint`, `alternative_flow`, `exception_flow`, `single_api_call`,
+and `insufficient_semantic_boundary`.
+
+During migration, Stage 3.5 is guarded by `PipelineConfig.enable_worker_boundary_planner`.
+When disabled, the current Stage 4 behavior is unchanged. When enabled, Stage 3.6 validates
+the emitted worker graph immediately, and accepted child workers are adapted into legacy
+`FlowStructureIR.delegation_candidates` for the current Stage 4/9.5/10 path.
+
+---
+
+## Worker-Aware Stage 4 / Stage 5 Prompt Update
+
+### Stage 4 Worker-Aware Prompt
+
+When `WorkerPlanIR` is available, Stage 4 is invoked once per worker with
+worker-local spans and compact WorkerPlanIR context.
+
+```
+Assemble flow structure for one worker only.
+
+WorkerPlanIR context:
+---
+{worker_plan_context}
+---
+
+Worker-local behavior spans to classify:
+---
+{worker_behavior_text}
+---
+
+Worker-local source text context:
+---
+{worker_source_text}
+---
+
+Use only span_id values owned by this worker.
+Return flow JSON only: main_flow_spans, alternative_flows, exception_flows.
+Do not decide worker boundaries and do not output delegation_candidates.
+Return JSON only.
+```
+
+Worker-aware Stage 4 output is wrapped as `WorkerFlowPlanIR`:
+
+```json
+{
+  "worker_flows": {
+    "worker_main": {
+      "main_flow_spans": ["s1"],
+      "alternative_flows": [],
+      "exception_flows": [],
+      "delegation_candidates": []
+    }
+  },
+  "warnings": []
+}
+```
+
+### Stage 5 Worker-Aware Prompt
+
+When Stage 5 receives `WorkerFlowPlanIR`, it is invoked once per worker
+with that worker's flow JSON and span text. The model must return only
+top-level blocks. SPL block grammar does not allow block nesting inside
+`IF`, `FOR`, or `WHILE` bodies.
+
+```
+Assemble block structure from the flow structure.
+
+Flow structure with span text:
+---
+{worker_flow_json}
+---
+
+Use span_id values in output span lists; do not copy span text into span lists.
+Return top-level blocks only; do not output nested blocks.
+Return JSON only.
+```
+
+If nested control intent is discovered, Stage 5 applies this repair order:
+split blocks, merge conditions, lift a guard variable, compress to a
+command if acceptable, then emit a `ControlComplexityRegionIR`. Stage 5
+does not create workers or delegation candidates.
+
+Worker-aware Stage 5 output is wrapped as `WorkerBlockPlanIR`:
+
+```json
+{
+  "worker_blocks": {
+    "worker_main": {
+      "main_flow_blocks": [],
+      "alternative_flow_blocks": {},
+      "exception_flow_blocks": {}
+    }
+  },
+  "control_complexity_regions": [
+    {
+      "region_id": "ccr_1",
+      "source_span_ids": ["s2"],
+      "outer_control": "FOR",
+      "inner_control": "IF",
+      "description": "Nested control intent confirmed during block assembly.",
+      "discovery_phase": "confirmed",
+      "severity": "warning",
+      "can_flatten": false,
+      "can_merge_condition": false,
+      "can_lift_guard": true,
+      "suggested_repairs": [
+        "guard_variable",
+        "compress_to_command",
+        "raise_validation_error"
+      ]
+    }
+  ],
+  "warnings": []
+}
+```
+
+### Downstream Consumption Contract
+
+Worker-aware Stage 4/5 now have two explicit downstream contracts:
+
+1. Worker-aware contract for Developer D and later migration work:
+   - `WorkerFlowPlanIR.worker_flows[worker_id]` contains only spans owned by that worker.
+   - `WorkerBlockPlanIR.worker_blocks[worker_id]` contains only blocks for that worker-local flow.
+   - `WorkerBlockPlanIR.control_complexity_regions` is structural feedback from Stage 5. Stage 5 marks confirmed findings as `discovery_phase="confirmed"` and must not include `extract_child_worker` in `suggested_repairs`.
+   - Child-owned spans must not appear in the main worker flow or main worker blocks.
+
+2. Temporary legacy contract for Stage 6/7/9/9.5/10 until those stages consume worker-scoped wrappers directly:
+   - The orchestrator keeps the full `WorkerFlowPlanIR` in `intermediate_results["stage4_worker_flows"]`.
+   - The orchestrator keeps the full `WorkerBlockPlanIR` in `intermediate_results["stage5_worker_blocks"]`.
+   - The legacy `FlowStructureIR` passed downstream is a main-worker view created from `WorkerFlowPlanIR.worker_flows[main_worker_id]` plus temporary `delegation_candidates` adapted from `WorkerPlanIR`.
+   - The legacy `BlockStructureIR` passed downstream is a main-worker view created from `WorkerBlockPlanIR.worker_blocks[main_worker_id]`.
+   - This adapter is not a full flatten of all workers. Child worker flow/block internals remain in the wrapper IR and are not merged into the parent.
+   - `WorkerPlanIR` is still passed to Stage 7, Stage 9.5, and Stage 10 so handoffs and child worker contracts come from first-class worker planning rather than Stage 4 delegation inference.
+
+When `enable_worker_boundary_planner=False`, the legacy Stage 4/5 path is unchanged:
+Stage 4 returns `FlowStructureIR`, Stage 5 consumes that flow and returns
+`BlockStructureIR`, and no worker-scoped wrappers are produced.

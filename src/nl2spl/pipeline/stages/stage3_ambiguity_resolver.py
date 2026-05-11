@@ -54,7 +54,7 @@ class AmbiguityResolver(
             return spans, routes
 
         # 1. Build prompts
-        spans_json = json.dumps([asdict(s) for s in spans], ensure_ascii=False, indent=2)
+        spans_json = json.dumps([s.to_dict() for s in spans], ensure_ascii=False, indent=2)
         routes_json = json.dumps(asdict(routes), ensure_ascii=False, indent=2)
         ambiguity_json = json.dumps(ambiguity_updates, ensure_ascii=False, indent=2)
 
@@ -146,7 +146,7 @@ class AmbiguityResolver(
         self.save_checkpoint({
             "original_spans_count": len(spans),
             "resolved_spans_count": len(resolved_spans),
-            "resolved_spans": [asdict(s) for s in resolved_spans],
+            "resolved_spans": [s.to_dict() for s in resolved_spans],
             "resolved_routes": asdict(resolved_routes),
             "overlaps": overlaps,
         })

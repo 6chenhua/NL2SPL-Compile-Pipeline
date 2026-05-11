@@ -14,7 +14,6 @@ from tests.fixtures.usage_prompt_expectations import (
     usage_stage_response,
 )
 
-
 pytestmark = [pytest.mark.prompt_test, pytest.mark.stage4]
 
 
@@ -39,4 +38,5 @@ class TestUsageStage4Prompt:
         assert flow.delegation_candidates[0].spans == ["s18a"]
         call_kwargs = mock_client.call_json.call_args.kwargs
         assert call_kwargs["stage_name"] == "stage4_flow_assembler"
-        assert '"span_id": "s18a"' in call_kwargs["user_prompt"]
+        assert "s18a:" in call_kwargs["user_prompt"]
+        assert "ambiguity" not in call_kwargs["user_prompt"]

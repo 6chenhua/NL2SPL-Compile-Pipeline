@@ -4,11 +4,11 @@ Date: 2026-05-09
 
 ## Scope
 
-This note records issues observed in the generated SPL and intermediate IR files under:
+This note records issues observed in an earlier generated SPL and intermediate IR files under:
 
 `examples/output/internal-comms`
 
-The reviewed output is structurally valid enough to render as SPL, but it does not yet meet the expected semantic fidelity or executability bar.
+The reviewed output was structurally valid enough to render as SPL, but it did not meet the expected semantic fidelity or executability bar. The resolution notes below describe the current compiler behavior expected after the Stage 4/5 prompt updates and Stage 9.5/10/11 normalization fixes.
 
 ## Summary
 
@@ -96,11 +96,12 @@ COMMAND-7 [INVOKE Worker WITH <REF>needed_sources</REF>, <REF>approved_recipes</
 
 `Worker` is a placeholder. No concrete child worker is defined or referenced. This makes the SPL less executable and less faithful to the delegation model.
 
-Expected behavior should be one of:
+Expected behavior:
 
-- Render these as ordinary `[COMMAND ...]` steps unless a concrete child worker exists.
-- Generate concrete child worker names from delegation candidates.
+- Do not silently downgrade `INVOKE_WORKER` into ordinary `[COMMAND ...]`.
+- Generate concrete child worker names from delegation candidates when a child worker is warranted.
 - Validate and reject unresolved `INVOKE_WORKER` steps before final rendering.
+- If no worker can be defined, report the missing worker-boundary reason rather than hiding it with a fallback.
 
 ### 5. Some Step Variables Have No Clear Producer
 
@@ -131,25 +132,27 @@ Stage 5 does not preserve source/dataflow order strongly enough after Stage 4 cl
 
 ### Stage 7: StepExtractor
 
-Stage 7 emits `INVOKE_WORKER` without a concrete `integration_ref`. The renderer then falls back to the placeholder `Worker`.
+Stage 7 may emit `INVOKE_WORKER` without a concrete `integration_ref`. Current compiler behavior requires Stage 9.5 to resolve it to a concrete child worker or report an error; the renderer must not fall back to placeholder `Worker`.
 
 Stage 7 also does not ensure that required outputs are produced on normal completion paths.
 
 ### Stage 9.5: IRNormalizer
 
-The normalizer currently checks basic references, but should add stronger consistency rules:
+The normalizer should enforce the stronger consistency rules now used by the pipeline:
 
 - Required output reachability.
 - No unresolved `INVOKE_WORKER`.
 - No variable consumed before a producer exists on the same path.
 - No normal process span incorrectly placed under exception flow when its condition is not exceptional.
+- Materialize concrete child worker invocations from child-worker delegation candidates.
+- Aggregate multi-output child worker responses into a structured result variable and TypeSpec when needed.
 
 ## Recommended Fixes
 
 1. Strengthen Stage 4 prompt rules for flow classification.
 2. Add deterministic post-processing for known structured input formats.
 3. Strengthen Stage 9.5 normalizer with path-aware validations.
-4. Render `INVOKE_WORKER` only when the worker target is concrete.
+4. Render `INVOKE_WORKER` only when the worker target is concrete; unresolved worker invocations are errors, not ordinary commands.
 5. Add tests using `examples/output/internal-comms` expectations:
    - Source retrieval is not an exception flow.
    - Required outputs are all produced.

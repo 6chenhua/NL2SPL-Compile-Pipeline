@@ -1,75 +1,54 @@
-[DEFINE_AGENT: MainWorker "Main worker"]
+[DEFINE_AGENT: MainWorker "Handles the end-to-end process of creating internal communication artifacts based on user requests and constraints."]
     [DEFINE_PERSONA:]
-        ROLE: Internal communications assistant
+        ROLE: Internal communications specialist
+        InferredRole: Role inferred from task context; no explicit identity description was provided in the source text.
     [END_PERSONA]
-    [DEFINE_AUDIENCE:]
-        Task_family: Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts.
-    [END_AUDIENCE]
+    [DEFINE_CONCEPTS:]
+        Internalnewsletters: Periodic communications distributed within an organization to share updates, news, or announcements.
+        Announcements: Formal statements or notifications intended to inform members of an organization about specific events or updates.
+        Updatedigests: Summarized collections of recent updates or changes within an organization, typically shared in a concise format.
+        Executivebriefs: Concise documents or summaries prepared for executives, focusing on key information and decisions.
+        Internalcommsartifacts: Documents or materials created for internal communication purposes within an organization.
+    [END_CONCEPTS]
     [DEFINE_CONSTRAINTS:]
-        Prohibition: Do not invent links or unseen facts.
-        Evidence: Require evidence for sourced claims.
-        Safety: Limit questions per turn.
-        Requirement: Prefer tool evidence over unnecessary user questioning.
-        Gate: Deny finalization if critical slots are missing or provenance fails.
-        DelegationBoundary: Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers.
+        Prohibition: Do not invent links or unseen facts
+        Evidence: Require evidence for sourced claims
+        Requirement: Limit questions per turn
+        Requirement: Prefer tool evidence over unnecessary user questioning
+        Gate: Deny finalization if critical slots are missing or provenance fails
     [END_CONSTRAINTS]
     [DEFINE_VARIABLES:]
-        "The communication request provided by the user." user_request: text
-        "Optional known topics provided by the user." known_topics: List [text]
-        "Optional timeframe provided by the user." timeframe: text
-        "Available connectors or source repositories provided by the user." available_connectors: List [text]
-        "Optional format preferences provided by the user." format_preferences: text
-        "The draft communication artifact generated as output." draft_communication_artifact: text
-        "The set of sources or evidence generated as output." source_evidence_set: List [text]
-        "A short log of assumptions for unresolved items." assumptions_log: text
-        "The completion status of the process." completion_status: boolean
-        "Approved source recipes for retrieving sources." approved_source_recipes: List [text]
-        "The sources retrieved during the process." retrieved_sources: List [text]
-        "Provenance information for externally sourced facts." provenance_data: text
-        "The type of communication determined from the user request." communication_type: text
-        "The fields identified as missing during the process." missing_fields: List [text]
-        "The clarifying questions generated to move forward." clarifying_questions: List [text]
-        "Structured result for st_norm_1." child_dc_2_result: ChildDc2Result
-        "Structured result for st_norm_2." child_dc_1_result: ChildDc1Result
+        "A user request" user_request: text
+        "Optional known topics (LLM note: Known topics to guide source gathering)" known_topics: List [text]
+        "Optional timeframe" timeframe: text
+        "Available connectors or source repositories (LLM note: Connectors or repositories used for source gathering)" connectors_or_source_repositories: List [text]
+        "Optional format preferences" format_preferences: text
+        "A draft communication artifact" draft_communication_artifact: text
+        "A source/evidence set (LLM note: Set of evidence gathered from sources)" source_evidence_set: text
+        "A short assumptions log for any unresolved items" assumptions_log: List [text]
+        "A completion status" completion_status: text
+        "Flag indicating whether enough required information is available to produce a draft" enough_required_information: boolean
     [END_VARIABLES]
-    [DEFINE_TYPES:]
-        ChildDc2Result = { communication_type: text, missing_fields: List [text], clarifying_questions: List [text] }
-        ChildDc1Result = { retrieved_sources: List [text], provenance_data: text }
-    [END_TYPES]
-    [DEFINE_WORKER: "Source retrieval and provenance maintenance can be modularized as a subtask." child_dc_1]
+    [DEFINE_WORKER: "Handles the retrieval of sources using approved recipes and ensures provenance for externally sourced facts." SourceGatheringWorker]
         [INPUTS]
-            OPTIONAL <REF>available_connectors</REF>
+            REQUIRED <REF>connectors_or_source_repositories</REF>
+            OPTIONAL <REF>known_topics</REF>
         [END_INPUTS]
         [OUTPUTS]
-            REQUIRED <REF>child_dc_1_result</REF>
+            REQUIRED <REF>source_evidence_set</REF>
         [END_OUTPUTS]
         [MAIN_FLOW]
             [SEQUENTIAL_BLOCK]
-                COMMAND-1 [COMMAND Source retrieval and provenance maintenance can be modularized as a subtask based on <REF>available_connectors</REF> RESULT child_dc_1_result: ChildDc1Result SET]
+                COMMAND-1 [COMMAND If sources are needed and available based on <REF>connectors_or_source_repositories</REF> and <REF>known_topics</REF> RESULT source_evidence_set: text SET]
             [END_SEQUENTIAL_BLOCK]
         [END_MAIN_FLOW]
     [END_WORKER]
-    [DEFINE_WORKER: "Determining communication type, identifying missing fields, and asking clarifying questions form a cohesive subtask." child_dc_2]
+    [DEFINE_WORKER: "Handles the end-to-end process of creating internal communication artifacts based on user requests and constraints." MainWorker]
         [INPUTS]
             REQUIRED <REF>user_request</REF>
             OPTIONAL <REF>known_topics</REF>
             OPTIONAL <REF>timeframe</REF>
-        [END_INPUTS]
-        [OUTPUTS]
-            REQUIRED <REF>child_dc_2_result</REF>
-        [END_OUTPUTS]
-        [MAIN_FLOW]
-            [SEQUENTIAL_BLOCK]
-                COMMAND-2 [COMMAND Determining communication type, identifying missing fields, and asking clarifying questions form a cohesive subtask based on <REF>user_request</REF>, <REF>known_topics</REF>, and <REF>timeframe</REF> RESULT child_dc_2_result: ChildDc2Result SET]
-            [END_SEQUENTIAL_BLOCK]
-        [END_MAIN_FLOW]
-    [END_WORKER]
-    [DEFINE_WORKER: "Main worker" MainWorker]
-        [INPUTS]
-            REQUIRED <REF>user_request</REF>
-            OPTIONAL <REF>known_topics</REF>
-            OPTIONAL <REF>timeframe</REF>
-            OPTIONAL <REF>available_connectors</REF>
+            OPTIONAL <REF>connectors_or_source_repositories</REF>
             OPTIONAL <REF>format_preferences</REF>
         [END_INPUTS]
         [OUTPUTS]
@@ -80,34 +59,20 @@
         [END_OUTPUTS]
         [MAIN_FLOW]
             [SEQUENTIAL_BLOCK]
-                COMMAND-3 [INVOKE child_dc_2 WITH <REF>user_request</REF>, <REF>known_topics</REF>, <REF>timeframe</REF> RESPONSE child_dc_2_result: ChildDc2Result SET]
-                COMMAND-4 [COMMAND Extract communication_type from child_dc_2_result based on <REF>child_dc_2_result</REF> RESULT communication_type: text SET]
-                COMMAND-5 [COMMAND Extract missing_fields from child_dc_2_result based on <REF>child_dc_2_result</REF> RESULT missing_fields: List [text] SET]
-                COMMAND-6 [COMMAND Extract clarifying_questions from child_dc_2_result based on <REF>child_dc_2_result</REF> RESULT clarifying_questions: List [text] SET]
+                COMMAND-2 [COMMAND Determine what kind of communication is requested based on <REF>user_request</REF>]
+                COMMAND-3 [COMMAND Identify which required fields are still missing based on <REF>user_request</REF>]
+                COMMAND-4 [DISPLAY Ask the highest-value clarifying questions needed to move forward]
+                COMMAND-5 [INVOKE SourceGatheringWorker WITH <REF>connectors_or_source_repositories</REF>, <REF>known_topics</REF> RESPONSE source_evidence_set: text SET]
             [END_SEQUENTIAL_BLOCK]
-            DECISION-1 [IF sources are needed and available]
-                COMMAND-7 [INVOKE child_dc_1 WITH <REF>available_connectors</REF> RESPONSE child_dc_1_result: ChildDc1Result SET]
-                COMMAND-8 [COMMAND Extract retrieved_sources from child_dc_1_result based on <REF>child_dc_1_result</REF> RESULT retrieved_sources: List [text] SET]
-                COMMAND-9 [COMMAND Extract provenance_data from child_dc_1_result based on <REF>child_dc_1_result</REF> RESULT provenance_data: text SET]
+            DECISION-1 [IF enough required information is available]
+                COMMAND-6 [COMMAND Produce the draft communication artifact based on <REF>user_request</REF>, <REF>format_preferences</REF>, and <REF>enough_required_information</REF> RESULT draft_communication_artifact: text SET]
             [END_IF]
             [SEQUENTIAL_BLOCK]
-                COMMAND-10 [COMMAND Produce a draft communication artifact based on <REF>communication_type</REF>, <REF>missing_fields</REF>, <REF>clarifying_questions</REF>, and <REF>provenance_data</REF> RESULT draft_communication_artifact: text SET]
+                COMMAND-7 [COMMAND Revise the draft while rechecking constraints based on <REF>draft_communication_artifact</REF> and <REF>user_request</REF> RESULT <REF>draft_communication_artifact</REF> SET]
             [END_SEQUENTIAL_BLOCK]
-            DECISION-2 [IF the user asks for revision]
-                COMMAND-11 [COMMAND Revise the draft while rechecking constraints based on <REF>draft_communication_artifact</REF> RESULT <REF>draft_communication_artifact</REF> SET]
-            [END_IF]
-            DECISION-3 [WHILE required slots remain missing and the draft is not explicitly marked as assumption-bearing with user confirmation]
-                COMMAND-12 [COMMAND Finalize the draft if required slots are resolved or marked as assumption-bearing and confirmed by the user based on <REF>draft_communication_artifact</REF> and <REF>missing_fields</REF> RESULT completion_status: boolean SET]
+            DECISION-2 [WHILE required slots remain missing and the draft is not explicitly marked as assumption-bearing with user confirmation]
+                COMMAND-8 [COMMAND Do not finalize unless the draft is marked as assumption-bearing and the user confirms based on <REF>draft_communication_artifact</REF> and <REF>assumptions_log</REF> RESULT completion_status: text SET]
             [END_WHILE]
-            [SEQUENTIAL_BLOCK]
-                COMMAND-13 [COMMAND Produce the source evidence set for normal completion based on <REF>retrieved_sources</REF> RESULT source_evidence_set: List [text] SET]
-                COMMAND-14 [COMMAND Record assumptions for unresolved items based on <REF>draft_communication_artifact</REF> and <REF>completion_status</REF> RESULT assumptions_log: text SET]
-            [END_SEQUENTIAL_BLOCK]
         [END_MAIN_FLOW]
-        [EXCEPTION_FLOW: Failure handling: Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure]
-            [SEQUENTIAL_BLOCK]
-                COMMAND-15 [COMMAND Handle failure scenarios such as missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure based on <REF>timeframe</REF>, <REF>approved_source_recipes</REF>, <REF>retrieved_sources</REF>, and <REF>provenance_data</REF>]
-            [END_SEQUENTIAL_BLOCK]
-        [END_EXCEPTION_FLOW]
     [END_WORKER]
 [END_AGENT]

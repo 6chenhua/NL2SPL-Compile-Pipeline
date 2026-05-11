@@ -17,6 +17,25 @@ from nl2spl.ir.span_ir import AmbiguityInfo, SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable, VariableSymbol
 from nl2spl.ir.worker_ir import FlowRef, WorkerIR
+from nl2spl.ir.worker_plan_ir import (
+    BoundaryKind,
+    CandidateTaskUnitIR,
+    ContractFieldIR,
+    ControlComplexityRegionIR,
+    HandoffFailurePolicyIR,
+    InputBindingIR,
+    InvokeLocationHintIR,
+    OutputBindingIR,
+    Risk,
+    Signal,
+    WorkerBlockPlanIR,
+    WorkerBoundaryDecisionIR,
+    WorkerFlowPlanIR,
+    WorkerHandoffIR,
+    WorkerPlanIR,
+    WorkerScopedFlowIR,
+    WorkerSpecIR,
+)
 
 __all__ = [
     "SpanIR",
@@ -42,4 +61,21 @@ __all__ = [
     "StepIR",
     "WorkerIR",
     "FlowRef",
+    "BoundaryKind",
+    "Signal",
+    "Risk",
+    "ContractFieldIR",
+    "CandidateTaskUnitIR",
+    "ControlComplexityRegionIR",
+    "WorkerBoundaryDecisionIR",
+    "WorkerSpecIR",
+    "InputBindingIR",
+    "OutputBindingIR",
+    "InvokeLocationHintIR",
+    "HandoffFailurePolicyIR",
+    "WorkerHandoffIR",
+    "WorkerPlanIR",
+    "WorkerScopedFlowIR",
+    "WorkerFlowPlanIR",
+    "WorkerBlockPlanIR",
 ]

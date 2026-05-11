@@ -9,6 +9,7 @@ STAGE_PROMPT_FILES = {
     "stage1": PROMPTS_DIR / "stage1_system.txt",
     "stage2": PROMPTS_DIR / "stage2_system.txt",
     "stage3": PROMPTS_DIR / "stage3_system.txt",
+    "stage3_5": PROMPTS_DIR / "stage3_5_system.txt",
     "stage4": PROMPTS_DIR / "stage4_system.txt",
     "stage5": PROMPTS_DIR / "stage5_system.txt",
     "stage6": PROMPTS_DIR / "stage6_system.txt",
