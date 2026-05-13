@@ -148,6 +148,22 @@ class PipelineOrchestrator:
             intermediate["stage3_5_worker_plan"] = worker_plan
             intermediate["stage3_6_worker_plan_validation"] = worker_validation
 
+            # 防御性修复：确保所有 span 都被分配给至少一个 worker。
+            # Stage 3.5 LLM 偶尔会漏掉 behavior span（observed: s18-s24, s37）。
+            all_span_ids = {span.span_id for span in resolved_spans}
+            assigned_ids: set[str] = set()
+            for w in worker_plan.workers:
+                assigned_ids.update(w.owned_span_ids)
+            unassigned = all_span_ids - assigned_ids
+            if unassigned:
+                main_worker = worker_plan.main_worker
+                main_worker.owned_span_ids.extend(sorted(unassigned, key=lambda sid: int(sid[1:])))
+                self.logger.warning(
+                    "Stage 3.5 left %d spans unassigned; reassigning to main worker %s: %s",
+                    len(unassigned), main_worker.worker_id,
+                    sorted(unassigned, key=lambda sid: int(sid[1:])),
+                )
+
         # Stage 4: Flow Assembly
         self.logger.info("Stage 4: Flow Assembly")
         worker_flow_plan: WorkerFlowPlanIR | None = None

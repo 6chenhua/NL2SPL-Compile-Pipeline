@@ -55,19 +55,37 @@ owned_span_ids simultaneously.
 
 ### Self-check before finalizing output
 
-Before writing the final JSON, verify:
+**This is the most important part of your task. Run every check. Each check
+is mandatory.**
 
-  For every span_id that appears in any child worker's owned_span_ids:
-    - It must NOT appear in worker_main's owned_span_ids
-    - It must NOT appear in any other child worker's owned_span_ids
+**Check 1 — 100% ownership of ALL behavior spans (MANDATORY)**
 
-  For every span_id that appears in worker_main's owned_span_ids:
-    - It must NOT appear in any child worker's owned_span_ids
+Count how many behavior span_ids were in the input. Count how many unique
+span_ids appear in the union of all workers[].owned_span_ids. These two
+numbers MUST be equal. If they are not equal, you have a bug — fix it
+before writing any JSON.
 
-  The union of all workers' owned_span_ids must equal the complete set
-  of input behavior span_ids, with no span appearing more than once.
+The `unassigned_span_ids` field in the output MUST contain every behavior
+span_id that is NOT assigned to any worker. If a span was missed, list it
+there — do NOT claim `unassigned_span_ids: []` when spans are missing.
 
-If you find a conflict, resolve it by applying the priority order above.
+**Check 2 — Mutual exclusivity (MANDATORY)**
+
+For every span_id that appears in any child worker's owned_span_ids:
+  - It must NOT appear in worker_main's owned_span_ids
+  - It must NOT appear in any other child worker's owned_span_ids
+
+For every span_id that appears in worker_main's owned_span_ids:
+  - It must NOT appear in any child worker's owned_span_ids
+
+**Check 3 — Main worker owns everything not explicitly delegated (MANDATORY)**
+
+Any span that is NOT explicitly assigned to a child worker or listed as
+unassigned MUST be in worker_main.owned_span_ids. The main worker is the
+default owner of all behavior spans.
+
+If you find a conflict in any check, resolve it by applying the priority
+order above.
 
 ---
 
@@ -181,8 +199,12 @@ Return JSON only. No markdown, no explanation outside the JSON.
 
 **You MUST use only the allowed values listed below for every enum field.
 Do NOT invent, abbreviate, or paraphrase any enum value.**
-**Every span_id must appear in exactly one worker's owned_span_ids.
-Run the self-check above before writing any JSON.**
+
+**CRITICAL — Span coverage is your highest priority output constraint:**
+Every behavior span_id from the input MUST appear in exactly one worker's
+owned_span_ids. Before writing any JSON, count the input spans and count
+the assigned spans across all workers. If the counts don't match, you have
+a bug — fix it. Run the mandatory self-checks above before writing JSON.**
 
 ### Allowed Values Reference
 
