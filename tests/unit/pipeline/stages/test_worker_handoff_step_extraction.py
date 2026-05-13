@@ -9,7 +9,7 @@ import pytest
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
-from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
@@ -79,7 +79,17 @@ def test_handoff_produces_concrete_invoke_worker(
         SpanIR("s2", "Gather source evidence."),
     ]
     routes = FieldRouteIR(behavior=["s1", "s2"])
-    flow = FlowStructureIR(main_flow_spans=["s1"])
+    flow = FlowStructureIR(
+        main_flow_spans=["s1"],
+        delegation_candidates=[
+            DelegationCandidate(
+                "dc_child",
+                ["s2"],
+                "Legacy child candidate must not reach Stage 7 prompt.",
+                "child_worker",
+            )
+        ],
+    )
     blocks = BlockStructureIR([BlockIR("b1", "IF", "sources are needed", ["s1"])])
     symbols = SymbolTable()
     symbols.declare("user_request", "text", "input", "User request")
@@ -100,6 +110,8 @@ def test_handoff_produces_concrete_invoke_worker(
     user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
     assert "s1" in user_prompt
     assert "s2" not in user_prompt
+    assert "delegation_candidates" in user_prompt
+    assert "dc_child" not in user_prompt
 
 
 def test_stage7_rejects_legacy_main_view_with_child_owned_span(
