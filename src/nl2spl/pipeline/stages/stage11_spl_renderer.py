@@ -22,6 +22,13 @@ class SPLRenderer:
     This stage renders WorkerIR into SPL text format.
     """
 
+    def __init__(self) -> None:
+        """Initialize renderer state."""
+        self._command_index: int = 1
+        self._decision_index: int = 1
+        self._produced_variables: set[str] = set()
+        self._result_data_types: dict[str, str] = {}
+
     def render(
         self,
         worker: WorkerIR,
@@ -235,36 +242,76 @@ class SPLRenderer:
         return spl_text, errors, warnings
 
     def _render_child_worker(self, worker: ChildWorkerIR) -> list[str]:
-        """Render a concrete child worker generated from delegation."""
+        """Render child worker with full flow support.
+
+        Uses worker.main_flow.blocks and worker.steps for rendering,
+        instead of the synthetic st_child approach.
+        """
         lines = [f'[DEFINE_WORKER: "{self._quote_text(worker.description)}" {worker.worker_name}]']
         previous_produced = self._produced_variables
         self._produced_variables = {inp.name for inp in worker.inputs}
 
+        # INPUTS
         lines.append("    [INPUTS]")
         for inp in worker.inputs:
             req = "REQUIRED" if inp.required else "OPTIONAL"
             lines.append(f"        {req} <REF>{inp.name}</REF>")
         lines.append("    [END_INPUTS]")
 
+        # OUTPUTS
         lines.append("    [OUTPUTS]")
         for out in worker.outputs:
             req = "REQUIRED" if out.required else "OPTIONAL"
             lines.append(f"        {req} <REF>{out.name}</REF>")
         lines.append("    [END_OUTPUTS]")
 
+        # MAIN_FLOW - use actual blocks and steps
         lines.append("    [MAIN_FLOW]")
-        lines.append("        [SEQUENTIAL_BLOCK]")
-        child_step = StepIR(
-            step_id="st_child",
-            text=worker.task_text,
-            source_span_ids=[],
-            command_type="GENERAL_COMMAND",
-            inputs=[inp.name for inp in worker.inputs],
-            outputs=[out.name for out in worker.outputs],
-        )
-        lines.append(f"            {self._render_step(child_step)}")
-        lines.append("        [END_SEQUENTIAL_BLOCK]")
+        if worker.main_flow.blocks:
+            lines.extend(self._render_blocks(worker.main_flow.blocks, worker.steps, indent=8))
+        else:
+            # Fallback: render task_text as single step if no blocks
+            child_step = StepIR(
+                step_id="st_child",
+                text=worker.task_text,
+                source_span_ids=[],
+                command_type="GENERAL_COMMAND",
+                inputs=[inp.name for inp in worker.inputs],
+                outputs=[out.name for out in worker.outputs],
+            )
+            lines.append("        [SEQUENTIAL_BLOCK]")
+            lines.append(f"            {self._render_step(child_step)}")
+            lines.append("        [END_SEQUENTIAL_BLOCK]")
         lines.append("    [END_MAIN_FLOW]")
+
+        # ALTERNATIVE_FLOWs
+        for alt_flow in worker.alternative_flows:
+            condition = self._render_condition(alt_flow.condition_text)
+            lines.append(f"    [ALTERNATIVE_FLOW: {condition}]")
+            lines.extend(
+                self._render_blocks(
+                    alt_flow.blocks,
+                    worker.steps,
+                    indent=8,
+                    outer_condition_text=alt_flow.condition_text,
+                )
+            )
+            lines.append("    [END_ALTERNATIVE_FLOW]")
+
+        # EXCEPTION_FLOWs
+        for exc_flow in worker.exception_flows:
+            condition = self._render_condition(exc_flow.condition_text)
+            lines.append(f"    [EXCEPTION_FLOW: {condition}]")
+            lines.extend(
+                self._render_blocks(
+                    exc_flow.blocks,
+                    worker.steps,
+                    indent=8,
+                    outer_condition_text=exc_flow.condition_text,
+                )
+            )
+            lines.append("    [END_EXCEPTION_FLOW]")
+
         lines.append("[END_WORKER]")
         self._produced_variables = previous_produced
         return lines
@@ -567,7 +614,7 @@ class SPLRenderer:
             declarations.append((var.name, var.data_type, var.description))
             seen.add(var.name)
 
-        for var in symbol_table.variables.values():
+        for var in symbol_table.get_all_declared_variables().values():
             if var.name in seen:
                 continue
             declarations.append((var.name, var.data_type, var.description))
@@ -582,7 +629,7 @@ class SPLRenderer:
     ) -> dict[str, str]:
         """Return data types for result declarations."""
         data_types = {var.name: var.data_type for var in resources.variables}
-        for var in symbol_table.variables.values():
+        for var in symbol_table.get_all_declared_variables().values():
             data_types.setdefault(var.name, var.data_type)
         return data_types
 

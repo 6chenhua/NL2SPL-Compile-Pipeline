@@ -16,7 +16,14 @@ from nl2spl.ir.worker_ir import (
     WorkerIR,
     WorkerOutput,
 )
-from nl2spl.ir.worker_plan_ir import ContractFieldIR, WorkerPlanIR, WorkerSpecIR
+from nl2spl.ir.worker_plan_ir import (
+    ContractFieldIR,
+    WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
+    WorkerPlanIR,
+    WorkerSpecIR,
+    WorkerStepPlanIR,
+)
 
 
 class WorkerAssembler:
@@ -250,3 +257,194 @@ class WorkerAssembler:
             if variable.name == variable_name:
                 return variable.required
         return True
+
+    def assemble_from_worker_scoped(
+        self,
+        worker_step_plan: WorkerStepPlanIR,
+        resources: ResourceRegistryIR,
+        symbol_table: SymbolTable,
+        worker_plan: WorkerPlanIR,
+        worker_flow_plan: WorkerFlowPlanIR | None = None,
+        worker_block_plan: WorkerBlockPlanIR | None = None,
+    ) -> WorkerIR:
+        """Assemble WorkerIR from worker-scoped data.
+
+        Directly consumes worker_step_plan instead of delegation_candidates.
+
+        Args:
+            worker_step_plan: Steps grouped by worker_id
+            resources: Resource registry IR
+            symbol_table: Symbol table
+            worker_plan: Worker boundary plan
+            worker_flow_plan: Optional flow structure per worker
+            worker_block_plan: Optional block structure per worker
+
+        Returns:
+            WorkerIR with full child worker support
+        """
+        main_spec = self._main_worker_spec(worker_plan)
+        worker_by_id = {w.worker_id: w for w in worker_plan.workers}
+
+        # 1. Build inputs/outputs from contract
+        inputs = (
+            self._inputs_from_contract(main_spec.input_contract)
+            if main_spec is not None
+            else [WorkerInput(name=v.name, required=v.required) for v in resources.variables if v.source == "input"]
+        )
+        outputs = (
+            self._outputs_from_contract(main_spec.output_contract)
+            if main_spec is not None
+            else [WorkerOutput(name=v.name, required=v.required) for v in resources.variables if v.source == "output"]
+        )
+
+        # 2. Build main flow from worker-scoped blocks
+        main_worker_id = worker_plan.main_worker_id
+        main_blocks = (
+            worker_block_plan.worker_blocks[main_worker_id].main_flow_blocks
+            if worker_block_plan and main_worker_id in worker_block_plan.worker_blocks
+            else []
+        )
+        main_flow = FlowRef(blocks=main_blocks)
+
+        # 3. Build alternative/exception flows for main worker
+        main_flow_structure = (
+            worker_flow_plan.worker_flows[main_worker_id]
+            if worker_flow_plan and main_worker_id in worker_flow_plan.worker_flows
+            else None
+        )
+        main_block_structure = (
+            worker_block_plan.worker_blocks[main_worker_id]
+            if worker_block_plan and main_worker_id in worker_block_plan.worker_blocks
+            else None
+        )
+
+        alternative_flows: list[AlternativeFlowRef] = []
+        if main_flow_structure and main_block_structure:
+            for alt_flow in main_flow_structure.alternative_flows:
+                alt_blocks = main_block_structure.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                alternative_flows.append(
+                    AlternativeFlowRef(
+                        flow_id=alt_flow.flow_id,
+                        condition_text=alt_flow.condition_text,
+                        blocks=alt_blocks,
+                    )
+                )
+
+        exception_flows: list[ExceptionFlowRef] = []
+        if main_flow_structure and main_block_structure:
+            for exc_flow in main_flow_structure.exception_flows:
+                exc_blocks = main_block_structure.exception_flow_blocks.get(exc_flow.flow_id, [])
+                exception_flows.append(
+                    ExceptionFlowRef(
+                        flow_id=exc_flow.flow_id,
+                        condition_text=exc_flow.condition_text,
+                        blocks=exc_blocks,
+                    )
+                )
+
+        # 4. Build API refs from main worker steps
+        main_steps = worker_step_plan.main_worker_steps
+        api_refs = list({s.integration_ref for s in main_steps if s.command_type == "CALL_API" and s.integration_ref})
+
+        # 5. Build child workers
+        child_worker_refs: list[str] = []
+        child_workers: list[ChildWorkerIR] = []
+        main_steps = worker_step_plan.main_worker_steps
+        for worker_id, spec in worker_by_id.items():
+            if worker_id == main_worker_id or spec.kind == "main":
+                continue
+            # Only include workers that have steps (i.e., actually invoked)
+            if worker_id not in worker_step_plan.worker_steps:
+                continue
+            child_steps = worker_step_plan.worker_steps[worker_id]
+            child_flow = worker_flow_plan.worker_flows.get(worker_id) if worker_flow_plan else None
+            child_blocks = worker_block_plan.worker_blocks.get(worker_id) if worker_block_plan else None
+            # Find invoke step text (matching legacy behavior)
+            invoke_step = self._find_invoke_step_by_worker_name(main_steps, spec.worker_name)
+            invoke_text = invoke_step.text if invoke_step else None
+            child = self._build_child_worker(spec, child_steps, child_flow, child_blocks, invoke_text)
+            child_worker_refs.append(child.worker_name)
+            child_workers.append(child)
+
+        # 6. Build WorkerIR
+        return WorkerIR(
+            worker_name=main_spec.worker_name if main_spec is not None else "MainWorker",
+            description=main_spec.purpose if main_spec is not None else "Main worker",
+            inputs=inputs,
+            outputs=outputs,
+            main_flow=main_flow,
+            alternative_flows=alternative_flows,
+            exception_flows=exception_flows,
+            api_refs=api_refs,
+            child_worker_refs=child_worker_refs,
+            child_workers=child_workers,
+        )
+
+    def _build_child_worker(
+        self,
+        worker: WorkerSpecIR,
+        steps: list[StepIR],
+        flow: FlowStructureIR | None,
+        blocks: BlockStructureIR | None,
+        invoke_text: str | None = None,
+    ) -> ChildWorkerIR:
+        """Build a ChildWorkerIR with full flow and steps support.
+
+        Args:
+            worker: Worker specification
+            steps: Child worker steps
+            flow: Child worker flow structure (if available)
+            blocks: Child worker block structure (if available)
+            invoke_text: Invoke step text (if available), used as task_text
+
+        Returns:
+            ChildWorkerIR with complete flow information
+        """
+        # Build main flow
+        main_flow = FlowRef(blocks=blocks.main_flow_blocks if blocks else [])
+
+        # Build alternative flows
+        alternative_flows: list[AlternativeFlowRef] = []
+        if flow and blocks:
+            for alt_flow in flow.alternative_flows:
+                alt_blocks = blocks.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                alternative_flows.append(
+                    AlternativeFlowRef(
+                        flow_id=alt_flow.flow_id,
+                        condition_text=alt_flow.condition_text,
+                        blocks=alt_blocks,
+                    )
+                )
+
+        # Build exception flows
+        exception_flows: list[ExceptionFlowRef] = []
+        if flow and blocks:
+            for exc_flow in flow.exception_flows:
+                exc_blocks = blocks.exception_flow_blocks.get(exc_flow.flow_id, [])
+                exception_flows.append(
+                    ExceptionFlowRef(
+                        flow_id=exc_flow.flow_id,
+                        condition_text=exc_flow.condition_text,
+                        blocks=exc_blocks,
+                    )
+                )
+
+        # Collect API refs from steps
+        api_refs = list({s.integration_ref for s in steps if s.command_type == "CALL_API" and s.integration_ref})
+
+        # Use invoke step text if available (matches legacy behavior),
+        # otherwise fall back to worker purpose or reason
+        task_text = invoke_text or worker.purpose or worker.reason
+
+        return ChildWorkerIR(
+            worker_name=worker.worker_name,
+            description=worker.purpose or worker.reason,
+            task_text=task_text,
+            inputs=self._inputs_from_contract(worker.input_contract),
+            outputs=self._outputs_from_contract(worker.output_contract),
+            main_flow=main_flow,
+            alternative_flows=alternative_flows,
+            exception_flows=exception_flows,
+            api_refs=api_refs,
+            steps=steps,
+        )
