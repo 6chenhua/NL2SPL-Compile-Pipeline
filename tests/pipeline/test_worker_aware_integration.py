@@ -580,9 +580,8 @@ def test_worker_aware_path_stores_all_intermediate_results(tmp_path: Path) -> No
     assert "stage9_5_normalization" in intermediates
     assert "stage10_worker" in intermediates
 
-    # Legacy adapter records still present (D6: coexistence)
-    assert "stage4_legacy_flow_adapter" in intermediates
-    assert "stage5_legacy_block_adapter" in intermediates
+    # T3: Worker-aware 路径不再产生 adapter intermediate records。
+    # D6 保留 adapter 代码和 legacy path，但 worker-aware path 独立运作。
 
     # Verify types
     assert isinstance(intermediates["stage3_5_worker_plan"], WorkerPlanIR)

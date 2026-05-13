@@ -225,8 +225,8 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
 
     assert result.intermediate_results["stage4_worker_flows"] is flow_plan
     assert result.intermediate_results["stage5_worker_blocks"] is block_plan
-    assert "stage4_legacy_flow_adapter" in result.intermediate_results
-    assert "stage5_legacy_block_adapter" in result.intermediate_results
+    # T3: Worker-aware 路径不再产生 adapter intermediate records
+    # (stage4_flow/stage5_blocks 保留空结构用于 Stage 9 接口兼容)
     assert result.intermediate_results["stage6_worker_scoped_resources"] is worker_scoped_resources
     assert result.intermediate_results["stage6_resources"] is worker_scoped_resources.global_resources
 

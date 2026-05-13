@@ -39,10 +39,6 @@ from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
-from nl2spl.pipeline.worker_plan_adapter import (
-    worker_block_plan_to_legacy_main_blocks,
-    worker_flow_plan_to_legacy_main_flow,
-)
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
 from nl2spl.utils.persistence import save_final_spl
@@ -162,14 +158,8 @@ class PipelineOrchestrator:
             worker_flow_plan = flow_output
             worker_stage_warnings.extend(worker_flow_plan.warnings)
             intermediate["stage4_worker_flows"] = worker_flow_plan
-            flow_structure = worker_flow_plan_to_legacy_main_flow(
-                worker_flow_plan,
-                worker_plan,
-            )
-            intermediate["stage4_legacy_flow_adapter"] = {
-                "strategy": "main_worker_view_with_worker_plan_handoffs",
-                "main_worker_id": worker_plan.main_worker_id,
-            }
+            # Stage 9 compat: 创建空 FlowStructureIR（Stage 9 不使用 flow/blocks 参数）
+            flow_structure = FlowStructureIR()
         else:
             flow_structure = self._run_stage4(resolved_spans, resolved_routes)
         intermediate["stage4_flow"] = flow_structure
@@ -188,17 +178,8 @@ class PipelineOrchestrator:
             worker_block_plan = block_output
             worker_stage_warnings.extend(worker_block_plan.warnings)
             intermediate["stage5_worker_blocks"] = worker_block_plan
-            block_structure = worker_block_plan_to_legacy_main_blocks(
-                worker_block_plan,
-                worker_plan,
-            )
-            intermediate["stage5_legacy_block_adapter"] = {
-                "strategy": "main_worker_view_only",
-                "main_worker_id": worker_plan.main_worker_id,
-                "control_complexity_region_count": len(
-                    worker_block_plan.control_complexity_regions
-                ),
-            }
+            # Stage 9 compat: 创建空 BlockStructureIR（Stage 9 不使用 flow/blocks 参数）
+            block_structure = BlockStructureIR()
         else:
             block_structure = self._run_stage5(
                 resolved_spans,
