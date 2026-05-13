@@ -349,3 +349,209 @@ class TestWorkerAssemblerWorkerScoped:
         assert result.main_flow.blocks == []
         assert result.alternative_flows == []  # No blocks → no alternative flows
         assert result.exception_flows == []   # No blocks → no exception flows
+
+    def test_assemble_from_worker_scoped_child_inputs_outputs_from_contract(self):
+        """Test child worker inputs/outputs match WorkerSpecIR contracts."""
+        assembler = WorkerAssembler()
+        worker_plan = WorkerPlanIR(
+            main_worker_id="w_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="w_main",
+                    worker_name="MainWorker",
+                    kind="main",
+                    purpose="Main",
+                    input_contract=[
+                        ContractFieldIR("main_in", "text", True, "Main input", source="input"),
+                    ],
+                    output_contract=[
+                        ContractFieldIR("main_out", "text", True, "Main output", source="output"),
+                    ],
+                ),
+                WorkerSpecIR(
+                    worker_id="w_child",
+                    worker_name="ChildWorker",
+                    kind="child",
+                    purpose="Child task",
+                    input_contract=[
+                        ContractFieldIR("child_in", "object", True, "Child input", source="input"),
+                        ContractFieldIR("opt_in", "text", False, "Optional input", source="input"),
+                    ],
+                    output_contract=[
+                        ContractFieldIR("child_out", "list", True, "Child output", source="output"),
+                    ],
+                ),
+            ],
+            handoffs=[
+                WorkerHandoffIR(
+                    handoff_id="h1",
+                    from_worker="w_main",
+                    to_worker="w_child",
+                    api_ref=None,
+                    mode="invoke",
+                    condition_text=None,
+                    ordering="after",
+                ),
+            ],
+        )
+        step_plan = WorkerStepPlanIR(
+            main_worker_id="w_main",
+            worker_steps={
+                "w_main": [
+                    StepIR(
+                        step_id="st1",
+                        text="Invoke ChildWorker",
+                        source_span_ids=["s1"],
+                        command_type="INVOKE_WORKER",
+                        integration_ref="ChildWorker",
+                    ),
+                ],
+                "w_child": [
+                    StepIR(
+                        step_id="st2",
+                        text="Child step",
+                        source_span_ids=["s2"],
+                        command_type="GENERAL_COMMAND",
+                    ),
+                ],
+            },
+        )
+
+        result = assembler.assemble_from_worker_scoped(
+            step_plan, ResourceRegistryIR(), SymbolTable(), worker_plan
+        )
+
+        assert len(result.child_workers) == 1
+        child = result.child_workers[0]
+        assert child.worker_name == "ChildWorker"
+
+        # Verify inputs from contract
+        assert len(child.inputs) == 2
+        assert child.inputs[0].name == "child_in"
+        assert child.inputs[0].required is True
+        assert child.inputs[1].name == "opt_in"
+        assert child.inputs[1].required is False
+
+        # Verify outputs from contract
+        assert len(child.outputs) == 1
+        assert child.outputs[0].name == "child_out"
+        assert child.outputs[0].required is True
+
+    def test_assemble_from_worker_scoped_handoff_contract_consistency(self):
+        """Test Stage 10 child inputs/outputs consistent with WorkerSpecIR contracts.
+
+        Stage 10 uses WorkerSpecIR.input_contract/output_contract directly.
+        Stage 6 produces HandoffContractIR from handoff bindings.
+        Both should agree on the child worker's interface variables.
+        """
+        assembler = WorkerAssembler()
+        worker_plan = WorkerPlanIR(
+            main_worker_id="w_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="w_main",
+                    worker_name="MainWorker",
+                    kind="main",
+                    purpose="Main",
+                    input_contract=[
+                        ContractFieldIR("query", "text", True, "Query", source="input"),
+                    ],
+                    output_contract=[
+                        ContractFieldIR("result", "text", True, "Result", source="output"),
+                    ],
+                ),
+                WorkerSpecIR(
+                    worker_id="w_child",
+                    worker_name="ChildWorker",
+                    kind="child",
+                    purpose="Child task",
+                    input_contract=[
+                        ContractFieldIR("child_query", "text", True, "Child query", source="input"),
+                    ],
+                    output_contract=[
+                        ContractFieldIR("child_result", "object", True, "Child result", source="output"),
+                    ],
+                ),
+            ],
+            handoffs=[
+                WorkerHandoffIR(
+                    handoff_id="h1",
+                    from_worker="w_main",
+                    to_worker="w_child",
+                    api_ref=None,
+                    mode="invoke",
+                    condition_text=None,
+                    ordering="after",
+                    input_bindings=[],
+                    output_bindings=[],
+                ),
+            ],
+        )
+        step_plan = WorkerStepPlanIR(
+            main_worker_id="w_main",
+            worker_steps={
+                "w_main": [
+                    StepIR(
+                        step_id="st1",
+                        text="Invoke ChildWorker",
+                        source_span_ids=["s1"],
+                        command_type="INVOKE_WORKER",
+                        integration_ref="ChildWorker",
+                    ),
+                ],
+                "w_child": [
+                    StepIR(
+                        step_id="st2",
+                        text="Child step",
+                        source_span_ids=["s2"],
+                        command_type="GENERAL_COMMAND",
+                    ),
+                ],
+            },
+        )
+
+        result = assembler.assemble_from_worker_scoped(
+            step_plan, ResourceRegistryIR(), SymbolTable(), worker_plan
+        )
+
+        child_spec = worker_plan.workers[1]
+        child_worker = result.child_workers[0]
+        assert [i.name for i in child_worker.inputs] == [
+            f.name for f in child_spec.input_contract
+        ]
+        assert [o.name for o in child_worker.outputs] == [
+            f.name for f in child_spec.output_contract
+        ]
+
+    def test_build_child_worker_invoke_text_fallback(self):
+        """Test _build_child_worker uses invoke_text when provided."""
+        assembler = WorkerAssembler()
+        spec = WorkerSpecIR(
+            worker_id="w_child",
+            worker_name="ChildWorker",
+            kind="child",
+            purpose="Child task",
+            reason="Legacy reason",
+        )
+        steps = [
+            StepIR(step_id="st1", text="Step 1", source_span_ids=["s1"], command_type="GENERAL_COMMAND"),
+        ]
+
+        # With invoke_text, task_text should be the invoke text
+        result = assembler._build_child_worker(spec, steps, None, None, invoke_text="Invoke: ChildWorker")
+        assert result.task_text == "Invoke: ChildWorker"
+
+        # Without invoke_text, task_text should fall back to purpose
+        result = assembler._build_child_worker(spec, steps, None, None)
+        assert result.task_text == "Child task"
+
+        # Without invoke_text and purpose, fall back to reason
+        spec_no_purpose = WorkerSpecIR(
+            worker_id="w_child2",
+            worker_name="ChildWorker2",
+            kind="child",
+            purpose="",
+            reason="Legacy reason for worker",
+        )
+        result = assembler._build_child_worker(spec_no_purpose, steps, None, None)
+        assert result.task_text == "Legacy reason for worker"

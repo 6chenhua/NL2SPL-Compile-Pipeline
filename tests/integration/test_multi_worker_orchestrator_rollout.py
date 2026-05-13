@@ -338,9 +338,31 @@ def test_orchestrator_feature_flag_on_runs_worker_aware_path(tmp_path: Path) -> 
     assert "stage5_worker_blocks" in result.intermediate_results
     assert "stage4_legacy_flow_adapter" in result.intermediate_results
     assert "stage5_legacy_block_adapter" in result.intermediate_results
+    # Stage 6 worker-scoped resources verification
+    assert "stage6_worker_scoped_resources" in result.intermediate_results
+    worker_scoped_resources = result.intermediate_results["stage6_worker_scoped_resources"]
+    assert hasattr(worker_scoped_resources, "global_resources")
+    assert hasattr(worker_scoped_resources, "worker_resources")
+    assert "worker_source" in worker_scoped_resources.worker_resources
+    assert "handoff_source" in worker_scoped_resources.handoff_contracts
     assert result.spl_text.count("[DEFINE_WORKER:") == 2
     assert "[DEFINE_WORKER: \"Gather approved source evidence.\" SourceWorker]" in result.spl_text
     assert "[INVOKE SourceWorker" in result.spl_text
+
+    # Verify Stage 6 child worker prompt includes worker context and scoped spans
+    stage6_calls = [
+        (name, prompt) for name, prompt in calls if name == "stage6_resource_extractor"
+    ]
+    # Child worker prompt: has "SourceWorker" in worker context and only s3 in behavior
+    child_prompts = [
+        p for _, p in stage6_calls
+        if "SourceWorker" in p and '"span_id": "s3"' in p
+        and '"span_id": "s1"' not in p
+    ]
+    assert len(child_prompts) == 1, f"Expected one child stage6 prompt, got {len(child_prompts)}"
+    child_prompt = child_prompts[0]
+    assert "worker context" in child_prompt
+    assert "known variables" in child_prompt
 
     stage7_prompt = next(
         user_prompt for stage_name, user_prompt in calls if stage_name == "stage7_step_extractor"

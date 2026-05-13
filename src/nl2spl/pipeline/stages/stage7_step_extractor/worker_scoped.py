@@ -201,16 +201,18 @@ Worker 信息：
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
-        # 处理 new_variables
+        # 处理 new_variables — declare with worker scope
         for new_var_data in result.get("new_variables", []):
             try:
                 new_var_name = new_var_data["name"]
-                if new_var_name not in symbol_table.variables:
-                    symbol_table.declare(
+                if symbol_table.lookup(new_var_name) is None:
+                    symbol_table.declare_scoped(
                         name=new_var_name,
                         data_type=new_var_data.get("data_type", "text"),
                         source="step",
                         description=new_var_data.get("description", ""),
+                        scope_kind="worker",
+                        scope_id=worker.worker_id,
                     )
             except (KeyError, TypeError) as e:
                 self.logger.warning("Skipping invalid new variable: %s", e)
@@ -256,10 +258,11 @@ Worker 信息：
         for field in worker.output_contract:
             variables[field.name] = f"[output] {field.data_type}: {field.description}"
 
-        # 3. Global variables（Phase 1 暂用全局，Phase 2 再 scoped）
-        for name, var in symbol_table.variables.items():
+        # 3. Scoped variables visible to this worker
+        for name, var in symbol_table.get_variables_for_worker(worker.worker_id).items():
             if name not in variables:
-                variables[name] = f"[global] {var.data_type}: {var.description}"
+                scope_tag = var.scope_kind if var.scope_kind != "global" else "global"
+                variables[name] = f"[{scope_tag}] {var.data_type}: {var.description}"
 
         return variables
 

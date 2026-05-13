@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
@@ -24,6 +26,8 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WorkerAssembler:
@@ -282,6 +286,14 @@ class WorkerAssembler:
         Returns:
             WorkerIR with full child worker support
         """
+        # Worker-aware path must provide flow and block plans for child worker
+        # flow/steps to be assembled correctly.
+        if worker_flow_plan is None or worker_block_plan is None:
+            logger.warning(
+                "assemble_from_worker_scoped called without worker_flow_plan or "
+                "worker_block_plan; child worker flow/blocks will be incomplete"
+            )
+
         main_spec = self._main_worker_spec(worker_plan)
         worker_by_id = {w.worker_id: w for w in worker_plan.workers}
 
@@ -319,9 +331,13 @@ class WorkerAssembler:
         )
 
         alternative_flows: list[AlternativeFlowRef] = []
-        if main_flow_structure and main_block_structure:
+        if main_flow_structure:
             for alt_flow in main_flow_structure.alternative_flows:
-                alt_blocks = main_block_structure.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                alt_blocks = (
+                    main_block_structure.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                    if main_block_structure
+                    else []
+                )
                 alternative_flows.append(
                     AlternativeFlowRef(
                         flow_id=alt_flow.flow_id,
@@ -331,9 +347,13 @@ class WorkerAssembler:
                 )
 
         exception_flows: list[ExceptionFlowRef] = []
-        if main_flow_structure and main_block_structure:
+        if main_flow_structure:
             for exc_flow in main_flow_structure.exception_flows:
-                exc_blocks = main_block_structure.exception_flow_blocks.get(exc_flow.flow_id, [])
+                exc_blocks = (
+                    main_block_structure.exception_flow_blocks.get(exc_flow.flow_id, [])
+                    if main_block_structure
+                    else []
+                )
                 exception_flows.append(
                     ExceptionFlowRef(
                         flow_id=exc_flow.flow_id,
@@ -403,11 +423,17 @@ class WorkerAssembler:
         # Build main flow
         main_flow = FlowRef(blocks=blocks.main_flow_blocks if blocks else [])
 
-        # Build alternative flows
+        # Build alternative flows — only flow is required; blocks are optional.
+        # Condition text is known structured information even when handler blocks
+        # are absent (partial SPL principle).
         alternative_flows: list[AlternativeFlowRef] = []
-        if flow and blocks:
+        if flow:
             for alt_flow in flow.alternative_flows:
-                alt_blocks = blocks.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                alt_blocks = (
+                    blocks.alternative_flow_blocks.get(alt_flow.flow_id, [])
+                    if blocks
+                    else []
+                )
                 alternative_flows.append(
                     AlternativeFlowRef(
                         flow_id=alt_flow.flow_id,
@@ -416,11 +442,16 @@ class WorkerAssembler:
                     )
                 )
 
-        # Build exception flows
+        # Build exception flows — same principle: structure known conditions,
+        # leave handler empty when missing.
         exception_flows: list[ExceptionFlowRef] = []
-        if flow and blocks:
+        if flow:
             for exc_flow in flow.exception_flows:
-                exc_blocks = blocks.exception_flow_blocks.get(exc_flow.flow_id, [])
+                exc_blocks = (
+                    blocks.exception_flow_blocks.get(exc_flow.flow_id, [])
+                    if blocks
+                    else []
+                )
                 exception_flows.append(
                     ExceptionFlowRef(
                         flow_id=exc_flow.flow_id,
@@ -435,6 +466,31 @@ class WorkerAssembler:
         # Use invoke step text if available (matches legacy behavior),
         # otherwise fall back to worker purpose or reason
         task_text = invoke_text or worker.purpose or worker.reason
+
+        # Validate block-step consistency: each block must have at least one
+        # matching step (via source_span_ids or block_ref), otherwise the
+        # renderer will produce an empty block.
+        step_span_ids: dict[str, list[StepIR]] = {}
+        step_block_refs: dict[str, list[StepIR]] = {}
+        for s in steps:
+            for sid in s.source_span_ids:
+                step_span_ids.setdefault(sid, []).append(s)
+            if s.block_ref:
+                step_block_refs.setdefault(s.block_ref, []).append(s)
+
+        for block in (blocks.main_flow_blocks if blocks else []):
+            has_match = any(
+                span_id in step_span_ids for span_id in block.spans
+            ) or block.block_id in step_block_refs
+            if not has_match:
+                logger.warning(
+                    "Child worker %s block %s has no matching steps "
+                    "(spans=%s, block_refs=%s)",
+                    worker.worker_name,
+                    block.block_id,
+                    block.spans,
+                    list(step_block_refs.keys()),
+                )
 
         return ChildWorkerIR(
             worker_name=worker.worker_name,
