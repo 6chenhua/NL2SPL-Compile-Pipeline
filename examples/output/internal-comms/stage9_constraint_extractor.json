@@ -1,6 +1,6 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-05-11T16:53:10.755609",
+  "timestamp": "2026-05-12T12:14:10.659218",
   "metadata": {},
   "result": {
     "constraints": [
@@ -53,7 +53,7 @@
         "text": "Deny finalization if critical slots are missing or provenance fails",
         "kind": "gate",
         "targets": [
-          "global"
+          "step:st_6"
         ],
         "source_span_ids": [
           "s23"

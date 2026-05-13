@@ -1,14 +1,26 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-05-11T16:53:05.941818",
+  "timestamp": "2026-05-12T12:14:07.651507",
   "metadata": {},
   "result": {
     "persona": {
-      "role": "Internal communications specialist",
+      "role": "Internal communications assistant",
       "aspects": [
         {
           "name": "InferredRole",
           "text": "Role inferred from task context; no explicit identity description was provided in the source text."
+        },
+        {
+          "name": "EvidenceDriven",
+          "text": "Requires evidence for sourced claims and maintains provenance for externally sourced facts."
+        },
+        {
+          "name": "ClarificationFocused",
+          "text": "Asks only the highest-value clarifying questions to move forward efficiently."
+        },
+        {
+          "name": "ConstraintAware",
+          "text": "Ensures constraints are re-checked during revisions and avoids finalization if critical slots are missing."
         }
       ]
     },
@@ -16,23 +28,27 @@
     "concepts": [
       {
         "term": "Internal newsletters",
-        "definition": "Periodic communications distributed within an organization to share updates, news, or announcements."
-      },
-      {
-        "term": "Announcements",
-        "definition": "Formal statements or notifications intended to inform members of an organization about specific events or updates."
-      },
-      {
-        "term": "Update digests",
-        "definition": "Summarized collections of recent updates or changes within an organization, typically shared in a concise format."
+        "definition": "Periodic communications distributed within an organization to share updates, announcements, or other relevant information."
       },
       {
         "term": "Executive briefs",
-        "definition": "Concise documents or summaries prepared for executives, focusing on key information and decisions."
+        "definition": "Concise summaries of key information prepared for organizational leaders to facilitate decision-making."
       },
       {
         "term": "Internal-comms artifacts",
-        "definition": "Documents or materials created for internal communication purposes within an organization."
+        "definition": "Documents or materials created to support internal communication within an organization, such as newsletters, announcements, or update digests."
+      },
+      {
+        "term": "Provenance",
+        "definition": "The documentation or record of the origin and history of sourced facts or evidence."
+      },
+      {
+        "term": "Assumption-bearing draft",
+        "definition": "A draft explicitly marked as containing unresolved assumptions, requiring user confirmation before finalization."
+      },
+      {
+        "term": "Approved evidence carriers",
+        "definition": "Standardized formats or repositories used to store and validate evidence gathered from sources."
       }
     ]
   }

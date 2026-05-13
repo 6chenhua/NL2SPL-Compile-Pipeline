@@ -1,6 +1,6 @@
 {
   "stage": "stage3_5_worker_boundary_planner",
-  "timestamp": "2026-05-11T16:22:02.778714",
+  "timestamp": "2026-05-12T12:13:36.165601",
   "metadata": {},
   "result": {
     "main_worker_id": "worker_main",
@@ -9,7 +9,7 @@
         "worker_id": "worker_main",
         "worker_name": "MainWorker",
         "kind": "main",
-        "purpose": "Handles the end-to-end process of creating internal communication artifacts based on user requests and constraints.",
+        "purpose": "End-to-end process for generating internal communication artifacts based on user requests and available inputs.",
         "owned_span_ids": [
           "s1",
           "s2",
@@ -31,7 +31,13 @@
           "s20",
           "s21",
           "s22",
-          "s23"
+          "s23",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29"
         ],
         "input_contract": [
           {
@@ -43,7 +49,7 @@
           },
           {
             "name": "known_topics",
-            "data_type": "List[text]",
+            "data_type": "List [text]",
             "required": false,
             "description": "Optional known topics",
             "source": "input"
@@ -57,7 +63,7 @@
           },
           {
             "name": "connectors_or_source_repositories",
-            "data_type": "List[text]",
+            "data_type": "List [text]",
             "required": false,
             "description": "Available connectors or source repositories",
             "source": "input"
@@ -87,7 +93,7 @@
           },
           {
             "name": "assumptions_log",
-            "data_type": "List[text]",
+            "data_type": "List [text]",
             "required": true,
             "description": "A short assumptions log for any unresolved items",
             "source": "output"
@@ -102,21 +108,21 @@
         ],
         "depends_on": [],
         "constraints": [
-          "{'text': 'Do not invent links or unseen facts', 'source_span_ids': ['s19']}",
-          "{'text': 'Require evidence for sourced claims', 'source_span_ids': ['s20']}",
-          "{'text': 'Limit questions per turn', 'source_span_ids': ['s21']}",
-          "{'text': 'Prefer tool evidence over unnecessary user questioning', 'source_span_ids': ['s22']}",
-          "{'text': 'Deny finalization if critical slots are missing or provenance fails', 'source_span_ids': ['s23']}"
+          "{'text': 'Do not invent links or unseen facts', 'kind': 'prohibition'}",
+          "{'text': 'Require evidence for sourced claims', 'kind': 'evidence'}",
+          "{'text': 'Limit questions per turn', 'kind': 'requirement'}",
+          "{'text': 'Prefer tool evidence over unnecessary user questioning', 'kind': 'evidence'}",
+          "{'text': 'Deny finalization if critical slots are missing or provenance fails', 'kind': 'gate'}"
         ],
         "boundary_kind": "main_worker",
         "decision_evidence": [],
-        "reason": "This scope represents the main task responsible for orchestrating the entire process."
+        "reason": "This scope represents the main task and includes all spans necessary for the end-to-end process."
       },
       {
         "worker_id": "worker_source_gathering",
         "worker_name": "SourceGatheringWorker",
         "kind": "child",
-        "purpose": "Handles the retrieval of sources using approved recipes and ensures provenance for externally sourced facts.",
+        "purpose": "Retrieve sources using approved recipes and maintain provenance for externally sourced facts.",
         "owned_span_ids": [
           "s14",
           "s15",
@@ -125,16 +131,9 @@
         "input_contract": [
           {
             "name": "connectors_or_source_repositories",
-            "data_type": "List[text]",
-            "required": true,
-            "description": "Available connectors or source repositories",
-            "source": "input"
-          },
-          {
-            "name": "known_topics",
-            "data_type": "List[text]",
+            "data_type": "List [text]",
             "required": false,
-            "description": "Optional known topics",
+            "description": "Available connectors or source repositories",
             "source": "input"
           }
         ],
@@ -153,10 +152,11 @@
         "decision_evidence": [
           "bounded_io",
           "explicit_delegation",
+          "evidence_normalization",
           "provenance_or_audit",
-          "evidence_normalization"
+          "reuse_potential"
         ],
-        "reason": "This sub-task is responsible for retrieving and normalizing sources, which is a distinct and reusable process."
+        "reason": "This sub-task handles source retrieval and provenance maintenance, which are distinct and reusable processes."
       }
     ],
     "handoffs": [
@@ -172,12 +172,6 @@
           {
             "parent_variable": "connectors_or_source_repositories",
             "child_input": "connectors_or_source_repositories",
-            "required": true,
-            "default_value": null
-          },
-          {
-            "parent_variable": "known_topics",
-            "child_input": "known_topics",
             "required": false,
             "default_value": null
           }
@@ -199,7 +193,7 @@
         },
         "failure_policy": {
           "policy_kind": "propagate_exception",
-          "description": "If source retrieval fails, the exception is propagated to the main worker.",
+          "description": "If source retrieval fails, propagate the exception to the main task.",
           "source_span_ids": [
             "s26",
             "s27",
@@ -216,22 +210,15 @@
           "s15",
           "s30"
         ],
-        "task_text": "Retrieve sources using approved recipes and maintain provenance.",
-        "purpose": "Ensure evidence is gathered and normalized for use in communication artifacts.",
+        "task_text": "Retrieve sources using approved recipes and maintain provenance for externally sourced facts.",
+        "purpose": "Ensure reliable and traceable source gathering.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
             "name": "connectors_or_source_repositories",
-            "data_type": "List[text]",
-            "required": true,
-            "description": "Available connectors or source repositories",
-            "source": "input"
-          },
-          {
-            "name": "known_topics",
-            "data_type": "List[text]",
+            "data_type": "List [text]",
             "required": false,
-            "description": "Optional known topics",
+            "description": "Available connectors or source repositories",
             "source": "input"
           }
         ],
@@ -247,8 +234,9 @@
         "signals": [
           "bounded_io",
           "explicit_delegation",
+          "evidence_normalization",
           "provenance_or_audit",
-          "evidence_normalization"
+          "reuse_potential"
         ],
         "risks": []
       }
@@ -260,12 +248,13 @@
         "boundary_strength": "strong",
         "boundary_kind": "bounded_subtask",
         "rejection_reason": null,
-        "reason": "The task of source gathering is distinct, reusable, and has clear input/output boundaries.",
+        "reason": "The sub-task has clear inputs, outputs, and a reusable purpose.",
         "evidence": [
           "bounded_io",
           "explicit_delegation",
+          "evidence_normalization",
           "provenance_or_audit",
-          "evidence_normalization"
+          "reuse_potential"
         ]
       }
     ],

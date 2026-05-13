@@ -1,0 +1,70 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-05-12T13:40:18.017807",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [],
+        "alternative_flows": [],
+        "exception_flows": [
+          {
+            "flow_id": "exc_1",
+            "condition_text": "Insufficient quotes",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_2",
+            "condition_text": "Over-budget proposals",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_3",
+            "condition_text": "Vendor ineligibility",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_4",
+            "condition_text": "Approval denial",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_5",
+            "condition_text": "Missing documents",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_6",
+            "condition_text": "Compliance failure",
+            "spans": []
+          },
+          {
+            "flow_id": "exc_7",
+            "condition_text": "Waiver rejection",
+            "spans": []
+          }
+        ],
+        "delegation_candidates": []
+      },
+      "worker_normalize_request": {
+        "main_flow_spans": [
+          "s16"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      },
+      "worker_vendor_pool": {
+        "main_flow_spans": [
+          "s17"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": [
+      "Worker worker_main has no owned behavior spans for Stage 4."
+    ]
+  }
+}

@@ -89,23 +89,28 @@ FieldRouteIR 中不允许 span 重叠。歧义 span 在 Stage 3 拆分为多个�
 
 | Stage | 名称 | 实现方式 | 输入 | 输出 |
 |-------|------|----------|------|------|
-| 1 | 原文切片 | **LLM** | 原始文本 | List[SpanIR] |
-| 2 | 字段路由 | **LLM** | List[SpanIR] | FieldRouteIR + 回写 SpanIR.ambiguity |
+| 1 | 原文切片 | **LLM** | 原始文本（或 CanonicalCompileInput） | List[SpanIR] |
+| 2 | 字段路由 | **LLM** | List[SpanIR]（+ CanonicalCompileInput） | FieldRouteIR + 回写 SpanIR.ambiguity |
 | 3 | 歧义消解 | **LLM** | FieldRouteIR + ambiguous spans | FieldRouteIR（消解后） |
-| 4 | Flow 组装 | **LLM** | List[SpanIR] + FieldRouteIR（prompt 使用纯文本 span 上下文） | FlowStructureIR |
-| 5 | Block 组装 | **LLM** | List[SpanIR] + FieldRouteIR + FlowStructureIR（prompt 只传带 span 文本的 flow_json） | BlockStructureIR |
-| 6 | Resource 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR | ResourceRegistryIR + SymbolTable |
-| 7 | Step 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR + SymbolTable | List[StepIR] + SymbolTable（更新） |
+| **3.5** | **Worker 边界规划** | **LLM** | List[SpanIR] + FieldRouteIR（+ CanonicalCompileInput） | **WorkerPlanIR** |
+| **3.6** | **Worker 计划校验** | **代码** | WorkerPlanIR + known span IDs | **WorkerPlanValidationResult** |
+| 4 | Flow 组装 | **LLM** | List[SpanIR] + FieldRouteIR（+ WorkerPlanIR） | FlowStructureIR 或 WorkerFlowPlanIR |
+| 5 | Block 组装 | **LLM** | List[SpanIR] + FieldRouteIR + FlowStructureIR（或 WorkerFlowPlanIR） | BlockStructureIR 或 WorkerBlockPlanIR |
+| 6 | Resource 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR（+ CanonicalCompileInput） | ResourceRegistryIR + SymbolTable |
+| 7 | Step 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR + SymbolTable（+ WorkerPlanIR） | List[StepIR] + SymbolTable（更新） |
 | 8 | Profile 抽取 | **LLM** | FieldRouteIR + SymbolTable | AgentProfileIR |
-| 9 | Constraint 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR + SymbolTable + List[StepIR] | List[ConstraintIR] |
-| 9.5 | IR 归一化 | **代码** | FlowStructureIR + BlockStructureIR + ResourceRegistryIR + SymbolTable + List[StepIR] + List[ConstraintIR] | 归一化后的 IR + errors/warnings |
-| 10 | Worker 组装 | **代码** | FlowStructureIR + BlockStructureIR + List[StepIR] + ResourceRegistryIR + SymbolTable | WorkerIR（含 child_workers） |
+| 9 | Constraint 抽取 | **LLM** | FieldRouteIR + FlowStructureIR + BlockStructureIR + SymbolTable + List[StepIR]（+ CanonicalCompileInput） | List[ConstraintIR] |
+| 9.5 | IR 归一化 | **代码** | FlowStructureIR + BlockStructureIR + ResourceRegistryIR + SymbolTable + List[StepIR] + List[ConstraintIR]（+ WorkerPlanIR） | 归一化后的 IR + errors/warnings |
+| 10 | Worker 组装 | **代码** | FlowStructureIR + BlockStructureIR + List[StepIR] + ResourceRegistryIR + SymbolTable（+ WorkerPlanIR） | WorkerIR（含 child_workers） |
 | 11 | SPL 渲染 + 校验 | **代码** | WorkerIR + AgentProfileIR + ResourceRegistryIR + SymbolTable + List[StepIR] + List[ConstraintIR] | SPL 文本 + 校验报告 |
 
 ### 3.2 分层角色
 
 #### 语义层（Stage 1-9）
-由大模型完成，输出 JSON IR。
+由大模型完成，输出 JSON IR。Stage 3.5（Worker 边界规划）也由 LLM 完成，输出 WorkerPlanIR。
+
+#### 校验层（Stage 3.6）
+由代码完成，校验 WorkerPlanIR 的图结构、所有权、handoff 和 candidate 一致性。
 
 #### 编译层（Stage 10）
 由代码完成，负责将 IR 转换成 SPL 结构。
@@ -116,7 +121,7 @@ FieldRouteIR 中不允许 span 重叠。歧义 span 在 Stage 3 拆分为多个�
 ### 3.3 数据流图
 
 ```
-原始文本
+原始文本 / CanonicalCompileInput
     │
     ▼
 Stage 1: List[SpanIR] (ambiguity=false)
@@ -127,11 +132,23 @@ Stage 2: FieldRouteIR + 回写 SpanIR.ambiguity
     ▼
 Stage 3: FieldRouteIR (消解后，歧义 span 已拆分)
     │
-    ▼
-Stage 4: FlowStructureIR (含 delegation_candidates)
+    ├─────────────────────────────────────────────────────┐
+    │  (可选，enable_worker_boundary_planner=true)        │
+    ▼                                                     │
+Stage 3.5: WorkerPlanIR (worker 边界规划)                 │
+    │                                                     │
+    ▼                                                     │
+Stage 3.6: WorkerPlanValidationResult (校验)              │
+    │                                                     │
+    ├─────────────────────────────────────────────────────┘
     │
     ▼
-Stage 5: BlockStructureIR
+Stage 4: FlowStructureIR 或 WorkerFlowPlanIR
+    │       (WorkerPlanIR → WorkerFlowPlanIR per worker)
+    │       (无 WorkerPlanIR → 单一 FlowStructureIR + delegation_candidates)
+    │
+    ▼
+Stage 5: BlockStructureIR 或 WorkerBlockPlanIR
     │
     ▼
 Stage 6: ResourceRegistryIR + SymbolTable
@@ -146,9 +163,13 @@ Stage 9: List[ConstraintIR] ◄────────────────�
     │
     ▼
 Stage 9.5: Normalized IRs + errors/warnings
+    │       (含 WorkerPlanIR handoffs 物化、
+    │        delegation_candidates 物化、
+    │        多输出聚合、required output 补全)
     │
     ▼
 Stage 10: WorkerIR (代码组装，含 child_workers)
+    │       (WorkerPlanIR 优先；delegation_candidates 兼容)
     │
     ▼
 Stage 11: SPL 文本 + 校验报告
@@ -171,7 +192,9 @@ Stage 11: SPL 文本 + 校验报告
     "is_ambiguous": false,
     "reasons": [],
     "needs_split": false
-  }
+  },
+  "source_section_id": null,
+  "source_packet_id": null
 }
 ```
 
@@ -182,6 +205,8 @@ Stage 11: SPL 文本 + 校验报告
   - `is_ambiguous`：是否歧义（**Stage 1 初始化为 false，Stage 2 回写**）
   - `reasons`：歧义原因列表
   - `needs_split`：是否需要拆分
+- `source_section_id`：来源 section ID（由输入适配器设置，用于溯源）
+- `source_packet_id`：来源 packet ID（由输入适配器设置，用于溯源）
 
 **时序说明**：
 - Stage 1（SpanSlicer）：生成 span，`ambiguity.is_ambiguous = false`
@@ -236,7 +261,7 @@ Stage 11: SPL 文本 + 校验报告
 
 ### 4.3 FlowStructureIR
 
-**用途**：判断哪些 behavior span 属于哪个 Flow（MAIN / ALTERNATIVE / EXCEPTION）。当前实现同时保留 delegation 候选作为兼容字段；长期目标是将 delegation/worker 边界拆到独立 `DelegationPlanIR` / `WorkerPlanIR`。
+**用途**：判断哪些 behavior span 属于哪个 Flow（MAIN / ALTERNATIVE / EXCEPTION）。在无 WorkerPlanIR 的 legacy 路径下，同时保留 delegation 候选作为兼容字段。当 WorkerPlanIR 启用时，每个 worker 有独立的 FlowStructureIR（通过 WorkerFlowPlanIR 包装），delegation_candidates 字段为空。
 
 **字段结构**：
 ```json
@@ -279,7 +304,7 @@ Stage 11: SPL 文本 + 校验报告
   - `flow_id`：唯一标识，格式为 `exc_{N}`
   - `condition_text`：触发条件
   - `spans`：属于该流程的 span 列表
-- `delegation_candidates`：delegation 候选列表（当前兼容字段，由 Stage 4 的 LLM 识别）
+- `delegation_candidates`：delegation 候选列表（legacy 兼容字段，由 Stage 4 的 LLM 识别；WorkerPlanIR 启用时由 adapter 自动生成）
   - `candidate_id`：唯一标识，格式为 `dc_{N}`
   - `spans`：相关的 span 列表
   - `reason`：为什么适合提取为子任务
@@ -300,10 +325,13 @@ Stage 11: SPL 文本 + 校验报告
 - 全量上下文也以纯文本 span 列表传入，用于理解周边语义
 - 不再把 `SpanIR` 的完整 JSON 传给 Stage 4，因此 prompt 中不包含 `ambiguity`
 - 输出中的 span 列表必须继续使用 `span_id`，不能复制 span text
+- **Worker-aware 模式**：当传入 WorkerPlanIR 时，prompt 额外包含 WorkerPlanIR context（当前 worker 的 spec、相关 handoffs），且不输出 delegation_candidates
 
 #### 4.3.1 目标设计：DelegationPlanIR / WorkerPlanIR
 
 当前 `delegation_candidates` 放在 `FlowStructureIR` 内，是为了兼容现有 Stage 7、Stage 9.5、Stage 10。更合理的长期设计是在 FlowStructureIR 之前增加 Worker 边界规划 IR：
+
+**已实现**：Stage 3.5（WorkerBoundaryPlanner）生成 `WorkerPlanIR`，Stage 3.6（WorkerPlanValidator）校验。通过 `enable_worker_boundary_planner` 配置开关控制。
 
 ```json
 {
@@ -348,7 +376,174 @@ Stage 11: SPL 文本 + 校验报告
 }
 ```
 
-这个 IR 应明确 Worker 所有权、输入输出契约、调用条件、失败策略和 handoff 数据绑定。它的价值是让后续阶段不再猜测“为什么没有定义 worker”，而是在 Flow/Block/Step 生成前就建立可校验的 worker 协作图。
+这个 IR 应明确 Worker 所有权、输入输出契约、调用条件、失败策略和 handoff 数据绑定。它的价值是让后续阶段不再猜测"为什么没有定义 worker"，而是在 Flow/Block/Step 生成前就建立可校验的 worker 协作图。
+
+**已实现的完整 WorkerPlanIR 结构**（对应 `worker_plan_ir.py`）：
+
+```python
+BoundaryKind = Literal[
+    "explicit_delegation", "bounded_subtask", "integration_wrapper",
+    "complex_control_extraction", "loop_body_worker", "failure_recovery_protocol",
+    "template_or_format_protocol", "main_worker", "not_a_worker",
+]
+
+Signal = Literal[
+    "explicit_delegation", "bounded_io", "multi_step_process",
+    "independent_failure_policy", "external_integration", "provenance_or_audit",
+    "evidence_normalization", "reuse_potential", "testability", "complex_control",
+]
+
+Risk = Literal[
+    "no_clear_input_contract", "no_clear_output_contract", "no_parent_invocation_point",
+    "single_api_call", "simple_control_flow", "ordinary_sequential_step",
+    "policy_or_constraint", "alternative_flow", "exception_flow",
+    "over_fragmentation", "unclear_result_handoff", "insufficient_semantic_boundary",
+]
+
+@dataclass
+class ContractFieldIR:
+    """Worker input or output contract field."""
+    name: str
+    data_type: str
+    required: bool
+    description: str
+    source: Literal["input", "output", "state", "derived"]
+
+@dataclass
+class CandidateTaskUnitIR:
+    """Potential worker boundary before a final decision is made."""
+    candidate_id: str
+    source_span_ids: list[str]
+    task_text: str
+    purpose: str
+    candidate_kind: BoundaryKind
+    possible_inputs: list[ContractFieldIR] = field(default_factory=list)
+    possible_outputs: list[ContractFieldIR] = field(default_factory=list)
+    signals: list[Signal] = field(default_factory=list)
+    risks: list[Risk] = field(default_factory=list)
+
+@dataclass
+class ControlComplexityRegionIR:
+    """Predicted or confirmed region with difficult control structure."""
+    region_id: str
+    source_span_ids: list[str]
+    outer_control: Literal["SEQUENTIAL", "IF", "FOR", "WHILE", "unknown"]
+    inner_control: Literal["IF", "FOR", "WHILE", "multiple", "unknown"]
+    description: str
+    discovery_phase: Literal["predicted", "confirmed"]
+    severity: Literal["info", "warning", "error"]
+    can_flatten: bool
+    can_merge_condition: bool
+    can_lift_guard: bool
+    suggested_repairs: list[str]
+
+@dataclass
+class WorkerSpecIR:
+    """Concrete worker specification."""
+    worker_id: str
+    worker_name: str
+    kind: Literal["main", "child", "api_adapter"]
+    purpose: str
+    reason: str
+    owned_span_ids: list[str]
+    input_contract: list[ContractFieldIR] = field(default_factory=list)
+    output_contract: list[ContractFieldIR] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
+    boundary_strength: Literal["strong", "moderate", "weak"] = "moderate"
+
+@dataclass
+class InputBindingIR:
+    """Parent-to-child input binding."""
+    child_input: str
+    parent_variable: str
+    required: bool = True
+    default_value: str | None = None
+
+@dataclass
+class OutputBindingIR:
+    """Child-to-parent output binding."""
+    child_output: str
+    parent_variable: str
+    required: bool = True
+    merge_strategy: Literal["set", "append", "merge_struct", "ignore_if_empty"] = "set"
+
+@dataclass
+class InvokeLocationHintIR:
+    """Preferred flow/block location for the handoff step."""
+    flow_kind: Literal["main", "alternative", "exception"] = "main"
+    flow_id: str | None = None
+    after_span_id: str | None = None
+    before_span_id: str | None = None
+    block_hint: Literal["sequential", "if", "for", "while", "unknown"] = "unknown"
+
+@dataclass
+class HandoffFailurePolicyIR:
+    """Failure policy for a handoff."""
+    policy_kind: Literal["propagate_exception", "ask_user", "continue_with_assumption",
+                         "block_finalization", "return_empty_result", "custom"] = "propagate_exception"
+    description: str = "Propagate handoff failure to the parent worker."
+    custom_policy: str | None = None
+
+@dataclass
+class WorkerHandoffIR:
+    """Handoff between two workers."""
+    handoff_id: str
+    from_worker: str | None
+    to_worker: str | None
+    mode: Literal["invoke", "api_call"]
+    api_ref: str | None
+    condition_text: str
+    ordering: Literal["before", "after", "conditional", "loop_body"]
+    input_bindings: list[InputBindingIR] = field(default_factory=list)
+    output_bindings: list[OutputBindingIR] = field(default_factory=list)
+    invoke_location_hint: InvokeLocationHintIR = field(default_factory=InvokeLocationHintIR)
+    failure_policy: HandoffFailurePolicyIR = field(default_factory=HandoffFailurePolicyIR)
+
+@dataclass
+class WorkerBoundaryDecisionIR:
+    """Decision about a candidate task unit."""
+    candidate_id: str
+    decision: Literal["extract_child_worker", "keep_in_main_worker",
+                      "compile_as_call_api", "compile_as_constraint",
+                      "compile_as_exception_flow", "compile_as_alternative_flow",
+                      "needs_repair_or_warning"]
+    reason: str
+    confidence: float = 0.0
+
+@dataclass
+class WorkerPlanIR:
+    """Global worker boundary plan for the SPL program."""
+    main_worker_id: str
+    workers: list[WorkerSpecIR] = field(default_factory=list)
+    handoffs: list[WorkerHandoffIR] = field(default_factory=list)
+    candidates: list[CandidateTaskUnitIR] = field(default_factory=list)
+    decisions: list[WorkerBoundaryDecisionIR] = field(default_factory=list)
+    rejected_candidates: list[WorkerBoundaryDecisionIR] = field(default_factory=list)
+    control_complexity_regions: list[ControlComplexityRegionIR] = field(default_factory=list)
+    unassigned_span_ids: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+@dataclass
+class WorkerFlowPlanIR:
+    """Envelope for worker-scoped flow checkpoints."""
+    worker_flows: dict[str, FlowStructureIR] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+@dataclass
+class WorkerBlockPlanIR:
+    """Envelope for worker-scoped block checkpoints."""
+    worker_blocks: dict[str, BlockStructureIR] = field(default_factory=dict)
+    control_complexity_regions: list[ControlComplexityRegionIR] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+```
+
+**关键设计决策**：
+- `WorkerPlanIR` 包含 `workers`（WorkerSpecIR 列表）、`handoffs`（WorkerHandoffIR 列表）、`candidates`（候选任务单元）、`decisions`（边界决策）和 `rejected_candidates`（被拒绝的候选）
+- 每个 `WorkerSpecIR` 有明确的 `owned_span_ids`（所有权）、`input_contract`/`output_contract`（IO 契约）、`boundary_strength`（边界强度）
+- `WorkerHandoffIR` 描述 worker 间的调用关系，包含 `input_bindings`/`output_bindings`（数据绑定）、`invoke_location_hint`（调用位置提示）、`failure_policy`（失败策略）
+- `ControlComplexityRegionIR` 记录嵌套控制结构的发现和修复建议
+- `WorkerFlowPlanIR` 和 `WorkerBlockPlanIR` 是 worker 作用域的 flow/block 检查点包装
 
 ---
 
@@ -705,7 +900,8 @@ class SymbolTable:
   "integration_ref": null,
   "flow_ref": "main",
   "block_ref": "b1",
-  "kind": "normal"
+  "kind": "normal",
+  "handoff_id": null
 }
 ```
 
@@ -721,7 +917,7 @@ class SymbolTable:
   - `DISPLAY_MESSAGE`：显示消息
 - `inputs`：输入变量名列表（引用 SymbolTable）
 - `outputs`：输出变量名列表（引用 SymbolTable）
-- `integration_ref`：引用的 API 名称（仅 CALL_API 时有值）
+- `integration_ref`：引用的 API 名称（仅 CALL_API 时有值）或 child worker 名称（仅 INVOKE_WORKER 时有值）
 - `flow_ref`：所属 Flow（main / alt_{N} / exc_{N}）
 - `block_ref`：所属 Block
 - `kind`：语义类型
@@ -730,6 +926,7 @@ class SymbolTable:
   - `user_input`：用户输入
   - `invoke`：调用其他 worker
   - `display`：显示消息
+- `handoff_id`：关联的 WorkerPlanIR handoff ID（当 step 由 WorkerPlanIR handoff 物化时设置）
 
 **不建议字段**：
 - branch（由 BlockIR 表示）
@@ -995,20 +1192,25 @@ Delegation 内容不单独处理，而是路由到标准字段：
 **输入**：
 - `List[SpanIR]`（Stage 3 输出的消解后 spans）
 - `FieldRouteIR`（Stage 3 输出的消解后 routes）
+- `WorkerPlanIR`（可选，当 `enable_worker_boundary_planner=true` 时传入）
 
 **Prompt 形态**：
 - behavior spans：只包含路由到 behavior 的 span，格式化为纯文本 `span_id: span text`
 - full source context：全量 span 的纯文本上下文，格式同上
 - 不传完整 `SpanIR` JSON，也不传 `ambiguity` 字段
+- **Worker-aware 模式**：额外传入 WorkerPlanIR context（当前 worker 的 spec、相关 handoffs、unassigned_span_ids）
 
-**输出**：`FlowStructureIR`
+**输出**：
+- 无 WorkerPlanIR 时：`FlowStructureIR`（含 delegation_candidates）
+- 有 WorkerPlanIR 时：`WorkerFlowPlanIR`（每个 worker 一个 FlowStructureIR，delegation_candidates 为空）
 
 **职责**：
 - 判断哪些 span 属于 MAIN_FLOW
 - 判断哪些 span 属于 ALTERNATIVE_FLOW
 - 判断哪些 span 属于 EXCEPTION_FLOW
 - 记录每个 Flow 的触发条件
-- **当前兼容地识别 delegation_candidates**
+- **Legacy 模式**：兼容地识别 delegation_candidates
+- **Worker-aware 模式**：不判断 worker 边界（由 Stage 3.5 已确定），只处理 worker 内部的 flow 结构
 - 将普通主流程条件留在 main_flow，交给 Stage 5 生成 IF/FOR/WHILE
 
 ---
@@ -1020,7 +1222,7 @@ Delegation 内容不单独处理，而是路由到标准字段：
 **输入**：
 - `List[SpanIR]`（用于把 span_id 映射回具体文本）
 - `FieldRouteIR`（消解后）
-- `FlowStructureIR`
+- `FlowStructureIR` 或 `WorkerFlowPlanIR`
 
 **Prompt 形态**：
 - 只传一个 `flow_json`
@@ -1028,13 +1230,16 @@ Delegation 内容不单独处理，而是路由到标准字段：
 - 不再额外传 `behavior_json`
 - 输出中的 `spans` 仍必须只写 span_id 列表
 
-**输出**：`BlockStructureIR`
+**输出**：
+- 无 WorkerPlanIR 时：`BlockStructureIR`
+- 有 WorkerPlanIR 时：`WorkerBlockPlanIR`（每个 worker 一个 BlockStructureIR，含 control_complexity_regions）
 
 **职责**：
 - 在每个 Flow 内部，将 span 组织成 Block
 - 识别条件语句（if/when/unless），生成 IF_BLOCK
 - 识别循环语句（for/while/each），生成 FOR_BLOCK 或 WHILE_BLOCK
 - 其余 span 生成 SEQUENTIAL_BLOCK
+- **Worker-aware 模式**：额外检测并记录 `ControlComplexityRegionIR`（嵌套控制结构）
 
 ---
 
@@ -1245,51 +1450,57 @@ For each step, identify which variables it consumes (inputs) and produces (outpu
 # Stage 1 (LLM)
 class SpanSlicer:
     """原文切片，生成 SpanIR 列表"""
-    def slice(self, raw_text: str) -> list[SpanIR]
+    def execute(self, raw_text: str | CanonicalCompileInput) -> list[SpanIR]
 
 # Stage 2 (LLM)
 class FieldRouter:
     """字段路由，将 span 路由到 6 个语义字段，回写 ambiguity"""
-    def route(self, spans: list[SpanIR]) -> tuple[FieldRouteIR, list[SpanIR]]
+    def execute(self, input_data: list[SpanIR] | tuple[list[SpanIR], CanonicalCompileInput]) -> tuple[FieldRouteIR, list[dict[str, Any]]]
 
 # Stage 3 (LLM)
 class AmbiguityResolver:
     """歧义消解，拆分 ambiguous span"""
-    def resolve(self, routes: FieldRouteIR, spans: list[SpanIR]) -> tuple[FieldRouteIR, list[SpanIR]]
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, list[dict[str, Any]]]) -> tuple[list[SpanIR], FieldRouteIR]
+
+# Stage 3.5 (LLM)
+class WorkerBoundaryPlanner:
+    """Worker 边界规划，生成 WorkerPlanIR"""
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR] | tuple[list[SpanIR], FieldRouteIR, CanonicalCompileInput | None]) -> WorkerPlanIR
+
+# Stage 3.6 (Code)
+class WorkerPlanValidator:
+    """Worker 计划校验"""
+    def validate(self, plan: WorkerPlanIR, known_span_ids: Iterable[str] | None = None) -> WorkerPlanValidationResult
 
 # Stage 4 (LLM)
 class FlowAssembler:
-    """Flow 组装，判断哪些 span 属于哪个 Flow，识别 delegation_candidates"""
-    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR]) -> FlowStructureIR
+    """Flow 组装，判断哪些 span 属于哪个 Flow"""
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR] | tuple[list[SpanIR], FieldRouteIR, WorkerPlanIR]) -> FlowStructureIR | WorkerFlowPlanIR
 
 # Stage 5 (LLM)
 class BlockAssembler:
     """Block 组装，在每个 Flow 内判断哪些 span 形成 Block"""
-    def execute(
-        self, input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR]
-    ) -> BlockStructureIR
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR] | tuple[list[SpanIR], FieldRouteIR, WorkerFlowPlanIR]) -> BlockStructureIR | WorkerBlockPlanIR
 
 # Stage 6 (LLM)
 class ResourceExtractor:
     """Resource 抽取 + SymbolTable 构建"""
-    def extract(self, routes: FieldRouteIR, flow: FlowStructureIR, blocks: BlockStructureIR) -> tuple[ResourceRegistryIR, SymbolTable]
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR] | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR, CanonicalCompileInput]) -> tuple[ResourceRegistryIR, SymbolTable]
 
 # Stage 7 (LLM)
 class StepExtractor:
     """Step 抽取，使用 LLM 识别变量引用"""
-    def extract(self, routes: FieldRouteIR, flow: FlowStructureIR, blocks: BlockStructureIR, 
-                symbols: SymbolTable) -> tuple[list[StepIR], SymbolTable]
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR, SymbolTable] | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR, SymbolTable, WorkerPlanIR]) -> tuple[list[StepIR], SymbolTable]
 
 # Stage 8 (LLM)
 class ProfileExtractor:
     """Profile 抽取"""
-    def extract(self, routes: FieldRouteIR, symbols: SymbolTable) -> AgentProfileIR
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, SymbolTable]) -> AgentProfileIR
 
 # Stage 9 (LLM)
 class ConstraintExtractor:
     """Constraint 抽取"""
-    def extract(self, routes: FieldRouteIR, flow: FlowStructureIR, blocks: BlockStructureIR, 
-                symbols: SymbolTable, steps: list[StepIR]) -> list[ConstraintIR]
+    def execute(self, input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR, SymbolTable, list[StepIR]] | tuple[list[SpanIR], FieldRouteIR, FlowStructureIR, BlockStructureIR, SymbolTable, list[StepIR], CanonicalCompileInput]) -> list[ConstraintIR]
 
 # Stage 9.5 (Code)
 class IRNormalizer:
@@ -1302,6 +1513,7 @@ class IRNormalizer:
         symbols: SymbolTable,
         steps: list[StepIR],
         constraints: list[ConstraintIR],
+        worker_plan: WorkerPlanIR | None = None,
     ) -> tuple[
         FlowStructureIR,
         BlockStructureIR,
@@ -1316,7 +1528,8 @@ class IRNormalizer:
 class WorkerAssembler:
     """Worker 组装（代码逻辑）"""
     def assemble(self, flow: FlowStructureIR, blocks: BlockStructureIR, steps: list[StepIR], 
-                 resources: ResourceRegistryIR, symbols: SymbolTable) -> WorkerIR
+                 resources: ResourceRegistryIR, symbols: SymbolTable,
+                 worker_plan: WorkerPlanIR | None = None) -> WorkerIR
 
 # Stage 11 (Code)
 class SPLRenderer:
@@ -1324,6 +1537,46 @@ class SPLRenderer:
     def render(self, worker: WorkerIR, profile: AgentProfileIR, resources: ResourceRegistryIR, 
                symbols: SymbolTable, steps: list[StepIR],
                constraints: list[ConstraintIR]) -> tuple[str, list[str], list[str]]
+```
+
+### 7.2 辅助模块
+
+```python
+# Worker 计划适配器（兼容层）
+class WorkerPlanAdapter:
+    """将 WorkerPlanIR 转换为 legacy DelegationCandidate"""
+    def to_delegation_candidates(self, plan: WorkerPlanIR) -> list[DelegationCandidate]
+
+def worker_flow_plan_to_legacy_main_flow(
+    worker_flow_plan: WorkerFlowPlanIR,
+    worker_plan: WorkerPlanIR,
+) -> FlowStructureIR:
+    """将 WorkerFlowPlanIR 转换为 legacy FlowStructureIR（仅 main worker 视图）"""
+
+def worker_block_plan_to_legacy_main_blocks(
+    worker_block_plan: WorkerBlockPlanIR,
+    worker_plan: WorkerPlanIR,
+) -> BlockStructureIR:
+    """将 WorkerBlockPlanIR 转换为 legacy BlockStructureIR（仅 main worker 视图）"""
+
+# 输入适配器
+class InputAdapter(ABC):
+    """输入适配器基类"""
+    def detect(self, raw_text: str) -> AdapterDetectionResult
+    def adapt(self, raw_text: str) -> CanonicalCompileInput
+
+class InputAdapterRegistry:
+    """输入适配器注册表"""
+    def select_adapter(self, raw_text: str) -> InputAdapter
+    def adapt(self, raw_text: str) -> CanonicalCompileInput
+
+# 配置
+@dataclass
+class PipelineConfig:
+    """流水线配置"""
+    llm: LLMConfig
+    enable_worker_boundary_planner: bool = False  # Worker 边界规划开关
+    # ... 其他配置
 ```
 
 ---
@@ -1383,28 +1636,38 @@ Stage 6 如果无法从 behavior spans 中识别 inputs/outputs，在 `_meta` �
 ### 10.1 当前已实现能力
 
 - Stage 1-9 LLM 语义分析链路
-- Stage 9.5 代码归一化与一致性校正
-- Stage 10 Worker 组装，包含 concrete `child_workers`
+- **Stage 3.5 Worker 边界规划（WorkerBoundaryPlanner）**，生成 WorkerPlanIR
+- **Stage 3.6 Worker 计划校验（WorkerPlanValidator）**，校验图结构、所有权、handoff 一致性
+- Stage 4/5 **Worker-aware 模式**，支持 WorkerFlowPlanIR / WorkerBlockPlanIR
+- Stage 9.5 代码归一化与一致性校正，**含 WorkerPlanIR handoff 物化**
+- Stage 10 Worker 组装，包含 concrete `child_workers`，**WorkerPlanIR 优先路径**
 - Stage 11 SPL 渲染与静态校验
 - MAIN / ALTERNATIVE / EXCEPTION flow
 - SEQUENTIAL / IF / FOR / WHILE block
-- `delegation_candidates` 到 concrete child worker invocation 的兼容编译链路
+- **`delegation_candidates` 到 concrete child worker invocation 的兼容编译链路**（通过 WorkerPlanAdapter）
 - 多输出 child worker 结果聚合为结构化 result variable 和 TypeSpec
 - Required output producer 补全与 worker invocation 校验
+- **CanonicalCompileInput 输入适配器框架**（StructuralNLAdapter、GenericNLAdapter）
+- **ControlComplexityRegionIR 嵌套控制结构检测与修复**
+- **输入适配器（InputAdapterRegistry）**，支持结构化 NL 和通用 NL 两种输入格式
 
 ### 10.2 当前设计债
 
-- Delegation/worker 边界仍暂存在 `FlowStructureIR.delegation_candidates`，不够符合“先 Worker 边界、再 Worker 内 Flow”的粗到细原则。
-- Stage 7 仍可能先抽取出没有 concrete target 的 `INVOKE_WORKER`，需要 Stage 9.5 后置修正。
+- ~~Delegation/worker 边界仍暂存在 `FlowStructureIR.delegation_candidates`~~ **已通过 Stage 3.5 WorkerPlanIR 解决**，delegation_candidates 现为 legacy 兼容字段。
+- Stage 7 仍可能先抽取出没有 concrete target 的 `INVOKE_WORKER`，需要 Stage 9.5 后置修正。**WorkerPlanIR 启用时，Stage 9.5 会从 WorkerPlanIR handoffs 物化步骤，减少此问题。**
 - Stage 6/7 的部分 prompt 仍使用完整 `SpanIR` JSON，可继续按 Stage 4/5 的方式平整化，减少无关字段噪声。
+- **Worker-aware 路径仍需通过 `worker_plan_adapter.py` 桥接到 legacy Flow/Block 结构**，后续可逐步移除 legacy 路径。
 
 ### 10.3 下一阶段优先级
 
-1. 增加独立 `DelegationPlanIR` / `WorkerPlanIR` stage，放在 FlowAssembler 之前。
-2. 将 `FlowStructureIR.delegation_candidates` 标记为兼容字段，并逐步迁移 Stage 7、Stage 9.5、Stage 10 到 WorkerPlanIR。
-3. 用 handoff edge 显式描述 worker 协作、输入输出绑定、触发条件和失败策略。
+1. ~~增加独立 `DelegationPlanIR` / `WorkerPlanIR` stage，放在 FlowAssembler 之前。~~ **已完成（Stage 3.5）**
+2. ~~将 `FlowStructureIR.delegation_candidates` 标记为兼容字段，并逐步迁移 Stage 7、Stage 9.5、Stage 10 到 WorkerPlanIR。~~ **已完成（WorkerPlanAdapter + enable_worker_boundary_planner 开关）**
+3. ~~用 handoff edge 显式描述 worker 协作、输入输出绑定、触发条件和失败策略。~~ **已完成（WorkerHandoffIR）**
 4. 继续收敛 prompt 输入，只传当前阶段需要的文本和结构，不传无关 metadata。
 5. 扩展端到端 golden tests，覆盖 internal-comms、multi-worker、multi-output TypeSpec、loop normalization 等场景。
+6. **将 `enable_worker_boundary_planner` 默认开启**，逐步移除 legacy delegation_candidates 路径。
+7. **Stage 6/7 prompt 平整化**，按 Stage 4/5 方式只传纯文本 span 上下文。
+8. **Worker-aware Stage 6/7 直接消费 WorkerPlanIR**，不再通过 legacy adapter 桥接。
 
 ---
 

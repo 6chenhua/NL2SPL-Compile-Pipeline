@@ -1,12 +1,12 @@
 {
   "stage": "stage7_step_extractor",
-  "timestamp": "2026-05-11T16:52:48.758107",
+  "timestamp": "2026-05-12T12:14:00.199057",
   "metadata": {},
   "result": {
     "steps": [
       {
         "step_id": "st_1",
-        "text": "Determine what kind of communication is requested",
+        "text": "Determine the type of communication requested",
         "source_span_ids": [
           "s11"
         ],
@@ -14,7 +14,9 @@
         "inputs": [
           "user_request"
         ],
-        "outputs": [],
+        "outputs": [
+          "communication_type"
+        ],
         "integration_ref": null,
         "flow_ref": "main",
         "block_ref": "b_1",
@@ -23,15 +25,17 @@
       },
       {
         "step_id": "st_2",
-        "text": "Identify which required fields are still missing",
+        "text": "Identify missing required fields",
         "source_span_ids": [
           "s12"
         ],
         "command_type": "GENERAL_COMMAND",
         "inputs": [
-          "user_request"
+          "communication_type"
         ],
-        "outputs": [],
+        "outputs": [
+          "required_fields_missing"
+        ],
         "integration_ref": null,
         "flow_ref": "main",
         "block_ref": "b_1",
@@ -40,19 +44,21 @@
       },
       {
         "step_id": "st_3",
-        "text": "Ask the highest-value clarifying questions needed to move forward",
+        "text": "Generate highest-value clarifying questions",
         "source_span_ids": [
           "s13"
         ],
-        "command_type": "DISPLAY_MESSAGE",
-        "inputs": [],
+        "command_type": "GENERAL_COMMAND",
+        "inputs": [
+          "required_fields_missing"
+        ],
         "outputs": [
-          "assumptions_log"
+          "clarifying_questions"
         ],
         "integration_ref": null,
         "flow_ref": "main",
         "block_ref": "b_1",
-        "kind": "display",
+        "kind": "normal",
         "handoff_id": null
       },
       {
@@ -64,8 +70,7 @@
         ],
         "command_type": "INVOKE_WORKER",
         "inputs": [
-          "connectors_or_source_repositories",
-          "known_topics"
+          "connectors_or_source_repositories"
         ],
         "outputs": [
           "source_evidence_set"
@@ -84,12 +89,10 @@
         ],
         "command_type": "GENERAL_COMMAND",
         "inputs": [
-          "user_request",
-          "format_preferences",
-          "enough_required_information"
+          "required_information_available"
         ],
         "outputs": [
-          "draft_communication_artifact"
+          "draft"
         ],
         "integration_ref": null,
         "flow_ref": "main",
@@ -99,17 +102,17 @@
       },
       {
         "step_id": "st_5",
-        "text": "Revise the draft while rechecking constraints",
+        "text": "Revise the draft while re-checking constraints",
         "source_span_ids": [
           "s17"
         ],
         "command_type": "GENERAL_COMMAND",
         "inputs": [
-          "draft_communication_artifact",
-          "user_request"
+          "revision_requested",
+          "draft"
         ],
         "outputs": [
-          "draft_communication_artifact"
+          "draft"
         ],
         "integration_ref": null,
         "flow_ref": "alt_1",
@@ -119,14 +122,15 @@
       },
       {
         "step_id": "st_6",
-        "text": "Do not finalize unless the draft is marked as assumption-bearing and the user confirms",
+        "text": "Finalize the draft only if required slots are not missing or assumptions are confirmed",
         "source_span_ids": [
           "s18"
         ],
         "command_type": "GENERAL_COMMAND",
         "inputs": [
-          "draft_communication_artifact",
-          "assumptions_log"
+          "required_slots_missing",
+          "draft_marked_assumption_bearing",
+          "user_confirmation"
         ],
         "outputs": [
           "completion_status"
@@ -138,6 +142,37 @@
         "handoff_id": null
       }
     ],
-    "new_variables": []
+    "new_variables": [
+      {
+        "name": "communication_type",
+        "data_type": "text",
+        "description": "Type of communication requested by the user",
+        "producer_step": "st_1"
+      },
+      {
+        "name": "required_fields_missing",
+        "data_type": "List[text]",
+        "description": "List of required fields that are still missing",
+        "producer_step": "st_2"
+      },
+      {
+        "name": "clarifying_questions",
+        "data_type": "List[text]",
+        "description": "Highest-value clarifying questions needed to move forward",
+        "producer_step": "st_3"
+      },
+      {
+        "name": "draft",
+        "data_type": "text",
+        "description": "Draft produced when enough required information is available",
+        "producer_step": "st_4"
+      },
+      {
+        "name": "completion_status",
+        "data_type": "text",
+        "description": "A completion status indicating whether the draft is finalized",
+        "producer_step": "st_6"
+      }
+    ]
   }
 }

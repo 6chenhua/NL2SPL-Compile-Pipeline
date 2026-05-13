@@ -1,0 +1,438 @@
+{
+  "stage": "stage3_5_worker_boundary_planner",
+  "timestamp": "2026-05-12T13:40:09.424216",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Handle the end-to-end procurement process, including normalization, vendor evaluation, compliance checks, approvals, and issuance.",
+        "owned_span_ids": [
+          "s1",
+          "s2",
+          "s3",
+          "s4",
+          "s5",
+          "s6",
+          "s7",
+          "s8",
+          "s9",
+          "s10",
+          "s11",
+          "s12",
+          "s13",
+          "s14",
+          "s15",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30",
+          "s31",
+          "s32",
+          "s33",
+          "s34",
+          "s35",
+          "s36"
+        ],
+        "input_contract": [
+          {
+            "name": "purchase_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Purchase request",
+            "source": "input"
+          },
+          {
+            "name": "requested_item_or_service",
+            "data_type": "text",
+            "required": true,
+            "description": "Requested item or service",
+            "source": "input"
+          },
+          {
+            "name": "budget_owner",
+            "data_type": "text",
+            "required": true,
+            "description": "Budget owner",
+            "source": "input"
+          },
+          {
+            "name": "cost_center",
+            "data_type": "text",
+            "required": true,
+            "description": "Cost center",
+            "source": "input"
+          },
+          {
+            "name": "urgency",
+            "data_type": "text",
+            "required": true,
+            "description": "Urgency",
+            "source": "input"
+          },
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Policy profile",
+            "source": "input"
+          },
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Vendor eligibility context",
+            "source": "input"
+          },
+          {
+            "name": "any_initial_vendor_suggestions",
+            "data_type": "text",
+            "required": true,
+            "description": "Any initial vendor suggestions",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": true,
+            "description": "A sourcing/evaluation record",
+            "source": "output"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": true,
+            "description": "Selected vendor decision or rejection outcome",
+            "source": "output"
+          },
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval record",
+            "source": "output"
+          },
+          {
+            "name": "po_or_equivalent_issuance_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "PO or equivalent issuance artifact",
+            "source": "output"
+          },
+          {
+            "name": "audit_evidence_bundle",
+            "data_type": "text",
+            "required": true,
+            "description": "Audit evidence bundle",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": "This scope encompasses the entire procurement process and does not require delegation for the described spans."
+      },
+      {
+        "worker_id": "worker_normalize_request",
+        "worker_name": "NormalizeRequestWorker",
+        "kind": "child",
+        "purpose": "Normalize the purchase request and determine the procurement category.",
+        "owned_span_ids": [
+          "s16"
+        ],
+        "input_contract": [
+          {
+            "name": "purchase_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Purchase request",
+            "source": "input"
+          },
+          {
+            "name": "requested_item_or_service",
+            "data_type": "text",
+            "required": true,
+            "description": "Requested item or service",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": [
+          "bounded_io",
+          "explicit_delegation"
+        ],
+        "reason": "Normalization and category determination are distinct, reusable steps that can be isolated."
+      },
+      {
+        "worker_id": "worker_vendor_pool",
+        "worker_name": "VendorPoolWorker",
+        "kind": "child",
+        "purpose": "Identify eligible vendor pool based on the procurement category and vendor eligibility context.",
+        "owned_span_ids": [
+          "s17"
+        ],
+        "input_contract": [
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "input"
+          },
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Vendor eligibility context",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "eligible_vendor_pool",
+            "data_type": "text",
+            "required": true,
+            "description": "Eligible vendor pool",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": [
+          "bounded_io",
+          "explicit_delegation"
+        ],
+        "reason": "Vendor pool identification is a distinct step that can be isolated for reuse."
+      }
+    ],
+    "handoffs": [
+      {
+        "handoff_id": "handoff_normalize_request",
+        "from_worker": "worker_main",
+        "to_worker": "worker_normalize_request",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "Normalize the purchase request and determine the procurement category.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "purchase_request",
+            "child_input": "purchase_request",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "requested_item_or_service",
+            "child_input": "requested_item_or_service",
+            "required": true,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "procurement_category",
+            "parent_variable": "procurement_category",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s16",
+          "before_span_id": null,
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If normalization fails, propagate the exception to the main worker.",
+          "source_span_ids": [
+            "s16"
+          ]
+        }
+      },
+      {
+        "handoff_id": "handoff_vendor_pool",
+        "from_worker": "worker_main",
+        "to_worker": "worker_vendor_pool",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "Identify eligible vendor pool based on the procurement category and vendor eligibility context.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "procurement_category",
+            "child_input": "procurement_category",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "vendor_eligibility_context",
+            "child_input": "vendor_eligibility_context",
+            "required": true,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "eligible_vendor_pool",
+            "parent_variable": "eligible_vendor_pool",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s17",
+          "before_span_id": null,
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If vendor pool identification fails, propagate the exception to the main worker.",
+          "source_span_ids": [
+            "s17"
+          ]
+        }
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_id": "candidate_normalize_request",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "Normalize the request and determine procurement category.",
+        "purpose": "Normalization and category determination.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "purchase_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Purchase request",
+            "source": "input"
+          },
+          {
+            "name": "requested_item_or_service",
+            "data_type": "text",
+            "required": true,
+            "description": "Requested item or service",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "explicit_delegation"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_vendor_pool",
+        "source_span_ids": [
+          "s17"
+        ],
+        "task_text": "Identify eligible vendor pool.",
+        "purpose": "Vendor pool identification.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "input"
+          },
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Vendor eligibility context",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "eligible_vendor_pool",
+            "data_type": "text",
+            "required": true,
+            "description": "Eligible vendor pool",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "explicit_delegation"
+        ],
+        "risks": []
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_normalize_request",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "Normalization and category determination are distinct, reusable steps that can be isolated.",
+        "evidence": [
+          "bounded_io",
+          "explicit_delegation"
+        ]
+      },
+      {
+        "candidate_id": "candidate_vendor_pool",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "Vendor pool identification is a distinct step that can be isolated for reuse.",
+        "evidence": [
+          "bounded_io",
+          "explicit_delegation"
+        ]
+      }
+    ],
+    "rejected_candidates": [],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

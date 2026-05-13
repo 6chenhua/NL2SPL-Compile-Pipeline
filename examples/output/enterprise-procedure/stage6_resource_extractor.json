@@ -1,0 +1,287 @@
+{
+  "stage": "stage6_resource_extractor",
+  "timestamp": "2026-05-12T13:40:31.090121",
+  "metadata": {},
+  "result": {
+    "resources": {
+      "variables": [
+        {
+          "name": "purchase_request",
+          "data_type": "text",
+          "required": true,
+          "description": "Purchase request (LLM note: Details of the purchase request provided by the user)",
+          "source": "input"
+        },
+        {
+          "name": "requested_item_or_service",
+          "data_type": "text",
+          "required": true,
+          "description": "Requested item or service (LLM note: The item or service being requested for procurement)",
+          "source": "input"
+        },
+        {
+          "name": "budget_owner",
+          "data_type": "text",
+          "required": true,
+          "description": "Budget owner",
+          "source": "input"
+        },
+        {
+          "name": "cost_center",
+          "data_type": "text",
+          "required": true,
+          "description": "Cost center",
+          "source": "input"
+        },
+        {
+          "name": "urgency",
+          "data_type": "text",
+          "required": true,
+          "description": "Urgency",
+          "source": "input"
+        },
+        {
+          "name": "procurement_category",
+          "data_type": "text",
+          "required": true,
+          "description": "Procurement category (LLM note: The category of procurement determined during normalization)",
+          "source": "input"
+        },
+        {
+          "name": "policy_profile",
+          "data_type": "text",
+          "required": true,
+          "description": "Policy profile",
+          "source": "input"
+        },
+        {
+          "name": "vendor_eligibility_context",
+          "data_type": "text",
+          "required": true,
+          "description": "Vendor eligibility context (LLM note: Context or criteria for determining vendor eligibility)",
+          "source": "input"
+        },
+        {
+          "name": "any_initial_vendor_suggestions",
+          "data_type": "text",
+          "required": true,
+          "description": "Any initial vendor\nsuggestions",
+          "source": "input"
+        },
+        {
+          "name": "sourcing_evaluation_record",
+          "data_type": "text",
+          "required": true,
+          "description": "A sourcing/evaluation record",
+          "source": "output"
+        },
+        {
+          "name": "selected_vendor_decision_or_rejection_outcome",
+          "data_type": "text",
+          "required": true,
+          "description": "Selected vendor decision or rejection outcome",
+          "source": "output"
+        },
+        {
+          "name": "approval_record",
+          "data_type": "text",
+          "required": true,
+          "description": "Approval\nrecord",
+          "source": "output"
+        },
+        {
+          "name": "po_or_equivalent_issuance_artifact",
+          "data_type": "text",
+          "required": true,
+          "description": "PO or equivalent issuance artifact",
+          "source": "output"
+        },
+        {
+          "name": "audit_evidence_bundle",
+          "data_type": "text",
+          "required": true,
+          "description": "Audit evidence bundle",
+          "source": "output"
+        },
+        {
+          "name": "eligible_vendor_pool",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "List of vendors eligible for the procurement process",
+          "source": "output"
+        }
+      ],
+      "files": [],
+      "apis": [],
+      "types": []
+    },
+    "symbol_table": {
+      "purchase_request": {
+        "name": "purchase_request",
+        "data_type": "text",
+        "source": "input",
+        "description": "Purchase request (LLM note: Details of the purchase request provided by the user)",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "requested_item_or_service": {
+        "name": "requested_item_or_service",
+        "data_type": "text",
+        "source": "input",
+        "description": "Requested item or service (LLM note: The item or service being requested for procurement)",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "budget_owner": {
+        "name": "budget_owner",
+        "data_type": "text",
+        "source": "input",
+        "description": "Budget owner",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "cost_center": {
+        "name": "cost_center",
+        "data_type": "text",
+        "source": "input",
+        "description": "Cost center",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "urgency": {
+        "name": "urgency",
+        "data_type": "text",
+        "source": "input",
+        "description": "Urgency",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "procurement_category": {
+        "name": "procurement_category",
+        "data_type": "text",
+        "source": "input",
+        "description": "Procurement category (LLM note: The category of procurement determined during normalization)",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "policy_profile": {
+        "name": "policy_profile",
+        "data_type": "text",
+        "source": "input",
+        "description": "Policy profile",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "vendor_eligibility_context": {
+        "name": "vendor_eligibility_context",
+        "data_type": "text",
+        "source": "input",
+        "description": "Vendor eligibility context (LLM note: Context or criteria for determining vendor eligibility)",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "any_initial_vendor_suggestions": {
+        "name": "any_initial_vendor_suggestions",
+        "data_type": "text",
+        "source": "input",
+        "description": "Any initial vendor\nsuggestions",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sourcing_evaluation_record": {
+        "name": "sourcing_evaluation_record",
+        "data_type": "text",
+        "source": "output",
+        "description": "A sourcing/evaluation record",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "selected_vendor_decision_or_rejection_outcome": {
+        "name": "selected_vendor_decision_or_rejection_outcome",
+        "data_type": "text",
+        "source": "output",
+        "description": "Selected vendor decision or rejection outcome",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "approval_record": {
+        "name": "approval_record",
+        "data_type": "text",
+        "source": "output",
+        "description": "Approval\nrecord",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "po_or_equivalent_issuance_artifact": {
+        "name": "po_or_equivalent_issuance_artifact",
+        "data_type": "text",
+        "source": "output",
+        "description": "PO or equivalent issuance artifact",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "audit_evidence_bundle": {
+        "name": "audit_evidence_bundle",
+        "data_type": "text",
+        "source": "output",
+        "description": "Audit evidence bundle",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "eligible_vendor_pool": {
+        "name": "eligible_vendor_pool",
+        "data_type": "List[text]",
+        "source": "output",
+        "description": "List of vendors eligible for the procurement process",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      }
+    },
+    "adapter_merge_warnings": []
+  }
+}

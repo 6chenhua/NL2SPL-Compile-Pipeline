@@ -1,0 +1,419 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-05-12T13:39:48.254382",
+  "metadata": {},
+  "result": {
+    "source_schema": "structural_nl",
+    "raw_text_length": 1610,
+    "spans_count": 37,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "Standard purchase requests, software and services procurement, equipment purchases,\nvendor renewals, and exception-handled procurement cases.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_task_family_standard_purchase_requests_software_and_services_procurement_equipment_purchases_vendor_renewals_and_exception_handled_procurement_cases"
+      },
+      {
+        "span_id": "s2",
+        "text": "Purchase request",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_purchase_request"
+      },
+      {
+        "span_id": "s3",
+        "text": "Requested item or service",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_requested_item_or_service"
+      },
+      {
+        "span_id": "s4",
+        "text": "Budget owner",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_budget_owner"
+      },
+      {
+        "span_id": "s5",
+        "text": "Cost center",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_cost_center"
+      },
+      {
+        "span_id": "s6",
+        "text": "Urgency",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_urgency"
+      },
+      {
+        "span_id": "s7",
+        "text": "Procurement category",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_procurement_category"
+      },
+      {
+        "span_id": "s8",
+        "text": "Policy profile",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_policy_profile"
+      },
+      {
+        "span_id": "s9",
+        "text": "Vendor eligibility context",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_vendor_eligibility_context"
+      },
+      {
+        "span_id": "s10",
+        "text": "Any initial vendor\nsuggestions",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_runtime_input_any_initial_vendor_suggestions"
+      },
+      {
+        "span_id": "s11",
+        "text": "A sourcing/evaluation record",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_sourcing_evaluation_record"
+      },
+      {
+        "span_id": "s12",
+        "text": "Selected vendor decision or rejection outcome",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_selected_vendor_decision_or_rejection_outcome"
+      },
+      {
+        "span_id": "s13",
+        "text": "Approval\nrecord",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_approval_record"
+      },
+      {
+        "span_id": "s14",
+        "text": "PO or equivalent issuance artifact",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_po_or_equivalent_issuance_artifact"
+      },
+      {
+        "span_id": "s15",
+        "text": "Audit evidence bundle",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_required_output_audit_evidence_bundle"
+      },
+      {
+        "span_id": "s16",
+        "text": "Normalize the request and determine procurement category",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_normalize_the_request_and_determine_procurement_category"
+      },
+      {
+        "span_id": "s17",
+        "text": "Identify eligible vendor\npool",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_identify_eligible_vendor_pool"
+      },
+      {
+        "span_id": "s18",
+        "text": "Solicit quotes or equivalent offers according to policy",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_solicit_quotes_or_equivalent_offers_according_to_policy"
+      },
+      {
+        "span_id": "s19",
+        "text": "Evaluate budget,\ncompliance, and vendor eligibility",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_evaluate_budget_compliance_and_vendor_eligibility"
+      },
+      {
+        "span_id": "s20",
+        "text": "If over budget, attempt bounded renegotiation or\nbroaden vendor set",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_if_over_budget_attempt_bounded_renegotiation_or_broaden_vendor_set"
+      },
+      {
+        "span_id": "s21",
+        "text": "If non-compliance occurs, route remediation, waiver, or restart\nsourcing according to policy",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_if_non_compliance_occurs_route_remediation_waiver_or_restart_sourcing_according_to_policy"
+      },
+      {
+        "span_id": "s22",
+        "text": "Route approval based on thresholds and category",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_route_approval_based_on_thresholds_and_category"
+      },
+      {
+        "span_id": "s23",
+        "text": "Issue\nPO only after all gates pass",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_issue_po_only_after_all_gates_pass"
+      },
+      {
+        "span_id": "s24",
+        "text": "Archive evidence for audit",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_process_step_archive_evidence_for_audit"
+      },
+      {
+        "span_id": "s25",
+        "text": "Require minimum quote count unless exception approved",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_require_minimum_quote_count_unless_exception_approved"
+      },
+      {
+        "span_id": "s26",
+        "text": "Do not proceed with ineligible\nvendors",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_do_not_proceed_with_ineligible_vendors"
+      },
+      {
+        "span_id": "s27",
+        "text": "Require category-specific approval thresholds",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_require_category_specific_approval_thresholds"
+      },
+      {
+        "span_id": "s28",
+        "text": "Record justification for sole\nsource or waiver cases",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_record_justification_for_sole_source_or_waiver_cases"
+      },
+      {
+        "span_id": "s29",
+        "text": "Deny issuance without audit-complete evidence",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_policy_deny_issuance_without_audit_complete_evidence"
+      },
+      {
+        "span_id": "s30",
+        "text": "Insufficient quotes",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_insufficient_quotes"
+      },
+      {
+        "span_id": "s31",
+        "text": "Over-budget proposals",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_over_budget_proposals"
+      },
+      {
+        "span_id": "s32",
+        "text": "Vendor ineligibility",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_vendor_ineligibility"
+      },
+      {
+        "span_id": "s33",
+        "text": "Approval denial",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_approval_denial"
+      },
+      {
+        "span_id": "s34",
+        "text": "Missing\ndocuments",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_missing_documents"
+      },
+      {
+        "span_id": "s35",
+        "text": "Compliance failure",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_compliance_failure"
+      },
+      {
+        "span_id": "s36",
+        "text": "Waiver rejection",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_failure_mode_waiver_rejection"
+      },
+      {
+        "span_id": "s37",
+        "text": "Bounded sourcing or quote-comparison subtasks may be delegated, but vendor\ndecision promotion requires normalized quote and compliance artifacts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_delegation_rule_bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts"
+      }
+    ]
+  }
+}

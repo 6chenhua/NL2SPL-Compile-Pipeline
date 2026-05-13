@@ -1,6 +1,6 @@
 {
   "stage": "stage6_resource_extractor",
-  "timestamp": "2026-05-11T16:52:40.147974",
+  "timestamp": "2026-05-12T12:13:54.540508",
   "metadata": {},
   "result": {
     "resources": {
@@ -15,8 +15,8 @@
         {
           "name": "known_topics",
           "data_type": "List [text]",
-          "required": true,
-          "description": "Optional known topics (LLM note: Known topics to guide source gathering)",
+          "required": false,
+          "description": "Optional known topics",
           "source": "input"
         },
         {
@@ -30,7 +30,7 @@
           "name": "connectors_or_source_repositories",
           "data_type": "List [text]",
           "required": true,
-          "description": "Available connectors or\nsource repositories (LLM note: Connectors or repositories used for source gathering)",
+          "description": "Available connectors or\nsource repositories (LLM note: Input connectors or source repositories for delegated subtasks)",
           "source": "input"
         },
         {
@@ -51,7 +51,7 @@
           "name": "source_evidence_set",
           "data_type": "text",
           "required": true,
-          "description": "A source/evidence set (LLM note: Set of evidence gathered from sources)",
+          "description": "A source/evidence set (LLM note: Normalized evidence set retrieved from sources)",
           "source": "output"
         },
         {
@@ -69,11 +69,95 @@
           "source": "output"
         },
         {
-          "name": "enough_required_information",
+          "name": "communication_type",
+          "data_type": "text",
+          "required": true,
+          "description": "Type of communication requested by the user",
+          "source": "input"
+        },
+        {
+          "name": "required_fields_missing",
+          "data_type": "List[text]",
+          "required": true,
+          "description": "List of required fields that are still missing",
+          "source": "step"
+        },
+        {
+          "name": "clarifying_questions",
+          "data_type": "List[text]",
+          "required": false,
+          "description": "Highest-value clarifying questions needed to move forward",
+          "source": "step"
+        },
+        {
+          "name": "sources_needed",
           "data_type": "boolean",
           "required": true,
-          "description": "Flag indicating whether enough required information is available to produce a draft",
+          "description": "Flag indicating whether sources are needed",
           "source": "step"
+        },
+        {
+          "name": "sources_available",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether sources are available",
+          "source": "step"
+        },
+        {
+          "name": "provenance_status",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether provenance for externally sourced facts is maintained",
+          "source": "step"
+        },
+        {
+          "name": "required_information_available",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether enough required information is available",
+          "source": "step"
+        },
+        {
+          "name": "draft",
+          "data_type": "text",
+          "required": false,
+          "description": "Draft produced when enough required information is available",
+          "source": "output"
+        },
+        {
+          "name": "revision_requested",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether the user has requested a revision",
+          "source": "input"
+        },
+        {
+          "name": "constraints_checked",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether constraints have been re-checked during revision",
+          "source": "step"
+        },
+        {
+          "name": "required_slots_missing",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether required slots remain missing",
+          "source": "step"
+        },
+        {
+          "name": "draft_marked_assumption_bearing",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether the draft is explicitly marked as assumption-bearing",
+          "source": "step"
+        },
+        {
+          "name": "user_confirmation",
+          "data_type": "boolean",
+          "required": true,
+          "description": "Flag indicating whether the user has confirmed assumption-bearing draft",
+          "source": "input"
         }
       ],
       "files": [],
@@ -96,7 +180,7 @@
         "name": "known_topics",
         "data_type": "List [text]",
         "source": "input",
-        "description": "Optional known topics (LLM note: Known topics to guide source gathering)",
+        "description": "Optional known topics",
         "flow_ref": "main",
         "block_ref": null,
         "producer_step": null,
@@ -118,7 +202,7 @@
         "name": "connectors_or_source_repositories",
         "data_type": "List [text]",
         "source": "input",
-        "description": "Available connectors or\nsource repositories (LLM note: Connectors or repositories used for source gathering)",
+        "description": "Available connectors or\nsource repositories (LLM note: Input connectors or source repositories for delegated subtasks)",
         "flow_ref": "main",
         "block_ref": null,
         "producer_step": null,
@@ -151,7 +235,7 @@
         "name": "source_evidence_set",
         "data_type": "text",
         "source": "output",
-        "description": "A source/evidence set (LLM note: Set of evidence gathered from sources)",
+        "description": "A source/evidence set (LLM note: Normalized evidence set retrieved from sources)",
         "flow_ref": "main",
         "block_ref": null,
         "producer_step": null,
@@ -180,11 +264,143 @@
         "consumer_steps": [],
         "declared": true
       },
-      "enough_required_information": {
-        "name": "enough_required_information",
+      "communication_type": {
+        "name": "communication_type",
+        "data_type": "text",
+        "source": "input",
+        "description": "Type of communication requested by the user",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "required_fields_missing": {
+        "name": "required_fields_missing",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "List of required fields that are still missing",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "clarifying_questions": {
+        "name": "clarifying_questions",
+        "data_type": "List[text]",
+        "source": "step",
+        "description": "Highest-value clarifying questions needed to move forward",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sources_needed": {
+        "name": "sources_needed",
         "data_type": "boolean",
         "source": "step",
-        "description": "Flag indicating whether enough required information is available to produce a draft",
+        "description": "Flag indicating whether sources are needed",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "sources_available": {
+        "name": "sources_available",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether sources are available",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "provenance_status": {
+        "name": "provenance_status",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether provenance for externally sourced facts is maintained",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "required_information_available": {
+        "name": "required_information_available",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether enough required information is available",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "draft": {
+        "name": "draft",
+        "data_type": "text",
+        "source": "output",
+        "description": "Draft produced when enough required information is available",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "revision_requested": {
+        "name": "revision_requested",
+        "data_type": "boolean",
+        "source": "input",
+        "description": "Flag indicating whether the user has requested a revision",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "constraints_checked": {
+        "name": "constraints_checked",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether constraints have been re-checked during revision",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "required_slots_missing": {
+        "name": "required_slots_missing",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether required slots remain missing",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "draft_marked_assumption_bearing": {
+        "name": "draft_marked_assumption_bearing",
+        "data_type": "boolean",
+        "source": "step",
+        "description": "Flag indicating whether the draft is explicitly marked as assumption-bearing",
+        "flow_ref": "main",
+        "block_ref": null,
+        "producer_step": null,
+        "consumer_steps": [],
+        "declared": true
+      },
+      "user_confirmation": {
+        "name": "user_confirmation",
+        "data_type": "boolean",
+        "source": "input",
+        "description": "Flag indicating whether the user has confirmed assumption-bearing draft",
         "flow_ref": "main",
         "block_ref": null,
         "producer_step": null,
@@ -193,9 +409,8 @@
       }
     },
     "adapter_merge_warnings": [
-      "Hard fact variable connectors_or_source_repositories keeps type List [text]; LLM suggested List[text].",
-      "Hard fact variable known_topics keeps type List [text]; LLM suggested List[text].",
-      "Hard fact variable source_evidence_set keeps type text; LLM suggested List[text]."
+      "Hard fact variable source_evidence_set keeps type text; LLM suggested List[text].",
+      "Hard fact variable connectors_or_source_repositories keeps type List [text]; LLM suggested List[text]."
     ]
   }
 }

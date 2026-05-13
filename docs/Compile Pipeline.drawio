@@ -1,6 +1,6 @@
 <mxfile host="www.draw.io">
   <diagram name="第 1 页" id="393QP4Z1oVOvNkt5xMIH">
-    <mxGraphModel dx="1572" dy="1422" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1806" dy="1546" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -77,8 +77,38 @@
         <mxCell id="s3BtMJt7MVGcSMwIFaDp-12" parent="1" style="whiteSpace=wrap;html=1;" value="resolve&lt;div&gt;ambiguity&lt;/div&gt;" vertex="1">
           <mxGeometry height="60" width="120" x="915" y="-21" as="geometry" />
         </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-19" edge="1" parent="1" source="s3BtMJt7MVGcSMwIFaDp-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="s3BtMJt7MVGcSMwIFaDp-18" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="s3BtMJt7MVGcSMwIFaDp-14" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" value="Routes" vertex="1">
           <mxGeometry height="60" width="120" x="915" y="82" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-21" edge="1" parent="1" source="s3BtMJt7MVGcSMwIFaDp-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="s3BtMJt7MVGcSMwIFaDp-20" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-18" parent="1" style="whiteSpace=wrap;html=1;" value="plan worker&lt;div&gt;boundary&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="915" y="222" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-23" edge="1" parent="1" source="s3BtMJt7MVGcSMwIFaDp-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="s3BtMJt7MVGcSMwIFaDp-22" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-20" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" value="workers&lt;div&gt;（main_worker/&lt;/div&gt;&lt;div&gt;child_workers)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="715" y="222" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-25" edge="1" parent="1" source="s3BtMJt7MVGcSMwIFaDp-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="s3BtMJt7MVGcSMwIFaDp-24" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-22" parent="1" style="whiteSpace=wrap;html=1;" value="assemble flow&lt;div&gt;for each worker&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="515" y="222" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-27" edge="1" parent="1" source="s3BtMJt7MVGcSMwIFaDp-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="s3BtMJt7MVGcSMwIFaDp-26" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-24" parent="1" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" value="flow structure" vertex="1">
+          <mxGeometry height="60" width="120" x="315" y="222" as="geometry" />
+        </mxCell>
+        <mxCell id="s3BtMJt7MVGcSMwIFaDp-26" parent="1" style="whiteSpace=wrap;html=1;" value="assemble block&lt;div&gt;for each flow&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="115" y="222" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

@@ -1,0 +1,54 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-05-12T13:40:26.830392",
+  "metadata": {},
+  "result": {
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {
+          "exc_1": [],
+          "exc_2": [],
+          "exc_3": [],
+          "exc_4": [],
+          "exc_5": [],
+          "exc_6": [],
+          "exc_7": []
+        }
+      },
+      "worker_normalize_request": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s16"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      },
+      "worker_vendor_pool": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s17"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      }
+    },
+    "control_complexity_regions": [],
+    "warnings": [
+      "Worker worker_main has no owned behavior spans for Stage 4."
+    ]
+  }
+}

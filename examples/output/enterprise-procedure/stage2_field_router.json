@@ -1,38 +1,40 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-05-12T12:13:20.760855",
+  "timestamp": "2026-05-12T13:39:48.256611",
   "metadata": {},
   "result": {
     "routes": {
       "identity": [],
       "audience": [],
       "rules": [
-        "s19",
-        "s20",
-        "s21",
-        "s22",
-        "s23",
-        "s24",
         "s25",
         "s26",
         "s27",
         "s28",
-        "s29"
+        "s29",
+        "s30",
+        "s31",
+        "s32",
+        "s33",
+        "s34",
+        "s35",
+        "s36"
       ],
       "domain": [
         "s1"
       ],
       "integrations": [],
       "behavior": [
-        "s11",
-        "s12",
-        "s13",
-        "s14",
-        "s15",
         "s16",
         "s17",
         "s18",
-        "s30"
+        "s19",
+        "s20",
+        "s21",
+        "s22",
+        "s23",
+        "s24",
+        "s37"
       ]
     },
     "ambiguity_updates": [],
@@ -60,18 +62,38 @@
       },
       {
         "span_id": "s7",
-        "reason": "seeded_as_hard_fact_required_output"
+        "reason": "seeded_as_hard_fact_runtime_input"
       },
       {
         "span_id": "s8",
-        "reason": "seeded_as_hard_fact_required_output"
+        "reason": "seeded_as_hard_fact_runtime_input"
       },
       {
         "span_id": "s9",
-        "reason": "seeded_as_hard_fact_required_output"
+        "reason": "seeded_as_hard_fact_runtime_input"
       },
       {
         "span_id": "s10",
+        "reason": "seeded_as_hard_fact_runtime_input"
+      },
+      {
+        "span_id": "s11",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s12",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s13",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s14",
+        "reason": "seeded_as_hard_fact_required_output"
+      },
+      {
+        "span_id": "s15",
         "reason": "seeded_as_hard_fact_required_output"
       }
     ]
