@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
@@ -316,6 +316,27 @@ class WorkerAssembler:
             if worker_block_plan and main_worker_id in worker_block_plan.worker_blocks
             else []
         )
+
+        # 2a. 当 main_flow_blocks 为空但存在 INVOKE/CALL_API 步骤时，
+        # 注入合成 SEQUENTIAL_BLOCK，避免 INVOKE 步骤无块可渲染。
+        if not main_blocks:
+            handoff_steps = [
+                s for s in worker_step_plan.main_worker_steps
+                if s.command_type in ("INVOKE_WORKER", "CALL_API")
+            ]
+            if handoff_steps:
+                synthetic_block_id = "b_main_handoffs"
+                main_blocks = [
+                    BlockIR(
+                        block_id=synthetic_block_id,
+                        block_type="SEQUENTIAL",
+                        spans=[sid for s in handoff_steps for sid in s.source_span_ids],
+                    )
+                ]
+                for s in handoff_steps:
+                    if not s.block_ref:
+                        s.block_ref = synthetic_block_id
+
         main_flow = FlowRef(blocks=main_blocks)
 
         # 3. Build alternative/exception flows for main worker

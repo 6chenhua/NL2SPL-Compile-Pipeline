@@ -201,6 +201,23 @@ Worker 信息：
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
+        # 子 worker 不应包含 INVOKE_WORKER 步骤（只有主 worker 通过 handoff
+        # 生成 INVOKE）。LLM 可能因 prompt 中列出了 INVOKE_WORKER 类型而误生成。
+        if worker.kind == "child":
+            filtered: list[StepIR] = []
+            dropped = 0
+            for s in steps:
+                if s.command_type == "INVOKE_WORKER":
+                    self.logger.warning(
+                        "Dropping INVOKE_WORKER step %s from child worker %s",
+                        s.step_id, worker.worker_id,
+                    )
+                    dropped += 1
+                    continue
+                filtered.append(s)
+            if dropped:
+                steps = filtered
+
         # 处理 new_variables — declare with worker scope
         for new_var_data in result.get("new_variables", []):
             try:
@@ -362,20 +379,41 @@ Worker 信息：
     ) -> list[str]:
         """Get source spans for invoke/api_call step.
 
-        优先使用 invoke_location_hint，fallback 到 warning。（D2）
+        优先使用 invoke_location_hint，但必须校验 hint span 属于 caller
+        (from_worker)。如果 hint span 属于 child worker，返回空并 warning（D2）。
         """
         hint = handoff.invoke_location_hint
 
+        # 构建 caller-owned span 集合，用于校验 hint span 归属
+        caller_owned: set[str] = set()
+        for w in worker_plan.workers:
+            if w.worker_id == handoff.from_worker:
+                caller_owned = set(w.owned_span_ids)
+                break
+
+        def _is_caller_owned(span_id: str | None) -> bool:
+            if not span_id:
+                return False
+            if span_id not in caller_owned:
+                self.logger.warning(
+                    "Handoff %s invoke_location_hint span %s is not owned "
+                    "by caller %s; falling back to empty source_span_ids.",
+                    handoff.handoff_id, span_id, handoff.from_worker,
+                )
+                return False
+            return True
+
         # 优先使用 caller-owned invocation span
-        if hint.after_span_id:
+        if hint.after_span_id and _is_caller_owned(hint.after_span_id):
             return [hint.after_span_id]
-        if hint.before_span_id:
+        if hint.before_span_id and _is_caller_owned(hint.before_span_id):
             return [hint.before_span_id]
 
         # Fallback：不要绑定到 from_worker 的全部 owned spans。
         # 过宽 source_span_ids 会破坏 block 排序，也可能重新引入 ownership 污染。
         self.logger.warning(
-            "Handoff %s has no invoke_location_hint; using empty source_span_ids.",
+            "Handoff %s has no valid caller-owned invoke_location_hint; "
+            "using empty source_span_ids.",
             handoff.handoff_id,
         )
 
