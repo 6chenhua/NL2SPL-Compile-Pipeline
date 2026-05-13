@@ -7,6 +7,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from nl2spl.canonical import (
+    CanonicalCompileInput,
+    CompileHint,
+    CompileHints,
+    HardFacts,
+    RawSection,
+    VariableFact,
+)
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
@@ -293,6 +301,82 @@ def test_prompt_uses_compact_text_not_full_raw_ir(
     assert "ambiguity" not in user_prompt
 
 
+def test_adapter_metadata_prompt_omits_full_raw_section_text(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR(
+            "s1",
+            "Delegate bounded source gathering when evidence is needed.",
+            source_section_id="sec_process",
+        )
+    ]
+    routes = FieldRouteIR(behavior=["s1"])
+    canonical_input = CanonicalCompileInput(
+        source_schema="structural_nl",
+        schema_version="1.0",
+        raw_text="Task family:\nInternal communications\n",
+        raw_sections=[
+            RawSection(
+                section_id="sec_process",
+                canonical_title="Reusable process",
+                original_title="Reusable process",
+                text=(
+                    "This full reusable process body is intentionally long and "
+                    "should not be repeated in the worker boundary planner prompt."
+                ),
+                order=1,
+            )
+        ],
+        hard_facts=HardFacts(
+            inputs=[
+                VariableFact(
+                    name="user_request",
+                    description="The runtime request.",
+                    data_type="text",
+                    required=True,
+                    source_section_id="sec_process",
+                )
+            ],
+            outputs=[
+                VariableFact(
+                    name="draft_artifact",
+                    description="The produced draft.",
+                    data_type="text",
+                    required=True,
+                    source_section_id="sec_process",
+                )
+            ],
+        ),
+        compile_hints=CompileHints(
+            delegation_hints=[
+                CompileHint(
+                    source_section_id="sec_process",
+                    text=(
+                        "Delegated source gathering can be used when bounded "
+                        "evidence requirements exist."
+                    ),
+                    target="worker.candidate",
+                    suggested_kind="bounded_subtask",
+                    suggested_worker_name="SourceGatheringWorker",
+                )
+            ]
+        ),
+    )
+    mock_client.call_json.return_value = base_plan(workers=[main_worker(["s1"])])
+
+    planner.execute((spans, routes, canonical_input))
+
+    user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    assert "section index:" in user_prompt
+    assert "- sec_process: Reusable process" in user_prompt
+    assert "This full reusable process body" not in user_prompt
+    assert "user_request: text" in user_prompt
+    assert "draft_artifact: text" in user_prompt
+    assert "worker=SourceGatheringWorker" in user_prompt
+
+
 @pytest.mark.parametrize(
     ("hint_value", "policy_value"),
     [
@@ -386,6 +470,87 @@ def test_null_empty_or_missing_handoff_nested_objects_use_defaults(
     assert plan.handoffs[0].invoke_location_hint.flow_kind == "main"
     assert plan.handoffs[0].invoke_location_hint.block_hint == "unknown"
     assert plan.handoffs[0].failure_policy.policy_kind == "propagate_exception"
+
+
+def test_sequential_handoff_ordering_is_normalized_to_after(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s1", "Plan the main response."),
+        SpanIR("s2", "Delegate bounded source gathering."),
+    ]
+    routes = FieldRouteIR(behavior=["s1", "s2"])
+    candidate = {
+        "candidate_id": "candidate_source_gathering",
+        "source_span_ids": ["s2"],
+        "task_text": "Delegate bounded source gathering.",
+        "purpose": "Gather sources.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [field("request_context")],
+        "possible_outputs": [field("evidence_set", "output")],
+        "signals": ["explicit_delegation", "bounded_io"],
+        "risks": [],
+    }
+    decision = {
+        "candidate_id": "candidate_source_gathering",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": None,
+        "reason": "Clear bounded source-gathering handoff.",
+        "evidence": ["explicit_delegation", "bounded_io"],
+    }
+    child = {
+        "worker_id": "worker_source_gathering",
+        "worker_name": "SourceGatheringWorker",
+        "kind": "child",
+        "purpose": "Gather sources.",
+        "owned_span_ids": ["s2"],
+        "input_contract": [field("request_context")],
+        "output_contract": [field("evidence_set", "output")],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": ["explicit_delegation", "bounded_io"],
+        "reason": "Accepted bounded source gathering.",
+    }
+    handoff = {
+        "handoff_id": "handoff_source_gathering",
+        "from_worker": "worker_main",
+        "to_worker": "worker_source_gathering",
+        "api_ref": None,
+        "mode": "invoke",
+        "condition_text": None,
+        "ordering": "sequential",
+        "input_bindings": [
+            {
+                "parent_variable": "request_context",
+                "child_input": "request_context",
+                "required": True,
+            }
+        ],
+        "output_bindings": [
+            {
+                "child_output": "evidence_set",
+                "parent_variable": "evidence_set",
+                "required": True,
+                "merge_strategy": "set",
+            }
+        ],
+        "invoke_location_hint": {"block_hint": "sequential"},
+    }
+    mock_client.call_json.return_value = base_plan(
+        workers=[main_worker(["s1"]), child],
+        handoffs=[handoff],
+        candidates=[candidate],
+        decisions=[decision],
+    )
+
+    plan = planner.execute((spans, routes))
+
+    assert plan.handoffs[0].ordering == "after"
+    assert plan.handoffs[0].invoke_location_hint.block_hint == "sequential"
 
 
 def test_invalid_nested_handoff_object_raises_stage_error(

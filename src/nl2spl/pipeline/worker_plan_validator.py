@@ -78,6 +78,36 @@ class WorkerPlanValidator:
     ) -> WorkerPlanValidationResult:
         """Validate a worker plan without throwing.
 
+        Implements the second layer (Layer-2) of the two-layer validation
+        pipeline. While the first layer (``_validate_planner_decisions`` in
+        ``WorkerBoundaryPlanner``) checks *semantic* consistency (e.g.
+        accepted candidates must not have rejection reasons), this layer
+        checks *structural* and *graph* consistency of the entire plan.
+
+        Layer-2  verification categories (9 in total):
+        1. **Enum field validation** -- all typed fields (kind, mode,
+           ordering, ...) must belong to their pre-defined allowed sets.
+        2. **Main worker existence & uniqueness** -- exactly one ``main``
+           worker, referenced by ``main_worker_id``, and it must be a main.
+        3. **ID uniqueness** -- no duplicate ``worker_id`` or
+           ``handoff_id`` values.
+        4. **Worker name safety** -- ``worker_name`` must be a valid
+           SPL-safe identifier (``^[A-Za-z_][A-Za-z0-9_]*$``).
+        5. **Handoff mode consistency** -- ``invoke`` requires a
+           ``to_worker`` (non-main) and no ``api_ref``; ``api_call``
+           requires an ``api_ref`` and no ``to_worker``.
+        6. **Non-main worker reachability** -- every child or adapter
+           must be reachable via at least one ``invoke`` handoff.
+        7. **Contract completeness** -- non-main workers must declare
+           both input and output contracts; handoff bindings must
+           reference fields that actually exist in those contracts.
+        8. **Span ownership** -- every span can be owned by at most one
+           worker, and all referenced span ids must be known.
+        9. **Decision consistency** -- accepted decisions must map to
+           exactly one non-main worker with an invoke handoff that has
+           bindings; rejected candidates must not appear as real workers
+           or be referenced by any handoff.
+
         Args:
             plan: Worker plan to validate.
             known_span_ids: Optional complete set of resolved span ids.
@@ -360,6 +390,14 @@ class WorkerPlanValidator:
         ]
 
     def _validate_main_worker(self, plan: WorkerPlanIR) -> list[str]:
+        """Ensure exactly one main worker exists and is correctly referenced.
+
+        The main worker is the entry point of the plan; every child worker
+        is invoked transitively from it. We therefore enforce:
+        1. There is exactly one worker whose ``kind == "main"``.
+        2. ``plan.main_worker_id`` references a concrete worker.
+        3. That referenced worker actually has ``kind == "main"``.
+        """
         errors = []
         main_workers = [worker for worker in plan.workers if worker.kind == "main"]
         if len(main_workers) != 1:
@@ -378,6 +416,11 @@ class WorkerPlanValidator:
         return errors
 
     def _validate_unique_worker_ids(self, worker_ids: list[str]) -> list[str]:
+        """Detect duplicate worker identifiers.
+
+        Each worker must have a globally unique ``worker_id`` so that
+        handoffs can unambiguously reference their source and target.
+        """
         return [
             f"Duplicate worker_id: {worker_id}"
             for worker_id, count in Counter(worker_ids).items()
@@ -385,6 +428,11 @@ class WorkerPlanValidator:
         ]
 
     def _validate_unique_handoff_ids(self, handoffs: list[WorkerHandoffIR]) -> list[str]:
+        """Detect duplicate handoff identifiers.
+
+        Every handoff must have a unique ``handoff_id`` so that the
+        plan graph remains well-defined and traceable.
+        """
         return [
             f"Duplicate handoff_id: {handoff_id}"
             for handoff_id, count in Counter(
@@ -394,6 +442,12 @@ class WorkerPlanValidator:
         ]
 
     def _validate_worker_names(self, workers: list[WorkerSpecIR]) -> list[str]:
+        """Validate worker names are unique and SPL-safe.
+
+        SPL (the target language) requires identifiers to match
+        ``^[A-Za-z_][A-Za-z0-9_]*$``. We also ensure no two workers
+        share the same ``worker_name``.
+        """
         errors = []
         names = [worker.worker_name for worker in workers]
         for worker_name, count in Counter(names).items():
@@ -410,6 +464,18 @@ class WorkerPlanValidator:
         worker_ids: set[str],
         main_worker_id: str,
     ) -> list[str]:
+        """Validate handoff mode consistency and reference integrity.
+
+        Two modes are supported:
+        - **invoke**: synchronous call to another worker. Must set
+          ``to_worker`` (and it must be a non-main worker), and must
+          NOT set ``api_ref``.
+        - **api_call**: external API invocation. Must set ``api_ref``, and
+          must NOT set ``to_worker``.
+
+        Additionally, every handoff's ``from_worker`` must reference a
+        known worker in the plan.
+        """
         errors = []
         for handoff in handoffs:
             if handoff.from_worker not in worker_ids:
@@ -447,6 +513,11 @@ class WorkerPlanValidator:
         workers: list[WorkerSpecIR],
         handoffs: list[WorkerHandoffIR],
     ) -> list[str]:
+        """Ensure every non-main worker is reachable via at least one invoke handoff.
+
+        A child or api_adapter that is never invoked is effectively dead
+        code in the plan. We detect these orphan workers and flag them.
+        """
         invoked_worker_ids = {
             handoff.to_worker
             for handoff in handoffs
@@ -459,6 +530,12 @@ class WorkerPlanValidator:
         ]
 
     def _validate_child_contracts(self, workers: list[WorkerSpecIR]) -> list[str]:
+        """Require every non-main worker to declare both input and output contracts.
+
+        Contracts define the clear interface of a worker. A child worker
+        without either an input or output contract is ill-formed because
+        callers would have no way to pass data into it or receive results.
+        """
         errors = []
         for worker in workers:
             if worker.kind == "main":
@@ -476,6 +553,13 @@ class WorkerPlanValidator:
         handoffs: list[WorkerHandoffIR],
         worker_by_id: dict[str, WorkerSpecIR],
     ) -> list[str]:
+        """Validate that handoff bindings reference real contract fields.
+
+        When data is passed from a parent worker to a child (or vice
+        versa), the binding must name a field that actually exists in
+        the target worker's contract. Otherwise the generated code would
+        reference an undefined variable.
+        """
         errors = []
         for handoff in handoffs:
             if handoff.mode != "invoke" or handoff.to_worker is None:

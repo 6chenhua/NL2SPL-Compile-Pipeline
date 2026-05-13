@@ -180,9 +180,9 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
             f"schema: {canonical_input.source_schema} {canonical_input.schema_version}",
         ]
         if canonical_input.raw_sections:
-            lines.append("sections:")
+            lines.append("section index:")
             lines.extend(
-                f"- {section.section_id}: {section.canonical_title} | {section.text}"
+                f"- {section.section_id}: {section.canonical_title}"
                 for section in canonical_input.raw_sections
             )
         if canonical_input.hard_facts.inputs:
@@ -202,7 +202,8 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         if canonical_input.hard_facts.failure_modes:
             lines.append("failure modes:")
             lines.extend(
-                f"- {fact.name}: section={fact.source_section_id}, {fact.text}"
+                f"- {fact.name}: section={fact.source_section_id}, "
+                f"text={self._compact_text(fact.text)}"
                 for fact in canonical_input.hard_facts.failure_modes
             )
         self._append_hints(
@@ -231,13 +232,36 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         if not hints:
             return
         lines.append(f"{label}:")
-        lines.extend(
-            f"- section={hint.source_section_id}, target={hint.target}, "
-            f"kind={hint.suggested_kind}, flow={hint.suggested_flow}, "
-            f"condition={hint.suggested_condition}, worker={hint.suggested_worker_name}, "
-            f"text={hint.text}"
-            for hint in hints
-        )
+        for hint in hints:
+            parts = [
+                f"section={hint.source_section_id}",
+                f"target={hint.target}",
+                f"kind={hint.suggested_kind}",
+                f"flow={hint.suggested_flow}",
+            ]
+            if hint.suggested_block_type:
+                parts.append(f"block={hint.suggested_block_type}")
+            if hint.suggested_step_type:
+                parts.append(f"step={hint.suggested_step_type}")
+            if hint.suggested_condition:
+                parts.append(f"condition={self._compact_text(hint.suggested_condition)}")
+            if hint.suggested_worker_name:
+                parts.append(f"worker={hint.suggested_worker_name}")
+            if hint.metadata:
+                metadata = ", ".join(
+                    f"{key}={self._compact_text(str(value), max_chars=80)}"
+                    for key, value in sorted(hint.metadata.items())
+                )
+                parts.append(f"metadata=[{metadata}]")
+            if hint.text:
+                parts.append(f"text={self._compact_text(hint.text)}")
+            lines.append("- " + ", ".join(parts))
+
+    def _compact_text(self, text: str, max_chars: int = 160) -> str:
+        compact = " ".join(text.split())
+        if len(compact) <= max_chars:
+            return compact
+        return compact[: max_chars - 3].rstrip() + "..."
 
     def _parse_worker_plan(self, data: dict[str, Any]) -> WorkerPlanIR:
         return WorkerPlanIR(
@@ -335,7 +359,7 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
             api_ref=data.get("api_ref"),
             mode=data["mode"],
             condition_text=data.get("condition_text"),
-            ordering=data.get("ordering", "after"),
+            ordering=self._normalize_handoff_ordering(data.get("ordering", "after")),
             input_bindings=[
                 InputBindingIR(
                     parent_variable=binding["parent_variable"],
@@ -359,6 +383,11 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
             ),
             failure_policy=self._parse_failure_policy(data.get("failure_policy", {})),
         )
+
+    def _normalize_handoff_ordering(self, ordering: object) -> str:
+        if ordering == "sequential":
+            return "after"
+        return str(ordering or "after")
 
     def _parse_invoke_location_hint(
         self,
@@ -400,20 +429,45 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         )
 
     def _validate_planner_decisions(self, plan: WorkerPlanIR) -> None:
+        """Validate LLM decisions against core semantic invariants.
+
+        Acts as the first line of defense (Layer-1 validation) against
+        self-contradictory or semantically-invalid LLM outputs. It checks
+        that accepted and rejected candidates are logically consistent
+        before the more expensive structural validation (Layer-2) runs.
+
+        Validation rules:
+        1. **Consistency check**: An accepted candidate (extract_child_worker)
+           must NOT have a rejection_reason.
+        2. **Evidence check**: An accepted candidate MUST have at least one
+           positive signal in ``evidence``.
+        3. **Risk check**: An accepted candidate must NOT carry any
+           ``_BLOCKING_RISKS`` (e.g., insufficient_semantic_boundary).
+        4. **Completeness check**: A rejected candidate MUST provide a
+           ``rejection_reason``.
+        5. **Legitimacy check**: The ``rejection_reason`` must be one of the
+           pre-defined reasons in ``_REJECTION_REASONS``.
+
+        Raises:
+            ValueError: If any invariant is violated.
+        """
         candidates_by_id = {
             candidate.candidate_id: candidate for candidate in plan.candidates
         }
         for decision in plan.decisions:
             if decision.decision == "extract_child_worker":
+                # Rule 1: accepted candidate must not have a rejection_reason
                 if decision.rejection_reason is not None:
                     raise ValueError(
                         f"Accepted candidate has rejection_reason: {decision.candidate_id}"
                     )
+                # Rule 2: accepted candidate must have positive evidence
                 if not decision.evidence:
                     raise ValueError(
                         f"Accepted candidate has no positive signal evidence: "
                         f"{decision.candidate_id}"
                     )
+                # Rule 3: accepted candidate must not carry blocking risks
                 candidate = candidates_by_id.get(decision.candidate_id)
                 if candidate and set(candidate.risks) & self._BLOCKING_RISKS:
                     raise ValueError(
@@ -421,10 +475,12 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
                     )
                 continue
 
+            # Rule 4: rejected candidate must state why it was rejected
             if decision.rejection_reason is None:
                 raise ValueError(
                     f"Rejected candidate is missing rejection_reason: {decision.candidate_id}"
                 )
+            # Rule 5: rejection_reason must be a known, pre-defined reason
             if decision.rejection_reason not in self._REJECTION_REASONS:
                 raise ValueError(
                     f"Unsupported rejection_reason for {decision.candidate_id}: "

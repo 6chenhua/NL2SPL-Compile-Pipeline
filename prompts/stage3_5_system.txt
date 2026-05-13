@@ -90,6 +90,37 @@ If any requirement is absent, reject the candidate.
 
 ---
 
+## Handoff Requirements For Every Non-Main Worker
+
+Every non-main worker that appears in `workers` MUST have at least one
+matching handoff in `handoffs`.
+
+If you cannot define a handoff with:
+- `from_worker`,
+- `to_worker`,
+- invocation location,
+- input bindings,
+- output bindings,
+
+then do NOT create that worker. Keep the candidate in the main worker and
+reject it with `no_parent_invocation_point`, `no_clear_input_contract`,
+`no_clear_output_contract`, or `unclear_result_handoff`.
+
+For `handoffs[].ordering`, never output `sequential`. A normal sequential
+handoff should use:
+
+```json
+"ordering": "after",
+"invoke_location_hint": {
+  "block_hint": "sequential"
+}
+```
+
+`sequential` is allowed only as `invoke_location_hint.block_hint`, not as
+`handoffs[].ordering`.
+
+---
+
 ## Positive Signals (evidence, not decisions)
 
 The following signals support extraction, but only when the five
