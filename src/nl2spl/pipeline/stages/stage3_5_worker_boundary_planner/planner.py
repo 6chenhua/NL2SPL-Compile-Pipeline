@@ -1,0 +1,50 @@
+"""Stage 3.5: WorkerBoundaryPlanner - propose worker boundaries before flow assembly."""
+
+from __future__ import annotations
+
+from nl2spl.ir.worker_plan_ir import WorkerPlanIR
+from nl2spl.pipeline.stages.base import PipelineStage
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
+    DecisionValidatorMixin,
+)
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+    ExecutorMixin,
+    PlannerInput,
+)
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.plan_parser import (
+    PlanParserMixin,
+)
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.prompt_builder import (
+    PromptBuilderMixin,
+)
+
+
+class WorkerBoundaryPlanner(
+    ExecutorMixin,
+    PromptBuilderMixin,
+    PlanParserMixin,
+    DecisionValidatorMixin,
+    PipelineStage[PlannerInput, WorkerPlanIR],
+):
+    """Plan first-class worker boundaries using compact span and adapter context."""
+
+    _REJECTION_REASONS: set[str] = {
+        "no_clear_input_contract",
+        "no_clear_output_contract",
+        "no_parent_invocation_point",
+        "simple_control_flow",
+        "ordinary_sequential_step",
+        "policy_or_constraint",
+        "alternative_flow",
+        "exception_flow",
+        "single_api_call",
+        "insufficient_semantic_boundary",
+        "over_fragmentation",
+        "unclear_result_handoff",
+    }
+    _BLOCKING_RISKS = _REJECTION_REASONS
+
+    @property
+    def name(self) -> str:
+        """Stage name for logging and checkpointing."""
+        return "stage3_5_worker_boundary_planner"
