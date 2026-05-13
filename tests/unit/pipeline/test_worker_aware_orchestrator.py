@@ -9,7 +9,11 @@ from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
+from nl2spl.ir.resource_registry_ir import (
+    ResourceRegistryIR,
+    VariableSpec,
+    WorkerScopedResourceIR,
+)
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
@@ -175,6 +179,9 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
     block_plan = worker_block_plan()
     symbols = SymbolTable()
 
+    worker_scoped_resources = WorkerScopedResourceIR(
+        global_resources=ResourceRegistryIR()
+    )
     with (
         patch.object(orchestrator, "_run_stage1", return_value=span_list),
         patch.object(orchestrator, "_run_stage2", return_value=(route_ir, [])),
@@ -184,45 +191,44 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
         patch.object(orchestrator, "_run_stage5", return_value=block_plan) as stage5,
         patch.object(
             orchestrator,
-            "_run_stage6",
-            return_value=(ResourceRegistryIR(), symbols),
-        ) as stage6,
+            "_run_stage6_worker_scoped",
+            return_value=(worker_scoped_resources, symbols),
+        ) as stage6_ws,
         patch.object(orchestrator, "_run_stage7", return_value=([], symbols)),
+        patch.object(orchestrator, "_run_stage7_worker_scoped", return_value=(MagicMock(), symbols)),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
             orchestrator,
-            "_run_normalization",
+            "_run_normalization_worker_scoped",
             return_value=(
-                FlowStructureIR(main_flow_spans=["s1", "s3"]),
-                BlockStructureIR(
-                    main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1", "s3"])]
-                ),
-                [],
-                [],
+                flow_plan,
+                block_plan,
+                MagicMock(),
                 symbols,
                 [],
                 [],
             ),
         ),
-        patch.object(orchestrator, "_run_stage10", return_value=MagicMock()),
+        patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])),
     ):
         result = orchestrator.run("test")
 
     stage4.assert_called_once_with(span_list, route_ir, plan)
     stage5.assert_called_once_with(span_list, route_ir, flow_plan)
-    stage6_flow = stage6.call_args.args[2]
-    stage6_blocks = stage6.call_args.args[3]
+    assert stage6_ws.call_args.args[0] == span_list
+    assert stage6_ws.call_args.args[1] == route_ir
+    assert stage6_ws.call_args.args[2] is flow_plan
+    assert stage6_ws.call_args.args[3] is block_plan
+    assert stage6_ws.call_args.args[4] is plan
 
     assert result.intermediate_results["stage4_worker_flows"] is flow_plan
     assert result.intermediate_results["stage5_worker_blocks"] is block_plan
     assert "stage4_legacy_flow_adapter" in result.intermediate_results
     assert "stage5_legacy_block_adapter" in result.intermediate_results
-    assert stage6_flow.main_flow_spans == ["s1", "s3"]
-    assert stage6_flow.delegation_candidates
-    assert "s2" not in stage6_flow.get_all_flow_spans()
-    assert [block.spans for block in stage6_blocks.main_flow_blocks] == [["s1", "s3"]]
+    assert result.intermediate_results["stage6_worker_scoped_resources"] is worker_scoped_resources
+    assert result.intermediate_results["stage6_resources"] is worker_scoped_resources.global_resources
 
 
 def test_orchestrator_stage_helpers_call_worker_aware_assembler_inputs(
@@ -297,6 +303,33 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
             variable.description,
         )
 
+    # 创建 mock 的 WorkerStepPlanIR
+    from nl2spl.ir.step_ir import StepIR
+    from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
+    invoke_step = StepIR(
+        step_id="st_invoke_handoff_source",
+        text="Invoke worker: SourceWorker",
+        source_span_ids=["s1"],
+        command_type="INVOKE_WORKER",
+        inputs=["request"],
+        outputs=["evidence"],
+        integration_ref="SourceWorker",
+        kind="invoke",
+        handoff_id="handoff_source",
+    )
+    mock_worker_step_plan = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={
+            "worker_main": [invoke_step],
+            "worker_source": [],
+        },
+    )
+
+    mock_worker = MagicMock()
+    mock_worker.child_worker_refs = ["SourceWorker"]
+    mock_worker.child_workers = [MagicMock(worker_name="SourceWorker")]
+
     with (
         patch.object(orchestrator, "_run_stage1", return_value=span_list),
         patch.object(orchestrator, "_run_stage2", return_value=(route_ir, [])),
@@ -306,11 +339,45 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
         patch.object(orchestrator, "_run_stage5", return_value=block_plan) as stage5,
         patch.object(
             orchestrator,
-            "_run_stage6",
-            return_value=(resources, symbols),
+            "_run_stage6_worker_scoped",
+            return_value=(WorkerScopedResourceIR(global_resources=resources), symbols),
+        ),
+        patch.object(orchestrator, "_run_stage7", return_value=([], symbols)),
+        patch.object(
+            orchestrator,
+            "_run_stage7_worker_scoped",
+            return_value=(mock_worker_step_plan, symbols),
         ),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
+        patch.object(
+            orchestrator,
+            "_run_normalization",
+            return_value=(
+                FlowStructureIR(main_flow_spans=["s1", "s3"]),
+                BlockStructureIR(
+                    main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1", "s3"])]
+                ),
+                [],
+                [],
+                symbols,
+                [],
+                [],
+            ),
+        ),
+        patch.object(
+            orchestrator,
+            "_run_normalization_worker_scoped",
+            return_value=(
+                flow_plan,
+                block_plan,
+                mock_worker_step_plan,
+                symbols,
+                [],
+                [],
+            ),
+        ),
+        patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=mock_worker),
         patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])) as stage11,
     ):
         result = orchestrator.run("test")

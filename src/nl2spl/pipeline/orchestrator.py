@@ -14,12 +14,17 @@ from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import WorkerIR
-from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR
+from nl2spl.ir.worker_plan_ir import (
+    WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
+    WorkerPlanIR,
+    WorkerStepPlanIR,
+)
 from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
@@ -204,25 +209,64 @@ class PipelineOrchestrator:
 
         # Stage 6: Resource Extraction
         self.logger.info("Stage 6: Resource Extraction")
-        resources, symbol_table = self._run_stage6(
-            resolved_spans,
-            resolved_routes,
-            flow_structure,
-            block_structure,
-            canonical_input,
-        )
+        if (
+            self.config.enable_worker_boundary_planner
+            and worker_flow_plan is not None
+            and worker_block_plan is not None
+            and worker_plan is not None
+        ):
+            # Worker-aware path
+            worker_scoped_resources, symbol_table = self._run_stage6_worker_scoped(
+                resolved_spans,
+                resolved_routes,
+                worker_flow_plan,
+                worker_block_plan,
+                worker_plan,
+                canonical_input,
+            )
+            resources = worker_scoped_resources.global_resources
+            intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
+        else:
+            # Legacy path
+            resources, symbol_table = self._run_stage6(
+                resolved_spans,
+                resolved_routes,
+                flow_structure,
+                block_structure,
+                canonical_input,
+            )
         intermediate["stage6_resources"] = resources
 
         # Stage 7: Step Extraction
         self.logger.info("Stage 7: Step Extraction")
-        steps, symbol_table = self._run_stage7(
-            resolved_spans,
-            resolved_routes,
-            flow_structure,
-            block_structure,
-            symbol_table,
-            worker_plan,
-        )
+        if (
+            self.config.enable_worker_boundary_planner
+            and worker_flow_plan is not None
+            and worker_block_plan is not None
+            and worker_plan is not None
+        ):
+            # Worker-aware path
+            worker_step_plan, symbol_table = self._run_stage7_worker_scoped(
+                resolved_spans,
+                resolved_routes,
+                worker_flow_plan,
+                worker_block_plan,
+                symbol_table,
+                worker_plan,
+            )
+            steps = worker_step_plan.get_all_steps()
+            worker_stage_warnings.extend(worker_step_plan.warnings)
+            intermediate["stage7_worker_step_plan"] = worker_step_plan
+        else:
+            # Legacy path
+            steps, symbol_table = self._run_stage7(
+                resolved_spans,
+                resolved_routes,
+                flow_structure,
+                block_structure,
+                symbol_table,
+                worker_plan,
+            )
         intermediate["stage7_steps"] = steps
 
         # Stage 8: Profile Extraction
@@ -245,36 +289,82 @@ class PipelineOrchestrator:
 
         # Stage 9.5: IR Normalization
         self.logger.info("Stage 9.5: IR Normalization")
-        norm_result = self._run_normalization(
-            flow_structure,
-            block_structure,
-            resources,
-            symbol_table,
-            steps,
-            constraints,
-            worker_plan,
-        )
+        if (
+            self.config.enable_worker_boundary_planner
+            and worker_flow_plan is not None
+            and worker_block_plan is not None
+            and worker_step_plan is not None
+            and worker_plan is not None
+        ):
+            # Worker-aware path
+            norm_result = self._run_normalization_worker_scoped(
+                worker_flow_plan,
+                worker_block_plan,
+                worker_step_plan,
+                worker_plan,
+                resources,
+                symbol_table,
+            )
+            (
+                worker_flow_plan,
+                worker_block_plan,
+                worker_step_plan,
+                symbol_table,
+                normalization_errors,
+                normalization_warnings,
+            ) = norm_result
+            # 更新 steps 为所有 worker 的 steps
+            steps = worker_step_plan.get_all_steps()
+        else:
+            # Legacy path
+            norm_result = self._run_normalization(
+                flow_structure,
+                block_structure,
+                resources,
+                symbol_table,
+                steps,
+                constraints,
+                worker_plan,
+            )
+            (
+                flow_structure,
+                block_structure,
+                steps,
+                constraints,
+                symbol_table,
+                normalization_errors,
+                normalization_warnings,
+            ) = norm_result
         intermediate["stage9_5_normalization"] = norm_result
-        (
-            flow_structure,
-            block_structure,
-            steps,
-            constraints,
-            symbol_table,
-            normalization_errors,
-            normalization_warnings,
-        ) = norm_result
 
         # Stage 10: Worker Assembly
         self.logger.info("Stage 10: Worker Assembly")
-        worker = self._run_stage10(
-            flow_structure,
-            block_structure,
-            steps,
-            resources,
-            symbol_table,
-            worker_plan,
-        )
+        if (
+            self.config.enable_worker_boundary_planner
+            and worker_flow_plan is not None
+            and worker_block_plan is not None
+            and worker_step_plan is not None
+            and worker_plan is not None
+        ):
+            # Worker-aware path
+            worker = self._run_stage10_worker_scoped(
+                worker_step_plan,
+                resources,
+                symbol_table,
+                worker_plan,
+                worker_flow_plan,
+                worker_block_plan,
+            )
+        else:
+            # Legacy path
+            worker = self._run_stage10(
+                flow_structure,
+                block_structure,
+                steps,
+                resources,
+                symbol_table,
+                worker_plan,
+            )
         intermediate["stage10_worker"] = worker
 
         # Stage 11: SPL Rendering
@@ -374,6 +464,21 @@ class PipelineOrchestrator:
             return stage.execute((spans, routes, flow, blocks, canonical_input))
         return stage.execute((spans, routes, flow, blocks))
 
+    def _run_stage6_worker_scoped(
+        self,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+        worker_flow_plan: WorkerFlowPlanIR,
+        worker_block_plan: WorkerBlockPlanIR,
+        worker_plan: WorkerPlanIR,
+        canonical_input: CanonicalCompileInput | None = None,
+    ) -> tuple[WorkerScopedResourceIR, SymbolTable]:
+        """Stage 6: Worker-scoped Resource Extraction."""
+        stage = ResourceExtractor(self.config, self.client)
+        return stage.execute_worker_scoped(
+            spans, routes, worker_flow_plan, worker_block_plan, worker_plan, canonical_input
+        )
+
     def _run_stage7(
         self,
         spans: list[SpanIR],
@@ -388,6 +493,23 @@ class PipelineOrchestrator:
         if worker_plan is not None:
             return stage.execute((spans, routes, flow, blocks, symbols, worker_plan))
         return stage.execute((spans, routes, flow, blocks, symbols))
+
+    def _run_stage7_worker_scoped(
+        self,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+        worker_flow_plan: WorkerFlowPlanIR,
+        worker_block_plan: WorkerBlockPlanIR,
+        symbol_table: SymbolTable,
+        worker_plan: WorkerPlanIR,
+    ) -> tuple[WorkerStepPlanIR, SymbolTable]:
+        """Stage 7: Worker-scoped Step Extraction."""
+        from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
+        stage = StepExtractor(self.config, self.client)
+        return stage.execute_worker_scoped(
+            spans, routes, worker_flow_plan, worker_block_plan, symbol_table, worker_plan
+        )
 
     def _run_stage8(
         self,
@@ -447,6 +569,35 @@ class PipelineOrchestrator:
             worker_plan,
         )
 
+    def _run_normalization_worker_scoped(
+        self,
+        worker_flow_plan: WorkerFlowPlanIR,
+        worker_block_plan: WorkerBlockPlanIR,
+        worker_step_plan: WorkerStepPlanIR,
+        worker_plan: WorkerPlanIR,
+        resources: ResourceRegistryIR,
+        symbol_table: SymbolTable,
+    ) -> tuple[
+        WorkerFlowPlanIR,
+        WorkerBlockPlanIR,
+        WorkerStepPlanIR,
+        SymbolTable,
+        list[str],
+        list[str],
+    ]:
+        """Stage 9.5: Worker-scoped IR Normalization."""
+        from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
+        normalizer = IRNormalizer()
+        return normalizer.normalize_worker_scoped(
+            worker_flow_plan,
+            worker_block_plan,
+            worker_step_plan,
+            worker_plan,
+            resources,
+            symbol_table,
+        )
+
     def _run_stage10(
         self,
         flow: FlowStructureIR,
@@ -456,9 +607,32 @@ class PipelineOrchestrator:
         symbols: SymbolTable,
         worker_plan: WorkerPlanIR | None = None,
     ) -> WorkerIR:
-        """Stage 10: Worker Assembly."""
+        """Stage 10: Worker Assembly (legacy path)."""
         assembler = WorkerAssembler()
         return assembler.assemble(flow, blocks, steps, resources, symbols, worker_plan)
+
+    def _run_stage10_worker_scoped(
+        self,
+        worker_step_plan: WorkerStepPlanIR,
+        resources: ResourceRegistryIR,
+        symbols: SymbolTable,
+        worker_plan: WorkerPlanIR,
+        worker_flow_plan: WorkerFlowPlanIR | None = None,
+        worker_block_plan: WorkerBlockPlanIR | None = None,
+    ) -> WorkerIR:
+        """Stage 10: Worker Assembly (worker-aware path).
+
+        Uses worker-scoped IRs directly instead of legacy adapter.
+        """
+        assembler = WorkerAssembler()
+        return assembler.assemble_from_worker_scoped(
+            worker_step_plan,
+            resources,
+            symbols,
+            worker_plan,
+            worker_flow_plan,
+            worker_block_plan,
+        )
 
     def _run_stage11(
         self,
