@@ -54,6 +54,8 @@ class PipelineConfig:
 
     # Migration feature flags
     enable_worker_boundary_planner: bool = False
+    enable_worker_boundary_planner_split: bool = False
+    enable_worker_boundary_single_call_fallback: bool = True
 
     # Retry settings
     max_retries: int = 3

@@ -79,12 +79,15 @@ class WorkerScopedMethodsMixin:
             worker_step_plan.worker_steps[worker_id] = worker_steps
 
         # 2. 为 main worker 从 handoffs 生成 INVOKE_WORKER / CALL_API steps
-        invoke_steps = self._generate_handoff_steps(worker_plan, symbol_table)
-        main_worker_id = worker_plan.main_worker_id
-        if main_worker_id in worker_step_plan.worker_steps:
-            worker_step_plan.worker_steps[main_worker_id].extend(invoke_steps)
-        else:
-            worker_step_plan.worker_steps[main_worker_id] = invoke_steps
+        handoff_steps_by_worker = self._generate_handoff_steps(
+            worker_plan,
+            symbol_table,
+        )
+        for worker_id, handoff_steps in handoff_steps_by_worker.items():
+            if worker_id in worker_step_plan.worker_steps:
+                worker_step_plan.worker_steps[worker_id].extend(handoff_steps)
+            else:
+                worker_step_plan.worker_steps[worker_id] = handoff_steps
 
         worker_step_plan.warnings = all_warnings
         return worker_step_plan, symbol_table
@@ -203,20 +206,27 @@ Worker 信息：
 
         # 子 worker 不应包含 INVOKE_WORKER 步骤（只有主 worker 通过 handoff
         # 生成 INVOKE）。LLM 可能因 prompt 中列出了 INVOKE_WORKER 类型而误生成。
+        # 不能直接 drop——会丢失 child-owned span 的真实行为。
+        # 改为降级为 GENERAL_COMMAND，保留 text / source_span_ids / inputs / outputs。
         if worker.kind == "child":
-            filtered: list[StepIR] = []
-            dropped = 0
+            rewritten = 0
             for s in steps:
                 if s.command_type == "INVOKE_WORKER":
+                    s.command_type = "GENERAL_COMMAND"
+                    s.kind = "normal"
+                    s.integration_ref = None
+                    s.handoff_id = None
                     self.logger.warning(
-                        "Dropping INVOKE_WORKER step %s from child worker %s",
+                        "Rewriting INVOKE_WORKER step %s to GENERAL_COMMAND "
+                        "in child worker %s",
                         s.step_id, worker.worker_id,
                     )
-                    dropped += 1
-                    continue
-                filtered.append(s)
-            if dropped:
-                steps = filtered
+                    rewritten += 1
+            if rewritten:
+                self.logger.info(
+                    "Rewrote %d INVOKE_WORKER steps in child worker %s",
+                    rewritten, worker.worker_id,
+                )
 
         # 处理 new_variables — declare with worker scope
         for new_var_data in result.get("new_variables", []):
@@ -245,7 +255,10 @@ Worker 信息：
         ownership_errors = self._validate_step_span_ownership(steps, worker)
         if ownership_errors:
             raise StageError(
-                message=f"Step span ownership validation failed for worker {worker.worker_id}: {ownership_errors}",
+                message=(
+                    "Step span ownership validation failed for worker "
+                    f"{worker.worker_id}: {ownership_errors}"
+                ),
                 stage=self.name,
             )
 
@@ -287,12 +300,12 @@ Worker 信息：
         self,
         worker_plan: WorkerPlanIR,
         symbol_table: SymbolTable,
-    ) -> list[StepIR]:
+    ) -> dict[str, list[StepIR]]:
         """Generate INVOKE_WORKER / CALL_API steps from handoffs.
 
         关键：只从 WorkerHandoffIR 生成，不从 decisions 生成。（D1）
         """
-        handoff_steps: list[StepIR] = []
+        handoff_steps: dict[str, list[StepIR]] = {}
 
         for handoff in worker_plan.handoffs:
             if handoff.mode == "invoke":
@@ -307,7 +320,7 @@ Worker 信息：
                 )
                 continue
 
-            handoff_steps.append(step)
+            handoff_steps.setdefault(handoff.from_worker, []).append(step)
 
             # 更新 symbol table
             for var_name in step.inputs:
