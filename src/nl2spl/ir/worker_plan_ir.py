@@ -7,6 +7,7 @@ from typing import Literal
 
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.step_ir import StepIR
 
 BoundaryKind = Literal[
     "explicit_delegation",
@@ -255,3 +256,55 @@ class WorkerBlockPlanIR:
     worker_blocks: dict[str, BlockStructureIR] = field(default_factory=dict)
     control_complexity_regions: list[ControlComplexityRegionIR] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class WorkerStepPlanIR:
+    """Worker-scoped step extraction result.
+
+    用途：存储按 worker 分组的步骤提取结果。
+
+    字段说明：
+    - main_worker_id: 主 worker 的 ID，从 WorkerPlanIR 获取
+    - worker_steps: 按 worker_id 分组的步骤列表
+    - warnings: 验证警告信息
+    """
+
+    main_worker_id: str
+    worker_steps: dict[str, list[StepIR]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def main_worker_steps(self) -> list[StepIR]:
+        """获取主 worker 的步骤。"""
+        return self.worker_steps.get(self.main_worker_id, [])
+
+    def get_all_steps(self) -> list[StepIR]:
+        """获取所有 worker 的步骤。"""
+        all_steps: list[StepIR] = []
+        for steps in self.worker_steps.values():
+            all_steps.extend(steps)
+        return all_steps
+
+
+@dataclass
+class HandoffContractIR:
+    """Handoff contract between workers.
+
+    Stores the contract for worker-to-worker handoffs:
+    - Input variables passed from parent to child worker
+    - Output variables returned from child to parent worker
+
+    Attributes:
+        handoff_id: Handoff identifier
+        parent_worker_id: Parent worker ID
+        child_worker_id: Child worker ID
+        input_variables: Input variable contracts
+        output_variables: Output variable contracts
+    """
+
+    handoff_id: str
+    parent_worker_id: str
+    child_worker_id: str
+    input_variables: list[ContractFieldIR] = field(default_factory=list)
+    output_variables: list[ContractFieldIR] = field(default_factory=list)

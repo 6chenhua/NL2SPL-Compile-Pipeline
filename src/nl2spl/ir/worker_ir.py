@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from nl2spl.ir.block_structure_ir import BlockIR
+from nl2spl.ir.step_ir import StepIR
 
 
 @dataclass
@@ -76,7 +77,7 @@ class WorkerOutput:
 
 @dataclass
 class ChildWorkerIR:
-    """Concrete child worker generated from a delegation candidate.
+    """Concrete child worker with full flow and steps support.
 
     Attributes:
         worker_name: Child worker name
@@ -84,6 +85,11 @@ class ChildWorkerIR:
         task_text: Command text for the delegated task
         inputs: Input specifications
         outputs: Output specifications
+        main_flow: Main flow reference
+        alternative_flows: Alternative flow references
+        exception_flows: Exception flow references
+        api_refs: Referenced API names
+        steps: Step IRs in this worker
     """
 
     worker_name: str
@@ -91,6 +97,11 @@ class ChildWorkerIR:
     task_text: str
     inputs: list[WorkerInput] = field(default_factory=list)
     outputs: list[WorkerOutput] = field(default_factory=list)
+    main_flow: FlowRef = field(default_factory=FlowRef)
+    alternative_flows: list[AlternativeFlowRef] = field(default_factory=list)
+    exception_flows: list[ExceptionFlowRef] = field(default_factory=list)
+    api_refs: list[str] = field(default_factory=list)
+    steps: list[StepIR] = field(default_factory=list)
 
 
 @dataclass

@@ -12,6 +12,7 @@ from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
     TypeSpec,
     VariableSpec,
+    WorkerScopedResourceIR,
 )
 from nl2spl.ir.span_ir import AmbiguityInfo, SpanIR
 from nl2spl.ir.step_ir import StepIR
@@ -22,6 +23,7 @@ from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     ContractFieldIR,
     ControlComplexityRegionIR,
+    HandoffContractIR,
     HandoffFailurePolicyIR,
     InputBindingIR,
     InvokeLocationHintIR,
@@ -35,6 +37,7 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerScopedFlowIR,
     WorkerSpecIR,
+    WorkerStepPlanIR,
 )
 
 __all__ = [
@@ -56,6 +59,7 @@ __all__ = [
     "APISpec",
     "APIFunction",
     "TypeSpec",
+    "WorkerScopedResourceIR",
     "SymbolTable",
     "VariableSymbol",
     "StepIR",
@@ -67,6 +71,7 @@ __all__ = [
     "ContractFieldIR",
     "CandidateTaskUnitIR",
     "ControlComplexityRegionIR",
+    "HandoffContractIR",
     "WorkerBoundaryDecisionIR",
     "WorkerSpecIR",
     "InputBindingIR",
@@ -78,4 +83,5 @@ __all__ = [
     "WorkerScopedFlowIR",
     "WorkerFlowPlanIR",
     "WorkerBlockPlanIR",
+    "WorkerStepPlanIR",
 ]
