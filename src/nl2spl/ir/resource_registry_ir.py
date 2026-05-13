@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from nl2spl.ir.worker_plan_ir import HandoffContractIR
 
 
 @dataclass
@@ -113,3 +117,45 @@ class ResourceRegistryIR:
     def get_api_names(self) -> set[str]:
         """Get all API names."""
         return {a.api_name for a in self.apis}
+
+
+@dataclass
+class WorkerScopedResourceIR:
+    """Worker-scoped resource extraction result.
+
+    Stores resources grouped by worker scope:
+    - global_resources: Resources shared across all workers
+    - worker_resources: Resources specific to each worker
+    - handoff_contracts: Contracts between workers for handoffs
+
+    Attributes:
+        global_resources: Global resource registry
+        worker_resources: Resource registry per worker ID
+        handoff_contracts: Handoff contract per handoff ID
+    """
+
+    global_resources: ResourceRegistryIR = field(default_factory=ResourceRegistryIR)
+    worker_resources: dict[str, ResourceRegistryIR] = field(default_factory=dict)
+    handoff_contracts: dict[str, "HandoffContractIR"] = field(default_factory=dict)
+
+    def get_all_variables(self) -> list[VariableSpec]:
+        """Get all variables across all scopes.
+
+        Returns:
+            List of all variable specifications
+        """
+        result = list(self.global_resources.variables)
+        for worker_resources in self.worker_resources.values():
+            result.extend(worker_resources.variables)
+        return result
+
+    def get_all_apis(self) -> list[APISpec]:
+        """Get all APIs across all scopes.
+
+        Returns:
+            List of all API specifications
+        """
+        result = list(self.global_resources.apis)
+        for worker_resources in self.worker_resources.values():
+            result.extend(worker_resources.apis)
+        return result
