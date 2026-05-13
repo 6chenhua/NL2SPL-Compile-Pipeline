@@ -349,3 +349,201 @@ def test_symbol_table_empty_worker_prompt() -> None:
     prompt = table.get_variable_list_for_worker_prompt("non_existent")
 
     assert prompt == "No variables available."
+
+
+def test_get_all_declared_variables_includes_handoff_contracts() -> None:
+    """Test get_all_declared_variables includes handoff input/output variables."""
+    table = SymbolTable()
+
+    # Global variable
+    table.declare_scoped(
+        name="query",
+        data_type="text",
+        source="input",
+        description="Global query",
+        scope_kind="global",
+    )
+
+    # Handoff input variable
+    table.declare_scoped(
+        name="handoff_input",
+        data_type="text",
+        source="input",
+        description="Handoff input",
+        scope_kind="handoff",
+        scope_id="handoff_1",
+    )
+
+    # Handoff output variable
+    table.declare_scoped(
+        name="handoff_output",
+        data_type="text",
+        source="output",
+        description="Handoff output",
+        scope_kind="handoff",
+        scope_id="handoff_1",
+    )
+
+    all_vars = table.get_all_declared_variables()
+
+    assert "query" in all_vars
+    assert "handoff_input" in all_vars  # input source => always included
+    assert "handoff_output" in all_vars  # output source => always included
+
+
+def test_get_all_declared_variables_excludes_unddeclared_internal() -> None:
+    """Test get_all_declared_variables excludes internal step vars with declared=False."""
+    table = SymbolTable()
+
+    table.declare_scoped(
+        name="internal_step_var",
+        data_type="text",
+        source="step",
+        description="Internal step variable",
+        scope_kind="worker",
+        scope_id="worker_1",
+    )
+    table._variables[("worker", "worker_1", "internal_step_var")].declared = False
+
+    all_vars = table.get_all_declared_variables()
+    assert "internal_step_var" not in all_vars
+
+    # Once declared is set back to True, it should appear
+    table._variables[("worker", "worker_1", "internal_step_var")].declared = True
+    all_vars = table.get_all_declared_variables()
+    assert "internal_step_var" in all_vars
+
+
+def test_get_variable_list_for_worker_prompt_includes_handoff_variables() -> None:
+    """Test prompt generation when handoff-scoped variables exist."""
+    table = SymbolTable()
+
+    table.declare_scoped(
+        name="global_var",
+        data_type="text",
+        source="input",
+        description="Global variable",
+        scope_kind="global",
+    )
+
+    table.declare_scoped(
+        name="handoff_var",
+        data_type="text",
+        source="input",
+        description="Handoff variable",
+        scope_kind="handoff",
+        scope_id="handoff_1",
+    )
+
+    # Worker prompt should include global vars but not handoff-scoped vars
+    prompt = table.get_variable_list_for_worker_prompt("worker_1")
+    assert "global_var" in prompt
+    assert "handoff_var" not in prompt
+
+
+def test_declare_scoped_preserves_flow_and_block_ref() -> None:
+    """Test declare_scoped preserves flow_ref and block_ref."""
+    table = SymbolTable()
+    table.declare_scoped(
+        name="var1",
+        data_type="text",
+        source="step",
+        description="Variable with flow/block",
+        scope_kind="worker",
+        scope_id="worker_1",
+        flow_ref="alternative",
+        block_ref="b2",
+    )
+
+    key = ("worker", "worker_1", "var1")
+    var = table._variables[key]
+    assert var.flow_ref == "alternative"
+    assert var.block_ref == "b2"
+
+
+def test_declare_legacy_sets_correct_defaults() -> None:
+    """Test declare() sets scope_kind='global' and scope_id=None."""
+    table = SymbolTable()
+    table.declare(
+        name="query",
+        data_type="text",
+        source="input",
+        description="User query",
+        flow_ref="main",
+        block_ref="b1",
+    )
+
+    var = table.variables["query"]
+    assert var.scope_kind == "global"
+    assert var.scope_id is None
+    assert var.flow_ref == "main"
+    assert var.block_ref == "b1"
+
+
+def test_get_variables_for_worker_handoff_not_visible() -> None:
+    """Test handoff-scoped variables are NOT visible to workers."""
+    table = SymbolTable()
+
+    table.declare_scoped(
+        name="global_var",
+        data_type="text",
+        source="input",
+        description="Global",
+        scope_kind="global",
+    )
+    table.declare_scoped(
+        name="handoff_var",
+        data_type="text",
+        source="input",
+        description="Handoff",
+        scope_kind="handoff",
+        scope_id="handoff_1",
+    )
+
+    worker_vars = table.get_variables_for_worker("worker_1")
+    assert "global_var" in worker_vars
+    assert "handoff_var" not in worker_vars
+
+
+def test_get_variables_for_handoff_worker_not_visible() -> None:
+    """Test worker-scoped variables are NOT visible to handoffs."""
+    table = SymbolTable()
+
+    table.declare_scoped(
+        name="global_var",
+        data_type="text",
+        source="input",
+        description="Global",
+        scope_kind="global",
+    )
+    table.declare_scoped(
+        name="worker_var",
+        data_type="text",
+        source="step",
+        description="Worker",
+        scope_kind="worker",
+        scope_id="worker_1",
+    )
+
+    handoff_vars = table.get_variables_for_handoff("handoff_1")
+    assert "global_var" in handoff_vars
+    assert "worker_var" not in handoff_vars
+
+
+def test_global_variable_visible_to_both_worker_and_handoff() -> None:
+    """Test global variables are visible to both worker and handoff queries."""
+    table = SymbolTable()
+
+    table.declare_scoped(
+        name="shared_query",
+        data_type="text",
+        source="input",
+        description="Shared query",
+        scope_kind="global",
+    )
+
+    worker_vars = table.get_variables_for_worker("worker_1")
+    handoff_vars = table.get_variables_for_handoff("handoff_1")
+
+    assert "shared_query" in worker_vars
+    assert "shared_query" in handoff_vars

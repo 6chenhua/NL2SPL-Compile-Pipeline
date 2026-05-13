@@ -11,6 +11,7 @@ from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import (
+    ContractFieldIR,
     HandoffContractIR,
     InputBindingIR,
     OutputBindingIR,
@@ -340,3 +341,397 @@ def test_build_handoff_contract(
     assert len(contract.output_variables) == 1
     assert contract.input_variables[0].name == "child_query"
     assert contract.output_variables[0].name == "result"
+
+
+def test_build_handoff_contract_with_scoped_variables(
+    extractor: ResourceExtractor,
+) -> None:
+    """Test _build_handoff_contract looks up worker-scoped variables."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    symbol_table = SymbolTable()
+    symbol_table.declare_scoped(
+        name="query",
+        data_type="text",
+        source="input",
+        description="Main worker query",
+        scope_kind="worker",
+        scope_id="worker_main",
+    )
+    symbol_table.declare_scoped(
+        name="child_result",
+        data_type="object",
+        source="output",
+        description="Child worker result",
+        scope_kind="worker",
+        scope_id="worker_child",
+    )
+
+    handoff = WorkerHandoffIR(
+        handoff_id="handoff_1",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[
+            InputBindingIR("query", "child_query", True)
+        ],
+        output_bindings=[
+            OutputBindingIR("child_result", "result", True, "set")
+        ],
+    )
+
+    contract = extractor._build_handoff_contract(handoff, symbol_table)
+
+    assert contract.handoff_id == "handoff_1"
+    assert len(contract.input_variables) == 1
+    assert len(contract.output_variables) == 1
+    # Should find worker-scoped variables, not fall back to "text"
+    assert contract.input_variables[0].data_type == "text"
+    assert contract.output_variables[0].data_type == "object"
+
+
+def test_build_handoff_contract_missing_variable_fallback(
+    extractor: ResourceExtractor,
+) -> None:
+    """Test _build_handoff_contract falls back to 'text' for missing variables."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    symbol_table = SymbolTable()
+
+    handoff = WorkerHandoffIR(
+        handoff_id="handoff_1",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[
+            InputBindingIR("unknown_var", "child_input", True)
+        ],
+        output_bindings=[
+            OutputBindingIR("unknown_output", "result", True, "set")
+        ],
+    )
+
+    contract = extractor._build_handoff_contract(handoff, symbol_table)
+
+    assert contract.input_variables[0].data_type == "text"
+    assert contract.output_variables[0].data_type == "text"
+
+
+def test_build_handoff_contract_api_call_mode(
+    extractor: ResourceExtractor,
+) -> None:
+    """Test _build_handoff_contract with api_call mode (to_worker=None)."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    symbol_table = SymbolTable()
+    symbol_table.declare("request", "text", "input", "Request")
+
+    handoff = WorkerHandoffIR(
+        handoff_id="handoff_api",
+        from_worker="worker_main",
+        to_worker=None,
+        api_ref="external_api",
+        mode="api_call",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[
+            InputBindingIR("request", "api_request", True)
+        ],
+        output_bindings=[
+            OutputBindingIR("api_result", "response", True, "set")
+        ],
+    )
+
+    contract = extractor._build_handoff_contract(handoff, symbol_table)
+
+    assert contract.handoff_id == "handoff_api"
+    assert contract.parent_worker_id == "worker_main"
+    assert contract.child_worker_id == ""
+
+
+def test_build_handoff_contract_with_multiple_bindings(
+    extractor: ResourceExtractor,
+) -> None:
+    """Test _build_handoff_contract with multiple input and output bindings."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    symbol_table = SymbolTable()
+    symbol_table.declare("query", "text", "input", "Query")
+    symbol_table.declare("filters", "dict", "input", "Filters")
+    symbol_table.declare("results", "list", "output", "Results")
+    symbol_table.declare("metadata", "dict", "output", "Metadata")
+
+    handoff = WorkerHandoffIR(
+        handoff_id="handoff_multi",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[
+            InputBindingIR("query", "child_query", True),
+            InputBindingIR("filters", "child_filters", False),
+        ],
+        output_bindings=[
+            OutputBindingIR("results", "parent_results", True, "merge"),
+            OutputBindingIR("metadata", "parent_metadata", False, "set"),
+        ],
+    )
+
+    contract = extractor._build_handoff_contract(handoff, symbol_table)
+
+    assert len(contract.input_variables) == 2
+    assert len(contract.output_variables) == 2
+    assert contract.input_variables[0].name == "child_query"
+    assert contract.input_variables[1].name == "child_filters"
+    assert contract.input_variables[1].required is False
+    assert contract.output_variables[0].name == "parent_results"
+    assert contract.output_variables[1].name == "parent_metadata"
+    assert contract.output_variables[1].required is False
+
+
+def test_execute_worker_scoped_missing_flow_blocks_skips_worker(
+    extractor: ResourceExtractor,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+) -> None:
+    """Test execute_worker_scoped skips workers with missing flow/blocks."""
+    from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerFlowPlanIR
+
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                worker_id="worker_main",
+                worker_name="MainWorker",
+                kind="main",
+                purpose="Main",
+                owned_span_ids=["s1"],
+            ),
+            WorkerSpecIR(
+                worker_id="worker_missing",
+                worker_name="MissingWorker",
+                kind="child",
+                purpose="Missing flow/blocks",
+                owned_span_ids=["s2"],
+            ),
+        ],
+    )
+    flow_plan = WorkerFlowPlanIR(
+        worker_flows={
+            "worker_main": FlowStructureIR(),
+            # worker_missing intentionally omitted
+        }
+    )
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]
+            ),
+            # worker_missing intentionally omitted
+        }
+    )
+
+    result, symbol_table = extractor.execute_worker_scoped(
+        spans=sample_spans,
+        routes=sample_routes,
+        worker_flow_plan=flow_plan,
+        worker_block_plan=block_plan,
+        worker_plan=plan,
+    )
+
+    # Child worker with missing flow/blocks should not appear in worker_resources
+    assert "worker_missing" not in result.worker_resources
+    assert "worker_main" not in result.worker_resources  # main worker goes to global
+    assert len(result.global_resources.variables) > 0
+
+
+def test_execute_worker_scoped_multiple_child_workers(
+    extractor: ResourceExtractor,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+) -> None:
+    """Test execute_worker_scoped with multiple child workers."""
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                worker_id="worker_main",
+                worker_name="MainWorker",
+                kind="main",
+                purpose="Main",
+                owned_span_ids=["s1"],
+            ),
+            WorkerSpecIR(
+                worker_id="worker_child_a",
+                worker_name="ChildA",
+                kind="child",
+                purpose="Child A",
+                owned_span_ids=["s2"],
+            ),
+            WorkerSpecIR(
+                worker_id="worker_child_b",
+                worker_name="ChildB",
+                kind="child",
+                purpose="Child B",
+                owned_span_ids=[],
+            ),
+        ],
+    )
+    flow_plan = WorkerFlowPlanIR(
+        worker_flows={
+            "worker_main": FlowStructureIR(),
+            "worker_child_a": FlowStructureIR(),
+            "worker_child_b": FlowStructureIR(),
+        }
+    )
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]
+            ),
+            "worker_child_a": BlockStructureIR(
+                main_flow_blocks=[BlockIR("b2", "SEQUENTIAL", spans=["s2"])]
+            ),
+            "worker_child_b": BlockStructureIR(
+                main_flow_blocks=[BlockIR("b3", "SEQUENTIAL", spans=[])]
+            ),
+        }
+    )
+
+    result, symbol_table = extractor.execute_worker_scoped(
+        spans=sample_spans,
+        routes=sample_routes,
+        worker_flow_plan=flow_plan,
+        worker_block_plan=block_plan,
+        worker_plan=plan,
+    )
+
+    assert "worker_child_a" in result.worker_resources
+    assert "worker_child_b" in result.worker_resources
+    assert len(result.worker_resources) == 2
+
+
+def test_extract_resources_for_scope_includes_worker_context_in_prompt(
+    extractor: ResourceExtractor,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+) -> None:
+    """Test _extract_resources_for_scope includes worker context in LLM prompt."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    worker_spec = WorkerSpecIR(
+        worker_id="worker_test",
+        worker_name="TestWorker",
+        kind="child",
+        purpose="Test resource extraction",
+        owned_span_ids=["s1"],
+        input_contract=[],
+        output_contract=[],
+    )
+
+    extractor._extract_resources_for_scope(
+        spans=sample_spans,
+        routes=sample_routes,
+        flow=FlowStructureIR(),
+        blocks=BlockStructureIR(
+            main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]
+        ),
+        symbol_table=SymbolTable(),
+        scope_kind="worker",
+        scope_id="worker_test",
+        worker_spec=worker_spec,
+    )
+
+    # Verify the LLM was called with worker context in the prompt
+    call_args = extractor.client.call_json.call_args
+    user_prompt = call_args.kwargs.get("user_prompt", "")
+    assert "worker context" in user_prompt
+    assert "TestWorker" in user_prompt
+    assert "Test resource extraction" in user_prompt
+
+
+def test_extract_resources_for_scope_includes_known_variables(
+    extractor: ResourceExtractor,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+) -> None:
+    """Test _extract_resources_for_scope includes known variables in prompt."""
+    from nl2spl.ir.symbol_table import SymbolTable
+
+    symbol_table = SymbolTable()
+    symbol_table.declare_scoped(
+        name="global_query",
+        data_type="text",
+        source="input",
+        description="Global query text",
+        scope_kind="global",
+    )
+    symbol_table.declare_scoped(
+        name="local_temp",
+        data_type="dict",
+        source="step",
+        description="Local temporary data",
+        scope_kind="worker",
+        scope_id="worker_test",
+    )
+
+    worker_spec = WorkerSpecIR(
+        worker_id="worker_test",
+        worker_name="TestWorker",
+        kind="child",
+        purpose="Test",
+        owned_span_ids=["s1"],
+        input_contract=[
+            ContractFieldIR(
+                name="input_data",
+                data_type="text",
+                required=True,
+                description="Input data field",
+                source="input",
+            )
+        ],
+        output_contract=[
+            ContractFieldIR(
+                name="output_data",
+                data_type="text",
+                required=True,
+                description="Output data field",
+                source="output",
+            )
+        ],
+    )
+
+    extractor._extract_resources_for_scope(
+        spans=sample_spans,
+        routes=sample_routes,
+        flow=FlowStructureIR(),
+        blocks=BlockStructureIR(
+            main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]
+        ),
+        symbol_table=symbol_table,
+        scope_kind="worker",
+        scope_id="worker_test",
+        worker_spec=worker_spec,
+    )
+
+    call_args = extractor.client.call_json.call_args
+    user_prompt = call_args.kwargs.get("user_prompt", "")
+
+    # Verify worker context with contracts
+    assert "worker context" in user_prompt
+    assert "TestWorker" in user_prompt
+    assert "input_data" in user_prompt
+    assert "output_data" in user_prompt
+
+    # Verify known variables section
+    assert "known variables" in user_prompt
+    assert "global_query" in user_prompt
+    assert "local_temp" in user_prompt

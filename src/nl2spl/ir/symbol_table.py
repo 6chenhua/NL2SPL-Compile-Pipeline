@@ -193,6 +193,26 @@ class SymbolTable:
                     )
         return errors
 
+    def lookup(self, name: str) -> VariableSymbol | None:
+        """Look up a variable by name across all scopes.
+
+        Prefers global scope when the same name exists in multiple scopes.
+
+        Args:
+            name: Variable name
+
+        Returns:
+            VariableSymbol if found, None otherwise
+        """
+        # Prefer global scope
+        if name in self.variables:
+            return self.variables[name]
+        # Search all scopes
+        for key, var in self._variables.items():
+            if key[2] == name:
+                return var
+        return None
+
     def declare_scoped(
         self,
         name: str,
@@ -248,14 +268,8 @@ class SymbolTable:
         """
         result = {}
 
-        # Global variables
         for key, var in self._variables.items():
-            if key[0] == "global":
-                result[var.name] = var
-
-        # Worker-scoped variables
-        for key, var in self._variables.items():
-            if key[0] == "worker" and key[1] == worker_id:
+            if key[0] == "global" or (key[0] == "worker" and key[1] == worker_id):
                 result[var.name] = var
 
         return result
@@ -273,14 +287,8 @@ class SymbolTable:
         """
         result = {}
 
-        # Global variables
         for key, var in self._variables.items():
-            if key[0] == "global":
-                result[var.name] = var
-
-        # Handoff-scoped variables
-        for key, var in self._variables.items():
-            if key[0] == "handoff" and key[1] == handoff_id:
+            if key[0] == "global" or (key[0] == "handoff" and key[1] == handoff_id):
                 result[var.name] = var
 
         return result

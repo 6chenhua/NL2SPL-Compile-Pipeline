@@ -496,29 +496,29 @@ block structure:
         # Build worker context for the prompt
         worker_context = ""
         if worker_spec is not None:
-            contract_lines: list[str] = []
+            lines: list[str] = [
+                f"  name: {worker_spec.worker_name}",
+                f"  kind: {worker_spec.kind}",
+                f"  purpose: {worker_spec.purpose}",
+            ]
             if worker_spec.input_contract:
-                contract_lines.append("  inputs:")
+                lines.append("  inputs:")
                 for field in worker_spec.input_contract:
-                    contract_lines.append(
+                    lines.append(
                         f"    - {field.name}: {field.data_type} "
                         f"(required={field.required}) - {field.description}"
                     )
             if worker_spec.output_contract:
-                contract_lines.append("  outputs:")
+                lines.append("  outputs:")
                 for field in worker_spec.output_contract:
-                    contract_lines.append(
+                    lines.append(
                         f"    - {field.name}: {field.data_type} "
                         f"(required={field.required}) - {field.description}"
                     )
-            if contract_lines:
-                worker_context = f"""
+            worker_context = f"""
 
 worker context:
-  name: {worker_spec.worker_name}
-  kind: {worker_spec.kind}
-  purpose: {worker_spec.purpose}
-{chr(10).join(contract_lines)}
+{chr(10).join(lines)}
 """
 
         # Build known variables context
@@ -700,7 +700,7 @@ integrations spans：
         for binding in handoff.input_bindings:
             var = parent_vars.get(
                 binding.parent_variable
-            ) or symbol_table.variables.get(binding.parent_variable)
+            ) or symbol_table.lookup(binding.parent_variable)
             input_variables.append(
                 ContractFieldIR(
                     name=binding.child_input,
@@ -716,7 +716,7 @@ integrations spans：
         for binding in handoff.output_bindings:
             var = child_vars.get(
                 binding.child_output
-            ) or symbol_table.variables.get(binding.child_output)
+            ) or symbol_table.lookup(binding.child_output)
             output_variables.append(
                 ContractFieldIR(
                     name=binding.parent_variable,
