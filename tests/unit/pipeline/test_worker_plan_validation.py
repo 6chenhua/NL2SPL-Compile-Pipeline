@@ -175,9 +175,12 @@ def test_reject_accepted_decision_without_concrete_worker() -> None:
         decisions=[accepted],
     )
 
-    errors = validate(plan, {"s1", "s2"})
+    result = WorkerPlanValidator().validate(plan, {"s1", "s2"})
 
-    assert any("must match exactly one non-main worker" in error for error in errors)
+    # Decision→worker mismatch downgraded to warning (LLM may create
+    # a candidate without a corresponding worker).
+    assert not result.errors
+    assert any("has no matching non-main worker" in w for w in result.warnings)
 
 
 def test_reject_accepted_decision_without_invoke_handoff() -> None:

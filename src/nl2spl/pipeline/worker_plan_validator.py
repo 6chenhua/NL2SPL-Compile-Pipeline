@@ -139,7 +139,7 @@ class WorkerPlanValidator:
         errors.extend(self._validate_child_contracts(plan.workers))
         errors.extend(self._validate_handoff_bindings(plan.handoffs, worker_by_id))
         errors.extend(self._validate_span_ownership(plan.workers, span_ids))
-        errors.extend(self._validate_accepted_child_decisions(plan))
+        errors.extend(self._validate_accepted_child_decisions(plan, warnings))
         errors.extend(self._validate_rejected_candidates(plan))
 
         return WorkerPlanValidationResult(
@@ -588,8 +588,12 @@ class WorkerPlanValidator:
 
         return errors
 
-    def _validate_accepted_child_decisions(self, plan: WorkerPlanIR) -> list[str]:
+    def _validate_accepted_child_decisions(
+        self, plan: WorkerPlanIR, warnings_out: list[str] | None = None,
+    ) -> list[str]:
         errors: list[str] = []
+        if warnings_out is None:
+            warnings_out = []
         candidate_spans = {
             candidate.candidate_id: set(candidate.source_span_ids)
             for candidate in plan.candidates
@@ -615,10 +619,17 @@ class WorkerPlanValidator:
                     if spans and set(worker.owned_span_ids) == spans
                 ]
 
-            if len(matches) != 1:
+            if len(matches) > 1:
                 errors.append(
-                    "Accepted child decision must match exactly one non-main worker: "
+                    "Accepted child decision matches multiple non-main workers: "
                     f"{decision.candidate_id}, found {len(matches)}."
+                )
+                continue
+            if not matches:
+                warnings_out.append(
+                    "Accepted child decision has no matching non-main worker: "
+                    f"{decision.candidate_id}. The LLM may have created a candidate "
+                    "without a corresponding worker — this worker will not be extracted."
                 )
                 continue
 
