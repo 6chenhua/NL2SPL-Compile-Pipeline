@@ -1,6 +1,8 @@
-"""Unit tests for provenance aggregation (TODO 5)."""
+"""Unit tests for provenance aggregation (MVP + MVP+)."""
 
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockIR
@@ -19,6 +21,13 @@ from nl2spl.ir.worker_ir import (
     WorkerIR,
 )
 from nl2spl.pipeline.provenance import ProvenanceAggregator
+
+
+# Minimal VariableFact-like stub for testing adapter hard fact provenance
+@dataclass
+class _FakeVariableFact:
+    name: str
+    source_section_id: str
 
 
 class TestProvenanceAggregator:
@@ -662,3 +671,258 @@ class TestPostGateStepFiltering:
         var_trace = next(t for t in traces if t.target_ref == "variable:report")
         assert var_trace.relation == "direct"
         assert not any(d.kind == "missing_provenance" for d in diags)
+
+
+# ---------------------------------------------------------------------------
+# MVP+ Phase 1: flow trace section/packet provenance
+# ---------------------------------------------------------------------------
+
+class TestFlowTraceSectionPacket:
+    def test_main_flow_resolves_section(self) -> None:
+        spans = [
+            SpanIR("s1", "Do work.", source_section_id="sec_reusable_process",
+                   source_packet_id="p_process_1"),
+        ]
+        worker = WorkerIR(
+            worker_name="W", description="Test",
+            main_flow=FlowRef(blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]),
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), spans,
+        )
+        ft = next(t for t in traces if t.target_ref == "flow:main")
+        assert ft.source_section_id == "sec_reusable_process"
+        assert ft.source_packet_id == "p_process_1"
+
+    def test_exception_flow_resolves_section(self) -> None:
+        spans = [
+            SpanIR("s_fail", "Missing timeframe.",
+                   source_section_id="sec_failure_handling"),
+        ]
+        worker = WorkerIR(
+            worker_name="W", description="Test",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_1", condition_text="Missing timeframe.",
+                    blocks=[BlockIR("b_exc", "SEQUENTIAL", spans=["s_fail"])],
+                )
+            ],
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), spans,
+        )
+        ft = next(t for t in traces if t.target_ref == "flow:exc_1")
+        assert ft.source_section_id == "sec_failure_handling"
+
+    def test_flow_without_adapter_spans_gets_none(self) -> None:
+        spans = [SpanIR("s1", "No adapter data.")]
+        worker = WorkerIR(
+            worker_name="W", description="Test",
+            main_flow=FlowRef(blocks=[BlockIR("b1", "SEQUENTIAL", spans=["s1"])]),
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), spans,
+        )
+        ft = next(t for t in traces if t.target_ref == "flow:main")
+        assert ft.source_section_id is None
+
+
+# ---------------------------------------------------------------------------
+# MVP+ Phase 1: worker trace section/packet provenance
+# ---------------------------------------------------------------------------
+
+class TestWorkerTraceSectionPacket:
+    def test_main_worker_resolves_section_from_owned_spans(self) -> None:
+        spans = [
+            SpanIR("s_main", "Main task.",
+                   source_section_id="sec_task_family"),
+        ]
+        worker = WorkerIR(
+            worker_name="MainWorker", description="Test",
+            main_flow=FlowRef(),
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), spans,
+            worker_owned_spans={"MainWorker": ["s_main"]},
+        )
+        wt = next(t for t in traces if t.target_ref == "worker:MainWorker")
+        assert wt.source_section_id == "sec_task_family"
+
+    def test_child_worker_resolves_section(self) -> None:
+        spans = [
+            SpanIR("s_child", "Child task.",
+                   source_section_id="sec_delegation_policy"),
+        ]
+        worker = WorkerIR(
+            worker_name="Main", description="Test",
+            main_flow=FlowRef(),
+            child_workers=[
+                ChildWorkerIR(worker_name="Child", description="C",
+                              task_text="Child task"),
+            ],
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), spans,
+            worker_owned_spans={"Child": ["s_child"]},
+        )
+        ct = next(t for t in traces if t.target_ref == "worker:Child")
+        assert ct.source_section_id == "sec_delegation_policy"
+
+    def test_worker_without_owned_spans_gets_none(self) -> None:
+        worker = WorkerIR(
+            worker_name="MainWorker", description="Test",
+            main_flow=FlowRef(),
+        )
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            worker, [], [], ResourceRegistryIR(), SymbolTable(), [],
+        )
+        wt = next(t for t in traces if t.target_ref == "worker:MainWorker")
+        assert wt.source_section_id is None
+
+
+# ---------------------------------------------------------------------------
+# MVP+ Phase 1: handoff trace section/packet provenance
+# ---------------------------------------------------------------------------
+
+class TestHandoffTraceSectionPacket:
+    def test_handoff_resolves_section_from_location_hint(self) -> None:
+        from nl2spl.ir.worker_plan_ir import InvokeLocationHintIR, WorkerHandoffIR
+        spans = [
+            SpanIR("s_delegate", "Delegate to child.",
+                   source_section_id="sec_delegation_policy"),
+        ]
+        handoffs = [
+            WorkerHandoffIR(
+                handoff_id="h1", from_worker="w_main",
+                to_worker="w_child", api_ref=None, mode="invoke",
+                condition_text=None, ordering="after",
+                invoke_location_hint=InvokeLocationHintIR(
+                    flow_kind="main", flow_id=None,
+                    after_span_id="s_delegate", before_span_id=None,
+                    block_hint="unknown",
+                ),
+            ),
+        ]
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            WorkerIR("W", "Test"), [], [],
+            ResourceRegistryIR(), SymbolTable(), spans,
+            handoffs=handoffs,
+        )
+        ht = next(t for t in traces if t.target_ref == "handoff:h1")
+        assert ht.source_section_id == "sec_delegation_policy"
+
+    def test_handoff_without_hint_spans_gets_none(self) -> None:
+        from nl2spl.ir.worker_plan_ir import InvokeLocationHintIR, WorkerHandoffIR
+        handoffs = [
+            WorkerHandoffIR(
+                handoff_id="h1", from_worker="w_main",
+                to_worker="w_child", api_ref=None, mode="invoke",
+                condition_text=None, ordering="after",
+                invoke_location_hint=InvokeLocationHintIR(
+                    flow_kind="main", flow_id=None,
+                    after_span_id=None, before_span_id=None,
+                    block_hint="unknown",
+                ),
+            ),
+        ]
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            WorkerIR("W", "Test"), [], [],
+            ResourceRegistryIR(), SymbolTable(), [],
+            handoffs=handoffs,
+        )
+        ht = next(t for t in traces if t.target_ref == "handoff:h1")
+        assert ht.source_section_id is None
+
+
+# ---------------------------------------------------------------------------
+# MVP+ Phase 1: variable trace from adapter VariableFact
+# ---------------------------------------------------------------------------
+
+class TestVariableFactProvenance:
+    def test_variable_from_adapter_fact_gets_section(self) -> None:
+        resources = ResourceRegistryIR(
+            variables=[VariableSpec("user_request", "text", True, "Request", "input")]
+        )
+        symbols = SymbolTable()
+        symbols.declare("user_request", "text", "input", "Request")
+        facts = [_FakeVariableFact("user_request", "sec_inputs_for_each_run")]
+        aggregator = ProvenanceAggregator()
+        traces, diags = aggregator.aggregate(
+            WorkerIR("W", "Test"), [], [],
+            resources, symbols, [],
+            variable_facts=facts,
+        )
+        vt = next(t for t in traces if t.target_ref == "variable:user_request")
+        assert vt.source_section_id == "sec_inputs_for_each_run"
+        assert vt.relation == "normalized"
+        assert not any(d.kind == "missing_provenance" and "user_request" in d.message
+                       for d in diags)
+
+    def test_variable_with_step_producer_still_prefers_step(self) -> None:
+        """Step producer is stronger evidence than variable fact."""
+        resources = ResourceRegistryIR(
+            variables=[VariableSpec("result", "text", True, "Result", "output")]
+        )
+        symbols = SymbolTable()
+        symbols.declare("result", "text", "output", "Result")
+        steps = [StepIR("st1", "Produce", ["s_prod"], "GENERAL_COMMAND",
+                        outputs=["result"])]
+        spans = [SpanIR("s_prod", "Produce result.",
+                        source_section_id="sec_reusable_process")]
+        facts = [_FakeVariableFact("result", "sec_required_outputs")]
+        aggregator = ProvenanceAggregator()
+        traces, _ = aggregator.aggregate(
+            WorkerIR("W", "Test"), steps, [],
+            resources, symbols, spans,
+            variable_facts=facts,
+        )
+        vt = next(t for t in traces if t.target_ref == "variable:result")
+        # Step producer wins over variable fact
+        assert vt.relation == "direct"
+        assert vt.source_section_id == "sec_reusable_process"
+
+    def test_variable_without_fact_or_producer_still_assumed(self) -> None:
+        resources = ResourceRegistryIR(
+            variables=[VariableSpec("orphan", "text", True, "Orphan", "output")]
+        )
+        symbols = SymbolTable()
+        symbols.declare("orphan", "text", "output", "Orphan")
+        aggregator = ProvenanceAggregator()
+        traces, diags = aggregator.aggregate(
+            WorkerIR("W", "Test"), [], [],
+            resources, symbols, [],
+            variable_facts=[],  # empty
+        )
+        vt = next(t for t in traces if t.target_ref == "variable:orphan")
+        assert vt.relation == "assumed"
+
+    def test_variable_fact_does_not_affect_unrelated_variable(self) -> None:
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("has_fact", "text", True, "Has", "input"),
+                VariableSpec("no_fact", "text", True, "Missing", "output"),
+            ]
+        )
+        symbols = SymbolTable()
+        symbols.declare("has_fact", "text", "input", "Has")
+        symbols.declare("no_fact", "text", "output", "Missing")
+        facts = [_FakeVariableFact("has_fact", "sec_inputs_for_each_run")]
+        aggregator = ProvenanceAggregator()
+        traces, diags = aggregator.aggregate(
+            WorkerIR("W", "Test"), [], [],
+            resources, symbols, [],
+            variable_facts=facts,
+        )
+        vt_has = next(t for t in traces if t.target_ref == "variable:has_fact")
+        vt_no = next(t for t in traces if t.target_ref == "variable:no_fact")
+        assert vt_has.source_section_id == "sec_inputs_for_each_run"
+        assert vt_no.relation == "assumed"

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from nl2spl.compiler.compile_result import CompileAssumption
-from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
@@ -322,6 +322,110 @@ class TestOrchestratorRunPath:
         assert result.completeness == "complete"
         assert result.assumptions == []
         assert "Status: complete" in result.readable_report
+
+    def test_structural_spans_produce_section_in_report(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """P1: Spans with source_section_id propagate through the REAL
+        ProvenanceAggregator into the report.  No mock on aggregator --
+        the test proves the full orchestrator-to-report chain."""
+        from nl2spl.config import LLMConfig, PipelineConfig
+        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
+
+        config = PipelineConfig(
+            llm=LLMConfig(api_key="sk-fake"),
+            output_dir=Path("output"),
+            run_name="test_section_prov",
+            enable_worker_boundary_planner=False,
+        )
+
+        span = SpanIR(
+            "s1", "Do work.",
+            source_section_id="sec_reusable_process",
+            source_packet_id="p_process_1",
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage1",
+            lambda s, *a, **kw: [span],
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage2",
+            lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage3",
+            lambda s, *a, **kw: ([span], FieldRouteIR(behavior=["s1"])),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage4",
+            lambda s, *a, **kw: FlowStructureIR(),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage5",
+            lambda s, *a, **kw: BlockStructureIR(),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage6",
+            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable()),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage7",
+            lambda s, *a, **kw: (
+                [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
+                SymbolTable(),
+                [],
+            ),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage8",
+            lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T")),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage9",
+            lambda s, *a, **kw: [],
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage10",
+            lambda s, *a, **kw: WorkerIR(
+                worker_name="MainWorker", description="Test",
+                main_flow=FlowRef(blocks=[
+                    BlockIR("b1", "SEQUENTIAL", spans=["s1"]),
+                ]),
+                steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
+            ),
+        )
+        monkeypatch.setattr(
+            PipelineOrchestrator, "_run_stage11",
+            lambda s, *a, **kw: ("[DEFINE_WORKER: MainWorker]", [], []),
+        )
+        monkeypatch.setattr(
+            ExecutableElementGate, "apply",
+            lambda g, w, wp=None: (w, [], []),
+        )
+        # Capture kwargs passed to the real ProvenanceAggregator.aggregate
+        captured_kwargs: dict = {}
+        _orig_aggregate = ProvenanceAggregator.aggregate
+
+        def _spy_aggregate(self, **kw):
+            captured_kwargs.update(kw)
+            return _orig_aggregate(self, **kw)
+
+        monkeypatch.setattr(
+            ProvenanceAggregator, "aggregate", _spy_aggregate,
+        )
+
+        orchestrator = PipelineOrchestrator(config)
+        result = orchestrator.run("Do work.")
+
+        # Report must contain section provenance from the real aggregator
+        assert "section=sec_reusable_process" in result.readable_report, (
+            f"Report missing section provenance:\n{result.readable_report[:600]}"
+        )
+        assert "packet=p_process_1" in result.readable_report
+        assert result.completeness == "complete"
+        # Verify the orchestrator passed variable_facts (empty for generic NL)
+        assert "variable_facts" in captured_kwargs
+        assert captured_kwargs["variable_facts"] == []
 
 
 # ---------------------------------------------------------------------------

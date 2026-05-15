@@ -453,12 +453,23 @@ class PipelineOrchestrator:
         # Compute child worker IDs and declared APIs for handoff validation
         prov_child_ids: set[str] | None = None
         prov_declared_apis: set[str] = {a.api_name for a in resources_for_prov.apis}
+        prov_worker_owned_spans: dict[str, list[str]] = {}
+        prov_variable_facts: list[Any] = []
         if worker_plan is not None:
             prov_child_ids = {
                 w.worker_id for w in worker_plan.workers
                 if w.boundary_kind != "main_worker"
                 and w.boundary_kind != "not_a_worker"
             }
+            prov_worker_owned_spans = {
+                w.worker_name: list(w.owned_span_ids)
+                for w in worker_plan.workers
+            }
+        # Gather adapter hard facts for variable provenance
+        prov_variable_facts = (
+            list(canonical_input.hard_facts.inputs)
+            + list(canonical_input.hard_facts.outputs)
+        )
 
         aggregator = ProvenanceAggregator()
         traces, provenance_diags = aggregator.aggregate(
@@ -473,6 +484,8 @@ class PipelineOrchestrator:
             handoffs=worker_plan.handoffs if worker_plan else None,
             known_child_worker_ids=prov_child_ids,
             declared_apis=prov_declared_apis,
+            worker_owned_spans=prov_worker_owned_spans,
+            variable_facts=prov_variable_facts,
         )
 
         # Assemble final diagnostics and compute result fields

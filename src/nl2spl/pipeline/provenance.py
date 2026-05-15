@@ -2,9 +2,15 @@
 
 Builds TraceRecord entries for the major SPL element types without
 requiring full TraceRef fields on every IR.
+
+Resolves source_section_id / source_packet_id through SpanIR where
+available for all element types: flows, workers, handoffs, steps,
+constraints, and variables.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.constraint_ir import ConstraintIR
@@ -25,7 +31,7 @@ class ProvenanceAggregator:
     available.
 
     Variable provenance is recovered from producer-step spans, worker
-    contracts, and resource sections — never from VariableSpec.source alone.
+    contracts, and resource sections -- never from VariableSpec.source alone.
     """
 
     def aggregate(
@@ -41,11 +47,19 @@ class ProvenanceAggregator:
         handoffs: list[WorkerHandoffIR] | None = None,
         known_child_worker_ids: set[str] | None = None,
         declared_apis: set[str] | None = None,
+        worker_owned_spans: dict[str, list[str]] | None = None,
+        variable_facts: list[Any] | None = None,
     ) -> tuple[list[TraceRecord], list[CompileDiagnostic]]:
         """Produce traces and missing-provenance diagnostics.
 
+        Args:
+            worker_owned_spans: worker_name -> owned_span_ids from
+                WorkerSpecIR (for worker trace section/packet resolution).
+            variable_facts: VariableFact objects from the adapter, carrying
+                source_section_id for hard-fact variable provenance.
+
         Returns:
-            (traces, diagnostics) — traces link elements to source evidence;
+            (traces, diagnostics) -- traces link elements to source evidence;
             diagnostics flag elements with no discoverable provenance.
         """
         span_index: dict[str, SpanIR] = {s.span_id: s for s in spans}
@@ -53,10 +67,10 @@ class ProvenanceAggregator:
         diags: list[CompileDiagnostic] = []
 
         # 1. Worker provenance
-        self._trace_worker(worker, traces, diags)
+        self._trace_worker(worker, span_index, traces, diags, worker_owned_spans)
 
         # 2. Flow provenance
-        self._trace_flows(worker, traces, diags)
+        self._trace_flows(worker, span_index, traces, diags)
 
         # 3. Step provenance
         self._trace_steps(steps, span_index, traces, diags)
@@ -66,7 +80,7 @@ class ProvenanceAggregator:
 
         # 5. Handoff provenance
         if handoffs:
-            self._trace_handoffs(handoffs, traces)
+            self._trace_handoffs(handoffs, span_index, traces)
 
         # 6. Variable provenance
         self._trace_variables(
@@ -75,6 +89,7 @@ class ProvenanceAggregator:
             handoffs=handoffs,
             known_child_worker_ids=known_child_worker_ids,
             declared_apis=declared_apis,
+            variable_facts=variable_facts,
         )
 
         # 7. Profile provenance
@@ -90,14 +105,25 @@ class ProvenanceAggregator:
     def _trace_worker(
         self,
         worker: WorkerIR,
+        span_index: dict[str, SpanIR],
         traces: list[TraceRecord],
         diags: list[CompileDiagnostic],
+        worker_owned_spans: dict[str, list[str]] | None = None,
     ) -> None:
+        owned = worker_owned_spans or {}
+
+        # Main worker
+        main_span_ids = owned.get(worker.worker_name, [])
+        section_id, packet_id = self._resolve_span_origin(
+            main_span_ids, span_index,
+        )
         traces.append(
             TraceRecord(
                 target_ref=f"worker:{worker.worker_name}",
-                source_span_ids=[],
-                relation="inferred",
+                source_span_ids=list(main_span_ids),
+                source_section_id=section_id,
+                source_packet_id=packet_id,
+                relation="direct" if main_span_ids else "inferred",
                 explanation=(
                     f"Main worker '{worker.worker_name}' assembled from "
                     f"flow and step IRs."
@@ -105,11 +131,17 @@ class ProvenanceAggregator:
             )
         )
         for child in worker.child_workers:
+            child_span_ids = owned.get(child.worker_name, [])
+            c_section, c_packet = self._resolve_span_origin(
+                child_span_ids, span_index,
+            )
             traces.append(
                 TraceRecord(
                     target_ref=f"worker:{child.worker_name}",
-                    source_span_ids=[],
-                    relation="inferred",
+                    source_span_ids=list(child_span_ids),
+                    source_section_id=c_section,
+                    source_packet_id=c_packet,
+                    relation="direct" if child_span_ids else "inferred",
                     explanation=(
                         f"Child worker '{child.worker_name}' extracted "
                         f"from delegation pattern."
@@ -124,6 +156,7 @@ class ProvenanceAggregator:
     def _trace_flows(
         self,
         worker: WorkerIR,
+        span_index: dict[str, SpanIR],
         traces: list[TraceRecord],
         diags: list[CompileDiagnostic],
     ) -> None:
@@ -132,10 +165,15 @@ class ProvenanceAggregator:
         for block in worker.main_flow.blocks:
             if block.spans:
                 main_span_ids.extend(block.spans)
+        m_section, m_packet = self._resolve_span_origin(
+            main_span_ids, span_index,
+        )
         traces.append(
             TraceRecord(
                 target_ref="flow:main",
                 source_span_ids=main_span_ids,
+                source_section_id=m_section,
+                source_packet_id=m_packet,
                 relation="direct" if main_span_ids else "inferred",
                 explanation=(
                     f"Main flow with {len(worker.main_flow.blocks)} "
@@ -149,10 +187,15 @@ class ProvenanceAggregator:
             for block in alt.blocks:
                 if block.spans:
                     alt_span_ids.extend(block.spans)
+            a_section, a_packet = self._resolve_span_origin(
+                alt_span_ids, span_index,
+            )
             traces.append(
                 TraceRecord(
                     target_ref=f"flow:{alt.flow_id}",
                     source_span_ids=alt_span_ids,
+                    source_section_id=a_section,
+                    source_packet_id=a_packet,
                     relation="direct" if alt_span_ids else "inferred",
                     explanation=(
                         f"Alternative flow '{alt.flow_id}': "
@@ -166,10 +209,15 @@ class ProvenanceAggregator:
             for block in exc.blocks:
                 if block.spans:
                     exc_span_ids.extend(block.spans)
+            e_section, e_packet = self._resolve_span_origin(
+                exc_span_ids, span_index,
+            )
             traces.append(
                 TraceRecord(
                     target_ref=f"flow:{exc.flow_id}",
                     source_span_ids=exc_span_ids,
+                    source_section_id=e_section,
+                    source_packet_id=e_packet,
                     relation=(
                         "direct" if exc_span_ids else "inferred"
                     ),
@@ -266,22 +314,42 @@ class ProvenanceAggregator:
     # Handoffs
     # ------------------------------------------------------------------
 
-    @staticmethod
     def _trace_handoffs(
+        self,
         handoffs: list[WorkerHandoffIR],
+        span_index: dict[str, SpanIR],
         traces: list[TraceRecord],
     ) -> None:
-        """Produce trace records for worker handoff contracts."""
+        """Produce trace records for worker handoff contracts.
+
+        Resolves section/packet from invoke_location_hint spans and
+        failure_policy source spans where available.
+        """
         for h in handoffs:
+            # Collect span evidence from location hints and failure policy
+            hint_span_ids: list[str] = []
+            hint = h.invoke_location_hint
+            if hint.after_span_id:
+                hint_span_ids.append(hint.after_span_id)
+            if hint.before_span_id:
+                hint_span_ids.append(hint.before_span_id)
+            fp_span_ids = list(h.failure_policy.source_span_ids)
+            source_span_ids = hint_span_ids + fp_span_ids
+
+            section_id, packet_id = self._resolve_span_origin(
+                source_span_ids, span_index,
+            )
             mode_desc = (
-                f"invoke → {h.to_worker}" if h.mode == "invoke"
-                else f"api_call → {h.api_ref or 'unnamed'}"
+                f"invoke to {h.to_worker}" if h.mode == "invoke"
+                else f"api_call to {h.api_ref or 'unnamed'}"
             )
             traces.append(
                 TraceRecord(
                     target_ref=f"handoff:{h.handoff_id}",
-                    source_span_ids=[],
-                    relation="inferred",
+                    source_span_ids=source_span_ids,
+                    source_section_id=section_id,
+                    source_packet_id=packet_id,
+                    relation="direct" if source_span_ids else "inferred",
                     explanation=(
                         f"Handoff '{h.handoff_id}' "
                         f"({h.from_worker} {mode_desc}) "
@@ -307,15 +375,22 @@ class ProvenanceAggregator:
         handoffs: list[WorkerHandoffIR] | None = None,
         known_child_worker_ids: set[str] | None = None,
         declared_apis: set[str] | None = None,
+        variable_facts: list[Any] | None = None,
     ) -> None:
         """Recover variable provenance from producer steps, contracts, etc.
 
         VariableSpec.source is only a resource category ("input"/"output"/
         "step"), NOT provenance. Real provenance comes from:
         - Producer step source spans
+        - Adapter VariableFact hard facts (source_section_id)
         - Worker input/output contract sections (via adapter)
         - Resource-extraction spans
         """
+        # Index adapter hard facts by variable name
+        fact_index: dict[str, Any] = {}
+        if variable_facts:
+            for f in variable_facts:
+                fact_index[f.name] = f
         producer_index: dict[str, StepIR] = {}
         for step in steps:
             for output in step.outputs:
@@ -361,7 +436,34 @@ class ProvenanceAggregator:
                     f"'{producer.step_id}'."
                 )
 
-            # 2. Input / output contract variable — may have handoff binding
+            # 1b. Adapter VariableFact hard fact
+            elif var_name in fact_index:
+                fact = fact_index[var_name]
+                source_span_ids = []
+                relation = "normalized"
+                explanation = (
+                    f"Variable '{var_name}' is declared by adapter hard "
+                    f"fact in section '{fact.source_section_id}'."
+                )
+                # We carry source_section_id directly on the trace record
+                # via _resolve_span_origin below (source_span_ids is empty,
+                # so the call returns None/None).  We set it explicitly.
+                section_id = fact.source_section_id
+                packet_id = None
+                traces.append(
+                    TraceRecord(
+                        target_ref=var_target_ref,
+                        source_span_ids=[],
+                        source_section_id=section_id,
+                        source_packet_id=packet_id,
+                        relation=relation,
+                        explanation=explanation,
+                        needs_confirmation=False,
+                    )
+                )
+                continue  # skip the generic _resolve_span_origin path below
+
+            # 2. Input / output contract variable -- may have handoff binding
             elif var.source in ("input", "output"):
                 if handoffs is not None:
                     binding = self._find_handoff_output_binding(
@@ -379,7 +481,7 @@ class ProvenanceAggregator:
                         f"'{binding.handoff_id}' output binding."
                     )
                 elif binding is not None:
-                    # Handoff exists but lacks evidence → inferred, not direct
+                    # Handoff exists but lacks evidence -- inferred, not direct
                     relation = "inferred"
                     explanation = (
                         f"Variable '{var_name}' is bound to handoff "
@@ -426,7 +528,7 @@ class ProvenanceAggregator:
                     )
                 source_span_ids = []
 
-            # 3. Step variable with declared symbol — no evidence
+            # 3. Step variable with declared symbol -- no evidence
             elif sym is not None and sym.declared:
                 relation = "assumed"
                 explanation = (
@@ -450,7 +552,7 @@ class ProvenanceAggregator:
                     )
                 )
 
-            # 4. No evidence found — report as assumed
+            # 4. No evidence found -- report as assumed
             else:
                 relation = "assumed"
                 explanation = (
@@ -520,7 +622,7 @@ class ProvenanceAggregator:
                     target_ref=f"profile:concept_{i}",
                     source_span_ids=[],
                     relation="normalized",
-                    explanation=f"Concept: {concept.term} — "
+                    explanation=f"Concept: {concept.term} -- "
                     f"{concept.definition}",
                 )
             )
