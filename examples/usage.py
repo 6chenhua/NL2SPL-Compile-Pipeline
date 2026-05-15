@@ -1,5 +1,6 @@
 """Example usage of NL2SPL pipeline."""
 
+import os
 from pathlib import Path
 
 from nl2spl.config import load_config, LLMConfig
@@ -8,6 +9,13 @@ from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 def main() -> None:
     """Run example."""
+    # LLM configuration from environment variables
+    llm_config = LLMConfig(
+        model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+        max_tokens=int(os.getenv("LLM_MAX_TOKENS", "16000")),
+        # temperature=float(os.getenv("LLM_TEMPERATURE", "0.0")),
+    )
+
     # Sample input
     raw_text = """
 Task family:
@@ -48,11 +56,13 @@ carriers.
 
     # Load configuration
     config = load_config(
+        llm=llm_config,
         log_level="INFO",
         save_intermediate=True,
         output_dir=Path("output"),
         run_name="internal-comms",
         enable_worker_boundary_planner=True,
+        enable_worker_boundary_planner_split=True
     )
 
     # Create orchestrator
