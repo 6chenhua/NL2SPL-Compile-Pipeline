@@ -72,7 +72,36 @@ def main() -> None:
         if result.final_spl_path:
             print(f"Final SPL saved to: {result.final_spl_path}", file=sys.stderr)
 
+        # Write compile report
+        report_path = config.run_dir / "compile_report.txt"
+        report_path.write_text(result.readable_report, encoding="utf-8")
+        print(f"Compile report saved to: {report_path}", file=sys.stderr)
+
+        # Compile status summary
+        diag_count = len(result.compile_diagnostics)
+        asm_count = len(result.assumptions)
+        trace_count = len(result.traces)
+        print(
+            f"\nCompile status: {result.completeness}",
+            file=sys.stderr,
+        )
+        print(
+            f"  Diagnostics: {diag_count}  "
+            f"Assumptions: {asm_count}  "
+            f"Traces: {trace_count}  "
+            f"Adapter warnings: {len(result.adapter_warnings)}",
+            file=sys.stderr,
+        )
+
         # Output diagnostics to stderr
+        if result.adapter_warnings:
+            print(
+                f"\nAdapter ({len(result.adapter_warnings)}):",
+                file=sys.stderr,
+            )
+            for a_warn in result.adapter_warnings:
+                print(f"  - {a_warn}", file=sys.stderr)
+
         if result.validation_errors:
             print(f"\nErrors ({len(result.validation_errors)}):", file=sys.stderr)
             for error in result.validation_errors:
@@ -82,6 +111,33 @@ def main() -> None:
             print(f"\nWarnings ({len(result.validation_warnings)}):", file=sys.stderr)
             for warning in result.validation_warnings:
                 print(f"  - {warning}", file=sys.stderr)
+
+        if result.compile_diagnostics:
+            print(
+                f"\nCompile Diagnostics ({len(result.compile_diagnostics)}):",
+                file=sys.stderr,
+            )
+            for diag in result.compile_diagnostics:
+                print(
+                    f"  [{diag.kind}] {diag.message}",
+                    file=sys.stderr,
+                )
+                if diag.suggested_resolution:
+                    print(f"    => {diag.suggested_resolution}", file=sys.stderr)
+
+        if result.traces:
+            print(
+                f"\nProvenance Traces ({len(result.traces)}):",
+                file=sys.stderr,
+            )
+            for trace in result.traces:
+                span_info = f" spans={trace.source_span_ids}" if trace.source_span_ids else ""
+                confirm = " [needs confirmation]" if trace.needs_confirmation else ""
+                print(
+                    f"  [{trace.relation}] {trace.target_ref}{span_info}"
+                    f"{confirm}",
+                    file=sys.stderr,
+                )
 
     except Exception as e:
         print(f"Pipeline error: {e}", file=sys.stderr)

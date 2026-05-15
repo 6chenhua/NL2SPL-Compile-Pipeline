@@ -9,7 +9,6 @@ rather than relying on LLM output consistency.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
@@ -23,9 +22,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerSpecIR,
 )
-
-_DEFAULT_INPUT = ContractFieldIR("input", "text", True, "Worker input", "input")
-_DEFAULT_OUTPUT = ContractFieldIR("output", "text", True, "Worker output", "output")
 
 
 class WorkerPlanMaterializer:
@@ -85,7 +81,7 @@ class WorkerPlanMaterializer:
             main_worker_id, main_worker_name, hard_inputs, hard_outputs,
         )
 
-        child_workers, handoffs, rejected, decision_warnings = (
+        child_workers, handoffs, rejected, materialized_decisions, decision_warnings = (
             self._materialize_accepted(
                 decisions, candidates_by_id, hard_inputs, hard_outputs,
                 span_order, main_worker,
@@ -103,14 +99,14 @@ class WorkerPlanMaterializer:
         if behavior_all:
             self._assign_ownership(all_workers, behavior_all)
 
-        rejected += [d for d in decisions if d.decision != "extract_child_worker"]
+        rejected += [d for d in materialized_decisions if d.decision != "extract_child_worker"]
 
         return WorkerPlanIR(
             main_worker_id=main_worker_id,
             workers=all_workers,
             handoffs=handoffs,
             candidates=candidates,
-            decisions=decisions,
+            decisions=materialized_decisions,
             rejected_candidates=rejected,
         ), warnings
 
@@ -142,17 +138,26 @@ class WorkerPlanMaterializer:
         span_order: list[str],
         main_worker: WorkerSpecIR,
     ) -> tuple[
-        list[WorkerSpecIR], list[WorkerHandoffIR],
-        list[WorkerBoundaryDecisionIR], list[str],
+        list[WorkerSpecIR],
+        list[WorkerHandoffIR],
+        list[WorkerBoundaryDecisionIR],
+        list[WorkerBoundaryDecisionIR],
+        list[str],
     ]:
         workers: list[WorkerSpecIR] = []
         handoffs: list[WorkerHandoffIR] = []
         rejected: list[WorkerBoundaryDecisionIR] = []
+        materialized_decisions: list[WorkerBoundaryDecisionIR] = []
         warnings: list[str] = []
         main_owned = set(main_worker.owned_span_ids)
+        blocked_anchor_span_ids = self._blocked_handoff_anchor_spans(
+            decisions,
+            candidates_by_id,
+        )
 
         for decision in decisions:
             if decision.decision != "extract_child_worker":
+                materialized_decisions.append(decision)
                 continue
 
             candidate = candidates_by_id.get(decision.candidate_id)
@@ -161,26 +166,107 @@ class WorkerPlanMaterializer:
                     f"Decision {decision.candidate_id} references unknown candidate; "
                     "treated as rejected."
                 )
-                rejected.append(decision)
+                rejected_decision = self._reject_decision(
+                    decision,
+                    "insufficient_semantic_boundary",
+                    "Accepted decision references an unknown candidate.",
+                )
+                materialized_decisions.append(rejected_decision)
                 continue
 
             worker = self._candidate_to_worker(candidate, decision, hard_inputs, hard_outputs)
             if worker is None:
-                warnings.append(
-                    f"Candidate {candidate.candidate_id} accepted but missing "
-                    "contract; rejecting."
+                reason = self._missing_contract_reason(
+                    candidate,
+                    hard_inputs,
+                    hard_outputs,
                 )
-                rejected.append(decision)
+                warnings.append(
+                    f"Candidate {candidate.candidate_id} accepted but missing {reason}; "
+                    "rejecting."
+                )
+                rejected_decision = self._reject_decision(
+                    decision,
+                    reason,
+                    "Accepted candidate did not provide a deterministic worker contract.",
+                )
+                materialized_decisions.append(rejected_decision)
                 continue
 
             main_owned.difference_update(worker.owned_span_ids)
             workers.append(worker)
+            materialized_decisions.append(decision)
 
-            handoff = self._build_handoff(worker, candidate, span_order)
+            handoff = self._build_handoff(
+                worker,
+                candidate,
+                span_order,
+                blocked_anchor_span_ids,
+            )
             handoffs.append(handoff)
 
         main_worker.owned_span_ids = sorted(main_owned, key=lambda sid: int(sid[1:]))
-        return workers, handoffs, rejected, warnings
+        return workers, handoffs, rejected, materialized_decisions, warnings
+
+    @staticmethod
+    def _blocked_handoff_anchor_spans(
+        decisions: list[WorkerBoundaryDecisionIR],
+        candidates_by_id: dict[str, CandidateTaskUnitIR],
+    ) -> set[str]:
+        """Return spans that cannot anchor parent handoff placement.
+
+        Child-owned spans and non-main control-flow spans are not valid
+        caller anchors. Using them causes Stage 7 ownership warnings and can
+        move fallback invocation blocks to the wrong location.
+        """
+        blocked: set[str] = set()
+        for decision in decisions:
+            candidate = candidates_by_id.get(decision.candidate_id)
+            if candidate is None:
+                continue
+            if decision.decision in {
+                "extract_child_worker",
+                "compile_as_exception_flow",
+                "compile_as_alternative_flow",
+            }:
+                blocked.update(candidate.source_span_ids)
+        return blocked
+
+    def _missing_contract_reason(
+        self,
+        candidate: CandidateTaskUnitIR,
+        hard_inputs: list[ContractFieldIR],
+        hard_outputs: list[ContractFieldIR],
+    ) -> str:
+        has_inputs = bool(
+            candidate.possible_inputs
+            or self._match_hard_fact_contracts(candidate, hard_inputs)
+        )
+        has_outputs = bool(
+            candidate.possible_outputs
+            or self._match_hard_fact_contracts(candidate, hard_outputs)
+        )
+        if not has_inputs:
+            return "no_clear_input_contract"
+        if not has_outputs:
+            return "no_clear_output_contract"
+        return "unclear_result_handoff"
+
+    @staticmethod
+    def _reject_decision(
+        decision: WorkerBoundaryDecisionIR,
+        rejection_reason: str,
+        reason: str,
+    ) -> WorkerBoundaryDecisionIR:
+        return WorkerBoundaryDecisionIR(
+            candidate_id=decision.candidate_id,
+            decision="keep_in_main_worker",
+            boundary_strength="weak",
+            boundary_kind="not_a_worker",
+            rejection_reason=rejection_reason,  # type: ignore[arg-type]
+            reason=reason,
+            evidence=list(decision.evidence),
+        )
 
     def _candidate_to_worker(
         self,
@@ -194,20 +280,11 @@ class WorkerPlanMaterializer:
         inputs = list(candidate.possible_inputs) if candidate.possible_inputs else []
         outputs = list(candidate.possible_outputs) if candidate.possible_outputs else []
 
-        # Fill missing contracts from hard facts when names align
         if not inputs:
-            child_names = {f.name for f in (candidate.possible_inputs or [])}
-            matched = [f for f in hard_inputs if f.name in child_names]
-            inputs = matched or inputs
+            inputs = self._match_hard_fact_contracts(candidate, hard_inputs)
         if not outputs:
-            child_names = {f.name for f in (candidate.possible_outputs or [])}
-            matched = [f for f in hard_outputs if f.name in child_names]
-            outputs = matched or outputs
-
-        # Still missing: reject the decision
-        if not inputs and not candidate.possible_inputs:
-            return None
-        if not outputs and not candidate.possible_outputs:
+            outputs = self._match_hard_fact_contracts(candidate, hard_outputs)
+        if not inputs or not outputs:
             return None
 
         worker_id = self._worker_id_from_candidate(candidate.candidate_id)
@@ -226,18 +303,56 @@ class WorkerPlanMaterializer:
             reason=decision.reason,
         )
 
+    @staticmethod
+    def _match_hard_fact_contracts(
+        candidate: CandidateTaskUnitIR,
+        facts: list[ContractFieldIR],
+    ) -> list[ContractFieldIR]:
+        """Conservatively recover missing contracts from hard facts.
+
+        A hard fact is adopted only when every meaningful token in the
+        snake_case variable name appears in the candidate text or purpose.
+        This keeps repair deterministic while avoiding broad global IO
+        leakage into child workers.
+        """
+        haystack = WorkerPlanMaterializer._normalize_contract_text(
+            f"{candidate.task_text} {candidate.purpose}"
+        )
+        matches: list[ContractFieldIR] = []
+        for fact in facts:
+            tokens = [
+                token
+                for token in WorkerPlanMaterializer._normalize_contract_text(
+                    fact.name
+                ).split()
+                if len(token) > 2
+            ]
+            if tokens and all(token in haystack for token in tokens):
+                matches.append(fact)
+        return matches
+
+    @staticmethod
+    def _normalize_contract_text(text: str) -> str:
+        return " ".join(
+            token
+            for token in re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
+            if token
+        )
+
     def _build_handoff(
         self,
         worker: WorkerSpecIR,
         candidate: CandidateTaskUnitIR,
         span_order: list[str],
+        blocked_anchor_span_ids: set[str],
     ) -> WorkerHandoffIR:
         """Build handoff with caller-owned invoke location.
 
         Uses the ordered behavior span list to find the nearest
         main-worker-owned span before the child's first span (after_span_id)
-        and the nearest main-worker-owned span after the child's last span
-        (before_span_id). Never uses child-owned spans for location hints.
+        and the nearest main-worker-owned span after the child's first
+        contiguous child-owned region (before_span_id). Never uses
+        child-owned spans for location hints.
         """
         input_bindings = [
             InputBindingIR(f.name, f.name, f.required)
@@ -250,7 +365,9 @@ class WorkerPlanMaterializer:
 
         child_spans = set(worker.owned_span_ids)
         after_span_id, before_span_id = self._caller_neighbor_spans(
-            child_spans, span_order,
+            child_spans,
+            span_order,
+            blocked_anchor_span_ids,
         )
 
         invoke_hint = InvokeLocationHintIR(
@@ -284,32 +401,42 @@ class WorkerPlanMaterializer:
     def _caller_neighbor_spans(
         child_span_ids: set[str],
         span_order: list[str],
+        blocked_anchor_span_ids: set[str] | None = None,
     ) -> tuple[str | None, str | None]:
         """Find caller-owned neighbor spans around a child's span range.
 
         Scans the ordered behavior span list to find the span immediately
         before the child's first span and the span immediately after the
-        child's last span. Both are caller-owned (non-child) by definition
-        since child spans are excluded from the candidate set.
+        first contiguous child-owned region. This avoids late policy or
+        delegation spans inside the same candidate moving the invocation to
+        the end of the main flow.
 
         Returns (after_span_id, before_span_id).
         """
         if not span_order or not child_span_ids:
             return None, None
 
+        blocked = set(blocked_anchor_span_ids or set()).union(child_span_ids)
         first_idx: int | None = None
-        last_idx: int | None = None
         for i, sid in enumerate(span_order):
             if sid in child_span_ids:
-                if first_idx is None:
-                    first_idx = i
-                last_idx = i
+                first_idx = i
+                break
 
         if first_idx is None:
             return None, None
 
-        after = span_order[first_idx - 1] if first_idx > 0 else None
-        before = span_order[last_idx + 1] if last_idx + 1 < len(span_order) else None
+        after = None
+        for i in range(first_idx - 1, -1, -1):
+            if span_order[i] not in blocked:
+                after = span_order[i]
+                break
+
+        before = None
+        for i in range(first_idx + 1, len(span_order)):
+            if span_order[i] not in blocked:
+                before = span_order[i]
+                break
         return after, before
 
     # ---- Ownership ----------------------------------------------------

@@ -208,6 +208,112 @@ def test_execute_worker_scoped_extracts_worker_resources(
     assert "worker_child" in result.worker_resources
 
 
+def test_execute_worker_scoped_main_scope_excludes_child_spans(
+    extractor: ResourceExtractor,
+    mock_client: MagicMock,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+    sample_worker_plan: WorkerPlanIR,
+    sample_flow_plan: WorkerFlowPlanIR,
+    sample_block_plan: WorkerBlockPlanIR,
+) -> None:
+    """Main resource extraction prompt should not include child-owned spans."""
+    extractor.execute_worker_scoped(
+        spans=sample_spans,
+        routes=sample_routes,
+        worker_flow_plan=sample_flow_plan,
+        worker_block_plan=sample_block_plan,
+        worker_plan=sample_worker_plan,
+    )
+
+    first_prompt = mock_client.call_json.call_args_list[0].kwargs["user_prompt"]
+    assert "User query" in first_prompt
+    assert "Worker task" not in first_prompt
+
+
+def test_execute_worker_scoped_seeds_contract_variables(
+    extractor: ResourceExtractor,
+    sample_spans: list[SpanIR],
+    sample_routes: FieldRouteIR,
+    sample_flow_plan: WorkerFlowPlanIR,
+    sample_block_plan: WorkerBlockPlanIR,
+) -> None:
+    """WorkerSpec contracts are deterministic resources, not LLM guesses."""
+    worker_plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                worker_id="worker_main",
+                worker_name="MainWorker",
+                kind="main",
+                purpose="Main worker",
+                owned_span_ids=["s1"],
+                input_contract=[
+                    ContractFieldIR(
+                        "main_input",
+                        "text",
+                        True,
+                        "Main input",
+                        "input",
+                    )
+                ],
+                output_contract=[
+                    ContractFieldIR(
+                        "main_output",
+                        "text",
+                        True,
+                        "Main output",
+                        "output",
+                    )
+                ],
+            ),
+            WorkerSpecIR(
+                worker_id="worker_child",
+                worker_name="ChildWorker",
+                kind="child",
+                purpose="Child worker",
+                owned_span_ids=["s2"],
+                input_contract=[
+                    ContractFieldIR(
+                        "child_input",
+                        "text",
+                        True,
+                        "Child input",
+                        "input",
+                    )
+                ],
+                output_contract=[
+                    ContractFieldIR(
+                        "child_output",
+                        "text",
+                        True,
+                        "Child output",
+                        "output",
+                    )
+                ],
+            ),
+        ],
+    )
+
+    result, symbol_table = extractor.execute_worker_scoped(
+        spans=sample_spans,
+        routes=sample_routes,
+        worker_flow_plan=sample_flow_plan,
+        worker_block_plan=sample_block_plan,
+        worker_plan=worker_plan,
+    )
+
+    global_vars = {var.name: var for var in result.global_resources.variables}
+    child_vars = {
+        var.name: var for var in result.worker_resources["worker_child"].variables
+    }
+    assert global_vars["main_input"].source == "input"
+    assert global_vars["main_output"].source == "output"
+    assert child_vars["child_input"].source == "input"
+    assert child_vars["child_output"].source == "output"
+    assert symbol_table.get_variables_for_worker("worker_child")["child_output"].source == "output"
+
+
 def test_execute_worker_scoped_extracts_handoff_contracts(
     extractor: ResourceExtractor,
     sample_spans: list[SpanIR],

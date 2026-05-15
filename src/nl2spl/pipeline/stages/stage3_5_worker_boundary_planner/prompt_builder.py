@@ -7,6 +7,7 @@ from typing import Any
 from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
+from nl2spl.ir.worker_plan_ir import CandidateTaskUnitIR
 
 
 class PromptBuilderMixin:
@@ -37,6 +38,60 @@ Adapter metadata:
 
 Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
 
+    def _build_candidate_prompt(
+        self,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+        canonical_input: CanonicalCompileInput | None,
+    ) -> str:
+        return f"""Discover candidate task units before worker-boundary decisions.
+
+Behavior spans available for candidate source_span_ids:
+---
+{self._format_route_spans(spans, routes.behavior)}
+---
+
+Non-behavior context:
+---
+{self._format_non_behavior_context(spans, routes)}
+---
+
+Adapter metadata:
+---
+{self._format_adapter_metadata(canonical_input)}
+---
+
+Return JSON only with a top-level "candidates" array.
+Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
+
+    def _build_decision_prompt(
+        self,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+        canonical_input: CanonicalCompileInput | None,
+        candidates: list[CandidateTaskUnitIR],
+    ) -> str:
+        return f"""Decide worker boundaries for candidate task units.
+
+Candidates to decide:
+---
+{self._format_candidates(candidates)}
+---
+
+Behavior span context:
+---
+{self._format_route_spans(spans, routes.behavior)}
+---
+
+Adapter metadata:
+---
+{self._format_adapter_metadata(canonical_input)}
+---
+
+Return JSON only with a top-level "decisions" array.
+Return exactly one decision for every candidate_id listed above.
+Do not output workers, handoffs, flow, blocks, steps, or SPL."""
+
     def _format_spans(self, spans: list[SpanIR]) -> str:
         if not spans:
             return "(none)"
@@ -56,6 +111,36 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         return "\n".join(
             f"{name}: {', '.join(getattr(routes, name)) or '(none)'}" for name in route_names
         )
+
+    def _format_route_spans(self, spans: list[SpanIR], span_ids: list[str]) -> str:
+        span_by_id = {span.span_id: span for span in spans}
+        selected = [span_by_id[span_id] for span_id in span_ids if span_id in span_by_id]
+        return self._format_spans(selected)
+
+    def _format_non_behavior_context(
+        self,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+    ) -> str:
+        context_ids: list[str] = []
+        for route_name in ("rules", "domain", "integrations", "identity", "audience"):
+            context_ids.extend(getattr(routes, route_name))
+        return self._format_route_spans(spans, context_ids)
+
+    def _format_candidates(self, candidates: list[CandidateTaskUnitIR]) -> str:
+        if not candidates:
+            return "(none)"
+        lines: list[str] = []
+        for candidate in candidates:
+            lines.append(
+                "- "
+                f"{candidate.candidate_id}: spans={candidate.source_span_ids}; "
+                f"kind={candidate.candidate_kind}; purpose={candidate.purpose}; "
+                f"inputs={[field.name for field in candidate.possible_inputs]}; "
+                f"outputs={[field.name for field in candidate.possible_outputs]}; "
+                f"signals={candidate.signals}; risks={candidate.risks}"
+            )
+        return "\n".join(lines)
 
     def _format_adapter_metadata(self, canonical_input: CanonicalCompileInput | None) -> str:
         if canonical_input is None:

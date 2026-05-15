@@ -117,6 +117,8 @@ class WorkerIR:
         alternative_flows: Alternative flow references
         exception_flows: Exception flow references
         api_refs: Referenced API names
+        steps: Step IRs in the main worker
+        scoped_steps: Whether steps are already scoped to the main worker
         child_worker_refs: Child worker names
         child_workers: Concrete child worker definitions
     """
@@ -129,5 +131,7 @@ class WorkerIR:
     alternative_flows: list[AlternativeFlowRef] = field(default_factory=list)
     exception_flows: list[ExceptionFlowRef] = field(default_factory=list)
     api_refs: list[str] = field(default_factory=list)
+    steps: list[StepIR] = field(default_factory=list)
+    scoped_steps: bool = False
     child_worker_refs: list[str] = field(default_factory=list)
     child_workers: list[ChildWorkerIR] = field(default_factory=list)

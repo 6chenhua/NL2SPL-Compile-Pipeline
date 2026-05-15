@@ -11,11 +11,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
 from tests.fixtures.stage_prompt_fixtures import (
     STAGE1_EXPECTED_SPANS,
@@ -260,3 +262,136 @@ class TestStage7Prompt:
         """Verify load_mock_response() returns the same fixture data."""
         loaded = load_mock_response(7)
         assert loaded == STAGE7_MOCK_LLM_RESPONSE
+
+    # =========================================================================
+    # TODO 2: Anti-fabrication — unmapped span diagnostics
+    # =========================================================================
+
+    def test_unmapped_spans_produce_diagnostics(
+        self,
+        extractor: StepExtractor,
+        mock_client: MagicMock,
+        input_spans: list[SpanIR],
+        input_routes: FieldRouteIR,
+        input_flow: FlowStructureIR,
+        input_blocks: BlockStructureIR,
+        input_symbol_table: SymbolTable,
+    ) -> None:
+        """LLM-reported unmapped_spans become CompileDiagnostic records."""
+        # Simulate LLM intentionally leaving "Missing timeframe" unmapped
+        behavior_span = SpanIR("s_unmapped", "Missing timeframe.")
+        spans = list(input_spans) + [behavior_span]
+        routes = FieldRouteIR(
+            behavior=input_routes.behavior + ["s_unmapped"],
+            identity=input_routes.identity,
+            audience=input_routes.audience,
+            rules=input_routes.rules,
+            domain=input_routes.domain,
+            integrations=input_routes.integrations,
+        )
+        flow = FlowStructureIR(
+            main_flow_spans=input_flow.main_flow_spans + ["s_unmapped"]
+        )
+
+        mock_client.call_json.return_value = {
+            "steps": [],
+            "new_variables": [],
+            "unmapped_spans": [
+                {
+                    "span_id": "s_unmapped",
+                    "reason": "Non-executable failure condition without handler",
+                }
+            ],
+        }
+
+        extractor.execute((spans, routes, flow, input_blocks, input_symbol_table))
+
+        diags = getattr(extractor, "stage7_diagnostics", [])
+        unmapped = [d for d in diags if d.kind == "unmapped_behavior_span"]
+        assert len(unmapped) >= 1
+        assert any("s_unmapped" in d.target_ref for d in unmapped)
+        assert any("Missing timeframe" in d.message for d in unmapped)
+        assert all(not d.blocks_rendering for d in unmapped)
+        assert all(d.blocks_completion for d in unmapped)
+        assert all(d.severity == "warning" for d in unmapped)
+
+    def test_uncovered_spans_detected_even_without_llm_report(
+        self,
+        extractor: StepExtractor,
+        mock_client: MagicMock,
+        input_spans: list[SpanIR],
+        input_routes: FieldRouteIR,
+        input_flow: FlowStructureIR,
+        input_blocks: BlockStructureIR,
+        input_symbol_table: SymbolTable,
+    ) -> None:
+        """Behavior spans not covered by any step are auto-detected."""
+        behavior_span = SpanIR("s_vague", "Handle failures properly.")
+        spans = list(input_spans) + [behavior_span]
+        routes = FieldRouteIR(
+            behavior=input_routes.behavior + ["s_vague"],
+            identity=input_routes.identity,
+            audience=input_routes.audience,
+            rules=input_routes.rules,
+            domain=input_routes.domain,
+            integrations=input_routes.integrations,
+        )
+        flow = FlowStructureIR(
+            main_flow_spans=input_flow.main_flow_spans + ["s_vague"]
+        )
+
+        # LLM returns steps that do NOT cover "s_vague" — and no unmapped_spans
+        mock_client.call_json.return_value = {
+            "steps": [
+                {
+                    "step_id": "st_1",
+                    "text": "Produce a draft",
+                    "source_span_ids": ["s1"],
+                    "command_type": "GENERAL_COMMAND",
+                    "inputs": [],
+                    "outputs": [],
+                    "integration_ref": None,
+                    "flow_ref": "main",
+                    "block_ref": "b1",
+                    "kind": "normal",
+                }
+            ],
+            "new_variables": [],
+        }
+
+        extractor.execute((spans, routes, flow, input_blocks, input_symbol_table))
+
+        diags = getattr(extractor, "stage7_diagnostics", [])
+        unmapped = [d for d in diags if d.kind == "unmapped_behavior_span"]
+        assert any("s_vague" in d.target_ref for d in unmapped), (
+            f"Expected unmapped diagnostic for s_vague, got: {[d.target_ref for d in unmapped]}"
+        )
+
+    def test_prompt_no_longer_forces_every_span_to_step(self) -> None:
+        """The Stage 7 prompt must not say every behavior span must map to a step."""
+        prompt = load_prompt("stage7")
+        assert "Every behavior span must map to at least one step" not in prompt, (
+            "Prompt must not force every span into a step"
+        )
+        assert "source-backed EXECUTABLE behaviors" in prompt, (
+            "Prompt should guide LLM to only map executable behaviors"
+        )
+
+    def test_prompt_request_input_requires_explicit_source(self) -> None:
+        """REQUEST_INPUT must only be used when source explicitly requests user input."""
+        prompt = load_prompt("stage7")
+        # The prompt must contain guidance that REQUEST_INPUT requires explicit
+        # source evidence. Check for key fragments since encoding may vary.
+        assert "REQUEST_INPUT" in prompt
+        assert "explicitly" in prompt
+        assert "receive input" in prompt.lower() or "receive input back" in prompt.lower()
+
+    def test_prompt_output_format_includes_unmapped_spans(self) -> None:
+        """Prompt output format should document the unmapped_spans field."""
+        prompt = load_prompt("stage7")
+        assert '"unmapped_spans"' in prompt, (
+            "Prompt output format must include unmapped_spans"
+        )
+        assert "unmapped_spans is optional" in prompt, (
+            "Prompt must note that unmapped_spans is optional"
+        )

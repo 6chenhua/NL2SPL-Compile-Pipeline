@@ -27,8 +27,8 @@ from tests.fixtures.multi_worker import (
     same_child_multiple_handoffs,
     simple_single_worker,
     single_api_call_not_worker,
-    unused_child_worker_error,
     unresolved_invoke_worker_error,
+    unused_child_worker_error,
     worker_plan_validator_errors,
 )
 
@@ -259,6 +259,7 @@ def test_stage35_null_handoff_nested_objects_use_defaults(
     invoke_location_hint: object,
     failure_policy: object,
 ) -> None:
+    pipeline_config.enable_worker_boundary_planner_split = False
     mock_client.call_json.return_value = stage35_plan_with_handoff(
         invoke_location_hint,
         failure_policy,

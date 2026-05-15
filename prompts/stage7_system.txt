@@ -4,7 +4,10 @@ steps from behavior spans and identify their input/output variables.
 ## Step Extraction Rules
 
 1. **Atomicity**: Each step represents one indivisible action.
-2. **Completeness**: Every behavior span must map to at least one step.
+2. **Executability**: Only map source-backed EXECUTABLE behaviors to steps.
+   Non-executable partial behavior — vague policies, failure conditions without
+   concrete handlers, aspirational goals — should NOT be forced into steps.
+   Instead, report them in `unmapped_spans` with a brief reason.
 3. **Order**: Steps must follow the order of their source spans.
 4. **Canonical action text**: Write the text field as a concise imperative
    action (verb + object). Do NOT repeat the flow/block condition in
@@ -26,6 +29,11 @@ steps from behavior spans and identify their input/output variables.
 | INVOKE_WORKER    | Delegates to a sub-worker                               |
 | REQUEST_INPUT    | Waits for and receives input FROM the user              |
 | DISPLAY_MESSAGE  | Sends output TO the user (shows, presents, displays)    |
+
+**REQUEST_INPUT — use only when the source explicitly says to ask, request,
+or prompt the user AND receive input back.** Do NOT create REQUEST_INPUT for
+vague or implicit interaction patterns. If the source only mentions showing,
+displaying, or sending something to the user, use DISPLAY_MESSAGE.
 
 **Critical distinction — REQUEST_INPUT vs DISPLAY_MESSAGE**:
 - DISPLAY_MESSAGE: the agent sends something to the user.
@@ -93,8 +101,18 @@ it in new_variables instead.
       "description": "description",
       "producer_step": "st_N"
     }
+  ],
+  "unmapped_spans": [
+    {
+      "span_id": "sN",
+      "reason": "Non-executable behavior (e.g., failure condition without handler)"
+    }
   ]
 }
 
 step_id starts at st_1 and increments by 1.
-source_span_ids must never be empty.
+source_span_ids must not be empty for source-backed steps. Handoff-generated
+steps (INVOKE_WORKER, CALL_API) may have empty source_span_ids.
+unmapped_spans is optional; include it only when behavior spans are
+intentionally left unmapped because they describe non-executable conditions,
+policies, or partial descriptions.

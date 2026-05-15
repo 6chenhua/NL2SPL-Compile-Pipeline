@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from nl2spl.adapters import InputAdapterRegistry
 from nl2spl.canonical import CanonicalCompileInput, CanonicalCompileInputValidator
+from nl2spl.compiler.assumptions import AssumptionBuilder
+from nl2spl.compiler.compile_result import CompileAssumption, Completeness
+from nl2spl.compiler.completeness import compute_completeness
+from nl2spl.compiler.report_renderer import render_report
 from nl2spl.config import PipelineConfig
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
@@ -38,6 +42,8 @@ from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
+from nl2spl.pipeline.executable_gate import ExecutableElementGate
+from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
@@ -52,6 +58,13 @@ class PipelineResult:
         spl_text: Generated SPL text
         validation_errors: Validation errors
         validation_warnings: Validation warnings
+        compile_diagnostics: Structured compiler diagnostics
+        diagnostics: Alias for compile_diagnostics (preferred for new callers)
+        traces: Provenance TraceRecords linking SPL elements to source
+        adapter_warnings: Adapter-level warnings
+        completeness: Overall compile status — complete, partial, or blocked
+        assumptions: Compiler assumptions that were NOT rendered into SPL
+        readable_report: Human-readable compile report (deterministic, no LLM)
         intermediate_results: Intermediate stage results
         final_spl_path: Path to saved final SPL file
     """
@@ -59,8 +72,19 @@ class PipelineResult:
     spl_text: str
     validation_errors: list[str]
     validation_warnings: list[str]
-    intermediate_results: dict[str, Any]
+    compile_diagnostics: list[Any] = field(default_factory=list)
+    traces: list[Any] = field(default_factory=list)
+    adapter_warnings: list[str] = field(default_factory=list)
+    completeness: Completeness = "complete"
+    assumptions: list[CompileAssumption] = field(default_factory=list)
+    readable_report: str = ""
+    intermediate_results: dict[str, Any] = field(default_factory=dict)
     final_spl_path: Path | None = None
+
+    @property
+    def diagnostics(self) -> list[Any]:
+        """Alias for compile_diagnostics — preferred for new callers."""
+        return self.compile_diagnostics
 
 
 class PipelineOrchestrator:
@@ -148,18 +172,20 @@ class PipelineOrchestrator:
             intermediate["stage3_5_worker_plan"] = worker_plan
             intermediate["stage3_6_worker_plan_validation"] = worker_validation
 
-            # 防御性修复：确保所有 span 都被分配给至少一个 worker。
-            # Stage 3.5 LLM 偶尔会漏掉 behavior span（observed: s18-s24, s37）。
-            all_span_ids = {span.span_id for span in resolved_spans}
+            # Defensive repair: worker ownership is required for behavior spans.
+            # Non-behavior spans remain global/hint context and must not be
+            # forced into a worker ownership set.
+            behavior_span_ids = set(resolved_routes.behavior)
             assigned_ids: set[str] = set()
             for w in worker_plan.workers:
                 assigned_ids.update(w.owned_span_ids)
-            unassigned = all_span_ids - assigned_ids
+            unassigned = behavior_span_ids - assigned_ids
             if unassigned:
                 main_worker = worker_plan.main_worker
                 main_worker.owned_span_ids.extend(sorted(unassigned, key=lambda sid: int(sid[1:])))
                 self.logger.warning(
-                    "Stage 3.5 left %d spans unassigned; reassigning to main worker %s: %s",
+                    "Stage 3.5 left %d behavior spans unassigned; "
+                    "reassigning to main worker %s: %s",
                     len(unassigned), main_worker.worker_id,
                     sorted(unassigned, key=lambda sid: int(sid[1:])),
                 )
@@ -243,7 +269,7 @@ class PipelineOrchestrator:
             and worker_plan is not None
         ):
             # Worker-aware path
-            worker_step_plan, symbol_table = self._run_stage7_worker_scoped(
+            worker_step_plan, symbol_table, stage7_diags = self._run_stage7_worker_scoped(
                 resolved_spans,
                 resolved_routes,
                 worker_flow_plan,
@@ -256,7 +282,7 @@ class PipelineOrchestrator:
             intermediate["stage7_worker_step_plan"] = worker_step_plan
         else:
             # Legacy path
-            steps, symbol_table = self._run_stage7(
+            steps, symbol_table, stage7_diags = self._run_stage7(
                 resolved_spans,
                 resolved_routes,
                 flow_structure,
@@ -309,6 +335,7 @@ class PipelineOrchestrator:
                 symbol_table,
                 normalization_errors,
                 normalization_warnings,
+                compile_diagnostics,
             ) = norm_result
             # 更新 steps 为所有 worker 的 steps
             steps = worker_step_plan.get_all_steps()
@@ -331,6 +358,7 @@ class PipelineOrchestrator:
                 symbol_table,
                 normalization_errors,
                 normalization_warnings,
+                compile_diagnostics,
             ) = norm_result
         intermediate["stage9_5_normalization"] = norm_result
 
@@ -364,13 +392,23 @@ class PipelineOrchestrator:
             )
         intermediate["stage10_worker"] = worker
 
+        # Executable element gate — filter non-source-backed steps before
+        # rendering so only verifiable commands reach Stage 11.
+        self.logger.info("Executable element gate")
+        gate = ExecutableElementGate()
+        worker, render_info, gate_diags = gate.apply(worker, worker_plan)
+        intermediate["render_info"] = render_info
+        # Mark steps as scoped so the renderer uses the filtered worker.steps
+        # and does NOT fall back to the pre-gate flat steps list.
+        worker.scoped_steps = True
+
         # Stage 11: SPL Rendering
         self.logger.info("Stage 11: SPL Rendering")
         spl_text, errors, warnings = self._run_stage11(
             worker, profile, resources, symbol_table, steps, constraints
         )
         errors = normalization_errors + errors
-        warnings = adapter_warnings + worker_stage_warnings + normalization_warnings + warnings
+        warnings = worker_stage_warnings + normalization_warnings + warnings
         intermediate["stage11_spl"] = spl_text
         final_spl_path = save_final_spl(
             spl_text=spl_text,
@@ -380,10 +418,94 @@ class PipelineOrchestrator:
 
         self.logger.info("Pipeline complete. SPL length: %d chars", len(spl_text))
 
+        # Provenance aggregation (post-compilation)
+        # Merge global + worker-scoped resources so worker-local variables
+        # are included in traces.  Track which variables are worker-local
+        # so the aggregator can emit scoped target_refs.
+        ws_resources: WorkerScopedResourceIR | None = intermediate.get(
+            "stage6_worker_scoped_resources"
+        )
+        resources_for_prov = resources
+        worker_var_scopes: dict[str, str] | None = None
+        if ws_resources is not None:
+            resources_for_prov = ResourceRegistryIR(
+                variables=ws_resources.get_all_variables(),
+                files=resources.files + [
+                    f for wr in ws_resources.worker_resources.values()
+                    for f in wr.files
+                ],
+                apis=ws_resources.get_all_apis(),
+                types=resources.types + [
+                    t for wr in ws_resources.worker_resources.values()
+                    for t in wr.types
+                ],
+            )
+            worker_var_scopes = {}
+            for worker_id, wr in ws_resources.worker_resources.items():
+                for v in wr.variables:
+                    worker_var_scopes[v.name] = worker_id
+
+        # Build post-gate flat step list — blocked steps must not
+        # participate in provenance traces or variable producer detection.
+        prov_steps = list(worker.steps)
+        for child in worker.child_workers:
+            prov_steps.extend(child.steps)
+        # Compute child worker IDs and declared APIs for handoff validation
+        prov_child_ids: set[str] | None = None
+        prov_declared_apis: set[str] = {a.api_name for a in resources_for_prov.apis}
+        if worker_plan is not None:
+            prov_child_ids = {
+                w.worker_id for w in worker_plan.workers
+                if w.boundary_kind != "main_worker"
+                and w.boundary_kind != "not_a_worker"
+            }
+
+        aggregator = ProvenanceAggregator()
+        traces, provenance_diags = aggregator.aggregate(
+            worker=worker,
+            steps=prov_steps,
+            constraints=constraints,
+            resources=resources_for_prov,
+            symbol_table=symbol_table,
+            spans=resolved_spans,
+            profile=profile,
+            worker_var_scopes=worker_var_scopes,
+            handoffs=worker_plan.handoffs if worker_plan else None,
+            known_child_worker_ids=prov_child_ids,
+            declared_apis=prov_declared_apis,
+        )
+
+        # Assemble final diagnostics and compute result fields
+        all_diagnostics = (
+            stage7_diags + compile_diagnostics + gate_diags + provenance_diags
+        )
+        completeness = compute_completeness(
+            validation_errors=errors,
+            diagnostics=all_diagnostics,
+        )
+        assumption_builder = AssumptionBuilder()
+        assumptions = assumption_builder.build(all_diagnostics)
+        readable_report = render_report(
+            spl_text=spl_text,
+            completeness=completeness,
+            diagnostics=all_diagnostics,
+            assumptions=assumptions,
+            traces=traces,
+            adapter_warnings=adapter_warnings,
+            validation_errors=errors,
+            validation_warnings=warnings,
+        )
+
         return PipelineResult(
             spl_text=spl_text,
             validation_errors=errors,
             validation_warnings=warnings,
+            compile_diagnostics=all_diagnostics,
+            traces=traces,
+            adapter_warnings=adapter_warnings,
+            completeness=completeness,
+            assumptions=assumptions,
+            readable_report=readable_report,
             intermediate_results=intermediate,
             final_spl_path=final_spl_path,
         )
@@ -484,12 +606,14 @@ class PipelineOrchestrator:
         blocks: BlockStructureIR,
         symbols: SymbolTable,
         worker_plan: WorkerPlanIR | None = None,
-    ) -> tuple[list[StepIR], SymbolTable]:
+    ) -> tuple[list[StepIR], SymbolTable, list[Any]]:
         """Stage 7: Step Extraction."""
         stage = StepExtractor(self.config, self.client)
         if worker_plan is not None:
-            return stage.execute((spans, routes, flow, blocks, symbols, worker_plan))
-        return stage.execute((spans, routes, flow, blocks, symbols))
+            result = stage.execute((spans, routes, flow, blocks, symbols, worker_plan))
+        else:
+            result = stage.execute((spans, routes, flow, blocks, symbols))
+        return (*result, getattr(stage, "stage7_diagnostics", []))
 
     def _run_stage7_worker_scoped(
         self,
@@ -499,14 +623,13 @@ class PipelineOrchestrator:
         worker_block_plan: WorkerBlockPlanIR,
         symbol_table: SymbolTable,
         worker_plan: WorkerPlanIR,
-    ) -> tuple[WorkerStepPlanIR, SymbolTable]:
+    ) -> tuple[WorkerStepPlanIR, SymbolTable, list[Any]]:
         """Stage 7: Worker-scoped Step Extraction."""
-        from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-
         stage = StepExtractor(self.config, self.client)
-        return stage.execute_worker_scoped(
+        result = stage.execute_worker_scoped(
             spans, routes, worker_flow_plan, worker_block_plan, symbol_table, worker_plan
         )
+        return (*result, getattr(stage, "stage7_diagnostics", []))
 
     def _run_stage8(
         self,
@@ -553,10 +676,11 @@ class PipelineOrchestrator:
         SymbolTable,
         list[str],
         list[str],
+        list[Any],
     ]:
         """Stage 9.5: IR Normalization."""
         normalizer = IRNormalizer()
-        return normalizer.normalize(
+        result = normalizer.normalize(
             flow,
             blocks,
             resources,
@@ -565,6 +689,7 @@ class PipelineOrchestrator:
             constraints,
             worker_plan,
         )
+        return (*result, normalizer.diagnostics)
 
     def _run_normalization_worker_scoped(
         self,
@@ -581,12 +706,11 @@ class PipelineOrchestrator:
         SymbolTable,
         list[str],
         list[str],
+        list[Any],
     ]:
         """Stage 9.5: Worker-scoped IR Normalization."""
-        from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-
         normalizer = IRNormalizer()
-        return normalizer.normalize_worker_scoped(
+        result = normalizer.normalize_worker_scoped(
             worker_flow_plan,
             worker_block_plan,
             worker_step_plan,
@@ -594,6 +718,7 @@ class PipelineOrchestrator:
             resources,
             symbol_table,
         )
+        return (*result, normalizer.diagnostics)
 
     def _run_stage10(
         self,

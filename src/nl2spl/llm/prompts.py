@@ -10,6 +10,8 @@ STAGE_PROMPT_FILES = {
     "stage2": PROMPTS_DIR / "stage2_system.txt",
     "stage3": PROMPTS_DIR / "stage3_system.txt",
     "stage3_5": PROMPTS_DIR / "stage3_5_system.txt",
+    "stage3_5a": PROMPTS_DIR / "stage3_5a_candidate_extractor_system.txt",
+    "stage3_5b": PROMPTS_DIR / "stage3_5b_boundary_decision_system.txt",
     "stage4": PROMPTS_DIR / "stage4_system.txt",
     "stage5": PROMPTS_DIR / "stage5_system.txt",
     "stage6": PROMPTS_DIR / "stage6_system.txt",
@@ -29,7 +31,10 @@ def load_prompt(stage_name: str) -> str:
         Prompt template text
     """
     if stage_name not in STAGE_PROMPT_FILES:
-        raise ValueError(f"Unknown stage: {stage_name}. Available stages: {list(STAGE_PROMPT_FILES.keys())}")
+        available_stages = list(STAGE_PROMPT_FILES.keys())
+        raise ValueError(
+            f"Unknown stage: {stage_name}. Available stages: {available_stages}"
+        )
     prompt_file = STAGE_PROMPT_FILES[stage_name]
     if not prompt_file.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_file}")

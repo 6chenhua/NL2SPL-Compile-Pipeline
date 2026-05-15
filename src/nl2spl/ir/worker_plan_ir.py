@@ -232,6 +232,18 @@ class WorkerPlanIR:
     unassigned_span_ids: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
+    @property
+    def main_worker(self) -> WorkerSpecIR | None:
+        """Return the declared main worker spec, if present."""
+        return next(
+            (
+                worker
+                for worker in self.workers
+                if worker.worker_id == self.main_worker_id and worker.kind == "main"
+            ),
+            None,
+        )
+
 
 @dataclass
 class WorkerScopedFlowIR:

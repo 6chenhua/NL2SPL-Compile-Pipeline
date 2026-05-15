@@ -328,8 +328,10 @@ class TestSPLRenderer:
 
         assert errors == []
         assert '[DEFINE_WORKER: "Source gathering can be delegated." child_dc_1]' in spl_text
-        assert "COMMAND-1 [COMMAND Retrieve sources using approved source recipes" in spl_text
-        assert "COMMAND-2 [INVOKE child_dc_1 WITH <REF>available_connectors</REF>" in spl_text
+        # Child worker has no blocks and no steps → empty MAIN_FLOW (no synthesis)
+        assert "COMMAND-1 [INVOKE child_dc_1 WITH <REF>available_connectors</REF>" in spl_text
+        # The child worker's task_text must NOT be rendered as a synthetic command
+        assert "COMMAND-1 [COMMAND Retrieve sources" not in spl_text
 
     def test_unresolved_invoke_worker_reports_error(self) -> None:
         """Test unresolved worker invocation is not rendered as placeholder Worker."""

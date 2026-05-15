@@ -45,6 +45,7 @@ class StepIR:
     block_ref: str = ""
     kind: StepKind = "normal"
     handoff_id: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate step_id format."""

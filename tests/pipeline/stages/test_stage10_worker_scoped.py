@@ -92,7 +92,8 @@ class TestWorkerAssemblerWorkerScoped:
 
         assert result.worker_name == "MainWorker"
         assert len(result.child_workers) == 0
-        assert len(result.main_flow.blocks) == 0
+        assert len(result.main_flow.blocks) == 1
+        assert result.main_flow.blocks[0].block_id == "b_main_fallback"
 
     def test_assemble_from_worker_scoped_multiple_workers(self):
         """Test assemble_from_worker_scoped with main + child workers."""
@@ -131,6 +132,7 @@ class TestWorkerAssemblerWorkerScoped:
         assert len(result.child_workers) == 1
         assert result.child_workers[0].worker_name == "ChildWorker"
         assert len(result.child_workers[0].steps) == 1
+        assert result.steps == step_plan.worker_steps["w_main"]
 
     def test_assemble_from_worker_scoped_with_flow(self):
         """Test assemble_from_worker_scoped with flow information."""
@@ -214,6 +216,62 @@ class TestWorkerAssemblerWorkerScoped:
 
         assert len(result.steps) == 2
         assert "api_1" in result.api_refs
+        assert len(result.main_flow.blocks) == 1
+        assert result.main_flow.blocks[0].block_id == "b_w_child_fallback"
+        assert result.steps[0].block_ref == "b_w_child_fallback"
+
+    def test_assemble_from_worker_scoped_child_steps_without_blocks_get_fallback(self):
+        """Child worker with steps but no blocks should still render a flow."""
+        assembler = WorkerAssembler()
+        worker_plan = self._make_worker_plan()
+        step_plan = WorkerStepPlanIR(
+            main_worker_id="w_main",
+            worker_steps={
+                "w_main": [
+                    StepIR(
+                        step_id="st1",
+                        text="Invoke child",
+                        source_span_ids=[],
+                        command_type="INVOKE_WORKER",
+                        integration_ref="ChildWorker",
+                    ),
+                ],
+                "w_child": [
+                    StepIR(
+                        step_id="st2",
+                        text="Child step",
+                        source_span_ids=["s2"],
+                        command_type="GENERAL_COMMAND",
+                    ),
+                ],
+            },
+        )
+        flow_plan = WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(main_flow_spans=[]),
+                "w_child": FlowStructureIR(main_flow_spans=["s2"]),
+            }
+        )
+        block_plan = WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+                "w_child": BlockStructureIR(),
+            }
+        )
+
+        result = assembler.assemble_from_worker_scoped(
+            step_plan,
+            ResourceRegistryIR(),
+            SymbolTable(),
+            worker_plan,
+            flow_plan,
+            block_plan,
+        )
+
+        child = result.child_workers[0]
+        assert len(child.main_flow.blocks) == 1
+        assert child.main_flow.blocks[0].spans == ["s2"]
+        assert child.steps[0].block_ref == "b_w_child_fallback"
 
     def test_build_child_worker_with_all_fields(self):
         """Test _build_child_worker with all fields."""
@@ -337,7 +395,8 @@ class TestWorkerAssemblerWorkerScoped:
 
         assert result.worker_name == "ChildWorker"
         assert len(result.steps) == 1
-        assert result.main_flow.blocks == []
+        assert len(result.main_flow.blocks) == 1
+        assert result.main_flow.blocks[0].block_id == "b_w_child_fallback"
         assert result.alternative_flows == []
         assert result.exception_flows == []
         assert result.api_refs == []
@@ -346,7 +405,8 @@ class TestWorkerAssemblerWorkerScoped:
         flow = FlowStructureIR(main_flow_spans=["s1"])
         result = assembler._build_child_worker(spec, steps, flow, None)
 
-        assert result.main_flow.blocks == []
+        assert len(result.main_flow.blocks) == 1
+        assert result.main_flow.blocks[0].block_id == "b_w_child_fallback"
         assert result.alternative_flows == []  # No blocks → no alternative flows
         assert result.exception_flows == []   # No blocks → no exception flows
 

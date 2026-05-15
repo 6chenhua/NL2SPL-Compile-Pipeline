@@ -7,6 +7,7 @@ from dataclasses import asdict
 
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
@@ -143,6 +144,8 @@ Block 结构：
                 stage=self.name,
             ) from e
 
+        self.stage7_diagnostics: list[CompileDiagnostic] = []
+
         # 3. Parse steps (just parse, don't update symbol table yet)
         steps: list[StepIR] = []
         for step_data in result.get("steps", []):
@@ -192,6 +195,44 @@ Block 结构：
                 symbol_table.add_consumer(var_name, step.step_id)
             for var_name in step.outputs:
                 symbol_table.add_producer(var_name, step.step_id)
+
+        # 5.5 Detect unmapped behavior spans — run AFTER handoff materialization
+        # so source-backed INVOKE_WORKER / CALL_API steps count as coverage.
+        covered_span_ids = {
+            span_id
+            for step in steps
+            for span_id in step.source_span_ids
+        }
+        llm_unmapped: dict[str, str] = {}
+        for item in (result.get("unmapped_spans") or []):
+            if not isinstance(item, dict):
+                self.logger.warning("Skipping non-dict unmapped_span item: %s", item)
+                continue
+            span_id = item.get("span_id")
+            if span_id:
+                llm_unmapped[span_id] = item.get("reason", "No reason given")
+        for span_id in behavior_span_ids:
+            if span_id in covered_span_ids:
+                continue
+            reason = llm_unmapped.get(span_id, "Behavior span not mapped to any step")
+            span_text = next(
+                (s.text for s in behavior_spans if s.span_id == span_id), span_id
+            )
+            self.stage7_diagnostics.append(
+                CompileDiagnostic(
+                    diagnostic_id=f"diag_s7_{len(self.stage7_diagnostics):04d}",
+                    kind="unmapped_behavior_span",
+                    severity="warning",
+                    message=(
+                        f"Behavior span '{span_id}' ({span_text[:80]}) "
+                        f"was not mapped to a step: {reason}"
+                    ),
+                    target_ref=f"span:{span_id}",
+                    source_span_ids=[span_id],
+                    blocks_rendering=False,
+                    blocks_completion=True,
+                )
+            )
 
         self.logger.info(
             "Extracted %d steps, %d new variables",

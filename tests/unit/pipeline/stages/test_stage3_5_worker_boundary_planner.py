@@ -23,7 +23,6 @@ from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import (
     WorkerBoundaryPlanner,
 )
 
-
 _MISSING = object()
 
 
@@ -230,10 +229,345 @@ def test_explicit_source_gathering_with_io_produces_child_worker_and_handoff(
 
     assert [worker.worker_id for worker in plan.workers] == [
         "worker_main",
-        "worker_source_gathering",
+        "source_gathering",
     ]
-    assert plan.handoffs[0].to_worker == "worker_source_gathering"
+    assert plan.handoffs[0].to_worker == "source_gathering"
     assert plan.handoffs[0].output_bindings[0].child_output == "evidence_set"
+    assert plan.handoffs[0].invoke_location_hint.after_span_id == "s1"
+    assert plan.handoffs[0].invoke_location_hint.before_span_id == "s3"
+
+
+def test_split_materializer_rejects_accepted_candidate_without_output_contract(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s1", "Normalize the request."),
+        SpanIR("s2", "Delegate a vague follow-up subtask."),
+        SpanIR("s3", "Continue main evaluation."),
+    ]
+    routes = FieldRouteIR(behavior=["s1", "s2", "s3"])
+    candidate = {
+        "candidate_id": "candidate_vague_subtask",
+        "source_span_ids": ["s2"],
+        "task_text": "Delegate a vague follow-up subtask.",
+        "purpose": "Do unclear child work.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [field("request_context")],
+        "possible_outputs": [],
+        "signals": ["explicit_delegation"],
+        "risks": [],
+    }
+    decision = {
+        "candidate_id": "candidate_vague_subtask",
+        "decision": "extract_child_worker",
+        "boundary_strength": "moderate",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": None,
+        "reason": "Accepted by model, but output contract is missing.",
+        "evidence": ["explicit_delegation"],
+    }
+    mock_client.call_json.return_value = {
+        "candidates": [candidate],
+        "decisions": [decision],
+    }
+
+    plan = planner.execute((spans, routes))
+
+    assert [worker.kind for worker in plan.workers] == ["main"]
+    assert plan.handoffs == []
+    assert plan.decisions[0].decision == "keep_in_main_worker"
+    assert plan.decisions[0].rejection_reason == "no_clear_output_contract"
+    assert all(
+        field.name != "output"
+        for worker in plan.workers
+        for field in worker.output_contract
+    )
+
+
+def test_split_materializer_recovers_contract_from_hard_fact_name_match(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s1", "Normalize the request."),
+        SpanIR("s2", "Collect normalized quote artifacts."),
+    ]
+    routes = FieldRouteIR(behavior=["s1", "s2"])
+    canonical_input = CanonicalCompileInput(
+        source_schema="structural_nl",
+        schema_version="1.0",
+        raw_text="Inputs for each run: normalized request.",
+        raw_sections=[
+            RawSection(
+                section_id="sec_inputs",
+                canonical_title="Inputs for each run",
+                original_title="Inputs for each run",
+                text="normalized request",
+                order=1,
+            )
+        ],
+        hard_facts=HardFacts(
+            inputs=[
+                VariableFact(
+                    name="normalized_request",
+                    description="Normalized request",
+                    data_type="text",
+                    required=True,
+                    source_section_id="sec_inputs",
+                )
+            ],
+            outputs=[
+                VariableFact(
+                    name="normalized_quote_artifacts",
+                    description="Normalized quote artifacts",
+                    data_type="text",
+                    required=True,
+                    source_section_id="sec_inputs",
+                )
+            ],
+        ),
+    )
+    candidate = {
+        "candidate_id": "candidate_quote_artifacts",
+        "source_span_ids": ["s2"],
+        "task_text": "Collect normalized quote artifacts from normalized request.",
+        "purpose": "Return normalized quote artifacts.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": ["bounded_io"],
+        "risks": [],
+    }
+    decision = {
+        "candidate_id": "candidate_quote_artifacts",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": None,
+        "reason": "Clear hard-fact contract names in candidate text.",
+        "evidence": ["bounded_io"],
+    }
+    mock_client.call_json.return_value = {
+        "candidates": [candidate],
+        "decisions": [decision],
+    }
+
+    plan = planner.execute((spans, routes, canonical_input))
+
+    child = next(worker for worker in plan.workers if worker.kind == "child")
+    assert [field.name for field in child.input_contract] == ["normalized_request"]
+    assert [field.name for field in child.output_contract] == [
+        "normalized_quote_artifacts"
+    ]
+
+
+def test_split_materializer_places_handoff_around_first_child_span_cluster(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s16", "Determine procurement category."),
+        SpanIR("s17", "Identify eligible vendor pool."),
+        SpanIR("s18", "Solicit quotes or equivalent offers according to policy."),
+        SpanIR("s19", "Evaluate budget and compliance."),
+        SpanIR("s37", "Delegation policy permits bounded sourcing."),
+    ]
+    routes = FieldRouteIR(behavior=["s16", "s17", "s18", "s19", "s37"])
+    candidate = {
+        "candidate_id": "candidate_sourcing_quote_collection",
+        "source_span_ids": ["s17", "s18", "s37"],
+        "task_text": "Bounded sourcing and quote collection.",
+        "purpose": "Collect sourcing artifacts for evaluation.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [field("normalized_request")],
+        "possible_outputs": [field("normalized_quote_artifacts", "output")],
+        "signals": ["explicit_delegation", "bounded_io"],
+        "risks": [],
+    }
+    decision = {
+        "candidate_id": "candidate_sourcing_quote_collection",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": None,
+        "reason": "Clear bounded sourcing handoff.",
+        "evidence": ["explicit_delegation", "bounded_io"],
+    }
+    mock_client.call_json.return_value = {
+        "candidates": [candidate],
+        "decisions": [decision],
+    }
+
+    plan = planner.execute((spans, routes))
+
+    hint = plan.handoffs[0].invoke_location_hint
+    assert hint.after_span_id == "s16"
+    assert hint.before_span_id == "s19"
+    assert "s17" not in {hint.after_span_id, hint.before_span_id}
+    assert "s18" not in {hint.after_span_id, hint.before_span_id}
+
+
+def test_split_materializer_does_not_anchor_on_other_child_or_exception_spans(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s16", "Normalize request."),
+        SpanIR("s17", "Identify eligible vendor pool."),
+        SpanIR("s18", "Solicit quotes."),
+        SpanIR("s19", "Evaluate sourcing responses."),
+        SpanIR("s20", "If over budget, recover."),
+        SpanIR("s21", "If non-compliance occurs, remediate."),
+        SpanIR("s22", "Route approval."),
+        SpanIR("s23", "Issue PO."),
+    ]
+    routes = FieldRouteIR(
+        behavior=["s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23"]
+    )
+    candidates = [
+        {
+            "candidate_id": "candidate_normalize",
+            "source_span_ids": ["s16"],
+            "task_text": "Normalize request.",
+            "purpose": "Normalize request.",
+            "candidate_kind": "bounded_subtask",
+            "possible_inputs": [field("purchase_request")],
+            "possible_outputs": [field("normalized_request", "output")],
+            "signals": ["bounded_io"],
+            "risks": [],
+        },
+        {
+            "candidate_id": "candidate_vendor_pool",
+            "source_span_ids": ["s17"],
+            "task_text": "Identify eligible vendor pool.",
+            "purpose": "Identify eligible vendor pool.",
+            "candidate_kind": "bounded_subtask",
+            "possible_inputs": [field("normalized_request")],
+            "possible_outputs": [field("eligible_vendor_pool", "output")],
+            "signals": ["bounded_io"],
+            "risks": [],
+        },
+        {
+            "candidate_id": "candidate_evaluate",
+            "source_span_ids": ["s19"],
+            "task_text": "Evaluate sourcing responses.",
+            "purpose": "Evaluate sourcing responses.",
+            "candidate_kind": "bounded_subtask",
+            "possible_inputs": [field("vendor_quotes")],
+            "possible_outputs": [field("sourcing_evaluation_record", "output")],
+            "signals": ["bounded_io"],
+            "risks": [],
+        },
+        {
+            "candidate_id": "candidate_over_budget",
+            "source_span_ids": ["s20"],
+            "task_text": "If over budget, recover.",
+            "purpose": "Over budget recovery.",
+            "candidate_kind": "not_a_worker",
+            "possible_inputs": [],
+            "possible_outputs": [],
+            "signals": [],
+            "risks": ["alternative_flow"],
+        },
+        {
+            "candidate_id": "candidate_non_compliance",
+            "source_span_ids": ["s21"],
+            "task_text": "If non-compliance occurs, remediate.",
+            "purpose": "Non-compliance handling.",
+            "candidate_kind": "not_a_worker",
+            "possible_inputs": [],
+            "possible_outputs": [],
+            "signals": [],
+            "risks": ["exception_flow"],
+        },
+        {
+            "candidate_id": "candidate_approval",
+            "source_span_ids": ["s22"],
+            "task_text": "Route approval.",
+            "purpose": "Route approval.",
+            "candidate_kind": "bounded_subtask",
+            "possible_inputs": [field("sourcing_evaluation_record")],
+            "possible_outputs": [field("approval_record", "output")],
+            "signals": ["bounded_io"],
+            "risks": [],
+        },
+    ]
+    decisions = [
+        {
+            "candidate_id": "candidate_normalize",
+            "decision": "extract_child_worker",
+            "boundary_strength": "strong",
+            "boundary_kind": "bounded_subtask",
+            "rejection_reason": None,
+            "reason": "Clear child.",
+            "evidence": ["bounded_io"],
+        },
+        {
+            "candidate_id": "candidate_vendor_pool",
+            "decision": "extract_child_worker",
+            "boundary_strength": "strong",
+            "boundary_kind": "bounded_subtask",
+            "rejection_reason": None,
+            "reason": "Clear child.",
+            "evidence": ["bounded_io"],
+        },
+        {
+            "candidate_id": "candidate_evaluate",
+            "decision": "extract_child_worker",
+            "boundary_strength": "strong",
+            "boundary_kind": "bounded_subtask",
+            "rejection_reason": None,
+            "reason": "Clear child.",
+            "evidence": ["bounded_io"],
+        },
+        {
+            "candidate_id": "candidate_over_budget",
+            "decision": "compile_as_alternative_flow",
+            "boundary_strength": "weak",
+            "boundary_kind": "not_a_worker",
+            "rejection_reason": "alternative_flow",
+            "reason": "Main flow branch.",
+            "evidence": [],
+        },
+        {
+            "candidate_id": "candidate_non_compliance",
+            "decision": "compile_as_exception_flow",
+            "boundary_strength": "weak",
+            "boundary_kind": "not_a_worker",
+            "rejection_reason": "exception_flow",
+            "reason": "Exception path.",
+            "evidence": [],
+        },
+        {
+            "candidate_id": "candidate_approval",
+            "decision": "extract_child_worker",
+            "boundary_strength": "strong",
+            "boundary_kind": "bounded_subtask",
+            "rejection_reason": None,
+            "reason": "Clear child.",
+            "evidence": ["bounded_io"],
+        },
+    ]
+    mock_client.call_json.return_value = {
+        "candidates": candidates,
+        "decisions": decisions,
+    }
+
+    plan = planner.execute((spans, routes))
+    hints = {
+        handoff.handoff_id: handoff.invoke_location_hint
+        for handoff in plan.handoffs
+    }
+
+    assert hints["handoff_normalize"].after_span_id is None
+    assert hints["handoff_normalize"].before_span_id == "s18"
+    assert hints["handoff_vendor_pool"].after_span_id is None
+    assert hints["handoff_vendor_pool"].before_span_id == "s18"
+    assert hints["handoff_evaluate"].after_span_id == "s18"
+    assert hints["handoff_evaluate"].before_span_id == "s23"
+    assert hints["handoff_approval"].after_span_id == "s18"
+    assert hints["handoff_approval"].before_span_id == "s23"
 
 
 @pytest.mark.parametrize(
@@ -275,6 +609,7 @@ def test_planner_output_with_missing_main_worker_fails_validation(
     sample_spans: list[SpanIR],
     sample_field_route: FieldRouteIR,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     mock_client.call_json.return_value = base_plan(
         main_worker_id="worker_main",
         workers=[],
@@ -290,6 +625,7 @@ def test_prompt_uses_compact_text_not_full_raw_ir(
     sample_spans: list[SpanIR],
     sample_field_route: FieldRouteIR,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     mock_client.call_json.return_value = base_plan(workers=[main_worker(["s2", "s5"])])
 
     planner.execute((sample_spans, sample_field_route))
@@ -305,6 +641,7 @@ def test_adapter_metadata_prompt_omits_full_raw_section_text(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR(
             "s1",
@@ -391,6 +728,7 @@ def test_null_empty_or_missing_handoff_nested_objects_use_defaults(
     hint_value: object,
     policy_value: object,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR("s1", "Plan the main response."),
         SpanIR("s2", "Delegate bounded source gathering."),
@@ -476,6 +814,7 @@ def test_sequential_handoff_ordering_is_normalized_to_after(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR("s1", "Plan the main response."),
         SpanIR("s2", "Delegate bounded source gathering."),
@@ -557,6 +896,7 @@ def test_invalid_nested_handoff_object_raises_stage_error(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
 ) -> None:
+    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR("s1", "Plan the main response."),
         SpanIR("s2", "Delegate bounded source gathering."),

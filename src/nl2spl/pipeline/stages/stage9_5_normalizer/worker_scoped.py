@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from nl2spl.compiler.producer_index import ProducerIndex
+from nl2spl.ir.diagnostics import CompileDiagnostic
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
@@ -42,6 +46,7 @@ class WorkerScopedMixin:
         """
         errors: list[str] = []
         warnings: list[str] = []
+        self.diagnostics: list[CompileDiagnostic] = []
 
         # 1. 验证 span ownership（D5: error）
         span_errors = self._validate_span_ownership(worker_step_plan, worker_plan)
@@ -69,6 +74,68 @@ class WorkerScopedMixin:
         # 5. 分离 invoke 和 api_call handoff 校验
         handoff_type_errors = self._validate_handoff_types(worker_plan)
         errors.extend(handoff_type_errors)
+
+        # 6. Normalize worker-local multi-output steps. SPL commands can only
+        # declare one RESULT/RESPONSE variable, so multi-output steps must be
+        # represented as a structured result plus unpack commands.
+        for steps in worker_step_plan.worker_steps.values():
+            warnings.extend(
+                self._normalize_multi_output_steps(resources, symbol_table, steps)
+            )
+
+        # 7. Required worker outputs must have producers in their own worker
+        # scope. Output contracts declare obligations, not produced values.
+        warnings.extend(
+            self._ensure_required_worker_outputs(
+                worker_block_plan,
+                worker_step_plan,
+                worker_plan,
+                resources,
+                symbol_table,
+            )
+        )
+        self._sync_symbol_table_from_steps(
+            worker_step_plan.get_all_steps(),
+            symbol_table,
+        )
+
+        # 8. Diagnose exception flows without handlers per worker.
+        for worker in worker_plan.workers:
+            worker_flow = worker_flow_plan.worker_flows.get(worker.worker_id)
+            worker_blocks = worker_block_plan.worker_blocks.get(worker.worker_id)
+            if worker_flow is None or worker_blocks is None:
+                continue
+            worker_steps = worker_step_plan.worker_steps.get(worker.worker_id, [])
+            self._diagnose_exception_flow_handlers(
+                worker_flow,
+                worker_blocks,
+                worker_steps,
+                worker_id=worker.worker_id,
+            )
+
+        # 9. Diagnose type/contract ambiguities and assumed commands
+        #    across the full assembled step list.
+        all_steps = worker_step_plan.get_all_steps()
+        handoff_api_names = {
+            h.api_ref
+            for h in worker_plan.handoffs
+            if h.mode == "api_call" and h.api_ref
+        }
+        api_handoff_refs = {
+            h.handoff_id: h.api_ref
+            for h in worker_plan.handoffs
+            if h.mode == "api_call" and h.api_ref
+        }
+        valid_handoff_ids = {h.handoff_id for h in worker_plan.handoffs}
+        self._diagnose_type_contract_ambiguities(
+            all_steps, symbol_table, resources,
+            extra_api_names=handoff_api_names,
+            api_handoff_refs=api_handoff_refs,
+        )
+        self._diagnose_assumed_commands(
+            all_steps,
+            valid_handoff_ids=valid_handoff_ids,
+        )
 
         return (
             worker_flow_plan,
@@ -119,7 +186,6 @@ class WorkerScopedMixin:
                         )
 
         # 检查 main worker steps 不引用 child-owned spans（D5: error）
-        main_worker_id = worker_step_plan.main_worker_id
         main_steps = worker_step_plan.main_worker_steps
         child_spans: set[str] = set()
         for worker in worker_plan.workers:
@@ -293,7 +359,7 @@ class WorkerScopedMixin:
                     consumers[input_var].append(step.step_id)
 
             # 检查每个 consumer 的 input 是否有 producer
-            for input_var, consumer_ids in consumers.items():
+            for input_var in consumers:
                 if input_var not in producers:
                     # 可能是 worker input，检查 contract
                     worker = next(
@@ -307,6 +373,74 @@ class WorkerScopedMixin:
                                 f"Worker {worker_id}: variable '{input_var}' "
                                 f"consumed but not produced or declared as input"
                             )
+
+        return warnings
+
+    def _ensure_required_worker_outputs(
+        self,
+        worker_block_plan: WorkerBlockPlanIR,
+        worker_step_plan: WorkerStepPlanIR,
+        worker_plan: WorkerPlanIR,
+        resources: ResourceRegistryIR,
+        symbol_table: SymbolTable,
+    ) -> list[str]:
+        """Check required output contracts have worker-local producers.
+
+        Does NOT synthesize producer steps.  Missing producers are reported as
+        CompileDiagnostic records.
+
+        Uses ProducerIndex per worker so handoff output bindings and declared
+        APIs contribute to producer detection.
+        """
+        warnings: list[str] = []
+        declared_apis = {api.api_name for api in resources.apis}
+        extra_api_names = self._collect_extra_api_names(worker_plan)
+        api_handoff_refs = self._build_api_handoff_refs(worker_plan)
+
+        for worker_spec in worker_plan.workers:
+            required_outputs = [
+                field.name for field in worker_spec.output_contract
+                if field.required
+            ]
+            if not required_outputs:
+                continue
+
+            steps = worker_step_plan.worker_steps.get(worker_spec.worker_id, [])
+            # Filter handoffs to those originating from this worker
+            worker_handoffs = [
+                h for h in worker_plan.handoffs
+                if h.from_worker == worker_spec.worker_id
+            ]
+            # Child workers this worker is allowed to invoke: all other
+            # workers except self, the main worker, and sentinels.
+            child_ids = {
+                w.worker_id for w in worker_plan.workers
+                if w.worker_id != worker_spec.worker_id
+                and w.worker_id != worker_plan.main_worker_id
+                and w.boundary_kind != "main_worker"
+                and w.boundary_kind != "not_a_worker"
+            }
+
+            index = ProducerIndex(
+                steps=steps,
+                handoffs=worker_handoffs if worker_handoffs else None,
+                declared_apis=declared_apis,
+                extra_api_names=extra_api_names,
+                api_handoff_refs=api_handoff_refs,
+                known_child_worker_ids=child_ids,
+            )
+
+            for output in required_outputs:
+                if index.is_produced(output):
+                    continue
+
+                self.diagnostics.append(
+                    self._build_missing_output_producer_diagnostic(
+                        output=output,
+                        symbol_table=symbol_table,
+                        worker_id=worker_spec.worker_id,
+                    )
+                )
 
         return warnings
 

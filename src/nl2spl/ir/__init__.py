@@ -3,6 +3,7 @@
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
+from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import (
@@ -52,6 +53,9 @@ __all__ = [
     "PersonaIR",
     "Aspect",
     "Concept",
+    "CompileDiagnostic",
+    "StepRenderInfo",
+    "TraceRecord",
     "ConstraintIR",
     "ResourceRegistryIR",
     "VariableSpec",

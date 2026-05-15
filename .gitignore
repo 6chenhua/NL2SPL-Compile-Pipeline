@@ -7,3 +7,12 @@ __pycache__/
 .sisyphus/
 
 .claude/
+
+# Test caches
+.pytest_cache/
+.pytest_deps/
+.pytest_tmp*/
+output/
+
+# Project instructions (not code)
+CLAUDE.md

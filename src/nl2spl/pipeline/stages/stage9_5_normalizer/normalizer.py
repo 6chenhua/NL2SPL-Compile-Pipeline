@@ -6,6 +6,7 @@ import re
 
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, TypeSpec, VariableSpec
 from nl2spl.ir.step_ir import StepIR
@@ -74,6 +75,7 @@ class IRNormalizer(
         """
         errors: list[str] = []
         warnings: list[str] = []
+        self.diagnostics: list[CompileDiagnostic] = []
         self._step_replacements: dict[str, str] = {}
 
         # 1. Move ordinary conditional work out of exception flows.
@@ -113,12 +115,23 @@ class IRNormalizer(
         warnings.extend(
             self._normalize_multi_output_steps(resources, symbol_table, steps)
         )
-        warnings.extend(self._ensure_required_main_outputs(blocks, resources, symbol_table, steps))
+        warnings.extend(self._ensure_required_main_outputs(blocks, resources, symbol_table, steps, worker_plan))
 
         # 5. Reconcile again for any synthetic steps.
         steps = self._reconcile_steps(steps, flow, blocks)
         self._sync_symbol_table_from_steps(steps, symbol_table)
         warnings.extend(self._prune_unused_step_variables(resources, symbol_table, steps))
+
+        # 5.5 Diagnose exception flows without handlers (partial-SPL preservation)
+        self._diagnose_exception_flow_handlers(flow, blocks, steps)
+
+        # 5.6 Diagnose type/contract ambiguities and assumed commands
+        self._diagnose_type_contract_ambiguities(steps, symbol_table, resources)
+        if worker_plan is not None:
+            valid_hids = {h.handoff_id for h in worker_plan.handoffs}
+        else:
+            valid_hids = None
+        self._diagnose_assumed_commands(steps, valid_handoff_ids=valid_hids)
 
         # 6. Reconcile constraint targets before reference validation.
         constraints = self._reconcile_constraints(constraints, steps, blocks)

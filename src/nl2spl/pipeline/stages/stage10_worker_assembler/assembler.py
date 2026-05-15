@@ -26,9 +26,15 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
-from nl2spl.pipeline.stages.stage10_worker_assembler.block_utils import BlockUtilsMixin
-from nl2spl.pipeline.stages.stage10_worker_assembler.child_worker_builder import ChildWorkerBuilderMixin
-from nl2spl.pipeline.stages.stage10_worker_assembler.step_resolver import StepResolverMixin
+from nl2spl.pipeline.stages.stage10_worker_assembler.block_utils import (
+    BlockUtilsMixin,
+)
+from nl2spl.pipeline.stages.stage10_worker_assembler.child_worker_builder import (
+    ChildWorkerBuilderMixin,
+)
+from nl2spl.pipeline.stages.stage10_worker_assembler.step_resolver import (
+    StepResolverMixin,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +149,8 @@ class WorkerAssembler(
             alternative_flows=alternative_flows,
             exception_flows=exception_flows,
             api_refs=api_refs,
+            steps=steps,
+            scoped_steps=False,
             child_worker_refs=child_worker_refs,
             child_workers=child_workers,
         )
@@ -324,6 +332,8 @@ class WorkerAssembler(
             alternative_flows=alternative_flows,
             exception_flows=exception_flows,
             api_refs=api_refs,
+            steps=main_steps,
+            scoped_steps=True,
             child_worker_refs=child_worker_refs,
             child_workers=child_workers,
         )

@@ -171,7 +171,9 @@ class SPLRenderer(
         for child_worker in worker.child_workers:
             parts.extend(self._render_child_worker(child_worker))
 
-        errors.extend(self._validate_worker_invocations(worker, steps))
+        main_steps = worker.steps if worker.scoped_steps else (worker.steps or steps)
+
+        errors.extend(self._validate_worker_invocations(worker, main_steps))
 
         # 11. DEFINE_WORKER
         parts.append(f'[DEFINE_WORKER: "{worker.description}" {worker.worker_name}]')
@@ -193,7 +195,7 @@ class SPLRenderer(
         # 14. MAIN_FLOW
         self._produced_variables = {inp.name for inp in worker.inputs}
         parts.append("    [MAIN_FLOW]")
-        parts.extend(self._render_blocks(worker.main_flow.blocks, steps, indent=8))
+        parts.extend(self._render_blocks(worker.main_flow.blocks, main_steps, indent=8))
         parts.append("    [END_MAIN_FLOW]")
 
         # 15. ALTERNATIVE_FLOWs
@@ -203,7 +205,7 @@ class SPLRenderer(
             parts.extend(
                 self._render_blocks(
                     alt_flow.blocks,
-                    steps,
+                    main_steps,
                     indent=8,
                     outer_condition_text=alt_flow.condition_text,
                 )
@@ -217,7 +219,7 @@ class SPLRenderer(
             parts.extend(
                 self._render_blocks(
                     exc_flow.blocks,
-                    steps,
+                    main_steps,
                     indent=8,
                     outer_condition_text=exc_flow.condition_text,
                 )
@@ -284,19 +286,10 @@ class SPLRenderer(
             )
             lines.extend(self._render_blocks([fallback_block], worker.steps, indent=8))
         else:
-            # Final fallback: render task_text as a single step only when no
-            # structured child steps are available.
-            child_step = StepIR(
-                step_id="st_child",
-                text=worker.task_text,
-                source_span_ids=[],
-                command_type="GENERAL_COMMAND",
-                inputs=[inp.name for inp in worker.inputs],
-                outputs=[out.name for out in worker.outputs],
-            )
-            lines.append("        [SEQUENTIAL_BLOCK]")
-            lines.append(f"            {self._render_step(child_step)}")
-            lines.append("        [END_SEQUENTIAL_BLOCK]")
+            # No blocks and no steps: render an empty main flow.
+            # Do NOT synthesize a fallback command — missing behavior is
+            # surfaced through compile diagnostics, not invented here.
+            pass
         lines.append("    [END_MAIN_FLOW]")
 
         # ALTERNATIVE_FLOWs

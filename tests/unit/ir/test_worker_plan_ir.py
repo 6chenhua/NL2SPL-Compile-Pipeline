@@ -140,7 +140,17 @@ def test_construct_minimal_one_worker_plan() -> None:
 
     assert plan.main_worker_id == "worker_main"
     assert plan.workers[0].worker_name == "MainWorker"
+    assert plan.main_worker == plan.workers[0]
     assert plan.handoffs == []
+
+
+def test_main_worker_returns_none_when_missing() -> None:
+    plan = WorkerPlanIR(
+        main_worker_id="worker_missing",
+        workers=[main_worker()],
+    )
+
+    assert plan.main_worker is None
 
 
 def test_construct_main_child_plan_with_handoff() -> None:

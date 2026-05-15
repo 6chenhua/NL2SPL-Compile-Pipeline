@@ -12,9 +12,12 @@ from nl2spl.ir.worker_plan_ir import (
     InputBindingIR,
     InvokeLocationHintIR,
     OutputBindingIR,
+    WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
     WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
+    WorkerStepPlanIR,
 )
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
 
@@ -367,3 +370,191 @@ def test_api_call_handoff_rejects_unused_required_output() -> None:
         in error
         for error in errors
     )
+
+
+def test_worker_scoped_normalizes_multi_output_handoff_step() -> None:
+    resources = ResourceRegistryIR(
+        variables=[
+            VariableSpec("request", "text", True, "Request", "input"),
+            VariableSpec("out_one", "text", True, "Output one", "output"),
+            VariableSpec("out_two", "text", True, "Output two", "output"),
+            VariableSpec("child_one", "text", True, "Child one", "output"),
+            VariableSpec("child_two", "text", True, "Child two", "output"),
+        ]
+    )
+    symbols = SymbolTable()
+    for variable in resources.variables:
+        symbols.declare(
+            variable.name,
+            variable.data_type,
+            variable.source,
+            variable.description,
+        )
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                "worker_main",
+                "MainWorker",
+                "main",
+                "Main",
+                owned_span_ids=["s1"],
+                input_contract=[field("request")],
+                output_contract=[field("out_one", "output"), field("out_two", "output")],
+                boundary_kind="main_worker",
+            ),
+            WorkerSpecIR(
+                "worker_child",
+                "ChildWorker",
+                "child",
+                "Child",
+                owned_span_ids=["s2"],
+                input_contract=[field("request")],
+                output_contract=[
+                    field("child_one", "output"),
+                    field("child_two", "output"),
+                ],
+                boundary_kind="bounded_subtask",
+            ),
+        ],
+        handoffs=[
+            WorkerHandoffIR(
+                "h_multi",
+                "worker_main",
+                "worker_child",
+                None,
+                "invoke",
+                None,
+                "after",
+                input_bindings=[InputBindingIR("request", "request", True)],
+                output_bindings=[
+                    OutputBindingIR("child_one", "out_one", True, "set"),
+                    OutputBindingIR("child_two", "out_two", True, "set"),
+                ],
+                invoke_location_hint=InvokeLocationHintIR("main", None, "s1", None, None),
+            )
+        ],
+    )
+    step_plan = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={
+            "worker_main": [
+                StepIR(
+                    "st_handoff",
+                    "Invoke child",
+                    ["s1"],
+                    "INVOKE_WORKER",
+                    inputs=["request"],
+                    outputs=["out_one", "out_two"],
+                    integration_ref="ChildWorker",
+                    handoff_id="h_multi",
+                )
+            ],
+            "worker_child": [
+                StepIR(
+                    "st_child",
+                    "Produce child outputs",
+                    ["s2"],
+                    "GENERAL_COMMAND",
+                    outputs=["child_one", "child_two"],
+                )
+            ],
+        },
+    )
+    flow_plan = WorkerFlowPlanIR(
+        {"worker_main": FlowStructureIR(["s1"]), "worker_child": FlowStructureIR(["s2"])}
+    )
+    block_plan = WorkerBlockPlanIR(
+        {
+            "worker_main": BlockStructureIR([BlockIR("b_main", "SEQUENTIAL", spans=["s1"])]),
+            "worker_child": BlockStructureIR([BlockIR("b_child", "SEQUENTIAL", spans=["s2"])]),
+        }
+    )
+
+    _, _, normalized_steps, _, errors, warnings = IRNormalizer().normalize_worker_scoped(
+        flow_plan,
+        block_plan,
+        step_plan,
+        plan,
+        resources,
+        symbols,
+    )
+
+    assert errors == []
+    main_steps = normalized_steps.worker_steps["worker_main"]
+    assert main_steps[0].outputs == ["out_one_structured"]
+    assert [step.outputs for step in main_steps[1:]] == [["out_one"], ["out_two"]]
+    assert any(t.type_name == "out_one_structured_type" for t in resources.types)
+    assert any("Aggregated multi-output step st_handoff" in warning for warning in warnings)
+
+
+def test_worker_scoped_adds_required_main_output_producers() -> None:
+    resources = ResourceRegistryIR(
+        variables=[
+            VariableSpec("request", "text", True, "Request", "input"),
+            VariableSpec("required_output", "text", True, "Required output", "output"),
+        ]
+    )
+    symbols = SymbolTable()
+    for variable in resources.variables:
+        symbols.declare(
+            variable.name,
+            variable.data_type,
+            variable.source,
+            variable.description,
+        )
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                "worker_main",
+                "MainWorker",
+                "main",
+                "Main",
+                owned_span_ids=["s1"],
+                input_contract=[field("request")],
+                output_contract=[field("required_output", "output")],
+                boundary_kind="main_worker",
+            )
+        ],
+    )
+    step_plan = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={
+            "worker_main": [
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND", inputs=["request"])
+            ]
+        },
+    )
+    flow_plan = WorkerFlowPlanIR({"worker_main": FlowStructureIR(["s1"])})
+    block_plan = WorkerBlockPlanIR(
+        {"worker_main": BlockStructureIR([BlockIR("b1", "SEQUENTIAL", spans=["s1"])])}
+    )
+
+    normalizer = IRNormalizer()
+    _, _, normalized_steps, _, errors, warnings = normalizer.normalize_worker_scoped(
+        flow_plan,
+        block_plan,
+        step_plan,
+        plan,
+        resources,
+        symbols,
+    )
+
+    assert errors == []
+
+    # No synthetic step is created
+    main_steps = normalized_steps.worker_steps["worker_main"]
+    assert len(main_steps) == 1
+    assert main_steps[0].step_id == "st1"
+
+    # Diagnostic is emitted instead
+    missing_diags = [
+        d for d in normalizer.diagnostics
+        if d.kind == "missing_output_producer"
+    ]
+    assert len(missing_diags) == 1
+    assert missing_diags[0].target_ref == "worker:worker_main.output:required_output"
+    assert "in worker 'worker_main'" in missing_diags[0].message
+    assert missing_diags[0].blocks_rendering is False
+    assert missing_diags[0].blocks_completion is True

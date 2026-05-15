@@ -404,7 +404,7 @@ class TestPipelineCheckpointing:
             patch.object(orchestrator, "_run_stage4", return_value=MagicMock()),
             patch.object(orchestrator, "_run_stage5", return_value=MagicMock()),
             patch.object(orchestrator, "_run_stage6", return_value=(MagicMock(), MagicMock())),
-            patch.object(orchestrator, "_run_stage7", return_value=([], MagicMock())),
+            patch.object(orchestrator, "_run_stage7", return_value=([], MagicMock(), [])),
             patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
             patch.object(orchestrator, "_run_stage9", return_value=[]),
             patch.object(
@@ -416,6 +416,7 @@ class TestPipelineCheckpointing:
                     [],
                     [],
                     MagicMock(),
+                    [],
                     [],
                     [],
                 ),

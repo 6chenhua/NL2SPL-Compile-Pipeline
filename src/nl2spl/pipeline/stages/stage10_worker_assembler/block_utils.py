@@ -38,7 +38,12 @@ class BlockUtilsMixin:
         if not unrendered_steps:
             return blocks
 
-        return [*blocks, self._fallback_block_for_steps(fallback_block_id, unrendered_steps)]
+        insert_at = self._fallback_insert_index(blocks, unrendered_steps)
+        fallback_block = self._fallback_block_for_steps(
+            fallback_block_id,
+            unrendered_steps,
+        )
+        return [*blocks[:insert_at], fallback_block, *blocks[insert_at:]]
 
     def _all_blocks(self, blocks: BlockStructureIR | None) -> list[BlockIR]:
         if blocks is None:
@@ -54,7 +59,7 @@ class BlockUtilsMixin:
         span_ids: list[str] = []
         seen: set[str] = set()
         for step in steps:
-            if not step.block_ref:
+            if not step.block_ref or step.block_ref.startswith("before:"):
                 step.block_ref = block_id
             for span_id in step.source_span_ids:
                 if span_id not in seen:
@@ -66,3 +71,14 @@ class BlockUtilsMixin:
             block_type="SEQUENTIAL",
             spans=span_ids,
         )
+
+    @staticmethod
+    def _fallback_insert_index(blocks: list[BlockIR], steps: list[StepIR]) -> int:
+        for step in steps:
+            if not step.block_ref.startswith("before:"):
+                continue
+            target_span_id = step.block_ref.removeprefix("before:")
+            for index, block in enumerate(blocks):
+                if target_span_id in block.spans:
+                    return index
+        return len(blocks)

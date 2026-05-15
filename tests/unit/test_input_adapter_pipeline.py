@@ -155,14 +155,14 @@ def test_orchestrator_records_adapter_intermediate_results(
         "_run_stage6",
         MagicMock(return_value=(MagicMock(variables=[]), MagicMock())),
     )
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock())))
+    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
     setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
     setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
     setattr(
         orchestrator,
         "_run_normalization",
         MagicMock(
-            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])
+            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [], [])
         ),
     )
     setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))

@@ -7,6 +7,7 @@ from dataclasses import asdict
 
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
@@ -54,6 +55,8 @@ class WorkerScopedMethodsMixin:
         """
         worker_step_plan = WorkerStepPlanIR(main_worker_id=worker_plan.main_worker_id)
         all_warnings: list[str] = []
+        self.stage7_diagnostics: list[CompileDiagnostic] = []
+        self._pending_unmapped_data: dict[str, tuple[list[SpanIR], dict[str, str]]] = {}
 
         # 1. 对每个 worker 提取 steps
         for worker in worker_plan.workers:
@@ -73,7 +76,13 @@ class WorkerScopedMethodsMixin:
 
             # 提取该 worker 的 steps（使用 worker-scoped prompt）
             worker_steps, symbol_table = self._extract_steps_for_worker(
-                worker_spans, routes, flow, blocks, symbol_table, worker
+                worker_spans,
+                routes,
+                flow,
+                blocks,
+                symbol_table,
+                worker,
+                worker_plan,
             )
 
             worker_step_plan.worker_steps[worker_id] = worker_steps
@@ -89,6 +98,21 @@ class WorkerScopedMethodsMixin:
             else:
                 worker_step_plan.worker_steps[worker_id] = handoff_steps
 
+        # 3. Run unmapped-span detection NOW that all steps (LLM + generated
+        #    handoffs) are assembled per worker.
+        for worker in worker_plan.workers:
+            pending = self._pending_unmapped_data.get(worker.worker_id)
+            if pending is None:
+                continue
+            behavior_spans, llm_unmapped = pending
+            final_steps = worker_step_plan.worker_steps.get(worker.worker_id, [])
+            self._detect_unmapped_spans(
+                final_steps,
+                behavior_spans,
+                llm_unmapped,
+                worker.worker_id,
+            )
+
         worker_step_plan.warnings = all_warnings
         return worker_step_plan, symbol_table
 
@@ -100,6 +124,7 @@ class WorkerScopedMethodsMixin:
         blocks: BlockStructureIR,
         symbol_table: SymbolTable,
         worker: WorkerSpecIR,
+        worker_plan: WorkerPlanIR | None = None,
     ) -> tuple[list[StepIR], SymbolTable]:
         """Extract steps for a single worker.
 
@@ -133,6 +158,21 @@ class WorkerScopedMethodsMixin:
         variable_list = "\n".join(
             f"- {name}: {desc}" for name, desc in prompt_variables.items()
         )
+        outgoing_handoffs = [
+            handoff.handoff_id
+            for handoff in (worker_plan.handoffs if worker_plan else [])
+            if handoff.from_worker == worker.worker_id
+        ]
+        if outgoing_handoffs:
+            handoff_rule = (
+                "Allowed outgoing handoff IDs for INVOKE_WORKER/CALL_API: "
+                + ", ".join(outgoing_handoffs)
+            )
+        else:
+            handoff_rule = (
+                "This worker has no outgoing handoffs. Do not output "
+                "INVOKE_WORKER or CALL_API; use GENERAL_COMMAND for worker-local work."
+            )
 
         # 构建 prompt
         system_prompt = load_prompt("stage7").replace(
@@ -165,6 +205,7 @@ Worker 信息：
 - worker_name: {worker.worker_name}
 - kind: {worker.kind}
 - purpose: {worker.purpose}
+- handoff_rule: {handoff_rule}
 
 输出 JSON："""
 
@@ -209,24 +250,44 @@ Worker 信息：
         # 不能直接 drop——会丢失 child-owned span 的真实行为。
         # 改为降级为 GENERAL_COMMAND，保留 text / source_span_ids / inputs / outputs。
         if worker.kind == "child":
+            allowed_handoff_ids = set(outgoing_handoffs)
             rewritten = 0
             for s in steps:
-                if s.command_type == "INVOKE_WORKER":
+                if (
+                    s.command_type in ("INVOKE_WORKER", "CALL_API")
+                    and s.handoff_id not in allowed_handoff_ids
+                ):
                     s.command_type = "GENERAL_COMMAND"
                     s.kind = "normal"
                     s.integration_ref = None
                     s.handoff_id = None
                     self.logger.warning(
-                        "Rewriting INVOKE_WORKER step %s to GENERAL_COMMAND "
+                        "Rewriting handoff step %s to GENERAL_COMMAND "
                         "in child worker %s",
                         s.step_id, worker.worker_id,
                     )
                     rewritten += 1
             if rewritten:
                 self.logger.info(
-                    "Rewrote %d INVOKE_WORKER steps in child worker %s",
+                    "Rewrote %d invalid handoff steps in child worker %s",
                     rewritten, worker.worker_id,
                 )
+
+        # Store detection data for deferred unmapped-span check.  Generated
+        # handoff steps are appended later in execute_worker_scoped, so the
+        # actual detection runs there once the final step list is assembled.
+        llm_unmapped: dict[str, str] = {}
+        for item in (result.get("unmapped_spans") or []):
+            if not isinstance(item, dict):
+                self.logger.warning("Skipping non-dict unmapped_span item: %s", item)
+                continue
+            span_id = item.get("span_id")
+            if span_id:
+                llm_unmapped[span_id] = item.get("reason", "No reason given")
+        self._pending_unmapped_data[worker.worker_id] = (
+            list(behavior_spans),
+            llm_unmapped,
+        )
 
         # 处理 new_variables — declare with worker scope
         for new_var_data in result.get("new_variables", []):
@@ -263,6 +324,54 @@ Worker 信息：
             )
 
         return steps, symbol_table
+
+    def _detect_unmapped_spans(
+        self,
+        steps: list[StepIR],
+        behavior_spans: list[SpanIR],
+        llm_unmapped: dict[str, str],
+        worker_id: str,
+    ) -> None:
+        """Emit unmapped_behavior_span diagnostics for the final step list.
+
+        Must be called AFTER all step sources (LLM + generated handoffs) are
+        assembled so source-backed handoff steps count as coverage.
+        """
+        covered_behavior_span_ids = {
+            span_id
+            for step in steps
+            for span_id in step.source_span_ids
+        }
+        missing_behavior_span_ids = {
+            span.span_id
+            for span in behavior_spans
+            if span.span_id not in covered_behavior_span_ids
+        }
+        for span_id in sorted(missing_behavior_span_ids):
+            reason = llm_unmapped.get(
+                span_id,
+                "Behavior span not mapped to any step by LLM",
+            )
+            span_text = next(
+                (s.text for s in behavior_spans if s.span_id == span_id),
+                span_id,
+            )
+            self.stage7_diagnostics.append(
+                CompileDiagnostic(
+                    diagnostic_id=f"diag_s7_{len(self.stage7_diagnostics):04d}",
+                    kind="unmapped_behavior_span",
+                    severity="warning",
+                    message=(
+                        f"Worker '{worker_id}' behavior span "
+                        f"'{span_id}' ({span_text[:80]}) was not mapped "
+                        f"to a step: {reason}"
+                    ),
+                    target_ref=f"worker:{worker_id}.span:{span_id}",
+                    source_span_ids=[span_id],
+                    blocks_rendering=False,
+                    blocks_completion=True,
+                )
+            )
 
     def _build_worker_prompt_variables(
         self,
@@ -344,6 +453,7 @@ Worker 信息：
 
         # 获取 source spans（优先使用 invoke_location_hint）（D2）
         source_spans = self._get_invoke_source_spans(handoff, worker_plan)
+        block_ref = self._handoff_block_ref_for_empty_source(handoff, source_spans)
 
         # 从 input_bindings 提取 inputs
         inputs = [b.parent_variable for b in handoff.input_bindings]
@@ -359,6 +469,7 @@ Worker 信息：
             inputs=inputs,
             outputs=outputs,
             integration_ref=to_worker.worker_name if to_worker else None,
+            block_ref=block_ref,
             kind="invoke",
             handoff_id=handoff.handoff_id,
         )
@@ -370,6 +481,7 @@ Worker 信息：
     ) -> StepIR:
         """Build CALL_API step from handoff."""
         source_spans = self._get_invoke_source_spans(handoff, worker_plan)
+        block_ref = self._handoff_block_ref_for_empty_source(handoff, source_spans)
         inputs = [b.parent_variable for b in handoff.input_bindings]
         outputs = [b.parent_variable for b in handoff.output_bindings]
 
@@ -381,9 +493,20 @@ Worker 信息：
             inputs=inputs,
             outputs=outputs,
             integration_ref=handoff.api_ref,
+            block_ref=block_ref,
             kind="tool",
             handoff_id=handoff.handoff_id,
         )
+
+    @staticmethod
+    def _handoff_block_ref_for_empty_source(
+        handoff: WorkerHandoffIR,
+        source_span_ids: list[str],
+    ) -> str:
+        if source_span_ids:
+            return ""
+        before_span_id = handoff.invoke_location_hint.before_span_id
+        return f"before:{before_span_id}" if before_span_id else ""
 
     def _get_invoke_source_spans(
         self,
@@ -420,7 +543,7 @@ Worker 信息：
         if hint.after_span_id and _is_caller_owned(hint.after_span_id):
             return [hint.after_span_id]
         if hint.before_span_id and _is_caller_owned(hint.before_span_id):
-            return [hint.before_span_id]
+            return []
 
         # Fallback：不要绑定到 from_worker 的全部 owned spans。
         # 过宽 source_span_ids 会破坏 block 排序，也可能重新引入 ownership 污染。

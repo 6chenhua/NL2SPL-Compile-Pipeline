@@ -1,13 +1,17 @@
 """Tests for Stage 11 SPLRenderer child worker rendering."""
 
+from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockIR
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import (
     AlternativeFlowRef,
     ChildWorkerIR,
     ExceptionFlowRef,
     FlowRef,
     WorkerInput,
+    WorkerIR,
     WorkerOutput,
 )
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
@@ -148,7 +152,7 @@ class TestSPLRendererChildWorker:
         assert "[END_EXCEPTION_FLOW]" in text
 
     def test_render_child_worker_fallback_no_blocks(self):
-        """Test _render_child_worker fallback when no blocks."""
+        """Empty child worker renders contract with empty main flow — no synthesis."""
         renderer = SPLRenderer()
         child = ChildWorkerIR(
             worker_name="ChildWorker",
@@ -156,16 +160,40 @@ class TestSPLRendererChildWorker:
             task_text="Do something important",
             inputs=[WorkerInput(name="input1", required=True)],
             outputs=[WorkerOutput(name="output1", required=True)],
-            # No main_flow blocks - should fallback to synthetic step
         )
 
         result = renderer._render_child_worker(child)
         text = "\n".join(result)
 
         assert "[MAIN_FLOW]" in text
-        assert "[SEQUENTIAL_BLOCK]" in text
-        assert "[END_SEQUENTIAL_BLOCK]" in text
         assert "[END_MAIN_FLOW]" in text
+        # No synthetic step — empty flow only declares the contract
+        assert "[SEQUENTIAL_BLOCK]" not in text
+        assert "Do something important" not in text
+
+    def test_render_child_worker_with_steps_but_no_blocks_uses_real_steps(self):
+        """Existing child steps should render instead of synthetic st_child."""
+        renderer = SPLRenderer()
+        child = ChildWorkerIR(
+            worker_name="ChildWorker",
+            description="Child worker task",
+            task_text="Synthetic fallback should not render",
+            steps=[
+                StepIR(
+                    step_id="st_real",
+                    text="Process child-owned work",
+                    source_span_ids=["s_child"],
+                    command_type="GENERAL_COMMAND",
+                )
+            ],
+        )
+
+        result = renderer._render_child_worker(child)
+        text = "\n".join(result)
+
+        assert "Process child-owned work" in text
+        assert "Synthetic fallback should not render" not in text
+        assert child.steps[0].block_ref == "b_ChildWorker_fallback"
 
     def test_render_block_sequential(self):
         """Test _render_block with SEQUENTIAL block."""
@@ -248,3 +276,68 @@ class TestSPLRendererChildWorker:
         result = renderer._render_step(step)
 
         assert "[INVOKE ChildWorker" in result
+
+    def test_render_main_worker_uses_scoped_steps_not_global_child_steps(self):
+        """Main rendering must not select child steps with colliding block ids."""
+        renderer = SPLRenderer()
+        main_step = StepIR(
+            step_id="st_main",
+            text="Main work",
+            source_span_ids=["s1"],
+            command_type="GENERAL_COMMAND",
+            outputs=["main_output"],
+            block_ref="b1",
+        )
+        child_step = StepIR(
+            step_id="st_child",
+            text="Child work",
+            source_span_ids=["s2"],
+            command_type="GENERAL_COMMAND",
+            outputs=["child_output"],
+            block_ref="b1",
+        )
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Main worker",
+            outputs=[WorkerOutput("main_output", True)],
+            main_flow=FlowRef([BlockIR("b1", "SEQUENTIAL", spans=["s1"])]),
+            steps=[main_step],
+            scoped_steps=True,
+            child_workers=[
+                ChildWorkerIR(
+                    worker_name="ChildWorker",
+                    description="Child worker",
+                    task_text="Child task",
+                    outputs=[WorkerOutput("child_output", True)],
+                    main_flow=FlowRef([BlockIR("b1", "SEQUENTIAL", spans=["s2"])]),
+                    steps=[child_step],
+                )
+            ],
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("main_output", "text", True, "Main output", "output"),
+                VariableSpec("child_output", "text", True, "Child output", "output"),
+            ]
+        )
+        symbols = SymbolTable()
+        for variable in resources.variables:
+            symbols.declare(
+                variable.name,
+                variable.data_type,
+                variable.source,
+                variable.description,
+            )
+
+        spl, _, _ = renderer.render(
+            worker,
+            AgentProfileIR(),
+            resources,
+            symbols,
+            [main_step, child_step],
+            [],
+        )
+
+        main_worker_section = spl.split('[DEFINE_WORKER: "Main worker" MainWorker]')[1]
+        assert "Main work" in main_worker_section
+        assert "Child work" not in main_worker_section
