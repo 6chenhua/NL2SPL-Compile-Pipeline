@@ -1,4 +1,4 @@
-"""Executable element gate — filter non-source-backed steps before rendering."""
+"""Executable element gate -- filter non-source-backed steps before rendering."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR
-
 
 Origin = str  # "source_backed" | "handoff_generated" | "compiler_synthetic" | "assumed"
 
@@ -51,8 +50,21 @@ class ExecutableElementGate:
         diags.extend(blocked_diags)
 
         # Filter child-worker steps
+        # Collect pre-gate handler flows BEFORE mutation for both main
+        # and child workers.  Exclude pseudo-handlers (Stage 9.5 metadata).
+        def _pre_gate_flows(steps: list) -> set[str]:
+            return {
+                step.flow_ref
+                for step in steps
+                if step.flow_ref
+                and step.metadata.get("pseudo_exception_handler") != "true"
+            }
+
+        pre_gate_main = _pre_gate_flows(worker.steps)
+        pre_gate_children: dict[str, set[str]] = {}
         filtered_children = []
         for child in worker.child_workers:
+            pre_gate_children[child.worker_name] = _pre_gate_flows(child.steps)
             renderable_child, child_blocked, child_diags = self._filter_steps(
                 child.steps,
                 handoff_index,
@@ -75,9 +87,14 @@ class ExecutableElementGate:
 
         # Post-gate: re-check exception-flow handler coverage.  An assumed
         # handler step may have been filtered out, leaving the exception
-        # flow without a renderable handler.  Must run AFTER worker.steps
-        # and child_workers are replaced with filtered lists.
-        diags.extend(self._post_gate_missing_handler(worker))
+        # flow without a renderable handler.  Only emits missing_handler
+        # when a real handler was present before gate (Stage 9.5 already
+        # diagnosed flows that never had handlers).
+        diags.extend(
+            self._post_gate_missing_handler(
+                worker, worker_plan, pre_gate_main, pre_gate_children,
+            )
+        )
 
         return worker, infos, diags
 
@@ -88,7 +105,7 @@ class ExecutableElementGate:
     def classify_origin(self, step: StepIR) -> Origin:
         """Classify a step's origin based on source evidence.
 
-        Handoff-backed steps are checked first — a step that carries both
+        Handoff-backed steps are checked first -- a step that carries both
         source spans and a handoff_id must still be validated against the
         handoff contract, not silently passed as source_backed.
         """
@@ -113,11 +130,11 @@ class ExecutableElementGate:
         worker_by_id: dict[str, str],
     ) -> tuple[bool, str | None]:
         """Determine whether a step may be rendered as executable SPL."""
-        # 1. source_backed → renderable, with command-type guard rails
+        # 1. source_backed -> renderable, with command-type guard rails
         if origin == "source_backed":
             return self._source_backed_renderable(step)
 
-        # 2. handoff_generated → renderable only with valid handoff contract
+        # 2. handoff_generated -> renderable only with valid handoff contract
         if origin == "handoff_generated":
             if not step.handoff_id:
                 return False, "Handoff step has no handoff_id"
@@ -203,13 +220,13 @@ class ExecutableElementGate:
                 )
             return True, None
 
-        # 3. compiler_synthetic — renderable only for unpack scaffolding
+        # 3. compiler_synthetic -- renderable only for unpack scaffolding
         if origin == "compiler_synthetic":
             if step.metadata.get("origin") == "compiler_unpack":
                 return True, None
             return False, "Compiler-synthetic step is not unpack scaffolding"
 
-        # 4. assumed → NOT renderable
+        # 4. assumed -> NOT renderable
         return False, "Step has no source evidence and is not handoff-backed"
 
     @staticmethod
@@ -217,7 +234,7 @@ class ExecutableElementGate:
         """Source-backed steps are generally renderable, but specific command
         types carry extra evidence requirements.
         """
-        # INVOKE_WORKER must be handoff-backed — a source-backed step
+        # INVOKE_WORKER must be handoff-backed -- a source-backed step
         # that claims to invoke a worker without a concrete handoff is
         # not renderable.  (Steps with handoff_id are classified as
         # handoff_generated, so reaching here means no handoff.)
@@ -252,16 +269,37 @@ class ExecutableElementGate:
     def _post_gate_missing_handler(
         self,
         worker: WorkerIR,
+        worker_plan: WorkerPlanIR | None = None,
+        pre_gate_handler_flows: set[str] | None = None,
+        pre_gate_children: dict[str, set[str]] | None = None,
     ) -> list[CompileDiagnostic]:
-        """After gate filtering, check exception flows for missing handlers."""
+        """After gate filtering, check exception flows for missing handlers.
+
+        Only emits missing_handler when a handler WAS present before the
+        gate but was filtered out.  Exception flows that had no handler
+        before the gate are already diagnosed by Stage 9.5.
+
+        Uses the same scoped target_ref format as Stage 9.5 for dedup.
+        """
         diags: list[CompileDiagnostic] = []
         renderable_flow_refs = {
             step.flow_ref for step in worker.steps
             if step.flow_ref
         }
+        main_worker_id = (
+            worker_plan.main_worker_id if worker_plan is not None else None
+        )
         for exc in worker.exception_flows:
-            if exc.flow_id not in renderable_flow_refs:
-                diags.append(
+            if exc.flow_id in renderable_flow_refs:
+                continue
+            # Only report when a handler was filtered by gate (not when
+            # Stage 9.5 already diagnosed the handler was never present).
+            if (
+                pre_gate_handler_flows is not None
+                and exc.flow_id not in pre_gate_handler_flows
+            ):
+                continue
+            diags.append(
                     CompileDiagnostic(
                         diagnostic_id=f"diag_gate_mh_{len(diags):04d}",
                         kind="missing_handler",
@@ -272,21 +310,37 @@ class ExecutableElementGate:
                             f"renderable handler step after the "
                             f"executable-element gate."
                         ),
-                        target_ref=f"exception_flow:{exc.flow_id}",
-                        source_span_ids=[],
+                        target_ref=(
+                            f"worker:{main_worker_id}.exception_flow:{exc.flow_id}"
+                            if main_worker_id
+                            else f"exception_flow:{exc.flow_id}"
+                        ),
+                        source_span_ids=list(getattr(exc, "spans", [])),
                         blocks_rendering=False,
                         blocks_completion=True,
                     )
                 )
-        # Also check child workers
+        # Check child workers with per-child pre-gate flows
         for child in worker.child_workers:
+            child_pre_gate = (
+                pre_gate_children.get(child.worker_name, set())
+                if pre_gate_children is not None
+                else set()
+            )
             renderable_child_refs = {
                 step.flow_ref for step in child.steps
                 if step.flow_ref
             }
             for exc in child.exception_flows:
-                if exc.flow_id not in renderable_child_refs:
-                    diags.append(
+                if exc.flow_id in renderable_child_refs:
+                    continue
+                # Skip if Stage 9.5 already diagnosed (no pre-gate handler).
+                if (
+                    child_pre_gate is not None
+                    and exc.flow_id not in child_pre_gate
+                ):
+                    continue
+                diags.append(
                         CompileDiagnostic(
                             diagnostic_id=f"diag_gate_mh_{len(diags):04d}",
                             kind="missing_handler",
@@ -381,7 +435,7 @@ class ExecutableElementGate:
     def _build_worker_name_index(
         worker_plan: WorkerPlanIR | None,
     ) -> dict[str, str]:
-        """Build worker_id → worker_name mapping from worker plan."""
+        """Build worker_id -> worker_name mapping from worker plan."""
         if worker_plan is None:
             return {}
         return {w.worker_id: w.worker_name for w in worker_plan.workers}

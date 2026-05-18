@@ -4,17 +4,14 @@ from __future__ import annotations
 
 from nl2spl.compiler.diagnostic_analyzer import AnalyzeInput, DiagnosticAnalyzer
 from nl2spl.compiler.producer_index import ProducerIndex
-from nl2spl.ir.block_structure_ir import BlockIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
 from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import (
     ChildWorkerIR,
     ExceptionFlowRef,
     FlowRef,
     WorkerIR,
 )
-
 
 # ---------------------------------------------------------------------------
 # 1. unmapped_behavior_span
@@ -274,6 +271,46 @@ class TestMissingHandler:
         assert len(mh) == 2
         ids = {d.diagnostic_id for d in mh}
         assert len(ids) == 2, f"Expected 2 unique IDs, got {ids}"
+
+    def test_handler_removed_by_gate_produces_missing_handler(self) -> None:
+        """Post-gate: exception flow has condition but no handler step → missing_handler."""
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(flow_id="exc_1", condition_text="Missing timeframe.", blocks=[]),
+            ],
+            steps=[],  # handler was filtered by Gate
+        )
+        inp = AnalyzeInput(worker=worker)
+        mh = DiagnosticAnalyzer._diagnose_missing_handlers(inp)
+        assert len(mh) == 1
+        assert mh[0].kind == "missing_handler"
+        assert mh[0].target_ref == "exception_flow:exc_1"
+        assert mh[0].blocks_completion is True
+        assert mh[0].blocks_rendering is False
+
+    def test_handler_survives_gate_no_missing_handler(self) -> None:
+        """Post-gate: exception flow has a renderable handler step → no missing_handler."""
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(flow_id="exc_1", condition_text="Missing timeframe.", blocks=[]),
+            ],
+            steps=[
+                StepIR(
+                    step_id="st_h", text="Recover",
+                    source_span_ids=["s_h"], command_type="GENERAL_COMMAND",
+                    flow_ref="exc_1",
+                ),
+            ],
+        )
+        inp = AnalyzeInput(worker=worker)
+        mh = DiagnosticAnalyzer._diagnose_missing_handlers(inp)
+        assert len(mh) == 0
 
 
 # ---------------------------------------------------------------------------

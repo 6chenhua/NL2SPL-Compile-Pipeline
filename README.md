@@ -7,9 +7,16 @@ Natural Language to Structured Prompt Language Compiler.
 
 ## Overview
 
-NL2SPL converts natural-language process descriptions into SPL (Structured Prompt Language). The compiler uses LLM calls for semantic analysis, then code stages normalize, assemble, validate, and render executable SPL text.
+NL2SPL compiles natural-language process descriptions into SPL (Structured Prompt Language) through a 12-stage pipeline. Nine stages call an LLM for semantic analysis; stages 9.5, 10, and 11 are pure code that normalizes, assembles, and renders the final SPL.
 
-The current implementation is intentionally not a one-shot "ask the model for SPL" flow. Each LLM stage emits a constrained IR, and later code stages enforce structural consistency.
+The compiler is intentionally not a one-shot "ask the model for SPL" flow. Each LLM stage emits a constrained IR. Downstream code stages enforce structural consistency, validate against information requirements (IRS), gate assumed content, and produce provenance traces and diagnostics. The output is a **source-backed partial SPL** — complete where evidence supports it, partial with diagnostics where evidence is missing.
+
+### Key design properties
+
+- **No invention**: Commands, handlers, and worker invocations require source evidence. Missing evidence produces diagnostics, not fabricated behavior.
+- **Partial-first**: The compiler renders what it can prove from source and diagnoses what it cannot.
+- **Dual execution paths**: A feature flag (`enable_worker_boundary_planner`) selects between a legacy flat single-worker pipeline and a worker-aware multi-worker pipeline with Stage 3.5 boundary planning.
+- **IRS-driven validation**: The v5 Information Requirements Specification (IRS) defines per-construct slot contracts that drive prompt checklists, post-hoc LLM output checks, and diagnostic generation.
 
 ## Quick Start
 
@@ -29,6 +36,7 @@ Create a `.env` file in the project root:
 OPENAI_API_KEY=your-api-key-here
 OPENAI_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o
+NL2SPL_ADAPTER_LLM_ENGINE=off
 LOG_LEVEL=INFO
 LOG_FILE=logs/nl2spl.log
 ```
@@ -51,25 +59,24 @@ from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 load_dotenv(Path(".env"))
 
-config = load_config()
+config = load_config(
+    enable_worker_boundary_planner=True,  # worker-aware path
+    enable_irs_prompt_builder=True,       # inject IRS checklists into prompts
+)
 orchestrator = PipelineOrchestrator(config)
 
 raw_text = """
 Task family: Internal newsletters and announcements.
 Inputs for each run: A user request, optional known topics.
-Required outputs: A draft communication, source evidence set, assumptions log, completion status.
+Required outputs: A draft communication, source evidence set, assumptions log.
 Reusable process: First determine communication type. Then identify missing fields.
 If sources are needed and available, retrieve them using approved source recipes.
-Maintain provenance for externally sourced facts.
-When enough required information is available, produce a draft.
-If the user asks for revision, revise while rechecking constraints.
 Policies: Do not invent facts. Require evidence for claims.
-Delegation policy: Optional source gathering may be delegated if bounded.
 """
 
 result = orchestrator.run(raw_text)
 print(result.spl_text)
-print(result.validation_warnings)
+print(result.compile_diagnostics)
 ```
 
 ### Command Line
@@ -87,146 +94,377 @@ nl2spl input.txt
 
 ## Architecture
 
-The pipeline has 12 stages: 9 LLM stages, one code normalizer stage, and 2 code assembly/rendering stages.
+### Data flow
 
-| Stage | Name | Kind | Output |
-|-------|------|------|--------|
-| 1 | SpanSlicer | LLM | `List[SpanIR]` |
-| 2 | FieldRouter | LLM | `FieldRouteIR` + ambiguity updates |
-| 3 | AmbiguityResolver | LLM | resolved spans and routes |
-| 4 | FlowAssembler | LLM | `FlowStructureIR` |
-| 5 | BlockAssembler | LLM | `BlockStructureIR` |
-| 6 | ResourceExtractor | LLM | `ResourceRegistryIR` + `SymbolTable` |
-| 7 | StepExtractor | LLM | `List[StepIR]` + updated `SymbolTable` |
-| 8 | ProfileExtractor | LLM | `AgentProfileIR` |
+```
+raw_text → InputAdapter → CanonicalCompileInput → [Stage 1–11] → SPL text
+```
+
+The `InputAdapter` (stage 0, configurable via `adapter_llm_engine`) converts raw text into a structured `CanonicalCompileInput` containing hard facts (inputs, outputs, failure modes, delegation intents), compile hints, and evidence refs. The adapter is **not** an LLM stage by default; it uses rule-based structural parsing. Setting `adapter_llm_engine` to `generic_only`, `structural_enrich`, or `all` enables LLM-assisted extraction.
+
+`PipelineOrchestrator.run()` coordinates stages through a flat `intermediate: dict[str, Any]`. Each LLM stage emits a constrained IR; code stages normalize, assemble, and render.
+
+### Two execution paths (feature-flagged)
+
+Gated by `enable_worker_boundary_planner` (default off):
+
+| Path | Stages | Output model |
+|------|--------|--------------|
+| **Legacy** | 1–11 flat single-worker | `FlowStructureIR`, `BlockStructureIR`, `StepIR`, `WorkerIR` |
+| **Worker-aware** | Stage 3.5 introduces `WorkerPlanIR` with per-worker ownership; Stages 4–10 switch to worker-scoped variants | `WorkerFlowPlanIR`, `WorkerBlockPlanIR`, `WorkerStepPlanIR` per worker |
+
+### Pipeline stages
+
+| Stage | Name | Kind | Key output |
+|-------|------|------|------------|
+| 0 | InputAdapter | Code / LLM | `CanonicalCompileInput` (hard facts, hints, evidence) |
+| 1 | SpanSlicer | LLM | `List[SpanIR]` — text spans with section/field routing |
+| 2 | FieldRouter | LLM | `FieldRouteIR` — span-to-construct routing |
+| 3 | AmbiguityResolver | LLM | Resolved spans and routes |
+| **3.5** | **WorkerBoundaryPlanner** | **LLM + Code** | **`WorkerPlanIR`** — worker ownership, handoffs, candidates |
+| 4 | FlowAssembler | LLM | `FlowStructureIR` or `WorkerFlowPlanIR` |
+| 5 | BlockAssembler | LLM | `BlockStructureIR` or `WorkerBlockPlanIR` |
+| 6 | ResourceExtractor | LLM | `SymbolTable` + resource registry |
+| 7 | StepExtractor | LLM | `List[StepIR]` or `WorkerStepPlanIR` |
+| 8 | ProfileExtractor | LLM | `AgentProfileIR` — persona, constraints |
 | 9 | ConstraintExtractor | LLM | `List[ConstraintIR]` |
-| 9.5 | IRNormalizer | Code | normalized IRs + diagnostics |
-| 10 | WorkerAssembler | Code | `WorkerIR` with child worker definitions |
+| 9.5 | IRNormalizer | Code | Normalized IRs, `INVOKE_WORKER` materialization, diagnostics |
+| 10 | WorkerAssembler | Code | `WorkerIR` AST with child worker definitions |
 | 11 | SPLRenderer | Code | SPL text + validation diagnostics |
 
-Important implementation details:
+**Stage 3.5** is the most architecturally significant LLM stage. It splits into sub-phases: 3.5a (candidate extraction via LLM), 3.5b (boundary decisions via LLM), then a deterministic materializer (3.5c) building `WorkerPlanIR`. The orchestrator provides defensive repair for unassigned behavior spans.
 
-- Stage 4 receives compact plain text in the form `span_id: span text`; it does not pass full `SpanIR` JSON or ambiguity metadata into the prompt.
-- Stage 5 receives only flow JSON enriched with concrete span text (`span_id` + `text`), so block assembly has local context without a second behavior-span blob.
-- `FlowStructureIR.delegation_candidates` is the current compatibility carrier for delegation. Stage 9.5 materializes concrete `INVOKE_WORKER` steps from child-worker candidates and rejects unresolved placeholder worker invocations.
-- Stage 10 builds concrete `ChildWorkerIR` definitions, and Stage 11 renders them before the main worker.
-- Multi-output delegated steps can be normalized into structured result variables and emitted under `[DEFINE_TYPES:]` when a structured SPL type is required.
+### IRS — Information Requirements Specification
+
+IRS is the v5 rule engine that sits between LLM inference and deterministic code. It defines **per-construct slot contracts** and operates in three phases:
+
+**1. Data model** (`compiler/construct_registry.py`) — `SPLConstructRegistry` holds the default construct definitions:
+
+```
+EXCEPTION_FLOW
+├── condition         [required_for_partial, evidence: failure_mode]
+├── handler_action    [renderable_without, missing → missing_handler]
+└── trigger_step      [post-MVP]
+
+GENERAL_COMMAND
+├── action_text       [syntax_required]
+├── source_evidence   [missing → assumed_command_not_renderable]
+└── result_variable   [optional]
+
+REQUEST_INPUT
+├── prompt_text       [syntax_required]
+└── value_target      [missing → type_or_contract_ambiguity]
+
+CALL_API
+├── api_name          [syntax_required]
+├── call_action       [distinguishes mention from executable]
+└── integration_evidence
+
+INVOKE_WORKER
+├── target_worker     [syntax_required]
+├── handoff_id
+├── input_bindings
+└── output_bindings
+
+CHILD_WORKER, WORKER_CANDIDATE, REQUIRED_OUTPUT ...
+```
+
+Each slot specifies: whether it's syntax-required, required for partial/complete rendering, what evidence kinds prove it, what diagnostic kind to emit when missing, and whether it can be inferred or suggested.
+
+**2. Prompt injection** (`compiler/irs_prompt_builder.py`) — When `enable_irs_prompt_builder` is on, `IRSDrivenPromptBuilder` renders per-stage construct checklists into LLM system prompts. This tells the LLM what slots are required, what cannot be invented, and what diagnostic will fire if output is incomplete.
+
+**3. Post-hoc checks** — After LLM output, IRS checkers validate slot satisfaction:
+
+- **Stage 4 IRS** (`stage4_flow_assembler/irs_checker.py`): Checks each `ExceptionFlow` — condition must have both text and source spans to be "satisfied" (vs. "assumed").
+- **Stage 7 IRS** (`stage7_step_extractor/irs_checker.py`): Checks each `StepIR` — `GENERAL_COMMAND` requires source spans; `CALL_API` requires named API + call action; `INVOKE_WORKER` requires a handoff ID; `REQUEST_INPUT` requires explicit ask/prompt source signal.
+
+Output feeds into the Executable Gate (below) and the diagnostic consolidation system.
+
+### Fact bridges
+
+Deterministic bridges in `pipeline/fact_bridges.py` convert adapter hard facts into partial IR skeletons **without inventing executable behavior**:
+
+- **`bridge_failure_modes()`** (legacy) / **`bridge_failure_modes_worker_scoped()`** (worker-aware): Creates `ExceptionFlow` skeletons from `FailureModeFact` objects. No handler blocks or steps are created — the `missing_handler` diagnostic surfaces the gap.
+- **`bridge_delegation_intents()`**: Emits `type_or_contract_ambiguity` diagnostics for delegation intents without valid handoff contracts.
+
+### Executable Gate
+
+`pipeline/executable_gate.py` prevents unsourced commands from entering the rendered SPL. It checks:
+- Step has source evidence → passes
+- Step is compiler scaffolding (e.g., `INVOKE_WORKER` from a valid handoff) → passes
+- Step lacks source evidence → blocked, `assumed_command_not_renderable` diagnostic
+
+### Provenance
+
+`pipeline/provenance.py` aggregates `TraceRecord` entries linking every materialized SPL element back to its source spans, sections, and packets. Structural NL inputs produce richer provenance chains; generic NL inputs produce span-level traces. Assumed or inferred traces are marked `needs_confirmation`.
+
+### Output artifacts
+
+Each run produces:
+
+| File | Description |
+|------|-------------|
+| `final_spl.txt` | Rendered SPL text |
+| `compile_report.txt` | Compact compilation summary with completeness and diagnostic counts |
+| `feedback_report.md` | User-facing report explaining partial status, missing slots, blocked commands, assumptions, and provenance |
+
+### Feature flags
+
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `enable_worker_boundary_planner` | `False` | Worker-aware path with Stage 3.5 |
+| `enable_worker_boundary_planner_split` | `True` | Split 3.5a/3.5b LLM calls |
+| `enable_worker_boundary_single_call_fallback` | `False` | Fallback to single-call 3.5 |
+| `enable_irs_prompt_builder` | `False` | Inject IRS checklists into Stage 4/7 prompts |
+| `enable_irs_stage4_exception_flow_check` | `False` | Post-hoc IRS check on exception flows |
+| `enable_irs_stage7_step_check` | `False` | Post-hoc IRS check on executable steps |
+| `enable_irs_diagnostic_consolidation` | `False` | Merge stage-local IRS diagnostics into compile output |
+| `enable_llm_conflict_analyzer` | `False` | LLM-backed semantic conflict analysis |
+| `enable_resource_name_filter` | `False` | Stage 6 rejects schema/IR-looking variable names |
+| `enable_stage6_resource_context_v2` | `False` | Semi-structured resource extraction prompts |
+| `adapter_llm_engine` | `"off"` | Adapter LLM mode: `off`, `generic_only`, `structural_enrich`, `all` |
 
 ## SPL Output Shape
 
-Generated SPL follows the grammar conventions used by `docs/spl_grammar.txt`, including numbered commands, explicit blocks, concrete worker names, and `<REF>...</REF>` variable references.
+Generated SPL follows the grammar in `docs/spl_grammar.txt`. The output is source-backed: only constructs with source evidence are rendered as executable SPL; missing evidence produces partial skeletons with diagnostics.
 
 ```spl
-[DEFINE_AGENT: MainWorker "Main worker"]
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process."]
     [DEFINE_PERSONA:]
         ROLE: Internal communications specialist
     [END_PERSONA]
+    [DEFINE_CONSTRAINTS:]
+        Prohibition: Do not invent links or unseen facts
+        Evidence: Require evidence for sourced claims
+    [END_CONSTRAINTS]
     [DEFINE_VARIABLES:]
-        "The communication request provided by the user." user_request: text
-        "The draft communication artifact generated as output." draft_communication_artifact: text
-        "Structured result for source retrieval." child_dc_1_result: ChildDc1Result
+        "A user request" user_request: text
+        "Optional known topics" known_topics: List [text]
+        "A draft communication artifact" draft_communication_artifact: text
     [END_VARIABLES]
-    [DEFINE_TYPES:]
-        ChildDc1Result = { retrieved_sources: List [text], provenance_log: text }
-    [END_TYPES]
-    [DEFINE_WORKER: "Source retrieval and provenance maintenance can be modularized." child_dc_1]
+    [DEFINE_WORKER: "Source retrieval." Worker_retrieve_sources]
         [INPUTS]
-            REQUIRED <REF>available_connectors</REF>
+            OPTIONAL <REF>connectors_or_source_repositories</REF>
         [END_INPUTS]
         [OUTPUTS]
-            REQUIRED <REF>child_dc_1_result</REF>
+            REQUIRED <REF>source_evidence_set</REF>
         [END_OUTPUTS]
         [MAIN_FLOW]
-            [SEQUENTIAL_BLOCK]
-                COMMAND-1 [COMMAND Retrieve sources and maintain provenance RESULT child_dc_1_result: ChildDc1Result SET]
-            [END_SEQUENTIAL_BLOCK]
+            ...
         [END_MAIN_FLOW]
     [END_WORKER]
     [DEFINE_WORKER: "Main worker" MainWorker]
+        [INPUTS]
+            REQUIRED <REF>user_request</REF>
+            OPTIONAL <REF>known_topics</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>draft_communication_artifact</REF>
+        [END_OUTPUTS]
         [MAIN_FLOW]
             [SEQUENTIAL_BLOCK]
-                COMMAND-2 [COMMAND Determine what kind of communication is requested based on <REF>user_request</REF>]
+                COMMAND-1 [COMMAND Determine the type of communication requested ...]
+                COMMAND-2 [INVOKE Worker_retrieve_sources WITH ... RESPONSE ... SET]
             [END_SEQUENTIAL_BLOCK]
         [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: Missing timeframe]
+        [END_EXCEPTION_FLOW]
     [END_WORKER]
 [END_AGENT]
 ```
 
-## Documentation
+Note: Exception flows without handler actions are rendered as partial skeletons — the `missing_handler` diagnostic is emitted separately.
 
-- `docs/spl_nl_to_spl_design_document_v4.md`: compiler and IR design.
-- `docs/prompt_design_document.md`: LLM prompt contracts by stage.
-- `docs/delegation_plan_todo.md`: WorkerPlanIR migration plan for replacing the current delegation bridge.
-- `docs/multi_worker_system_design.md`: detailed multi-worker architecture and implementation guidance.
-- `docs/implementation/multi_worker_collaboration_plan.md`: multi-developer collaboration plan for the WorkerPlanIR migration.
-- `docs/implementation/multi_worker_dev_e_tests_rollout.md`: regression fixture, golden SPL, and rollout QA ownership.
-- `docs/input_adapter_implementation_plan.md`: InputAdapter implementation plan and rollout checklist.
-- `docs/input_adapter_api_contract.md`: CanonicalCompileInput and adapter API contract.
-- `docs/input_adapter_progress.md`: current InputAdapter MVP implementation status and remaining work.
-- `docs/spl_grammar.txt`: SPL grammar reference.
-- `docs/internal_comms_generation_review.md`: review notes and resolution status for the internal-comms example.
+## Project Structure
+
+```text
+nl2spl/
+├── src/nl2spl/
+│   ├── adapters/              # InputAdapter — raw text → CanonicalCompileInput
+│   │   ├── base.py            #   Abstract adapter interface
+│   │   ├── registry.py        #   Adapter registry + routing
+│   │   ├── structural_nl.py   #   Rule-based structural NL parser
+│   │   ├── generic_nl.py      #   Generic NL fallback adapter
+│   │   ├── llm_engine.py      #   LLM-assisted extraction engine
+│   │   └── fact_verifier.py   #   Adapter fact verification
+│   ├── canonical/             # CanonicalCompileInput contract
+│   │   └── compile_input.py   #   HardFacts, FailureModeFact, DelegationIntentFact, hints
+│   ├── ir/                    # Pydantic v2 dataclass IRs
+│   │   ├── span_ir.py         #   SpanIR
+│   │   ├── field_route_ir.py  #   FieldRouteIR
+│   │   ├── flow_structure_ir.py  # FlowStructureIR, ExceptionFlow
+│   │   ├── block_structure_ir.py # BlockStructureIR
+│   │   ├── step_ir.py         #   StepIR
+│   │   ├── symbol_table.py    #   SymbolTable (flat + worker-scoped composite key)
+│   │   ├── worker_plan_ir.py  #   WorkerPlanIR, WorkerSpecIR, WorkerFlowPlanIR, etc.
+│   │   ├── worker_ir.py       #   WorkerIR AST (Stage 10 output)
+│   │   ├── constraint_ir.py   #   ConstraintIR
+│   │   ├── agent_profile_ir.py #  AgentProfileIR
+│   │   ├── resource_registry_ir.py
+│   │   └── diagnostics.py     #   CompileDiagnostic
+│   ├── compiler/              # Deterministic compiler components
+│   │   ├── construct_registry.py  # SPLConstructRegistry + ConstructIRS (v5 IRS)
+│   │   ├── irs_prompt_builder.py  # IRSDrivenPromptBuilder — prompt checklists
+│   │   ├── diagnostic_registry.py # Standard diagnostic kinds
+│   │   ├── diagnostic_analyzer.py # Diagnostic analysis + consolidation
+│   │   ├── producer_index.py      # Producer/consumer index for Gate
+│   │   ├── completeness.py        # Completeness assessment
+│   │   ├── assumptions.py         # Assumption tracking
+│   │   ├── compile_result.py      # PipelineResult
+│   │   ├── report_renderer.py     # Compile report rendering
+│   │   ├── feedback_report_renderer.py  # User-facing feedback report
+│   │   ├── spl_formatter.py       # SPL formatting
+│   │   └── analyzers/
+│   │       └── semantic_conflict.py  # LLM conflict analyzer
+│   ├── llm/                   # LLM client
+│   │   ├── client.py          #   LLMClient (OpenAI SDK, JSON mode)
+│   │   └── prompts.py         #   Prompt file loader
+│   ├── pipeline/              # Pipeline orchestration + stages
+│   │   ├── orchestrator.py    #   PipelineOrchestrator — full pipeline coordinator
+│   │   ├── executable_gate.py #   Gate that blocks unsourced commands
+│   │   ├── fact_bridges.py    #   FailureModeFact → ExceptionFlow bridges
+│   │   ├── provenance.py      #   ProvenanceAggregator — TraceRecord chains
+│   │   ├── worker_plan_validator.py  # Worker plan structural validation
+│   │   ├── worker_plan_adapter.py    # Worker plan adaptation helpers
+│   │   └── stages/            #   Stage 1 through Stage 11
+│   │       ├── stage1_span_slicer.py
+│   │       ├── stage2_field_router.py
+│   │       ├── stage3_ambiguity_resolver.py
+│   │       ├── stage3_5_worker_boundary_planner/  # Multi-file stage
+│   │       │   ├── executor.py        # Stage entry + LLM orchestration
+│   │       │   ├── planner.py         # 3.5a/3.5b LLM call logic
+│   │       │   ├── plan_parser.py     # LLM output parser
+│   │       │   ├── materializer.py    # 3.5c deterministic materializer
+│   │       │   ├── prompt_builder.py  # Prompt construction
+│   │       │   └── decision_validator.py
+│   │       ├── stage4_flow_assembler/
+│   │       │   ├── executor.py        # Dual legacy/worker-scoped entry
+│   │       │   ├── assembler.py
+│   │       │   ├── flow_parser.py
+│   │       │   ├── span_filter.py
+│   │       │   ├── prompt_builder.py
+│   │       │   └── irs_checker.py     # Stage 4 IRS post-hoc check
+│   │       ├── stage5_block_assembler/
+│   │       ├── stage6_resource_extractor/
+│   │       │   ├── extractor.py       # Legacy entry
+│   │       │   ├── legacy.py
+│   │       │   ├── worker_scoped.py   # Worker-scoped entry
+│   │       │   └── resource_name_filter.py
+│   │       ├── stage7_step_extractor/
+│   │       │   ├── extractor.py       # Legacy entry
+│   │       │   ├── legacy.py
+│   │       │   ├── worker_scoped.py   # Worker-scoped entry
+│   │       │   └── irs_checker.py     # Stage 7 IRS post-hoc check
+│   │       ├── stage8_profile_extractor.py
+│   │       ├── stage9_constraint_extractor.py
+│   │       ├── stage9_5_normalizer/
+│   │       │   ├── normalizer.py      # Legacy path
+│   │       │   ├── worker_scoped.py   # Worker-scoped path
+│   │       │   ├── worker_handoffs.py # INVOKE_WORKER materialization
+│   │       │   ├── normalization.py
+│   │       │   ├── helpers.py
+│   │       │   ├── flow_classification.py
+│   │       │   └── validation.py
+│   │       ├── stage10_worker_assembler/
+│   │       │   ├── assembler.py
+│   │       │   ├── child_worker_builder.py
+│   │       │   ├── step_resolver.py
+│   │       │   └── block_utils.py
+│   │       └── stage11_spl_renderer/
+│   │           ├── renderer.py
+│   │           ├── block_renderer.py
+│   │           ├── clause_builder.py
+│   │           ├── text_utils.py
+│   │           └── formatting.py
+│   ├── errors/                # Custom exceptions
+│   ├── utils/                 # Logging and persistence
+│   └── main.py                # CLI entry point
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── fixtures/
+│       └── multi_worker/      # Deterministic WorkerPlanIR fixtures
+├── prompts/                   # LLM system prompt .txt files
+├── docs/                      # Design docs, implementation plans, reports
+├── examples/
+│   ├── usage.py               # Demo script with env-based LLM config
+│   └── output/                # Example run outputs (internal-comms, etc.)
+├── pyproject.toml
+└── README.md
+```
 
 ## Development
 
 ### Testing
 
 ```bash
-pytest
-pytest tests/unit
-pytest tests/integration -v
-pytest tests/integration/test_multi_worker_pipeline.py -q
+pytest                                    # All tests
+pytest tests/unit                         # Unit tests only
+pytest tests/integration -v               # Integration tests
+pytest tests/integration/test_multi_worker_pipeline.py -q  # Multi-worker rollout
 ```
 
-The multi-worker rollout suite uses deterministic WorkerPlanIR fixtures under
-`tests/fixtures/multi_worker/` and checks golden SPL invariants without making
-LLM calls. It includes IR-level Stage 9.5 through Stage 11 coverage plus
-mocked-LLM `PipelineOrchestrator.run(...)` feature-flag regressions. The current
-multi-worker flag remains default-off while rollout coverage continues to expand.
+The multi-worker rollout suite uses deterministic `WorkerPlanIR` fixtures under `tests/fixtures/multi_worker/` and checks golden SPL invariants without making LLM calls. It covers Stage 9.5–11 IR-level paths plus mocked-LLM `PipelineOrchestrator.run()` feature-flag regressions.
 
 ### Code Quality
 
 ```bash
-ruff check src tests
-ruff format src tests
-mypy src
+ruff check src tests     # Lint
+ruff format src tests    # Format
+mypy src                 # Strict type check
 ```
 
-### Project Structure
+### Conventions
 
-```text
-nl2spl/
-├── src/nl2spl/
-│   ├── ir/                       # Span, route, flow, block, resource, step, profile, constraint, worker IRs
-│   ├── llm/                      # LLM client and prompt loading
-│   ├── pipeline/
-│   │   ├── orchestrator.py       # End-to-end pipeline coordinator
-│   │   └── stages/               # Stage 1 through Stage 11 implementations
-│   ├── compiler/                 # SPL formatting helpers
-│   ├── validator/                # Static validation
-│   ├── errors/                   # Custom exceptions
-│   └── utils/                    # Logging and persistence
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
-├── docs/
-├── examples/
-├── output/
-├── pyproject.toml
-└── README.md
-```
+- Python 3.11+ with `from __future__ import annotations` in every file
+- Pydantic v2 dataclass IRs (NOT BaseModel) in `src/nl2spl/ir/`
+- Line length 100, `ruff` with rules `E, F, W, I, N, UP, B`
+- `mypy` strict mode
+- All stage modules use a `PipelineStage` subclass with `name` property and `execute()` method
+- LLM stages under `pipeline/stages/`; code-only stages (9.5, 10, 11) follow the same base class
+- Dual entry points (`execute()` for legacy, `execute_worker_scoped()` for worker-aware) in Stages 4–7
 
 ## Configuration
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | Yes | - | OpenAI API key |
+| `OPENAI_API_KEY` | Yes | — | OpenAI-compatible API key |
 | `OPENAI_BASE_URL` | No | `https://api.openai.com/v1` | API base URL |
-| `LLM_MODEL` | No | `gpt-4o` | LLM model name |
+| `LLM_MODEL` | No | `gpt-4o` | Model name for LLM calls |
+| `LLM_MAX_TOKENS` | No | `4096` | Max tokens per LLM response |
+| `LLM_TEMPERATURE` | No | `0.0` | LLM sampling temperature |
+| `NL2SPL_ADAPTER_LLM_ENGINE` | No | `off` | Adapter LLM: `off`, `generic_only`, `structural_enrich`, `all` |
 | `LOG_LEVEL` | No | `INFO` | Logging level |
-| `LOG_FILE` | No | - | Optional log file path |
+| `LOG_FILE` | No | — | Optional log file path |
 
-Each run writes intermediate checkpoints and `final_spl.txt` into the configured run directory.
+Each run writes intermediate checkpoints (when `save_intermediate=True`) and `final_spl.txt` into `output/<run_name>/`.
+
+## Documentation
+
+Core design documents:
+
+- `docs/spl_nl_to_spl_design_document_v4.md` — v4 compiler and IR design
+- `docs/nl_2_spl_compiler_architecture_irs_v_5.md` — v5 IRS architecture overview
+- `docs/spl_grammar.txt` — SPL grammar reference
+- `docs/prompt_design_document.md` — LLM prompt contracts by stage
+- `docs/multi_worker_system_design.md` — Multi-worker architecture and WorkerPlanIR
+- `docs/migration-worker-aware-pipeline.md` — Worker-aware migration plan
+
+Input adapter:
+
+- `docs/InputAdapter/nl_2_spl_input_adapter_design.md` — Adapter architecture
+- `docs/InputAdapter/input_adapter_api_contract.md` — CanonicalCompileInput API
+- `docs/InputAdapter/input_adapter_progress.md` — Implementation status
+
+IRS (v5):
+
+- `docs/implementation/v5-irs/` — Phase-by-phase IRS implementation reports
+- `docs/nl_2_spl_compiler_architecture_irs_v_5.md` — IRS architecture
+
+Implementation plans and reports:
+
+- `docs/implementation/partial_spl_mvp_design.md` — Partial SPL MVP design
+- `docs/implementation/worker-aware-migration/` — Worker-aware migration task breakdown
 
 ## License
 

@@ -11,6 +11,9 @@ from typing import Any
 from dotenv import load_dotenv
 
 
+ADAPTER_LLM_ENGINE_MODES = {"off", "generic_only", "structural_enrich", "all"}
+
+
 @dataclass
 class LLMConfig:
     """LLM configuration."""
@@ -57,12 +60,55 @@ class PipelineConfig:
     enable_worker_boundary_planner_split: bool = True
     enable_worker_boundary_single_call_fallback: bool = False
 
+    # IRS-driven prompt builder (Phase 2+):
+    # When enabled, Stage 4/7 prompts include IRS-generated checklists.
+    enable_irs_prompt_builder: bool = False
+
+    # IRS-driven Stage 4 exception flow check (Phase 3+):
+    # When enabled, Stage 4 post-hoc IRS check produces
+    # ConstructSatisfactionReport for every exception flow.
+    enable_irs_stage4_exception_flow_check: bool = False
+
+    # IRS-driven Stage 7 step check (Phase 4+):
+    # When enabled, Stage 7 post-hoc IRS check produces
+    # ConstructSatisfactionReport for every executable step.
+    enable_irs_stage7_step_check: bool = False
+
+    # IRS diagnostic consolidation (Phase 5+):
+    # When enabled, stage-local diagnostics from
+    # intermediate_results are merged into compile_diagnostics.
+    enable_irs_diagnostic_consolidation: bool = False
+
+    # LLM semantic conflict analyzer (Phase 6+):
+    # When enabled, runs an LLM-backed conflict analysis pass.
+    # Default NoOp -- zero behaviour change.
+    enable_llm_conflict_analyzer: bool = False
+
+    # Resource name filter (Phase 7+):
+    # When enabled, Stage 6 rejects schema/IR-looking variable names.
+    enable_resource_name_filter: bool = False
+
+    # Stage 6 resource context V2 (Phase 8+):
+    # When enabled, Stage 6 prompts use semi-structured resource extraction
+    # views instead of raw IR JSON dumps.  Reduces schema noise and
+    # mis-extracted variables.  Applies to both legacy and worker-scoped paths.
+    enable_stage6_resource_context_v2: bool = False
+
+    # Adapter LLM engine: off | generic_only | structural_enrich | all
+    adapter_llm_engine: str = "off"
+
     # Retry settings
     max_retries: int = 3
     retry_delay: float = 1.0
 
     def __post_init__(self) -> None:
         """Ensure directories exist."""
+        if self.adapter_llm_engine not in ADAPTER_LLM_ENGINE_MODES:
+            raise ValueError(
+                "adapter_llm_engine must be one of: "
+                + ", ".join(sorted(ADAPTER_LLM_ENGINE_MODES))
+            )
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         if self.run_name is None:
@@ -98,5 +144,10 @@ def load_config(
     """
     if env_file and env_file.exists():
         load_dotenv(env_file)
+
+    kwargs.setdefault(
+        "adapter_llm_engine",
+        os.getenv("NL2SPL_ADAPTER_LLM_ENGINE", "off"),
+    )
 
     return PipelineConfig(**kwargs)

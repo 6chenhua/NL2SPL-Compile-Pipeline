@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NL2SPL v5 IRS Development Plan</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #667085;
+      --line: #d7dde8;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --ok: #15803d;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.55 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(245, 247, 251, 0.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 24px; }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+    }
+    h1 { margin: 0 0 6px; font-size: 24px; line-height: 1.25; }
+    .subtitle { margin: 0; color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    button, .file-label {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px 11px;
+      font: inherit;
+    }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.danger { color: var(--bad); }
+    button:hover, .file-label:hover { border-color: var(--accent); }
+    input[type="file"] { display: none; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+    .metric span { color: var(--muted); font-size: 12px; }
+    .metric strong { display: block; font-size: 20px; margin-top: 2px; }
+    .progress { height: 9px; background: #e5e7eb; border-radius: 999px; overflow: hidden; margin-top: 10px; }
+    .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 150ms ease; }
+    main.wrap {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    nav {
+      position: sticky;
+      top: 150px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+    nav strong { display: block; margin: 0 0 8px; }
+    nav a { display: block; color: var(--text); text-decoration: none; border-radius: 6px; padding: 7px 8px; margin: 2px 0; }
+    nav a:hover { background: var(--accent-soft); }
+    .note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .phase, .dod {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .phase-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+    .phase h2, .dod h2 { margin: 0; font-size: 18px; }
+    .goal { color: var(--muted); margin: 6px 0 0; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 5px 9px;
+      font-size: 12px;
+      background: #fff;
+      white-space: nowrap;
+    }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .status[data-status="done"]::before { background: var(--ok); }
+    .status[data-status="doing"]::before { background: var(--warn); }
+    .status[data-status="blocked"]::before { background: var(--bad); }
+    .phase-meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 16px 4px;
+    }
+    label.field { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+    select, input[type="text"], input[type="date"], textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      padding: 8px;
+    }
+    textarea { min-height: 74px; resize: vertical; }
+    .phase-body { padding: 10px 16px 16px; }
+    .columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .box { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; }
+    .box h3 { margin: 0 0 8px; font-size: 14px; }
+    ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+    .checks label { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; }
+    .checks input { margin-top: 3px; }
+    code { background: #eef2f7; border-radius: 4px; padding: 1px 4px; font-family: Consolas, "Courier New", monospace; font-size: 0.92em; }
+    .wide { margin-top: 12px; display: grid; gap: 10px; }
+    .dod { padding: 16px; }
+    .guide-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .guide-link:hover { text-decoration: underline; }
+    @media (max-width: 980px) {
+      .top, main.wrap, .columns, .phase-meta, .metrics { grid-template-columns: 1fr; }
+      nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <h1>NL2SPL v5 IRS Development Plan</h1>
+          <p class="subtitle">从 v4 reactive requirement-fidelity compiler 演进到 IRS-explicit compiler。每个阶段都有独立开发指南和验收标准。</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="saveNow">保存进度</button>
+          <button type="button" id="exportJson">导出 JSON</button>
+          <label class="file-label" for="importJson">导入 JSON</label>
+          <input id="importJson" type="file" accept="application/json">
+          <button type="button" class="danger" id="clearData">清空本地进度</button>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>阶段完成度</span><strong id="phasePercent">0%</strong><div class="progress"><i id="phaseBar"></i></div></div>
+        <div class="metric"><span>验收项完成度</span><strong id="checkPercent">0%</strong><div class="progress"><i id="checkBar"></i></div></div>
+        <div class="metric"><span>阶段状态</span><strong id="phaseCounts">0/9</strong></div>
+        <div class="metric"><span>勾选项</span><strong id="checkCounts">0/0</strong></div>
+        <div class="metric"><span>最近保存</span><strong id="lastSaved">未保存</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <nav aria-label="phase navigation">
+      <strong>阶段导航</strong>
+      <a href="#phase-0">Phase 0 - Baseline</a>
+      <a href="#phase-1">Phase 1 - Registry</a>
+      <a href="#phase-2">Phase 2 - Prompt Builder</a>
+      <a href="#phase-3">Phase 3 - Stage 4 IRS</a>
+      <a href="#phase-4">Phase 4 - Stage 7 IRS</a>
+      <a href="#phase-5">Phase 5 - Consolidation</a>
+      <a href="#phase-6">Phase 6 - Conflict Analyzer</a>
+      <a href="#phase-7">Phase 7 - Resource Hardening</a>
+      <a href="#phase-8">Phase 8 - E2E Freeze</a>
+      <a href="#global-dod">Global DoD</a>
+    </nav>
+
+    <section>
+      <div class="note">
+        <strong>使用说明:</strong>
+        HTML 用于跟踪阶段状态和验收进度。每个阶段的详细实现说明在对应 Markdown 开发指南中。你完成每个阶段后，把报告发给我，我会按该阶段的 PM Review Checklist 审查代码和验收结果。
+      </div>
+
+      <div id="phases"></div>
+
+      <section id="global-dod" class="dod">
+        <h2>Global Definition of Done</h2>
+        <ul class="checks">
+          <li><label><input type="checkbox" data-key="dod-v4"> <span>v4 critical tests remain passing.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-registry"> <span>SPLConstructRegistry contains explicit IRS rules for initial constructs.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-stage4"> <span>Stage 4 records exception-flow slot satisfaction and diagnostics.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-stage7"> <span>Stage 7 uses IRS rules for executable step extraction.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-authority"> <span>Gate remains final renderability authority and ProducerIndex remains final producer authority.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-reports"> <span>ReportRenderer and FeedbackReportRenderer show v5 diagnostics.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-no-fabrication"> <span>No invented handler, producer, request input, API call, or worker invoke is rendered.</span></label></li>
+          <li><label><input type="checkbox" data-key="dod-acceptance"> <span>v5 acceptance report exists with commands, results, and known limitations.</span></label></li>
+        </ul>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "nl2spl-v5-irs-plan-v1";
+    const phases = [
+      {
+        id: 0,
+        title: "Phase 0 - Baseline Freeze and Scope Guardrails",
+        goal: "Freeze current v4 behavior before v5 IRS work begins.",
+        guide: "v5_irs_phase0_baseline.md",
+        deliverables: [
+          "docs/implementation/v5_irs_baseline_report.md",
+          "Current critical tests recorded",
+          "v5 non-goals documented"
+        ],
+        tasks: [
+          "Run baseline tests",
+          "Record current result fields and output artifacts",
+          "Document anti-fabrication invariants",
+          "Confirm internal-comms expected_behavior.md is present"
+        ],
+        acceptance: [
+          "No production behavior change",
+          "Baseline report exists",
+          "Critical anti-fabrication tests pass"
+        ]
+      },
+      {
+        id: 1,
+        title: "Phase 1 - SPLConstructRegistry and DiagnosticRegistry",
+        goal: "Create the IRS data model and default construct registry.",
+        guide: "v5_irs_phase1_construct_registry.md",
+        deliverables: [
+          "src/nl2spl/compiler/construct_registry.py",
+          "src/nl2spl/compiler/diagnostic_registry.py",
+          "Unit tests for registry behavior"
+        ],
+        tasks: [
+          "Implement SlotSpec and ConstructIRS",
+          "Implement ConstructSatisfactionReport",
+          "Register initial constructs",
+          "Register diagnostic specs"
+        ],
+        acceptance: [
+          "Default registry contains all initial constructs",
+          "REQUIRED_OUTPUT and CALL_API corrections are encoded",
+          "No pipeline behavior changes"
+        ]
+      },
+      {
+        id: 2,
+        title: "Phase 2 - IRSDrivenPromptBuilder",
+        goal: "Generate Stage 4/7 prompt checklists from registry data.",
+        guide: "v5_irs_phase2_prompt_builder.md",
+        deliverables: [
+          "src/nl2spl/compiler/irs_prompt_builder.py",
+          "Prompt snapshot tests",
+          "Optional feature flag hook"
+        ],
+        tasks: [
+          "Map stage names to constructs",
+          "Render construct checklists",
+          "Snapshot Stage 4 and Stage 7 checklist output",
+          "Keep live behavior off by default if wired"
+        ],
+        acceptance: [
+          "Prompt output is deterministic",
+          "Stage 4 includes EXCEPTION_FLOW IRS",
+          "Stage 7 includes command IRS"
+        ]
+      },
+      {
+        id: 3,
+        title: "Phase 3 - Stage 4 IRS Integration",
+        goal: "Make Stage 4 record exception-flow slot satisfaction and stage-local diagnostics.",
+        guide: "v5_irs_phase3_stage4_flow_irs.md",
+        deliverables: [
+          "Stage 4 IRS side-channel metadata",
+          "ConstructSatisfactionReport for EXCEPTION_FLOW",
+          "Stage 4 exception-flow tests"
+        ],
+        tasks: [
+          "Add orchestrator side-channel recording",
+          "Check EXCEPTION_FLOW slots after Stage 4 parsing",
+          "Emit stage-local missing_handler/type_or_contract_ambiguity",
+          "Preserve Stage 4 return contract"
+        ],
+        acceptance: [
+          "Failure condition only creates partial exception flow + missing_handler",
+          "No failure source creates no exception flow",
+          "Vague failure policy does not create concrete flow"
+        ]
+      },
+      {
+        id: 4,
+        title: "Phase 4 - Stage 7 IRS Integration",
+        goal: "Make Stage 7 proactive for executable step information requirements.",
+        guide: "v5_irs_phase4_stage7_step_irs.md",
+        deliverables: [
+          "Stage 7 IRS prompt/checking",
+          "Stage-local step diagnostics",
+          "Stage 7 IRS tests"
+        ],
+        tasks: [
+          "Apply GENERAL_COMMAND rules",
+          "Apply REQUEST_INPUT ask-signal rules",
+          "Apply CALL_API executable-call rules",
+          "Apply INVOKE_WORKER accepted-handoff rules"
+        ],
+        acceptance: [
+          "No REQUEST_INPUT without explicit ask/request/prompt",
+          "No CALL_API from context-only repository mention",
+          "No executable INVOKE_WORKER without accepted handoff",
+          "Gate still blocks leaked unsafe steps"
+        ]
+      },
+      {
+        id: 5,
+        title: "Phase 5 - Stage 9.5 Diagnostic Consolidation",
+        goal: "Merge stage-local IRS diagnostics with existing diagnostics deterministically.",
+        guide: "v5_irs_phase5_diagnostic_consolidation.md",
+        deliverables: [
+          "Diagnostic consolidation logic",
+          "Dedup key tests",
+          "Gate-after missing_handler priority tests"
+        ],
+        tasks: [
+          "Read stage-local diagnostics from intermediate_results",
+          "Deduplicate diagnostics",
+          "Preserve Gate and ProducerIndex authority",
+          "Keep validation/adapter/compile diagnostics separate"
+        ],
+        acceptance: [
+          "No duplicate missing_handler for same target",
+          "Gate-after missing_handler is retained",
+          "Completeness uses final diagnostics"
+        ]
+      },
+      {
+        id: 6,
+        title: "Phase 6 - Evidence-Bound LLMConflictAnalyzer MVP",
+        goal: "Add optional LLM conflict diagnostics with strict evidence verification.",
+        guide: "v5_irs_phase6_llm_conflict_analyzer.md",
+        deliverables: [
+          "SemanticConflictAnalyzer protocol",
+          "NoOp and LLM implementations",
+          "LLMConflictDiagnosticVerifier"
+        ],
+        tasks: [
+          "Add disabled-by-default feature flag",
+          "Implement verifier",
+          "Reject uncited LLM diagnostics",
+          "Render semantic_conflict in reports"
+        ],
+        acceptance: [
+          "Disabled path matches v4",
+          "Evidence-bound semantic_conflict is accepted",
+          "Uncited conflict is rejected",
+          "Analyzer does not mutate IR or SPL"
+        ]
+      },
+      {
+        id: 7,
+        title: "Phase 7 - Resource Extractor Hardening",
+        goal: "Prevent schema/internal fields from becoming business variables.",
+        guide: "v5_irs_phase7_resource_extractor_hardening.md",
+        deliverables: [
+          "Reserved resource name filter",
+          "Stage 6 prompt hardening",
+          "Resource hardening tests"
+        ],
+        tasks: [
+          "Implement looks_like_ir_field",
+          "Filter reserved names at parse/normalization boundary",
+          "Warn on rejected LLM variables",
+          "Preserve legitimate user variables"
+        ],
+        acceptance: [
+          "schema-looking variables are rejected",
+          "legitimate variables are preserved",
+          "No false missing producer from rejected variables"
+        ]
+      },
+      {
+        id: 8,
+        title: "Phase 8 - Regression, E2E Acceptance, and Freeze",
+        goal: "Validate v5 behavior end-to-end and publish acceptance report.",
+        guide: "v5_irs_phase8_e2e_acceptance.md",
+        deliverables: [
+          "tests/integration/test_v5_irs_pipeline.py",
+          "docs/implementation/v5_irs_acceptance_report.md",
+          "Updated run commands and known limitations"
+        ],
+        tasks: [
+          "Run v4 critical tests",
+          "Run v5 IRS integration scenarios",
+          "Check compile_report and feedback_report",
+          "Write acceptance report"
+        ],
+        acceptance: [
+          "All required scenarios pass",
+          "No invented executable behavior",
+          "Reports show v5 diagnostics",
+          "Acceptance report exists"
+        ]
+      }
+    ];
+
+    let state = {};
+
+    function key(...parts) { return parts.join(":"); }
+
+    const defaultState = {
+      "phase:0:status": "done",
+      "phase:0:owner": "Claude",
+      "phase:0:start": "2026-05-16",
+      "phase:0:done": "2026-05-16",
+      "phase:0:deliverables:0": true,
+      "phase:0:deliverables:1": true,
+      "phase:0:deliverables:2": true,
+      "phase:0:tasks:0": true,
+      "phase:0:tasks:1": true,
+      "phase:0:tasks:2": true,
+      "phase:0:tasks:3": true,
+      "phase:0:acceptance:0": true,
+      "phase:0:acceptance:1": true,
+      "phase:0:acceptance:2": true,
+      "phase:1:status": "done",
+      "phase:1:owner": "Claude",
+      "phase:1:start": "2026-05-16",
+      "phase:1:done": "2026-05-16",
+      "phase:1:deliverables:0": true,
+      "phase:1:deliverables:1": true,
+      "phase:1:deliverables:2": true,
+      "phase:1:tasks:0": true,
+      "phase:1:tasks:1": true,
+      "phase:1:tasks:2": true,
+      "phase:1:tasks:3": true,
+      "phase:1:acceptance:0": true,
+      "phase:1:acceptance:1": true,
+      "phase:1:acceptance:2": true,
+      "phase:2:status": "done",
+      "phase:2:owner": "Claude",
+      "phase:2:start": "2026-05-16",
+      "phase:2:done": "2026-05-16",
+      "phase:2:deliverables:0": true,
+      "phase:2:deliverables:1": true,
+      "phase:2:deliverables:2": true,
+      "phase:2:tasks:0": true,
+      "phase:2:tasks:1": true,
+      "phase:2:tasks:2": true,
+      "phase:2:tasks:3": true,
+      "phase:2:acceptance:0": true,
+      "phase:2:acceptance:1": true,
+      "phase:2:acceptance:2": true,
+      "phase:3:status": "done",
+      "phase:3:owner": "Claude",
+      "phase:3:start": "2026-05-16",
+      "phase:3:done": "2026-05-16",
+      "phase:3:deliverables:0": true,
+      "phase:3:deliverables:1": true,
+      "phase:3:deliverables:2": true,
+      "phase:3:tasks:0": true,
+      "phase:3:tasks:1": true,
+      "phase:3:tasks:2": true,
+      "phase:3:tasks:3": true,
+      "phase:3:acceptance:0": true,
+      "phase:3:acceptance:1": true,
+      "phase:3:acceptance:2": true,
+      "phase:4:status": "done",
+      "phase:4:owner": "Claude",
+      "phase:4:start": "2026-05-16",
+      "phase:4:done": "2026-05-16",
+      "phase:4:deliverables:0": true,
+      "phase:4:deliverables:1": true,
+      "phase:4:deliverables:2": true,
+      "phase:4:tasks:0": true,
+      "phase:4:tasks:1": true,
+      "phase:4:tasks:2": true,
+      "phase:4:tasks:3": true,
+      "phase:4:acceptance:0": true,
+      "phase:4:acceptance:1": true,
+      "phase:4:acceptance:2": true,
+      "phase:5:status": "done",
+      "phase:5:owner": "Claude",
+      "phase:5:start": "2026-05-16",
+      "phase:5:done": "2026-05-16",
+      "phase:5:deliverables:0": true,
+      "phase:5:deliverables:1": true,
+      "phase:5:tasks:0": true,
+      "phase:5:tasks:1": true,
+      "phase:5:tasks:2": true,
+      "phase:5:tasks:3": true,
+      "phase:5:acceptance:0": true,
+      "phase:5:acceptance:1": true,
+      "phase:5:acceptance:2": true,
+      "phase:6:status": "done",
+      "phase:6:owner": "Claude",
+      "phase:6:start": "2026-05-16",
+      "phase:6:done": "2026-05-17",
+      "phase:6:deliverables:0": true,
+      "phase:6:deliverables:1": true,
+      "phase:6:deliverables:2": true,
+      "phase:6:tasks:0": true,
+      "phase:6:tasks:1": true,
+      "phase:6:tasks:2": true,
+      "phase:6:tasks:3": true,
+      "phase:6:acceptance:0": true,
+      "phase:6:acceptance:1": true,
+      "phase:6:acceptance:2": true,
+      "phase:7:status": "done",
+      "phase:7:owner": "Claude",
+      "phase:7:start": "2026-05-16",
+      "phase:7:done": "2026-05-17",
+      "phase:7:deliverables:0": true,
+      "phase:7:deliverables:1": true,
+      "phase:7:deliverables:2": true,
+      "phase:7:tasks:0": true,
+      "phase:7:tasks:1": true,
+      "phase:7:tasks:2": true,
+      "phase:7:tasks:3": true,
+      "phase:7:acceptance:0": true,
+      "phase:7:acceptance:1": true,
+      "phase:7:acceptance:2": true,
+      "phase:8:status": "done",
+      "phase:8:owner": "Claude",
+      "phase:8:start": "2026-05-17",
+      "phase:8:done": "2026-05-17",
+      "phase:8:deliverables:0": true,
+      "phase:8:deliverables:1": true,
+      "phase:8:deliverables:2": true,
+      "phase:8:tasks:0": true,
+      "phase:8:tasks:1": true,
+      "phase:8:tasks:2": true,
+      "phase:8:tasks:3": true,
+      "phase:8:acceptance:0": true,
+      "phase:8:acceptance:1": true,
+      "phase:8:acceptance:2": true,
+      "phase:8:acceptance:3": true,
+      "phase:8:acceptance:4": true,
+    };
+
+    function load() {
+      try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch { state = {}; }
+      for (const [k, v] of Object.entries(defaultState)) {
+        if (!(k in state)) { state[k] = v; }
+      }
+    }
+
+    function save() {
+      state.savedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
+      updateMetrics();
+    }
+
+    function renderList(items, prefix) {
+      return `<ul class="checks">${items.map((item, idx) => {
+        const k = `${prefix}:${idx}`;
+        return `<li><label><input type="checkbox" data-key="${k}"> <span>${item}</span></label></li>`;
+      }).join("")}</ul>`;
+    }
+
+    function renderPhases() {
+      const root = document.getElementById("phases");
+      root.innerHTML = phases.map(p => `
+        <section id="phase-${p.id}" class="phase">
+          <div class="phase-head">
+            <div>
+              <h2>${p.title}</h2>
+              <p class="goal">${p.goal}</p>
+              <p><a class="guide-link" href="${p.guide}">Open phase guide: ${p.guide}</a></p>
+            </div>
+            <span class="status" id="status-${p.id}" data-status="${state[key("phase", p.id, "status")] || "todo"}">${state[key("phase", p.id, "status")] || "todo"}</span>
+          </div>
+          <div class="phase-meta">
+            <label class="field">Status
+              <select data-key="${key("phase", p.id, "status")}">
+                <option value="todo">todo</option>
+                <option value="doing">doing</option>
+                <option value="blocked">blocked</option>
+                <option value="done">done</option>
+              </select>
+            </label>
+            <label class="field">Owner
+              <input type="text" data-key="${key("phase", p.id, "owner")}" placeholder="name">
+            </label>
+            <label class="field">Start
+              <input type="date" data-key="${key("phase", p.id, "start")}">
+            </label>
+            <label class="field">Done
+              <input type="date" data-key="${key("phase", p.id, "done")}">
+            </label>
+          </div>
+          <div class="phase-body">
+            <div class="columns">
+              <div class="box"><h3>Deliverables</h3>${renderList(p.deliverables, key("phase", p.id, "deliverables"))}</div>
+              <div class="box"><h3>Tasks</h3>${renderList(p.tasks, key("phase", p.id, "tasks"))}</div>
+              <div class="box"><h3>Acceptance</h3>${renderList(p.acceptance, key("phase", p.id, "acceptance"))}</div>
+            </div>
+            <div class="wide">
+              <label class="field">Implementation Notes
+                <textarea data-key="${key("phase", p.id, "notes")}" placeholder="记录实现决策、风险、测试命令、审查结论"></textarea>
+              </label>
+              <label class="field">PM Review Result
+                <textarea data-key="${key("phase", p.id, "review")}" placeholder="由审查者填写：通过 / 需修复 / 阻塞原因"></textarea>
+              </label>
+            </div>
+          </div>
+        </section>
+      `).join("");
+    }
+
+    function bind() {
+      document.querySelectorAll("[data-key]").forEach(el => {
+        const k = el.dataset.key;
+        if (el.type === "checkbox") {
+          el.checked = Boolean(state[k]);
+          el.addEventListener("change", () => { state[k] = el.checked; save(); });
+        } else {
+          if (state[k] !== undefined) el.value = state[k];
+          el.addEventListener("input", () => {
+            state[k] = el.value;
+            if (k.endsWith(":status")) {
+              const id = k.split(":")[1];
+              const badge = document.getElementById(`status-${id}`);
+              if (badge) { badge.dataset.status = el.value; badge.textContent = el.value; }
+            }
+            save();
+          });
+        }
+      });
+      document.getElementById("saveNow").addEventListener("click", save);
+      document.getElementById("clearData").addEventListener("click", () => {
+        if (confirm("Clear local v5 IRS plan progress?")) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      });
+      document.getElementById("exportJson").addEventListener("click", () => {
+        save();
+        const blob = new Blob([JSON.stringify(state, null, 2)], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "v5_irs_execution_progress.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      document.getElementById("importJson").addEventListener("change", event => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            state = JSON.parse(reader.result);
+            save();
+            location.reload();
+          } catch (err) {
+            alert("Invalid JSON: " + err);
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    function updateMetrics() {
+      const donePhases = phases.filter(p => state[key("phase", p.id, "status")] === "done").length;
+      const phasePercent = Math.round((donePhases / phases.length) * 100);
+      const checks = Array.from(document.querySelectorAll('input[type="checkbox"][data-key]'));
+      const checked = checks.filter(c => c.checked).length;
+      const checkPercent = checks.length ? Math.round((checked / checks.length) * 100) : 0;
+      document.getElementById("phasePercent").textContent = `${phasePercent}%`;
+      document.getElementById("phaseBar").style.width = `${phasePercent}%`;
+      document.getElementById("phaseCounts").textContent = `${donePhases}/${phases.length}`;
+      document.getElementById("checkPercent").textContent = `${checkPercent}%`;
+      document.getElementById("checkBar").style.width = `${checkPercent}%`;
+      document.getElementById("checkCounts").textContent = `${checked}/${checks.length}`;
+      document.getElementById("lastSaved").textContent = state.savedAt ? new Date(state.savedAt).toLocaleString() : "未保存";
+    }
+
+    load();
+    renderPhases();
+    bind();
+    updateMetrics();
+  </script>
+</body>
+</html>

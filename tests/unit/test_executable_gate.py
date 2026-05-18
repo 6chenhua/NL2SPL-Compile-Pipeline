@@ -367,12 +367,139 @@ class TestGateFiltering:
             f"got {[d.target_ref for d in post_gate_mh]}"
         )
 
+    def test_pseudo_handler_no_duplicate_post_gate_missing_handler(self) -> None:
+        """Pseudo-handler (marked by Stage 9.5 metadata) does NOT cause
+        gate to emit duplicate missing_handler."""
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_1",
+                    condition_text="If required slots remain missing.",
+                    blocks=[],
+                )
+            ],
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
+                # Pseudo-handler: Stage 9.5 would have marked this
+                StepIR(
+                    "st_pseudo",
+                    "Check if required slots remain missing",
+                    ["s18"],
+                    "GENERAL_COMMAND",
+                    flow_ref="exc_1",
+                    metadata={"pseudo_exception_handler": "true"},
+                ),
+            ],
+        )
+        # Gate runs after Stage 9.5 -- pseudo-handler is in worker.steps
+        # but marked with metadata.
+        filtered, infos, diags = gate.apply(worker)
+
+        # The pseudo-handler should still be in pre-gate steps BUT
+        # excluded from pre_gate_handler_flows. So no post-gate
+        # missing_handler for exc_1.
+        post_gate_mh = [d for d in diags if d.kind == "missing_handler"]
+        exc_1_mh = [d for d in post_gate_mh if "exc_1" in (d.target_ref or "")]
+        assert len(exc_1_mh) == 0, (
+            f"Pseudo-handler should NOT cause post-gate missing_handler, "
+            f"got {[d.target_ref for d in exc_1_mh]}"
+        )
+
         # Exception flow is still present (skeleton preserved)
         assert len(filtered.exception_flows) == 1
 
+    def test_child_worker_pseudo_handler_no_duplicate_gate_mh(self) -> None:
+        """Child worker pseudo-handler does NOT trigger gate missing_handler."""
+        gate = ExecutableElementGate()
+        child = WorkerIR(
+            worker_name="ChildWorker",
+            description="Child",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_child",
+                    condition_text="If provenance fails.",
+                    blocks=[],
+                )
+            ],
+            steps=[
+                StepIR(
+                    "st_child_pseudo",
+                    "Ensure provenance is tracked",
+                    ["s15"],
+                    "GENERAL_COMMAND",
+                    flow_ref="exc_child",
+                    metadata={"pseudo_exception_handler": "true"},
+                ),
+            ],
+        )
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
+            child_workers=[child],
+        )
+        filtered, infos, diags = gate.apply(worker)
+
+        # No gate missing_handler for child exc_child (pseudo-handler excluded)
+        gate_mh = [d for d in diags if d.kind == "missing_handler"]
+        child_mh = [d for d in gate_mh if "exc_child" in (d.target_ref or "")]
+        assert len(child_mh) == 0, (
+            f"Child pseudo-handler should NOT cause gate mh, "
+            f"got {[d.target_ref for d in child_mh]}"
+        )
+
+    def test_child_worker_real_handler_filtered_gate_reports_mh(self) -> None:
+        """Child worker REAL handler (assumed, no source) filtered by gate
+        -> gate emits missing_handler."""
+        gate = ExecutableElementGate()
+        child = WorkerIR(
+            worker_name="ChildWorker",
+            description="Child",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_child",
+                    condition_text="If provenance fails.",
+                    blocks=[],
+                )
+            ],
+            steps=[
+                StepIR(
+                    "st_child_handler",
+                    "Handle provenance failure",
+                    [],  # no source spans -> gate blocks
+                    "GENERAL_COMMAND",
+                    flow_ref="exc_child",
+                ),
+            ],
+        )
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
+            child_workers=[child],
+        )
+        filtered, infos, diags = gate.apply(worker)
+
+        # Assumed handler without source spans -> gate filters it
+        # exc_child should get post-gate missing_handler
+        gate_mh = [d for d in diags if d.kind == "missing_handler"]
+        child_mh = [d for d in gate_mh if "exc_child" in (d.target_ref or "")]
+        assert len(child_mh) >= 1, (
+            f"Real child handler filtered -> gate should report mh, "
+            f"got {[d.target_ref for d in gate_mh]}"
+        )
+
     def test_incomplete_delegation_gate_no_executable_invoke(self) -> None:
         """Incomplete INVOKE_WORKER (no source, no target) is filtered out
-        by the gate — SPL must not contain an executable INVOKE."""
+        by the gate -- SPL must not contain an executable INVOKE."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="MainWorker",
@@ -412,7 +539,7 @@ class TestGateFiltering:
 
 class TestClassifyOriginPriority:
     def test_handoff_before_source_spans(self) -> None:
-        """A step with BOTH source_spans and handoff_id → handoff_generated.
+        """A step with BOTH source_spans and handoff_id -> handoff_generated.
         The handoff must be validated, not silently bypassed."""
         gate = ExecutableElementGate()
         step = StepIR(
@@ -441,7 +568,7 @@ class TestCommandTypeGuards:
 
     def test_invoke_worker_without_handoff_blocked(self) -> None:
         """INVOKE_WORKER must be handoff-backed. Source-backed without handoff
-        → blocked because no delegation contract exists."""
+        -> blocked because no delegation contract exists."""
         gate = ExecutableElementGate()
         step = StepIR("st1", "Invoke something", ["s1"], "INVOKE_WORKER")
         # Classified as source_backed (no handoff_id), but _source_backed_renderable
@@ -459,7 +586,7 @@ class TestCommandTypeGuards:
         assert "integration_ref" in (reason or "").lower()
 
     def test_source_backed_call_api_with_integration_ref_is_renderable(self) -> None:
-        """CALL_API with integration_ref + source spans → renderable."""
+        """CALL_API with integration_ref + source spans -> renderable."""
         gate = ExecutableElementGate()
         step = StepIR(
             "st1", "Call search API", ["s1"], "CALL_API",
@@ -469,14 +596,14 @@ class TestCommandTypeGuards:
         assert ok is True
 
     def test_source_backed_request_input_is_renderable(self) -> None:
-        """REQUEST_INPUT with source_span_ids → renderable (source says ask user)."""
+        """REQUEST_INPUT with source_span_ids -> renderable (source says ask user)."""
         gate = ExecutableElementGate()
         step = StepIR("st1", "Ask user for input", ["s1"], "REQUEST_INPUT")
         ok, reason = gate.is_renderable(step, "source_backed", {}, set(), {})
         assert ok is True
 
     def test_source_backed_general_command_is_renderable(self) -> None:
-        """GENERAL_COMMAND with source_span_ids → renderable."""
+        """GENERAL_COMMAND with source_span_ids -> renderable."""
         gate = ExecutableElementGate()
         step = StepIR("st1", "Do normal work", ["s1"], "GENERAL_COMMAND")
         ok, reason = gate.is_renderable(step, "source_backed", {}, set(), {})
@@ -490,7 +617,7 @@ class TestCommandTypeGuards:
 class TestGateApplyWithGuards:
     def test_source_backed_invoke_without_handoff_blocked_in_apply(self) -> None:
         """Full apply() integration: source-backed INVOKE_WORKER without
-        handoff → filtered out + diagnostic."""
+        handoff -> filtered out + diagnostic."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="MainWorker",
@@ -512,7 +639,7 @@ class TestGateApplyWithGuards:
         assert any("st_invoke" in d.target_ref for d in diags)
 
     def test_source_backed_call_api_without_ref_blocked_in_apply(self) -> None:
-        """Source-backed CALL_API without integration_ref → blocked."""
+        """Source-backed CALL_API without integration_ref -> blocked."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="MainWorker",
@@ -528,7 +655,7 @@ class TestGateApplyWithGuards:
         assert any("st_api" in d.target_ref for d in diags)
 
     def test_source_backed_call_api_with_ref_passes(self) -> None:
-        """Source-backed CALL_API with integration_ref → passes gate."""
+        """Source-backed CALL_API with integration_ref -> passes gate."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="MainWorker",
@@ -546,7 +673,7 @@ class TestGateApplyWithGuards:
         assert len(diags) == 0
 
     def test_source_backed_request_input_passes(self) -> None:
-        """Source-backed REQUEST_INPUT → passes through."""
+        """Source-backed REQUEST_INPUT -> passes through."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="MainWorker",
@@ -578,7 +705,7 @@ class TestGateApplyWithGuards:
         # Only the source-backed GENERAL_COMMAND passes
         assert len(filtered.steps) == 1
         assert filtered.steps[0].step_id == "st1"
-        # No steps were downgraded — they were simply removed
+        # No steps were downgraded -- they were simply removed
         command_types = {s.command_type for s in filtered.steps}
         assert command_types == {"GENERAL_COMMAND"}
         # Both blocked steps have diagnostics

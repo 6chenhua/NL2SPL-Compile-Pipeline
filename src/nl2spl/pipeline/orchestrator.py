@@ -8,6 +8,12 @@ from typing import Any
 
 from nl2spl.adapters import InputAdapterRegistry
 from nl2spl.canonical import CanonicalCompileInput, CanonicalCompileInputValidator
+from nl2spl.compiler.analyzers.semantic_conflict import (
+    ConflictAnalysisContext,
+    LLMConflictDiagnosticVerifier,
+    LLMSemanticConflictAnalyzer,
+    NoOpSemanticConflictAnalyzer,
+)
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
@@ -30,20 +36,33 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerStepPlanIR,
 )
 from nl2spl.llm.client import LLMClient
+from nl2spl.pipeline.executable_gate import ExecutableElementGate
+from nl2spl.pipeline.fact_bridges import (
+    bridge_delegation_intents,
+    bridge_failure_modes,
+    bridge_failure_modes_worker_scoped,
+)
+from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
 from nl2spl.pipeline.stages.stage3_ambiguity_resolver import AmbiguityResolver
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
+from nl2spl.pipeline.stages.stage4_flow_assembler.irs_checker import (
+    check_exception_flows_irs,
+    check_worker_flow_plan_exception_flows_irs,
+)
 from nl2spl.pipeline.stages.stage5_block_assembler import BlockAssembler
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
+from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
+    check_steps_irs,
+    check_worker_step_plan_irs,
+)
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
-from nl2spl.pipeline.executable_gate import ExecutableElementGate
-from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
@@ -87,6 +106,30 @@ class PipelineResult:
         return self.compile_diagnostics
 
 
+def _missing_slot_name(diagnostic: Any) -> str | None:
+    """Extract the missing slot name from a diagnostic, if present."""
+    missing_slot = getattr(diagnostic, "missing_slot", None)
+    if missing_slot is not None:
+        return getattr(missing_slot, "slot_name", None)
+    metadata = getattr(diagnostic, "metadata", None)
+    if isinstance(metadata, dict):
+        return metadata.get("missing_slot")
+    return None
+
+
+DiagnosticDedupKey = tuple[Any, Any, tuple[Any, ...], str | None]
+
+
+def _dedup_key(diagnostic: Any) -> DiagnosticDedupKey:
+    """Deterministic dedup key: (kind, target_ref, sorted source_span_ids, missing_slot_name)."""
+    return (
+        getattr(diagnostic, "kind", ""),
+        getattr(diagnostic, "target_ref", None),
+        tuple(sorted(getattr(diagnostic, "source_span_ids", []) or [])),
+        _missing_slot_name(diagnostic),
+    )
+
+
 class PipelineOrchestrator:
     """Orchestrates the NL2SPL pipeline.
 
@@ -121,7 +164,10 @@ class PipelineOrchestrator:
         intermediate: dict[str, Any] = {}
         worker_stage_warnings: list[str] = []
 
-        adapter_registry = InputAdapterRegistry()
+        adapter_registry = InputAdapterRegistry(
+            llm_client=self.client,
+            adapter_llm_engine=self.config.adapter_llm_engine,
+        )
         canonical_input = adapter_registry.adapt(raw_text)
         contract_errors = CanonicalCompileInputValidator.validate(canonical_input)
         if contract_errors:
@@ -206,6 +252,40 @@ class PipelineOrchestrator:
             flow_structure = self._run_stage4(resolved_spans, resolved_routes)
         intermediate["stage4_flow"] = flow_structure
 
+        # FailureModeFact bridge: create partial ExceptionFlow skeletons
+        # from adapter hard facts before Stage 5 block assembly runs.
+        # Only applies when the adapter produced failure modes that
+        # Stage 4 did not already convert to exception flows.
+        if canonical_input.hard_facts.failure_modes:
+            if worker_flow_plan is not None and worker_plan is not None:
+                worker_flow_plan = bridge_failure_modes_worker_scoped(
+                    canonical_input.hard_facts.failure_modes,
+                    resolved_spans,
+                    worker_flow_plan,
+                    worker_plan,
+                )
+                intermediate["stage4_worker_flows"] = worker_flow_plan
+            else:
+                flow_structure = bridge_failure_modes(
+                    canonical_input.hard_facts.failure_modes,
+                    resolved_spans,
+                    flow_structure,
+                )
+                intermediate["stage4_flow"] = flow_structure
+
+        # Stage 4 IRS check: exception flow slot satisfaction (Phase 3).
+        if self.config.enable_irs_stage4_exception_flow_check:
+            intermediate.setdefault("construct_satisfaction", {})
+            intermediate.setdefault("stage_local_diagnostics", {})
+            if worker_flow_plan is not None:
+                reports, diags = check_worker_flow_plan_exception_flows_irs(
+                    worker_flow_plan,
+                )
+            else:
+                reports, diags = check_exception_flows_irs(flow_structure)
+            intermediate["construct_satisfaction"]["stage4"] = reports
+            intermediate["stage_local_diagnostics"]["stage4"] = diags
+
         # Stage 5: Block Assembly
         self.logger.info("Stage 5: Block Assembly")
         worker_block_plan: WorkerBlockPlanIR | None = None
@@ -239,7 +319,7 @@ class PipelineOrchestrator:
             and worker_plan is not None
         ):
             # Worker-aware path
-            worker_scoped_resources, symbol_table = self._run_stage6_worker_scoped(
+            worker_scoped_resources, symbol_table, filter_warns = self._run_stage6_worker_scoped(
                 resolved_spans,
                 resolved_routes,
                 worker_flow_plan,
@@ -249,15 +329,17 @@ class PipelineOrchestrator:
             )
             resources = worker_scoped_resources.global_resources
             intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
+            adapter_warnings.extend(filter_warns)
         else:
             # Legacy path
-            resources, symbol_table = self._run_stage6(
+            resources, symbol_table, filter_warns = self._run_stage6(
                 resolved_spans,
                 resolved_routes,
                 flow_structure,
                 block_structure,
                 canonical_input,
             )
+            adapter_warnings.extend(filter_warns)
         intermediate["stage6_resources"] = resources
 
         # Stage 7: Step Extraction
@@ -291,6 +373,17 @@ class PipelineOrchestrator:
                 worker_plan,
             )
         intermediate["stage7_steps"] = steps
+
+        # Stage 7 IRS check: step-level slot satisfaction (Phase 4).
+        if self.config.enable_irs_stage7_step_check:
+            intermediate.setdefault("construct_satisfaction", {})
+            intermediate.setdefault("stage_local_diagnostics", {})
+            if worker_step_plan is not None:
+                reports, diags = check_worker_step_plan_irs(worker_step_plan)
+            else:
+                reports, diags = check_steps_irs(steps)
+            intermediate["construct_satisfaction"]["stage7"] = reports
+            intermediate["stage_local_diagnostics"]["stage7"] = diags
 
         # Stage 8: Profile Extraction
         self.logger.info("Stage 8: Profile Extraction")
@@ -470,6 +563,9 @@ class PipelineOrchestrator:
             list(canonical_input.hard_facts.inputs)
             + list(canonical_input.hard_facts.outputs)
         )
+        prov_delegation_intents = list(
+            canonical_input.hard_facts.delegation_intents
+        )
 
         aggregator = ProvenanceAggregator()
         traces, provenance_diags = aggregator.aggregate(
@@ -486,12 +582,51 @@ class PipelineOrchestrator:
             declared_apis=prov_declared_apis,
             worker_owned_spans=prov_worker_owned_spans,
             variable_facts=prov_variable_facts,
+            delegation_intents=prov_delegation_intents,
         )
+
+        # Delegation intent diagnostics: emit type_or_contract_ambiguity
+        # for intents without a valid handoff contract.
+        delegation_diags = bridge_delegation_intents(
+            list(canonical_input.hard_facts.delegation_intents),
+            worker_plan.handoffs if worker_plan else None,
+            resolved_spans,
+            known_child_worker_ids=prov_child_ids,
+            declared_apis=prov_declared_apis,
+        )
+
+        # Semantic conflict analysis (Phase 6) -- before consolidation.
+        conflict_context = ConflictAnalysisContext(
+            spans=resolved_spans,
+            canonical_input=canonical_input,
+            worker_plan=worker_plan,
+        )
+        conflict_analyzer = self._make_semantic_conflict_analyzer()
+        raw_conflict_diags = conflict_analyzer.analyze(
+            constraints=constraints,
+            steps=steps,
+            flows=(
+                worker_flow_plan
+                if worker_flow_plan is not None
+                else flow_structure
+            ),
+            symbols=symbol_table,
+            context=conflict_context,
+        )
+        verifier = LLMConflictDiagnosticVerifier()
+        conflict_diags, conflict_warnings = verifier.verify(raw_conflict_diags)
+        adapter_warnings.extend(conflict_warnings)
 
         # Assemble final diagnostics and compute result fields
         all_diagnostics = (
-            stage7_diags + compile_diagnostics + gate_diags + provenance_diags
+            stage7_diags + compile_diagnostics + conflict_diags + gate_diags
+            + provenance_diags + delegation_diags
         )
+        if self.config.enable_irs_diagnostic_consolidation:
+            all_diagnostics = self._consolidate_compile_diagnostics(
+                all_diagnostics,
+                intermediate,
+            )
         completeness = compute_completeness(
             validation_errors=errors,
             diagnostics=all_diagnostics,
@@ -589,12 +724,15 @@ class PipelineOrchestrator:
         flow: FlowStructureIR,
         blocks: BlockStructureIR,
         canonical_input: CanonicalCompileInput | None = None,
-    ) -> tuple[ResourceRegistryIR, SymbolTable]:
+    ) -> tuple[ResourceRegistryIR, SymbolTable, list[str]]:
         """Stage 6: Resource Extraction."""
         stage = ResourceExtractor(self.config, self.client)
         if canonical_input is not None:
-            return stage.execute((spans, routes, flow, blocks, canonical_input))
-        return stage.execute((spans, routes, flow, blocks))
+            resources, symbols = stage.execute((spans, routes, flow, blocks, canonical_input))
+        else:
+            resources, symbols = stage.execute((spans, routes, flow, blocks))
+        filter_warnings = getattr(stage, "resource_filter_warnings", [])
+        return resources, symbols, list(filter_warnings)
 
     def _run_stage6_worker_scoped(
         self,
@@ -604,12 +742,14 @@ class PipelineOrchestrator:
         worker_block_plan: WorkerBlockPlanIR,
         worker_plan: WorkerPlanIR,
         canonical_input: CanonicalCompileInput | None = None,
-    ) -> tuple[WorkerScopedResourceIR, SymbolTable]:
+    ) -> tuple[WorkerScopedResourceIR, SymbolTable, list[str]]:
         """Stage 6: Worker-scoped Resource Extraction."""
         stage = ResourceExtractor(self.config, self.client)
-        return stage.execute_worker_scoped(
+        worker_scoped_resources, symbols = stage.execute_worker_scoped(
             spans, routes, worker_flow_plan, worker_block_plan, worker_plan, canonical_input
         )
+        filter_warnings = getattr(stage, "resource_filter_warnings", [])
+        return worker_scoped_resources, symbols, list(filter_warnings)
 
     def _run_stage7(
         self,
@@ -768,6 +908,47 @@ class PipelineOrchestrator:
             worker_flow_plan,
             worker_block_plan,
         )
+
+    def _make_semantic_conflict_analyzer(
+        self,
+    ) -> NoOpSemanticConflictAnalyzer | LLMSemanticConflictAnalyzer:
+        """Return the active semantic conflict analyzer (Phase 6)."""
+        if self.config.enable_llm_conflict_analyzer:
+            return LLMSemanticConflictAnalyzer(call_json=self.client.call_json)
+        return NoOpSemanticConflictAnalyzer()
+
+    def _consolidate_compile_diagnostics(
+        self,
+        existing: list[Any],
+        intermediate: dict[str, Any],
+    ) -> list[Any]:
+        """Merge stage-local IRS diagnostics into *existing* diagnostics.
+
+        Existing diagnostics take priority.  Stage-local diagnostics with
+        the same ``(kind, target_ref, sorted source_span_ids)`` key are
+        skipped as duplicates.
+        """
+        stage_local: dict[str, list[Any]] = intermediate.get(
+            "stage_local_diagnostics", {}
+        )
+        if not stage_local:
+            return list(existing)
+
+        seen: set[DiagnosticDedupKey] = set()
+        for diag in existing:
+            seen.add(_dedup_key(diag))
+
+        consolidated = list(existing)
+        for _stage_name, diags in stage_local.items():
+            if not isinstance(diags, list):
+                continue
+            for diag in diags:
+                key = _dedup_key(diag)
+                if key not in seen:
+                    seen.add(key)
+                    consolidated.append(diag)
+
+        return consolidated
 
     def _run_stage11(
         self,

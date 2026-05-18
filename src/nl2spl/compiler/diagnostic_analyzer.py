@@ -129,7 +129,7 @@ class DiagnosticAnalyzer:
         if worker is None:
             return diags
 
-        for idx, exc in enumerate(worker.exception_flows):
+        for _idx, exc in enumerate(worker.exception_flows):
             if not exc.condition_text:
                 continue  # compiler-fabricated, not demanded by source
 

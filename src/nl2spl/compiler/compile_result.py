@@ -20,6 +20,7 @@ DiagnosticKind = Literal[
     "assumed_command_not_renderable",
     "unmapped_behavior_span",
     "missing_provenance",
+    "semantic_conflict",
 ]
 
 Severity = Literal["info", "warning", "error"]
