@@ -55,6 +55,7 @@ def _make_orchestrator(
             enable_irs_stage4_exception_flow_check=stage4_check,
             enable_irs_stage7_step_check=stage7_check,
             enable_irs_diagnostic_consolidation=consolidation_enabled,
+            enable_irs_post_normalize_check=False,
         )
     )
 
@@ -318,6 +319,7 @@ class TestConsolidationE2E:
             enable_irs_stage4_exception_flow_check=True,
             enable_irs_stage7_step_check=True,
             enable_irs_diagnostic_consolidation=flag,
+            enable_irs_post_normalize_check=False,
         )
 
     def _run(self, tmp_path: Path, flag: bool, flow_plan, step_plan):
@@ -387,7 +389,7 @@ class TestConsolidationE2E:
             patch.object(
                 orch,
                 "_run_normalization_worker_scoped",
-                return_value=(flow_plan, block_plan, step_plan, symbols, [], [], []),
+                return_value=(flow_plan, block_plan, step_plan, symbols, [], []),
             ),
             patch.object(orch, "_run_stage10_worker_scoped", return_value=worker_mock),
             patch.object(orch, "_run_stage11", return_value=("SPL", [], [])),

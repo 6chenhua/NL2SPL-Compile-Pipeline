@@ -326,7 +326,7 @@ def test_full_pipeline_worker_aware_enterprise_procedure(tmp_path: Path) -> None
         patch.object(orchestrator, "_run_stage5", return_value=block_plan),
         patch.object(
             orchestrator, "_run_stage6_worker_scoped",
-            return_value=(worker_scoped_resources, symbols),
+            return_value=(worker_scoped_resources, symbols, []),
         ),
         patch.object(
             orchestrator, "_run_stage7_worker_scoped",
@@ -336,7 +336,7 @@ def test_full_pipeline_worker_aware_enterprise_procedure(tmp_path: Path) -> None
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
             orchestrator, "_run_normalization_worker_scoped",
-            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], [], []),
+            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], []),
         ),
         patch.object(orchestrator, "_run_stage11", return_value=("", [], [])),
     ):
@@ -446,7 +446,7 @@ def test_full_pipeline_worker_aware_renders_child_workers(tmp_path: Path) -> Non
         patch.object(orchestrator, "_run_stage5", return_value=block_plan),
         patch.object(
             orchestrator, "_run_stage6_worker_scoped",
-            return_value=(worker_scoped_resources, symbols),
+            return_value=(worker_scoped_resources, symbols, []),
         ),
         patch.object(
             orchestrator, "_run_stage7_worker_scoped",
@@ -456,7 +456,7 @@ def test_full_pipeline_worker_aware_renders_child_workers(tmp_path: Path) -> Non
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
             orchestrator, "_run_normalization_worker_scoped",
-            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], [], []),
+            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], []),
         ),
     ):
         result = orchestrator.run("Test enterprise procurement procedure.")
@@ -502,13 +502,13 @@ def test_full_pipeline_legacy_path_unchanged(tmp_path: Path) -> None:
         patch.object(orchestrator, "_run_stage3", return_value=(spans, routes)),
         patch.object(orchestrator, "_run_stage4", return_value=flow_structure),
         patch.object(orchestrator, "_run_stage5", return_value=block_structure),
-        patch.object(orchestrator, "_run_stage6", return_value=(resources, symbols)),
+        patch.object(orchestrator, "_run_stage6", return_value=(resources, symbols, [])),
         patch.object(orchestrator, "_run_stage7", return_value=([], symbols, [])),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
             orchestrator, "_run_normalization",
-            return_value=(flow_structure, block_structure, [], [], symbols, [], [], []),
+            return_value=(flow_structure, block_structure, [], [], symbols, [], []),
         ),
         patch.object(orchestrator, "_run_stage11", return_value=("LEGACY_SPL", [], [])),
     ):
@@ -552,7 +552,7 @@ def test_worker_aware_path_stores_all_intermediate_results(tmp_path: Path) -> No
         patch.object(orchestrator, "_run_stage5", return_value=block_plan),
         patch.object(
             orchestrator, "_run_stage6_worker_scoped",
-            return_value=(worker_scoped_resources, symbols),
+            return_value=(worker_scoped_resources, symbols, []),
         ),
         patch.object(
             orchestrator, "_run_stage7_worker_scoped",
@@ -562,7 +562,7 @@ def test_worker_aware_path_stores_all_intermediate_results(tmp_path: Path) -> No
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
             orchestrator, "_run_normalization_worker_scoped",
-            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], [], []),
+            return_value=(flow_plan, block_plan, worker_step_plan, symbols, [], []),
         ),
         patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])),

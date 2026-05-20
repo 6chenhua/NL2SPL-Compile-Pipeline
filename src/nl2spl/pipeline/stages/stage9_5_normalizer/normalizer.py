@@ -6,7 +6,6 @@ import re
 
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
-from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, TypeSpec, VariableSpec
 from nl2spl.ir.step_ir import StepIR
@@ -75,8 +74,9 @@ class IRNormalizer(
         """
         errors: list[str] = []
         warnings: list[str] = []
-        self.diagnostics: list[CompileDiagnostic] = []
+        self.construct_findings: dict[str, list[dict]] = {}
         self._step_replacements: dict[str, str] = {}
+        self._pruned_variable_names: set[str] = set()
 
         # 1. Move ordinary conditional work out of exception flows.
         flow, blocks, moved_warnings = self._normalize_flow_classification(flow, blocks)

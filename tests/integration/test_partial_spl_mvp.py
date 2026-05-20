@@ -58,6 +58,15 @@ def _run_post_compile(
     assembler = WorkerAssembler()
     worker = assembler.assemble(n_flow, n_blocks, n_steps, resources, n_symbols, None)
 
+    # Post-normalize IRS check
+    from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
+        PostNormalizeIRSChecker,
+    )
+    post_norm_checker = PostNormalizeIRSChecker()
+    post_norm_diags = post_norm_checker.check(
+        worker=worker, resources=resources, symbol_table=n_symbols,
+    )
+
     # Gate
     gate = ExecutableElementGate()
     worker, render_info, gate_diags = gate.apply(worker)
@@ -81,7 +90,7 @@ def _run_post_compile(
     )
 
     # Post-compile analysis
-    all_diags = list(normalizer.diagnostics) + gate_diags + provenance_diags
+    all_diags = list(post_norm_diags) + gate_diags + provenance_diags
     analyzer = DiagnosticAnalyzer()
     analyzer_diags = analyzer.analyze(AnalyzeInput(
         worker=worker, resources=resources, symbol_table=n_symbols,
@@ -430,6 +439,15 @@ def test_incomplete_delegation() -> None:
         handoffs=[],
     )
 
+    # Post-normalize IRS check runs before gate.
+    from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
+        PostNormalizeIRSChecker,
+    )
+    post_norm_checker = PostNormalizeIRSChecker()
+    post_norm_diags = post_norm_checker.check(
+        worker=worker, worker_plan=worker_plan,
+    )
+
     # Gate blocks the INVOKE_WORKER: no handoff_id, classified as
     # source_backed but INVOKE_WORKER without handoff is blocked.
     gate = ExecutableElementGate()
@@ -450,7 +468,7 @@ def test_incomplete_delegation() -> None:
         resources=ResourceRegistryIR(), symbol_table=SymbolTable(), spans=[],
     )
 
-    all_diags = gate_diags + provenance_diags
+    all_diags = post_norm_diags + gate_diags + provenance_diags
     analyzer = DiagnosticAnalyzer()
     analyzer_diags = analyzer.analyze(AnalyzeInput(
         worker=worker, steps=prov_steps,

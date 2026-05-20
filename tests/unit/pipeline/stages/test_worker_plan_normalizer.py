@@ -548,13 +548,10 @@ def test_worker_scoped_adds_required_main_output_producers() -> None:
     assert len(main_steps) == 1
     assert main_steps[0].step_id == "st1"
 
-    # Diagnostic is emitted instead
-    missing_diags = [
-        d for d in normalizer.diagnostics
-        if d.kind == "missing_output_producer"
-    ]
-    assert len(missing_diags) == 1
-    assert missing_diags[0].target_ref == "worker:worker_main.output:required_output"
-    assert "in worker 'worker_main'" in missing_diags[0].message
-    assert missing_diags[0].blocks_rendering is False
-    assert missing_diags[0].blocks_completion is True
+    # Structured finding is recorded instead of CompileDiagnostic
+    # (final diagnostics are produced by PostNormalizeIRSChecker)
+    findings = getattr(normalizer, "construct_findings", {})
+    mop_findings = findings.get("missing_output_producer", [])
+    assert len(mop_findings) == 1
+    assert mop_findings[0]["output"] == "required_output"
+    assert mop_findings[0]["worker_id"] == "worker_main"

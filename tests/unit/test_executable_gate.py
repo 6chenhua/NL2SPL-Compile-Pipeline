@@ -242,7 +242,8 @@ class TestGateFiltering:
         assert len(blocked) == 1
         assert blocked[0].step_id == "st_synth"
         assert blocked[0].origin == "assumed"
-        assert any("st_synth" in d.target_ref for d in diags)
+        # Gate no longer emits diagnostics for blocked steps; that is
+        # PostNormalizeIRSChecker's responsibility.
 
     def test_compiler_unpack_passes_through(self) -> None:
         gate = ExecutableElementGate()
@@ -355,9 +356,9 @@ class TestGateFiltering:
         blocked = [i for i in infos if not i.renderable]
         assert any(i.step_id == "st_fail" and i.origin == "assumed" for i in blocked)
 
-        # Gate diagnostic for the blocked step
-        block_diags = [d for d in diags if d.kind == "assumed_command_not_renderable"]
-        assert any("st_fail" in d.target_ref for d in block_diags)
+        # Gate no longer emits assumed_command_not_renderable;
+        # that is PostNormalizeIRSChecker's responsibility.
+        # The step is filtered from worker.steps and recorded in render_info.
 
         # Post-gate missing_handler is emitted because the assumed handler
         # was filtered out, leaving exc_1 with no renderable handler step
@@ -528,9 +529,9 @@ class TestGateFiltering:
             for i in blocked
         ), f"Expected st_delegate blocked as assumed, got {[(i.step_id, i.origin) for i in blocked]}"
 
-        # Gate diagnostic
-        block_diags = [d for d in diags if d.kind == "assumed_command_not_renderable"]
-        assert any("st_delegate" in d.target_ref for d in block_diags)
+        # Gate no longer emits assumed_command_not_renderable;
+        # that is PostNormalizeIRSChecker's responsibility.
+        # The step is filtered from worker.steps and recorded in render_info.
 
 
 # ---------------------------------------------------------------------------
@@ -636,7 +637,7 @@ class TestGateApplyWithGuards:
             i.step_id == "st_invoke" and i.origin == "source_backed"
             for i in blocked
         ), f"st_invoke should be source_backed but blocked, got {[(i.step_id, i.origin, i.renderable) for i in blocked]}"
-        assert any("st_invoke" in d.target_ref for d in diags)
+        # Step is filtered and in render_info; diagnostics come from PostNormalizeIRSChecker
 
     def test_source_backed_call_api_without_ref_blocked_in_apply(self) -> None:
         """Source-backed CALL_API without integration_ref -> blocked."""
@@ -652,7 +653,9 @@ class TestGateApplyWithGuards:
         )
         filtered, infos, diags = gate.apply(worker)
         assert len(filtered.steps) == 1
-        assert any("st_api" in d.target_ref for d in diags)
+        # Step is filtered; diagnostics come from PostNormalizeIRSChecker
+        blocked = [i for i in infos if not i.renderable]
+        assert any(i.step_id == "st_api" for i in blocked)
 
     def test_source_backed_call_api_with_ref_passes(self) -> None:
         """Source-backed CALL_API with integration_ref -> passes gate."""

@@ -398,28 +398,9 @@ class ExecutableElementGate:
                 renderable_infos.append(info)
             else:
                 blocked_infos.append(info)
-                diag_id = f"diag_gate_{diag_counter[0]:04d}"
-                diag_counter[0] += 1
-                diags.append(
-                    CompileDiagnostic(
-                        diagnostic_id=diag_id,
-                        kind="assumed_command_not_renderable",
-                        severity="warning",
-                        message=(
-                            f"Step '{step.step_id}' ({origin}, "
-                            f"{step.command_type}) blocked from rendering: "
-                            f"{reason}"
-                        ),
-                        target_ref=f"step:{step.step_id}",
-                        source_span_ids=list(step.source_span_ids),
-                        suggested_resolution=(
-                            "Provide source evidence for this step, or "
-                            "remove it from the workflow."
-                        ),
-                        blocks_rendering=True,
-                        blocks_completion=True,
-                    )
-                )
+                # Diagnostic emission for blocked steps is now the
+                # responsibility of PostNormalizeIRSChecker.
+                # Gate only emits post-gate missing_handler.
 
         return renderable_infos, blocked_infos, diags
 

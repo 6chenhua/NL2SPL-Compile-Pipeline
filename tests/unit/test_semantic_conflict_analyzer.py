@@ -461,7 +461,7 @@ class TestFlagIntegration:
             patch.object(orch, "_run_stage8", return_value=MagicMock()),
             patch.object(orch, "_run_stage9", return_value=[]),
             patch.object(orch, "_run_normalization_worker_scoped",
-                         return_value=(flow_plan, block_plan, step_plan, symbols, [], [], [])),
+                         return_value=(flow_plan, block_plan, step_plan, symbols, [], [])),
             patch.object(orch, "_run_stage10_worker_scoped", return_value=worker_mock),
             patch.object(orch, "_run_stage11", return_value=("SPL", [], [])),
         ]

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from nl2spl.compiler.producer_index import ProducerIndex
-from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
@@ -46,7 +45,7 @@ class WorkerScopedMixin:
         """
         errors: list[str] = []
         warnings: list[str] = []
-        self.diagnostics: list[CompileDiagnostic] = []
+        self.construct_findings: dict[str, list[dict]] = {}
 
         # 1. 验证 span ownership（D5: error）
         span_errors = self._validate_span_ownership(worker_step_plan, worker_plan)
@@ -434,13 +433,14 @@ class WorkerScopedMixin:
                 if index.is_produced(output):
                     continue
 
-                self.diagnostics.append(
-                    self._build_missing_output_producer_diagnostic(
-                        output=output,
-                        symbol_table=symbol_table,
-                        worker_id=worker_spec.worker_id,
-                    )
-                )
+                variable = symbol_table.variables.get(output)
+                self.construct_findings.setdefault(
+                    "missing_output_producer", []
+                ).append({
+                    "output": output,
+                    "description": variable.description if variable else output,
+                    "worker_id": worker_spec.worker_id,
+                })
 
         return warnings
 

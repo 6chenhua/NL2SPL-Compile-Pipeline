@@ -153,7 +153,7 @@ def test_orchestrator_records_adapter_intermediate_results(
     setattr(
         orchestrator,
         "_run_stage6",
-        MagicMock(return_value=(MagicMock(variables=[]), MagicMock())),
+        MagicMock(return_value=(MagicMock(variables=[]), MagicMock(), [])),
     )
     setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
     setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
@@ -162,7 +162,7 @@ def test_orchestrator_records_adapter_intermediate_results(
         orchestrator,
         "_run_normalization",
         MagicMock(
-            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [], [])
+            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])
         ),
     )
     setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
@@ -173,3 +173,53 @@ def test_orchestrator_records_adapter_intermediate_results(
     assert "canonical_input" in result.intermediate_results
     assert result.intermediate_results["canonical_input"].source_schema == "structural_nl"
     assert "adapter_detection" in result.intermediate_results
+
+
+def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
+    pipeline_config: MagicMock,
+) -> None:
+    pipeline_config.adapter_llm_engine = "generic_only"
+    orchestrator = PipelineOrchestrator(pipeline_config)
+    orchestrator.client = MagicMock()
+    orchestrator.client.call_json.return_value = {
+        "outputs": [
+            {
+                "name": "summary",
+                "description": "A summary.",
+                "data_type": "text",
+                "required": True,
+                "source_section_id": "sec_freeform_input",
+                "source_packet_id": "p_freeform_000",
+            }
+        ]
+    }
+
+    setattr(orchestrator, "_run_stage1", MagicMock(return_value=[]))
+    setattr(orchestrator, "_run_stage2", MagicMock(return_value=(FieldRouteIR(), [])))
+    setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
+    setattr(orchestrator, "_run_stage4", MagicMock(return_value=FlowStructureIR()))
+    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
+    setattr(
+        orchestrator,
+        "_run_stage6",
+        MagicMock(return_value=(MagicMock(variables=[]), MagicMock(), [])),
+    )
+    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
+    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
+    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
+    setattr(
+        orchestrator,
+        "_run_normalization",
+        MagicMock(
+            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])
+        ),
+    )
+    setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
+    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
+
+    result = orchestrator.run("Summarize the request.")
+
+    canonical = result.intermediate_results["canonical_input"]
+    assert canonical.source_schema == "generic_nl"
+    assert canonical.hard_facts.outputs[0].name == "summary"
+    assert canonical.raw_sections[0].section_id == "sec_freeform_input"

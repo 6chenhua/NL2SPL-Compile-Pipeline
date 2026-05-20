@@ -77,7 +77,17 @@ class PipelineConfig:
     # IRS diagnostic consolidation (Phase 5+):
     # When enabled, stage-local diagnostics from
     # intermediate_results are merged into compile_diagnostics.
+    # Superseded by enable_irs_post_normalize_check — when that flag is
+    # True, consolidation is skipped to avoid duplicating diagnostics.
     enable_irs_diagnostic_consolidation: bool = False
+
+    # Post-normalize IRS check (Phase 8+):
+    # Final authority for construct-level diagnostics.  Runs after Stage 10
+    # assembly, before the executable-element gate.  Produces authoritative
+    # missing_handler, missing_output_producer, type_or_contract_ambiguity,
+    # and assumed_command_not_renderable diagnostics from normalized IR.
+    # Default True — replaces Stage 9.5 diagnostic emission entirely.
+    enable_irs_post_normalize_check: bool = True
 
     # LLM semantic conflict analyzer (Phase 6+):
     # When enabled, runs an LLM-backed conflict analysis pass.

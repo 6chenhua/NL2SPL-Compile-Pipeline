@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from nl2spl.compiler.producer_index import ProducerIndex
 from nl2spl.ir.block_structure_ir import BlockStructureIR
-from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, TypeSpec, VariableSpec
 from nl2spl.ir.step_ir import StepIR
@@ -60,6 +59,7 @@ class NormalizationMixin:
         if not pruned:
             return []
 
+        self._pruned_variable_names.update(pruned)
         resources.variables = [
             variable
             for variable in resources.variables
@@ -277,12 +277,14 @@ class NormalizationMixin:
             if index.is_produced(output):
                 continue
 
-            self.diagnostics.append(
-                self._build_missing_output_producer_diagnostic(
-                    output=output,
-                    symbol_table=symbol_table,
-                )
-            )
+            variable = symbol_table.variables.get(output)
+            self.construct_findings.setdefault(
+                "missing_output_producer", []
+            ).append({
+                "output": output,
+                "description": variable.description if variable else output,
+                "worker_id": None,
+            })
 
         return warnings
 
@@ -302,7 +304,7 @@ class NormalizationMixin:
     def _build_api_handoff_refs(
         worker_plan: WorkerPlanIR | None,
     ) -> dict[str, str]:
-        """Build handoff_id → api_ref lookup from api_call-mode handoffs."""
+        """Build handoff_id -> api_ref lookup from api_call-mode handoffs."""
         if worker_plan is None:
             return {}
         return {
@@ -335,14 +337,60 @@ class NormalizationMixin:
             return True
         return False
 
-    def _is_handler_step(self, step: StepIR, flow_id: str) -> bool:
+    def _is_handler_step(
+        self, step: StepIR, flow_id: str, exc_spans: set[str] | None = None
+    ) -> bool:
         """Return True when *step* qualifies as an executable handler.
 
         A step is a handler for an exception flow when it references the
-        flow's flow_id.  The helper exists so later executable-element gating
-        (TODO 6) can add renderability / source-backing checks in one place.
+        flow's flow_id AND is NOT merely restating the exception condition
+        from the same source spans.
         """
-        return step.flow_ref == flow_id
+        if step.flow_ref != flow_id:
+            return False
+        if self._is_pseudo_handler(step, flow_id, exc_spans):
+            return False
+        return True
+
+    def _is_pseudo_handler(
+        self, step: StepIR, flow_id: str, exc_spans: set[str] | None = None
+    ) -> bool:
+        """Return True when *step* is a condition restatement, not a real handler.
+
+        Only steps whose source spans are contained within the exception
+        condition spans AND whose text matches condition/gate patterns
+        (not action patterns) are flagged.
+
+        REQUEST_INPUT, CALL_API, and INVOKE_WORKER steps are always treated
+        as legitimate handlers -- they represent concrete user-facing or
+        integration actions.  Everything else (GENERAL_COMMAND, DISPLAY,
+        DISPLAY_MESSAGE, etc.) is checked because LLMs may reformulate
+        the condition text as a display or generic command.
+        """
+        if step.command_type in {"REQUEST_INPUT", "CALL_API", "INVOKE_WORKER"}:
+            return False
+        if not step.source_span_ids:
+            return False
+        # Span containment check.
+        span_match = (
+            exc_spans is not None
+            and set(step.source_span_ids).issubset(exc_spans)
+        ) if exc_spans else False
+        # Text pattern check: condition restatement vs action.
+        text = step.text.lower()
+        pseudo_markers = (
+            "do not finalize", "check if", "ensure that",
+            "required slots remain", "unless", "required slots missing",
+            "mark as assumption-bearing", "mark the draft",
+            "confirm with the user", "ask the user to confirm",
+            # Display-type pseudo-handlers: show, report, indicate etc.
+            "display a message", "show a message",
+        )
+        text_match = any(marker in text for marker in pseudo_markers)
+        if exc_spans:
+            return span_match and text_match
+        # Post-MVP heuristic fallback (no spans).
+        return text_match
 
     def _diagnose_exception_flow_handlers(
         self,
@@ -351,52 +399,57 @@ class NormalizationMixin:
         steps: list[StepIR],
         worker_id: str | None = None,
     ) -> None:
-        """Emit missing_handler diagnostics for exception flows without handlers.
+        """Flag and remove pseudo-handler steps; record structured findings.
 
-        An exception flow has a handler only when at least one *executable
-        step* references its flow_id.  Blocks are structural containers, not
-        handlers — a skeleton exception-flow block without a handler step is
-        still a partial element that must be surfaced.
+        Pseudo-handler steps (condition restatements from the same source
+        spans) are marked and removed from the step list so they cannot
+        render.  Diagnostic emission is deferred to PostNormalizeIRSChecker
+        which receives these findings via ``self.construct_findings``.
         """
         for exc_flow in flow.exception_flows:
-            handler_steps = [
-                s for s in steps
-                if self._is_handler_step(s, exc_flow.flow_id)
-            ]
+            exc_spans = set(exc_flow.spans)
+
+            # Separate pseudo-handlers from real handlers.
+            handler_steps: list[StepIR] = []
+            pseudo_steps: list[StepIR] = []
+            for s in steps:
+                if s.flow_ref != exc_flow.flow_id:
+                    continue
+                if self._is_pseudo_handler(s, exc_flow.flow_id, exc_spans):
+                    pseudo_steps.append(s)
+                else:
+                    handler_steps.append(s)
+
+            # Flag and remove pseudo-handlers -- they are condition restatements.
+            pseudo_ids: set[str] = set()
+            for pseudo in pseudo_steps:
+                pseudo_ids.add(pseudo.step_id)
+                # Mark for downstream consumers (Gate, reports) so they
+                # can distinguish pseudo-handlers from real handlers.
+                pseudo.metadata["pseudo_exception_handler"] = "true"
+                self.construct_findings.setdefault("pseudo_handlers", []).append({
+                    "step_id": pseudo.step_id,
+                    "flow_id": exc_flow.flow_id,
+                    "worker_id": worker_id,
+                    "text": pseudo.text,
+                    "source_span_ids": list(pseudo.source_span_ids),
+                })
+            # Strip pseudo-handlers from the step list so they don't render.
+            if pseudo_ids:
+                steps[:] = [s for s in steps if s.step_id not in pseudo_ids]
+
             if handler_steps:
                 continue
 
-            condition_snippet = exc_flow.condition_text[:80]
-            if worker_id is not None:
-                scope_note = f" in worker '{worker_id}'"
-                target_ref = (
-                    f"worker:{worker_id}.exception_flow:{exc_flow.flow_id}"
-                )
-            else:
-                scope_note = ""
-                target_ref = f"exception_flow:{exc_flow.flow_id}"
-
-            self.diagnostics.append(
-                CompileDiagnostic(
-                    diagnostic_id=self._next_diagnostic_id(),
-                    kind="missing_handler",
-                    severity="warning",
-                    message=(
-                        f"Exception flow '{exc_flow.flow_id}' "
-                        f"('{condition_snippet}') has no handler "
-                        f"step{scope_note}."
-                    ),
-                    target_ref=target_ref,
-                    source_span_ids=list(exc_flow.spans) if exc_flow.spans else [],
-                    suggested_resolution=(
-                        f"Add a handler step for "
-                        f"'{exc_flow.condition_text}', or mark this "
-                        f"exception as acknowledged without handling."
-                    ),
-                    blocks_rendering=False,
-                    blocks_completion=True,
-                )
-            )
+            # Record finding — PostNormalizeIRSChecker emits the final diagnostic.
+            self.construct_findings.setdefault(
+                "exception_flow_no_handler", []
+            ).append({
+                "flow_id": exc_flow.flow_id,
+                "condition_text": exc_flow.condition_text,
+                "worker_id": worker_id,
+                "source_span_ids": list(exc_flow.spans) if exc_flow.spans else [],
+            })
 
     def _diagnose_type_contract_ambiguities(
         self,
@@ -406,167 +459,24 @@ class NormalizationMixin:
         extra_api_names: set[str] | None = None,
         api_handoff_refs: dict[str, str] | None = None,
     ) -> None:
-        """Emit type_or_contract_ambiguity diagnostics for commands with
-        unclear or incomplete contract evidence.
+        """Diagnostic emission deferred to PostNormalizeIRSChecker.
 
-        - CALL_API without a named API reference
-        - INVOKE_WORKER without a concrete worker target
-        - REQUEST_INPUT without source-span backing (the step may be an
-          assumption rather than a requirement)
+        This method exists for backward compatibility of the call sites
+        in normalizer.py.  All type/contract ambiguity detection now
+        runs in PostNormalizeIRSChecker._check_type_contract_ambiguities.
         """
-        declared_apis = {api.api_name for api in resources.apis}
-        for step in steps:
-            kind = ""
-            detail = ""
-            blocks_render = False
-
-            if step.command_type == "CALL_API" and not step.integration_ref:
-                kind = "type_or_contract_ambiguity"
-                detail = "CALL_API step has no integration_ref (API name)"
-                blocks_render = True
-            elif step.command_type == "CALL_API" and step.integration_ref:
-                if not self._call_api_is_declared(
-                    step, declared_apis, extra_api_names, api_handoff_refs
-                ):
-                    kind = "type_or_contract_ambiguity"
-                    detail = (
-                        f"CALL_API references undeclared API "
-                        f"'{step.integration_ref}'"
-                    )
-                    blocks_render = True
-            elif (
-                step.command_type == "INVOKE_WORKER"
-                and not step.integration_ref
-            ):
-                kind = "type_or_contract_ambiguity"
-                detail = "INVOKE_WORKER step has no concrete worker target"
-                blocks_render = True
-            elif (
-                step.command_type == "REQUEST_INPUT"
-                and not step.source_span_ids
-            ):
-                kind = "type_or_contract_ambiguity"
-                detail = (
-                    "REQUEST_INPUT step has no source-span evidence — "
-                    "may be an assumed interaction"
-                )
-                blocks_render = False
-
-            if not kind:
-                continue
-
-            self.diagnostics.append(
-                CompileDiagnostic(
-                    diagnostic_id=self._next_diagnostic_id(),
-                    kind=kind,
-                    severity="warning",
-                    message=(
-                        f"Step '{step.step_id}' ({step.command_type}): "
-                        f"{detail}."
-                    ),
-                    target_ref=f"step:{step.step_id}",
-                    source_span_ids=list(step.source_span_ids),
-                    blocks_rendering=blocks_render,
-                    blocks_completion=True,
-                )
-            )
 
     def _diagnose_assumed_commands(
         self,
         steps: list[StepIR],
         valid_handoff_ids: set[str] | None = None,
     ) -> None:
-        """Emit assumed_command_not_renderable for steps that lack source
-        evidence and are not legitimate compiler scaffolding.
+        """Diagnostic emission deferred to PostNormalizeIRSChecker.
 
-        A step is assumed/synthetic when:
-        - source_span_ids is empty, AND
-        - handoff_id is not in *valid_handoff_ids* (an LLM-invented
-          handoff_id does NOT count), AND
-        - metadata origin is not ``compiler_unpack``.
+        This method exists for backward compatibility of the call sites
+        in normalizer.py.  All assumed-command detection now runs in
+        PostNormalizeIRSChecker._check_assumed_commands.
         """
-        for step in steps:
-            if step.source_span_ids:
-                continue
-            if (
-                step.handoff_id is not None
-                and valid_handoff_ids is not None
-                and step.handoff_id in valid_handoff_ids
-            ):
-                continue
-            # Legacy path: handoff steps are materialised before this check
-            # runs, so a non-None handoff_id without a validity set is
-            # accepted for backward compatibility.
-            if step.handoff_id is not None and valid_handoff_ids is None:
-                continue
-            if step.metadata.get("origin") == "compiler_unpack":
-                continue
-
-            self.diagnostics.append(
-                CompileDiagnostic(
-                    diagnostic_id=self._next_diagnostic_id(),
-                    kind="assumed_command_not_renderable",
-                    severity="warning",
-                    message=(
-                        f"Step '{step.step_id}' "
-                        f"('{step.text[:80]}') has no source evidence "
-                        f"and is not compiler scaffolding — it should "
-                        f"not be rendered as executable SPL."
-                    ),
-                    target_ref=f"step:{step.step_id}",
-                    source_span_ids=[],
-                    suggested_resolution=(
-                        "Provide a source span that describes this "
-                        "behavior, or remove the step if the behavior "
-                        "is not required."
-                    ),
-                    blocks_rendering=True,
-                    blocks_completion=True,
-                )
-            )
-
-    def _build_missing_output_producer_diagnostic(
-        self,
-        output: str,
-        symbol_table: SymbolTable,
-        worker_id: str | None = None,
-    ) -> CompileDiagnostic:
-        """Build a diagnostic for a required output with no source-backed producer."""
-        suggestion = self._completion_step_text(output)
-        variable = symbol_table.variables.get(output)
-        description = variable.description if variable else output
-
-        if worker_id is not None:
-            target_ref = f"worker:{worker_id}.output:{output}"
-            scope_note = f" in worker '{worker_id}'"
-        else:
-            target_ref = f"variable:{output}"
-            scope_note = ""
-
-        return CompileDiagnostic(
-            diagnostic_id=self._next_diagnostic_id(),
-            kind="missing_output_producer",
-            severity="warning",
-            message=(
-                f"Required output '{output}' ({description}) has no "
-                f"source-backed producer step{scope_note}."
-            ),
-            target_ref=target_ref,
-            source_span_ids=[],
-            suggested_resolution=(
-                f"Add a step that produces '{output}', e.g. '{suggestion}'. "
-                f"If the source requirement does not specify how to produce "
-                f"this output, mark it as optional or remove it from the "
-                f"output contract."
-            ),
-            blocks_rendering=False,
-            blocks_completion=True,
-        )
-
-    def _next_diagnostic_id(self) -> str:
-        """Generate a unique diagnostic identifier."""
-        idx = len(self.diagnostics)
-        return f"diag_{idx:04d}"
 
     def _completion_step_text(self, output: str) -> str:
         text_by_output = {

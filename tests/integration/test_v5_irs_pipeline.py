@@ -50,6 +50,7 @@ def _orch(
         enable_irs_stage7_step_check=stage7_check,
         enable_irs_diagnostic_consolidation=consolidation,
         enable_resource_name_filter=resource_filter,
+        enable_irs_post_normalize_check=False,
     ))
 
 
@@ -112,7 +113,7 @@ def _run_orch(
     ]
     if not skip_norm:
         patches.append(patch.object(orch, "_run_normalization_worker_scoped",
-                         return_value=(fp, bp, sp, sym, [], [], [])))
+                         return_value=(fp, bp, sp, sym, [], [])))
     patches.extend(extra_patches)
 
     result_container: list = []
@@ -165,9 +166,8 @@ class TestFailureConditionOnly:
         assert sat[0].completeness == "partial"
 
     def test_failure_condition_normalizer_emits_missing_handler(self, tmp_path: Path):
-        """Stage 9.5 normalizer still authoritative for missing_handler.
-        Uses legacy path so _diagnose_exception_flow_handlers runs on the
-        global FlowStructureIR."""
+        """PostNormalizeIRSChecker emits missing_handler for exception flow
+        without handler.  Uses legacy path."""
         orch = PipelineOrchestrator(PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
             output_dir=tmp_path / "output",
@@ -177,7 +177,16 @@ class TestFailureConditionOnly:
         s = [SpanIR("s1", "Process.")]
         r = FieldRouteIR(behavior=["s1"])
         sym = SymbolTable()
-        wm = MagicMock(); wm.steps = []; wm.child_workers = []; wm.scoped_steps = False
+        import nl2spl.ir.worker_ir as wir
+        wm = wir.WorkerIR(
+            worker_name="MainWorker", description="Main",
+            main_flow=wir.FlowRef(),
+            exception_flows=[
+                wir.ExceptionFlowRef("exc_1", "If provenance failure is detected, halt."),
+            ],
+            steps=[],
+            child_workers=[],
+        )
         flow_s = FlowStructureIR(
             main_flow_spans=["s1"],
             exception_flows=[ExceptionFlow("exc_1", "If provenance failure is detected, halt.", ["s1"])],

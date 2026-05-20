@@ -61,6 +61,9 @@ from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
 )
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
+from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
+    PostNormalizeIRSChecker,
+)
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
@@ -160,6 +163,8 @@ class PipelineOrchestrator:
         """
         self.logger.info("Starting NL2SPL pipeline")
         self.logger.info("Input text length: %d chars", len(raw_text))
+        # Reset per-run state so stale findings never leak between calls.
+        self._pending_construct_findings: dict[str, list[dict]] = {}
 
         intermediate: dict[str, Any] = {}
         worker_stage_warnings: list[str] = []
@@ -428,7 +433,6 @@ class PipelineOrchestrator:
                 symbol_table,
                 normalization_errors,
                 normalization_warnings,
-                compile_diagnostics,
             ) = norm_result
             # 更新 steps 为所有 worker 的 steps
             steps = worker_step_plan.get_all_steps()
@@ -451,9 +455,14 @@ class PipelineOrchestrator:
                 symbol_table,
                 normalization_errors,
                 normalization_warnings,
-                compile_diagnostics,
             ) = norm_result
         intermediate["stage9_5_normalization"] = norm_result
+        # Forward construct findings from Stage 9.5 to post-normalize IRS pass.
+        # Always assign (even empty) so a previous run's findings never leak.
+        intermediate["stage9_5_construct_findings"] = getattr(
+            self, "_pending_construct_findings", {}
+        )
+        self._pending_construct_findings = {}
 
         # Stage 10: Worker Assembly
         self.logger.info("Stage 10: Worker Assembly")
@@ -484,6 +493,25 @@ class PipelineOrchestrator:
                 worker_plan,
             )
         intermediate["stage10_worker"] = worker
+
+        # Post-normalize IRS check: final authority for construct-level
+        # diagnostics from normalized, assembled IR.
+        post_norm_diags: list[Any] = []
+        if self.config.enable_irs_post_normalize_check:
+            self.logger.info("Post-normalize IRS check")
+            checker = PostNormalizeIRSChecker()
+            post_norm_diags = checker.check(
+                worker=worker,
+                worker_plan=worker_plan,
+                symbol_table=symbol_table,
+                resources=resources,
+                worker_scoped_resources=intermediate.get(
+                    "stage6_worker_scoped_resources"
+                ),
+                construct_findings=intermediate.get(
+                    "stage9_5_construct_findings"
+                ),
+            )
 
         # Executable element gate — filter non-source-backed steps before
         # rendering so only verifiable commands reach Stage 11.
@@ -617,12 +645,20 @@ class PipelineOrchestrator:
         conflict_diags, conflict_warnings = verifier.verify(raw_conflict_diags)
         adapter_warnings.extend(conflict_warnings)
 
-        # Assemble final diagnostics and compute result fields
+        # Assemble final diagnostics and compute result fields.
+        # post_norm_diags replaces the old compile_diagnostics from Stage 9.5.
+        # stage7_diags carries unmapped_behavior_span and other LLM-stage
+        # diagnostics that are not covered by the post-normalize IRS pass.
         all_diagnostics = (
-            stage7_diags + compile_diagnostics + conflict_diags + gate_diags
+            stage7_diags + post_norm_diags + conflict_diags + gate_diags
             + provenance_diags + delegation_diags
         )
-        if self.config.enable_irs_diagnostic_consolidation:
+        # IRS consolidation only runs when the post-normalize checker is
+        # disabled; otherwise Stage 4/7 IRS diagnostics stay as reports only.
+        if (
+            self.config.enable_irs_diagnostic_consolidation
+            and not self.config.enable_irs_post_normalize_check
+        ):
             all_diagnostics = self._consolidate_compile_diagnostics(
                 all_diagnostics,
                 intermediate,
@@ -829,7 +865,6 @@ class PipelineOrchestrator:
         SymbolTable,
         list[str],
         list[str],
-        list[Any],
     ]:
         """Stage 9.5: IR Normalization."""
         normalizer = IRNormalizer()
@@ -842,7 +877,11 @@ class PipelineOrchestrator:
             constraints,
             worker_plan,
         )
-        return (*result, normalizer.diagnostics)
+        # Collect structured findings for post-normalize IRS pass.
+        findings = getattr(normalizer, "construct_findings", None)
+        if findings:
+            self._pending_construct_findings = findings
+        return result
 
     def _run_normalization_worker_scoped(
         self,
@@ -859,7 +898,6 @@ class PipelineOrchestrator:
         SymbolTable,
         list[str],
         list[str],
-        list[Any],
     ]:
         """Stage 9.5: Worker-scoped IR Normalization."""
         normalizer = IRNormalizer()
@@ -871,7 +909,11 @@ class PipelineOrchestrator:
             resources,
             symbol_table,
         )
-        return (*result, normalizer.diagnostics)
+        # Collect structured findings for post-normalize IRS pass.
+        findings = getattr(normalizer, "construct_findings", None)
+        if findings:
+            self._pending_construct_findings = findings
+        return result
 
     def _run_stage10(
         self,
