@@ -19,6 +19,10 @@ BoundaryKind = Literal[
     "template_or_format_protocol",
     "main_worker",
     "not_a_worker",
+    "call_api",
+    "constraint",
+    "exception_flow",
+    "alternative_flow",
 ]
 
 Signal = Literal[
@@ -47,6 +51,7 @@ Risk = Literal[
     "over_fragmentation",
     "unclear_result_handoff",
     "insufficient_semantic_boundary",
+    "failure_recovery_protocol",
 ]
 
 

@@ -1516,3 +1516,384 @@ NL2SPL 的最终架构应被定义为：
 
 对于 Semantic Conflict、Duplicate Detection、DataFlow Analysis 等复杂能力，MVP 先用 LLM prompt 做笼统实现或暂不启用；但必须通过 Protocol / Analyzer 接口保留 future rule-based implementation 的位置，避免后续 prompt 逻辑沉淀成不可迁移的隐性规则。
 
+---
+
+你的评估成立。当前文档已经能作为 **v5 架构提案**，但还缺少工程实施所需的几个硬边界：slot 判定规则、stage-local 数据落点、最终裁决权、diagnostic 去重、LLM analyzer 的 evidence-bound 约束等。
+
+我刚才尝试把这些内容追加到画布文档中，但更新失败，原因是画布工具对正则锚点的兼容问题。下面给出可直接追加到文档末尾的修订内容，建议作为新的 **第 15 节：v5 工程实施补充规则**。
+
+---
+
+# 15. v5 工程实施补充规则
+
+本节用于补齐前文作为架构提案时尚未完全 self-contained 的工程边界。实施 v5 时，本节规则优先级高于前文中存在歧义的表述。
+
+---
+
+## 15.1 SlotSpec 判定表
+
+`syntax_required`、`required_for_partial`、`required_for_complete`、`renderable_without` 必须按以下优先级解释。
+
+| 情况                                                           | 判定               | 编译行为                                                                               |
+| ------------------------------------------------------------ | ---------------- | ---------------------------------------------------------------------------------- |
+| missing `syntax_required`                                    | 构件语法不合法          | 不渲染该构件；产生 validation error 或 blocked diagnostic                                    |
+| missing `required_for_partial`                               | partial 构件最低信息不足 | 不 materialize 该 construct；若存在 vague source signal，可输出 `type_or_contract_ambiguity` |
+| missing `required_for_complete` 且 `renderable_without=True`  | 构件可 partial 渲染   | 渲染 partial SPL；产生对应 diagnostic；整体 completeness 通常为 partial                         |
+| missing `required_for_complete` 且 `renderable_without=False` | 构件不可安全渲染         | 不渲染该构件或相关 executable element；产生 diagnostic                                         |
+| slot satisfied by source evidence                            | source-backed    | 可进入后续 IR；是否最终渲染仍由 Gate / ProducerIndex 等最终裁决                                       |
+| slot satisfied by assumption only                            | assumed          | 进入 assumption/report；默认不进入 executable SPL                                          |
+
+补充说明：
+
+```text
+1. required_for_partial 只在 partial_rendering_allowed=True 的 construct 上有主要意义。
+2. 对 partial_rendering_allowed=False 的 construct，required_for_partial 仅用于 candidate/report 表达，不代表可以渲染 partial SPL。
+3. syntax_required 只表示语法要求，不表示需求完整性。
+4. required_for_complete 表示需求/设计完整性要求，不等于 grammar requirement。
+```
+
+这也和 SPL grammar 的事实一致：例如 `EXCEPTION_FLOW` 本身在 worker 中是 `{EXCEPTION_FLOW}`，即可以不存在；但一旦 materialize 出 `EXCEPTION_FLOW`，语法上就需要 `CONDITION`，而 body `{BLOCK}` 可以为空。
+
+---
+
+## 15.2 Stage-local diagnostics 与 satisfaction report 的数据落点
+
+v5 不改变现有 Stage return contract。Stage 4 / Stage 7 的 `ConstructSatisfactionReport` 通过 orchestrator side-channel 写入 `intermediate_results`。
+
+推荐结构：
+
+```python
+intermediate_results["construct_satisfaction"] = {
+    "stage4": list[ConstructSatisfactionReport],
+    "stage7": list[ConstructSatisfactionReport],
+}
+
+intermediate_results["stage_local_diagnostics"] = {
+    "stage4": list[CompileDiagnostic],
+    "stage7": list[CompileDiagnostic],
+}
+```
+
+规则：
+
+```text
+1. Stage 4/7 原有 return value 保持不变。
+2. IRS metadata 通过 orchestrator 写入 intermediate_results。
+3. Stage 9.5 从 intermediate_results 读取 stage-local diagnostics 和 satisfaction reports。
+4. 未来如果 Stage return contract 重构，再把 satisfaction reports 提升为显式返回值。
+```
+
+这样不会破坏 v4 已有接口。当前 v4 已经有 `PipelineResult.intermediate_results`，并且已有 `compile_diagnostics`、`traces`、`adapter_warnings`、`completeness`、`assumptions`、`readable_report` 等 public result 字段。
+
+---
+
+## 15.3 IRS、Stage 9.5、Gate、ProducerIndex 的最终裁决边界
+
+v5 必须避免多个组件同时裁决同一件事。
+
+| 组件                         | 负责什么                                                     | 不负责什么                                                                      |
+| -------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| IRS / Stage-local checking | prompt/schema 约束、slot satisfaction、局部 diagnostic 预判      | 不做最终 renderability 裁决；不做 required output producer 最终裁决                     |
+| Stage 9.5                  | 汇总、去重、全局一致性检查、completeness 输入准备                          | 不直接渲染 SPL；不替代 Gate                                                         |
+| ExecutableElementGate      | Step/Command/INPUT/CALL_API/INVOKE_WORKER 是否进入 SPL 的最终裁决 | 不判断 required output 是否有 producer                                           |
+| ProducerIndex              | required output 是否有合法 producer 的最终裁决                     | 不决定 step 是否可渲染；只消费 post-gate renderable producers 和 valid handoff bindings |
+| SPLRenderer                | 只渲染已通过裁决的结构                                              | 不修补缺失 handler、producer、worker/API contract                                 |
+
+核心规则：
+
+```text
+IRS may suggest non-renderability.
+ExecutableElementGate decides final renderability.
+ProducerIndex decides final output producer status.
+Stage 9.5 consolidates all decisions into CompileDiagnostic.
+```
+
+这和 v4 当前职责一致：`ProducerIndex` 已负责 required output producer 判断，`ExecutableElementGate` 已负责渲染前过滤 assumed / invalid command。
+
+---
+
+## 15.4 Diagnostic 去重规则
+
+Stage-local diagnostics、Gate diagnostics、ProducerIndex diagnostics 和 LLM analyzer diagnostics 需要统一去重。
+
+建议 dedup key：
+
+```python
+dedup_key = (
+    diagnostic.kind,
+    diagnostic.target_ref,
+    tuple(sorted(normalize_span_ids(diagnostic.source_span_ids))),
+    diagnostic.missing_slot.slot_name if diagnostic.missing_slot else diagnostic.metadata.get("missing_slot"),
+)
+```
+
+特殊规则：
+
+```text
+1. missing_handler 必须支持 gate 后重算。
+2. 如果 Stage 4 认为 handler 存在，但 Gate 后 handler step 被过滤，则必须补发或保留 missing_handler。
+3. Gate 后 missing_handler 优先级高于 Stage 4 的 pre-gate 判断。
+4. 同一 target_ref 的 missing_handler 只显示一次，但 report 可说明它来自 gate 后重算。
+```
+
+---
+
+## 15.5 REQUIRED_OUTPUT IRS 修正
+
+Required output declaration 不应因为 exact type 不清楚而被阻断。
+
+修正规则：
+
+```text
+output_name:
+    required_for_partial=True
+    required_for_complete=True
+
+output_type:
+    syntax_required=False at IRS level
+    required_for_partial=False
+    required_for_complete=False 或 weak required_for_complete
+    renderable_without=True
+    can_be_inferred=True
+    ambiguity 可进入 type_or_contract_ambiguity
+
+producer:
+    required_for_complete=True
+    renderable_without=True
+    missing_diagnostic=missing_output_producer
+```
+
+说明：
+
+```text
+1. SPL variable declaration 最终需要 DATA_TYPE，但 compiler 可以使用保守类型推断，例如 text。
+2. 类型不确定不应阻止 required output declaration。
+3. 缺 producer 是 completion diagnostic，不是合成 producer command 的理由。
+4. ProducerIndex 是 producer status 的最终裁决者。
+```
+
+---
+
+## 15.6 CALL_API IRS 修正
+
+CALL_API 必须区分 `integration mention` 与 `executable API call`。
+
+```text
+integration mention:
+    用户提到 connector、repository、external system、tool。
+    这只能生成 resource/API candidate 或 compile hint。
+
+executable API call:
+    用户明确要求调用某个 API/tool/connector 执行动作，并且有 call action evidence。
+    只有这种情况才能生成 CALL_API。
+```
+
+修正后的 source signal：
+
+```text
+api_call_action
+tool_call_action
+connector_action
+```
+
+必要 slot：
+
+```text
+api_name / integration_ref
+integration_evidence
+call_action
+```
+
+规则：
+
+```text
+source_repository as input/context → resource candidate, not CALL_API.
+named API/tool + executable action → CALL_API candidate.
+missing api_name / integration_evidence / call_action → no CALL_API rendering, type_or_contract_ambiguity.
+```
+
+---
+
+## 15.7 CHILD_WORKER 与 WORKER_CANDIDATE 修正
+
+`CHILD_WORKER` 不应由 optional subtask mention 直接 materialize。
+
+应区分：
+
+```text
+DELEGATION_INTENT / WORKER_CANDIDATE:
+    用户提到 optional subtask、source gathering、template matching 等。
+    只进入 candidate/report/provenance。
+
+CHILD_WORKER:
+    已有 accepted worker boundary，且具备 responsibility、input contract、output contract、invocation point、result handoff。
+    才能渲染为 child worker SPL。
+```
+
+建议新增：
+
+```python
+WORKER_CANDIDATE_IRS = ConstructIRS(
+    construct_type="WORKER_CANDIDATE",
+    existence_policy="source_signal_required",
+    source_signals=["delegation", "subtask", "optional_subtask", "template_matching", "source_gathering"],
+    partial_rendering_allowed=False,
+    slots=[
+        SlotSpec(
+            slot_name="candidate_responsibility",
+            required_for_partial=True,
+            required_for_complete=True,
+            evidence_kinds=["subtask_name", "delegation_intent"],
+        ),
+        SlotSpec(
+            slot_name="promotion_requirements",
+            required_for_complete=False,
+            evidence_kinds=["input_contract", "output_contract", "invocation_point", "handoff"],
+            missing_diagnostic="type_or_contract_ambiguity",
+            renderable_without=False,
+            notes="If promotion requirements are missing, keep as candidate/report only."
+        ),
+    ]
+)
+```
+
+---
+
+## 15.8 LLMConflictAnalyzer evidence-bound 约束
+
+LLMConflictAnalyzer 不能成为新的 hallucination 入口。
+
+每条 `semantic_conflict` diagnostic 必须满足：
+
+```text
+1. 至少引用一个 source_span_id，或引用可解析的 section/packet evidence。
+2. target_ref 必须指向已有 ConstraintIR、StepIR、FlowIR、WorkerIR 或 variable。
+3. 不得发明新的 policy、step、worker、变量。
+4. 不得修改 IR 或 SPL。
+5. uncited conflict 默认丢弃；如果需要保留，只能降级为 non-blocking analysis warning，且不进入 compile_diagnostics。
+6. 默认 severity=warning/info。
+7. 默认 blocks_completion=False，除非配置显式开启。
+```
+
+建议增加 verifier：
+
+```python
+class LLMConflictDiagnosticVerifier:
+    def verify(self, diagnostic: CompileDiagnostic, context: ConflictAnalysisContext) -> bool:
+        ...
+```
+
+Verifier 检查：
+
+```text
+known diagnostic kind
+known target_ref
+known source_span_ids or known section/packet evidence
+no invented construct references
+```
+
+---
+
+## 15.9 v5 数据流图
+
+```text
+Stage 4 / Stage 7
+    ↓
+IR output remains unchanged
+    ↓
+construct_satisfaction side-channel
+    intermediate_results["construct_satisfaction"]
+    intermediate_results["stage_local_diagnostics"]
+    ↓
+Stage 9.5
+    - read stage-local diagnostics
+    - run ProducerIndex
+    - run optional LLMConflictAnalyzer
+    - deduplicate diagnostics
+    - prepare completeness inputs
+    ↓
+Stage 10 WorkerAssembler
+    ↓
+ExecutableElementGate
+    - final renderability authority
+    - may emit assumed_command_not_renderable
+    - may cause gate-after missing_handler
+    ↓
+Stage 11 SPLRenderer
+    ↓
+Post-processing
+    ProvenanceAggregator
+    AssumptionBuilder
+    CompletenessCalculator
+    ReportRenderer / FeedbackReportRenderer
+```
+
+---
+
+## 15.10 新增文件与现有文件关系
+
+建议新增文件：
+
+| 文件                                                   | 作用                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `src/nl2spl/compiler/construct_registry.py`          | SlotSpec、ConstructIRS、SPLConstructRegistry、SlotSatisfaction、ConstructSatisfactionReport                |
+| `src/nl2spl/compiler/irs_prompt_builder.py`          | 根据 IRS 生成 Stage prompt checklist                                                                       |
+| `src/nl2spl/compiler/diagnostic_registry.py`         | DiagnosticSpec 与 diagnostic kind 注册表                                                                   |
+| `src/nl2spl/compiler/analyzers/semantic_conflict.py` | SemanticConflictAnalyzer Protocol、LLMSemanticConflictAnalyzer、future RuleBasedSemanticConflictAnalyzer |
+| `src/nl2spl/compiler/analyzers/dataflow.py`          | DataFlowAnalyzer Protocol、NoOpDataFlowAnalyzer、future implementations                                  |
+| `src/nl2spl/compiler/analyzers/redundancy.py`        | RequirementRedundancyAnalyzer Protocol、future duplicate detection                                      |
+
+现有组件处理：
+
+| 现有组件                            | v5 处理                                            |
+| ------------------------------- | ------------------------------------------------ |
+| InputAdapterRegistry / adapters | 保持不变                                             |
+| CanonicalCompileInputValidator  | 保持不变                                             |
+| Stage 4 FlowAssembler           | prompt 接入 IRS；return contract 不变                 |
+| Stage 7 StepExtractor           | prompt 接入 IRS；return contract 不变                 |
+| Stage 9.5 IRNormalizer          | 增加 stage-local diagnostics 汇总逻辑                  |
+| ProducerIndex                   | 保持最终 producer authority                          |
+| ExecutableElementGate           | 保持最终 renderability authority                     |
+| ReportRenderer                  | 展示新增 diagnostics                                 |
+| FeedbackReportRenderer          | 同步展示新增 diagnostics / assumptions / traces        |
+| PipelineResult / CompileResult  | 字段不变；如 DiagnosticKind 是 Literal/Enum，需要扩展 kind 值 |
+
+---
+
+## 15.11 Public schema 变化原则
+
+v5 不改变 `PipelineResult` / `CompileResult` 的字段结构。
+
+如果 `DiagnosticKind` 在代码中是 `Literal[...]` 或 enum，则需要扩展允许值：
+
+```text
+semantic_conflict
+redundant_requirement  # reserved / disabled by default
+```
+
+规则：
+
+```text
+1. 新 diagnostic kind 是 schema-compatible change，但可能需要更新 type annotation。
+2. LLMConflictAnalyzer 默认可关闭。
+3. 关闭时 v4 行为应保持兼容。
+```
+
+---
+
+## 15.12 追加验收标准
+
+```text
+1. Stage-local diagnostics / ConstructSatisfactionReport 通过 intermediate_results 承载，不破坏原 Stage return contract。
+2. Stage 9.5 按 dedup key 去重，不重复生成相同 missing_handler。
+3. Gate 后 missing_handler 能覆盖 pre-gate 误判。
+4. ProducerIndex 仍是 required output producer 的最终裁决者。
+5. ExecutableElementGate 仍是 step/command renderability 的最终裁决者。
+6. LLMConflictAnalyzer 输出必须 evidence-bound。
+7. ReportRenderer 和 FeedbackReportRenderer 都展示新增 diagnostics。
+8. REQUIRED_OUTPUT 类型不确定不阻断 output declaration。
+9. CALL_API 不因 source_repository/context mention 自动生成。
+10. optional subtask mention 只生成 WORKER_CANDIDATE / DELEGATION_INTENT，不生成 CHILD_WORKER。
+```
+
+---

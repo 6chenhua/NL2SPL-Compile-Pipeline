@@ -89,6 +89,49 @@ order above.
 
 ---
 
+## Anti-Patterns — Ordinary Sequential Steps Are NEVER Workers
+
+Do not match examples by exact wording. Apply these structural patterns.
+The following action types are ordinary main-flow steps, not worker
+boundaries:
+
+- Classification, inspection, or slot-checking: deciding a type, checking
+  status, finding missing information, or validating a local condition.
+- Clarification or confirmation: asking the user for information needed
+  by the main task, unless the source defines a separate delegated
+  interview/research sub-task with named inputs and outputs.
+- Local lookup or gathering: retrieving, collecting, or looking up
+  material as a step in the main process, unless the source explicitly
+  delegates that lookup as an independently callable job with a source-
+  backed IO contract.
+- Bookkeeping, audit, provenance, or trace maintenance, unless the source
+  defines a separate protocol with its own named input/output contract.
+- Core artifact work: drafting, transforming, producing, finalizing, or
+  setting completion status for the main result.
+- A single sequential bullet whose result is immediately consumed by the
+  next main-flow step and has no reusable callable contract.
+
+An action described as one bullet in a sequential list is usually a step
+in the main flow, not a worker. A child worker MUST have source-backed
+IO, an explicit invocation point, and independent callable value.
+
+## Source-Backed IO Requirement
+
+Only include a field in input_contract/output_contract when the variable
+or slot is EXPLICITLY NAMED in the source spans or appears in provided
+hard facts. Do NOT invent field names, data types, or descriptions to
+make a candidate look acceptable. If no explicit field can be identified,
+leave the contract empty and reject the candidate.
+
+## Source-Text Cues (not acceptance evidence)
+
+optional_subtask, template_matching, and source_gathering are source-text
+cues, not output enum values. Do NOT put these strings in signals[] or
+decision_evidence[]. They do NOT justify acceptance by themselves. If
+present without hard contract evidence, REJECT the candidate.
+
+---
+
 ## Accepting a Sub-task: All Five Requirements Must Hold
 
 A span group qualifies as a sub-task only when ALL of the following are

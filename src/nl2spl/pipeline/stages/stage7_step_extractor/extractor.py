@@ -14,6 +14,7 @@ from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR
+from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.stages.base import PipelineStage
 from nl2spl.pipeline.stages.stage7_step_extractor.legacy import LegacyMethodsMixin
@@ -106,6 +107,9 @@ class StepExtractor(
         system_prompt = load_prompt("stage7").replace(
             "{variable_list}", variable_list
         )
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
+
         user_prompt = f"""请从以下文本中提取 step：
 
 behavior spans：

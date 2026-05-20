@@ -50,6 +50,21 @@ class SemanticPacket:
 
 
 @dataclass
+class EvidenceRef:
+    """Provenance anchor for a canonical fact.
+
+    Every fact produced by the adapter or LLM engine must cite at least
+    one EvidenceRef so the verifier can validate it against known
+    sections and packets.  The verifier rejects uncited facts.
+    """
+
+    source_section_id: str
+    source_packet_id: str | None = None
+    source_span_ids: list[str] = field(default_factory=list)
+    quoted_text: str | None = None
+
+
+@dataclass
 class VariableFact:
     """Input or output variable fact extracted deterministically."""
 
@@ -58,6 +73,7 @@ class VariableFact:
     data_type: str
     required: bool
     source_section_id: str
+    evidence: list[EvidenceRef] = field(default_factory=list)
 
 
 @dataclass
@@ -67,6 +83,24 @@ class FailureModeFact:
     name: str
     text: str
     source_section_id: str
+    evidence: list[EvidenceRef] = field(default_factory=list)
+
+
+@dataclass
+class DelegationIntentFact:
+    """Non-executable delegation intent extracted from input structure.
+
+    Records that the source describes delegation but does NOT claim the
+    delegation is renderable.  The compiler must still decide whether a
+    valid handoff contract exists before producing INVOKE_WORKER.
+    """
+
+    name: str
+    text: str
+    suggested_worker_name: str | None = None
+    input_names: list[str] = field(default_factory=list)
+    output_names: list[str] = field(default_factory=list)
+    evidence: list[EvidenceRef] = field(default_factory=list)
 
 
 @dataclass
@@ -76,6 +110,7 @@ class HardFacts:
     inputs: list[VariableFact] = field(default_factory=list)
     outputs: list[VariableFact] = field(default_factory=list)
     failure_modes: list[FailureModeFact] = field(default_factory=list)
+    delegation_intents: list[DelegationIntentFact] = field(default_factory=list)
 
 
 @dataclass
@@ -92,6 +127,7 @@ class CompileHint:
     suggested_condition: str | None = None
     suggested_type: str | None = None
     suggested_worker_name: str | None = None
+    evidence: list[EvidenceRef] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -161,25 +197,50 @@ class CanonicalCompileInputValidator:
 
         input_names = [fact.name for fact in canonical_input.hard_facts.inputs]
         output_names = [fact.name for fact in canonical_input.hard_facts.outputs]
+        failure_names = [fact.name for fact in canonical_input.hard_facts.failure_modes]
+        intent_names = [fact.name for fact in canonical_input.hard_facts.delegation_intents]
         errors.extend(cls._duplicates(input_names, "HardFacts.inputs.name"))
         errors.extend(cls._duplicates(output_names, "HardFacts.outputs.name"))
+        errors.extend(cls._duplicates(failure_names, "HardFacts.failure_modes.name"))
+        errors.extend(cls._duplicates(intent_names, "HardFacts.delegation_intents.name"))
+
+        packet_by_id = {
+            packet.packet_id: packet for packet in canonical_input.semantic_packets
+        }
 
         for fact in [
             *canonical_input.hard_facts.inputs,
             *canonical_input.hard_facts.outputs,
             *canonical_input.hard_facts.failure_modes,
+            *canonical_input.hard_facts.delegation_intents,
         ]:
-            if fact.source_section_id and fact.source_section_id not in section_id_set:
+            sid = getattr(fact, 'source_section_id', '')
+            if sid and sid not in section_id_set:
                 errors.append(
-                    f"Hard fact {getattr(fact, 'name', fact.source_section_id)} "
-                    f"references unknown source_section_id {fact.source_section_id}."
+                    f"Hard fact {getattr(fact, 'name', sid)} "
+                    f"references unknown source_section_id {sid}."
                 )
+            # Validate evidence references
+            errors.extend(
+                cls._validate_evidence_refs(
+                    fact.evidence, getattr(fact, 'name', 'fact'),
+                    section_id_set, packet_by_id,
+                )
+            )
 
+        # Validate hint source_section_id and evidence
         for hint in cls._all_hints(canonical_input.compile_hints):
             if hint.source_section_id and hint.source_section_id not in section_id_set:
                 errors.append(
-                    f"Compile hint references unknown source_section_id {hint.source_section_id}."
+                    f"Compile hint references unknown source_section_id "
+                    f"{hint.source_section_id}."
                 )
+            errors.extend(
+                cls._validate_evidence_refs(
+                    hint.evidence, f"CompileHint",
+                    section_id_set, packet_by_id,
+                )
+            )
 
         if cls._contains_key(asdict(canonical_input), "confidence"):
             errors.append("CanonicalCompileInput must not contain a confidence field.")
@@ -196,6 +257,38 @@ class CanonicalCompileInputValidator:
             *hints.resource_hints,
             *hints.delegation_hints,
         ]
+
+    @staticmethod
+    def _validate_evidence_refs(
+        evidence: list[Any],
+        owner: str,
+        section_id_set: set[str],
+        packet_by_id: dict[str, Any],
+    ) -> list[str]:
+        """Validate evidence_refs: section must exist, packet must exist and
+        belong to the referenced section."""
+        errors: list[str] = []
+        for ev in evidence:
+            if ev.source_section_id not in section_id_set:
+                errors.append(
+                    f"EvidenceRef in {owner} references unknown "
+                    f"source_section_id {ev.source_section_id}."
+                )
+            if ev.source_packet_id:
+                packet = packet_by_id.get(ev.source_packet_id)
+                if packet is None:
+                    errors.append(
+                        f"EvidenceRef in {owner} references unknown "
+                        f"source_packet_id {ev.source_packet_id}."
+                    )
+                elif packet.source_section_id != ev.source_section_id:
+                    errors.append(
+                        f"EvidenceRef in {owner}: source_packet_id "
+                        f"{ev.source_packet_id} belongs to section "
+                        f"'{packet.source_section_id}', not "
+                        f"'{ev.source_section_id}'."
+                    )
+        return errors
 
     @staticmethod
     def _duplicates(values: list[str], field_name: str) -> list[str]:

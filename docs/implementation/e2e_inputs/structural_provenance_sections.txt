@@ -1,0 +1,21 @@
+Task family:
+Research and reporting tasks.
+
+Inputs for each run:
+- user_request: The user's research request.
+
+Required outputs:
+- final_report: A compiled report of gathered sources and analysis.
+
+Reusable process:
+Read the request, identify the topic, and prepare a concise summary.
+
+Policies:
+Do not invent facts or unseen sources.
+
+Failure handling:
+- Missing timeframe: The user did not provide a timeframe.
+
+Delegation policy:
+- Source gathering: Delegate source gathering only when a bounded child worker contract is available.
+

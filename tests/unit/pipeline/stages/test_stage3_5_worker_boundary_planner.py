@@ -15,10 +15,17 @@ from nl2spl.canonical import (
     RawSection,
     VariableFact,
 )
+from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.ir.worker_plan_ir import WorkerPlanIR
+from nl2spl.ir.worker_plan_ir import (
+    CandidateTaskUnitIR,
+    ContractFieldIR,
+    WorkerBoundaryDecisionIR,
+    WorkerPlanIR,
+    WorkerSpecIR,
+)
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import (
     WorkerBoundaryPlanner,
 )
@@ -972,3 +979,446 @@ def test_invalid_nested_handoff_object_raises_stage_error(
 
     with pytest.raises(StageError, match="Invalid WorkerPlanIR output"):
         planner.execute((spans, routes))
+
+
+def test_parser_moves_risk_values_out_of_candidate_signals(
+    planner: WorkerBoundaryPlanner,
+) -> None:
+    candidate = planner._parse_candidate(
+        {
+            "candidate_id": "candidate_policy",
+            "source_span_ids": ["s1"],
+            "task_text": "Maintain provenance as a policy.",
+            "purpose": "Keep provenance.",
+            "candidate_kind": "bounded_subtask",
+            "signals": ["bounded_io", "policy_or_constraint"],
+            "risks": [],
+        }
+    )
+
+    assert candidate.signals == ["bounded_io"]
+    assert candidate.risks == ["policy_or_constraint"]
+
+
+def test_parser_drops_boundary_kind_values_from_decision_evidence(
+    planner: WorkerBoundaryPlanner,
+) -> None:
+    decision = planner._parse_decision(
+        {
+            "candidate_id": "candidate_finalize",
+            "decision": "extract_child_worker",
+            "boundary_strength": "moderate",
+            "boundary_kind": "bounded_subtask",
+            "rejection_reason": None,
+            "reason": "Has bounded IO.",
+            "evidence": ["bounded_io", "failure_recovery_protocol"],
+        }
+    )
+
+    assert decision.evidence == ["bounded_io"]
+
+
+def test_parser_drops_invalid_worker_decision_evidence(
+    planner: WorkerBoundaryPlanner,
+) -> None:
+    worker = planner._parse_worker(
+        {
+            "worker_id": "worker_finalize",
+            "worker_name": "FinalizeWorker",
+            "kind": "child",
+            "purpose": "Finalize the draft.",
+            "owned_span_ids": ["s1"],
+            "input_contract": [field("draft")],
+            "output_contract": [field("completion_status", "output")],
+            "depends_on": [],
+            "constraints": [],
+            "boundary_kind": "bounded_subtask",
+            "decision_evidence": ["bounded_io", "failure_recovery_protocol"],
+            "reason": "Has bounded IO.",
+        }
+    )
+
+    assert worker.decision_evidence == ["bounded_io"]
+
+
+# ---------------------------------------------------------------------------
+# Prompt injection: Stage 3.5 executor call-site
+# ---------------------------------------------------------------------------
+
+def _make_valid_plan() -> WorkerPlanIR:
+    return WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[WorkerSpecIR("worker_main", "Main", "main", "Main", ["s1"],
+                              [], [], [], [], "main_worker", [], "")],
+        candidates=[], decisions=[], handoffs=[],
+    )
+
+
+class TestStage35PromptInjection:
+    def _make_config(self, flag_enabled: bool) -> PipelineConfig:
+        return PipelineConfig(
+            llm=LLMConfig(api_key="test-key"),
+            enable_worker_boundary_planner=True,
+            enable_worker_boundary_planner_split=True,
+            enable_irs_prompt_builder=flag_enabled,
+        )
+
+    def test_flag_on_stage3_5a_no_construct_injected(self):
+        """Stage 3.5a uses prompt file only — IRS not injected."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+            ExecutorMixin,
+        )
+
+        class TestExecutor(ExecutorMixin):
+            pass
+
+        executor = TestExecutor()
+        executor.config = self._make_config(flag_enabled=True)
+        executor.client = MagicMock()
+        executor.logger = MagicMock()
+        executor.name = "test"
+        executor._build_candidate_prompt = lambda s, r, c: "test prompt"
+
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        captured_prompt: list[str] = []
+
+        def capture(**kw):
+            captured_prompt.append(kw["system_prompt"])
+            return {"candidates": []}
+
+        executor.client.call_json = capture
+        executor._run_candidate_extraction(spans, routes, None)
+
+        assert len(captured_prompt) == 1
+        # Stage 3.5a/b use prompt file only — no IRS checklist injected
+        assert "CONSTRUCT:" not in captured_prompt[0]
+
+    def test_flag_on_stage3_5b_no_construct_injected(self):
+        """Stage 3.5b uses prompt file only — IRS not injected."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
+            DecisionValidatorMixin,
+        )
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+            ExecutorMixin,
+        )
+
+        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
+            pass
+
+        executor = TestExecutor()
+        executor.config = self._make_config(flag_enabled=True)
+        executor.client = MagicMock()
+        executor.logger = MagicMock()
+        executor.name = "test"
+        executor._build_decision_prompt = lambda s, r, c, cands: "test prompt"
+
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        captured_prompt: list[str] = []
+
+        def capture(**kw):
+            captured_prompt.append(kw["system_prompt"])
+            return {"decisions": []}
+
+        executor.client.call_json = capture
+        executor._run_boundary_decisions(spans, routes, None, [])
+
+        assert len(captured_prompt) == 1
+        assert "CONSTRUCT:" not in captured_prompt[0]
+
+    def test_flag_off_stage3_5b_no_irs_in_prompt(self):
+        """Flag off: no IRS checklist in split-path prompts."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
+            DecisionValidatorMixin,
+        )
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+            ExecutorMixin,
+        )
+
+        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
+            pass
+
+        executor = TestExecutor()
+        executor.config = self._make_config(flag_enabled=False)
+        executor.client = MagicMock()
+        executor.logger = MagicMock()
+        executor.name = "test"
+        executor._build_decision_prompt = lambda s, r, c, cands: "test prompt"
+
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        captured_prompt: list[str] = []
+
+        def capture(**kw):
+            captured_prompt.append(kw["system_prompt"])
+            return {"decisions": []}
+
+        executor.client.call_json = capture
+        executor._run_boundary_decisions(spans, routes, None, [])
+
+        assert len(captured_prompt) == 1
+        assert "CONSTRUCT:" not in captured_prompt[0]
+
+    def test_flag_on_legacy_no_construct_injected(self):
+        """Legacy path uses prompt file only — IRS not injected."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
+            DecisionValidatorMixin,
+        )
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+            ExecutorMixin,
+        )
+
+        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
+            pass
+
+        executor = TestExecutor()
+        executor.config = self._make_config(flag_enabled=True)
+        executor.client = MagicMock()
+        executor.logger = MagicMock()
+        executor.name = "test"
+        executor._build_user_prompt = lambda s, r, c: "test prompt"
+        executor._parse_worker_plan = lambda r: _make_valid_plan()
+        executor._hard_fact_contracts = lambda ci: ([], [])
+        executor.save_checkpoint = lambda d: None
+        executor._has_decision_worker_mismatch = lambda errs: False
+
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        captured_prompt: list[str] = []
+
+        def capture(**kw):
+            captured_prompt.append(kw["system_prompt"])
+            return {"workers": [], "candidates": [], "decisions": [],
+                    "handoffs": [], "main_worker_id": "worker_main"}
+
+        executor.client.call_json = capture
+        executor._execute_legacy_single_call(spans, routes, None)
+
+        assert len(captured_prompt) == 1
+        assert "CONSTRUCT:" not in captured_prompt[0]
+
+    def test_flag_off_legacy_no_irs_in_prompt(self):
+        """Legacy single-call path: flag off, no IRS checklist."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
+            DecisionValidatorMixin,
+        )
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
+            ExecutorMixin,
+        )
+
+        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
+            pass
+
+        executor = TestExecutor()
+        executor.config = self._make_config(flag_enabled=False)
+        executor.client = MagicMock()
+        executor.logger = MagicMock()
+        executor.name = "test"
+        executor._build_user_prompt = lambda s, r, c: "test prompt"
+        executor._parse_worker_plan = lambda r: _make_valid_plan()
+        executor._hard_fact_contracts = lambda ci: ([], [])
+        executor.save_checkpoint = lambda d: None
+        executor._has_decision_worker_mismatch = lambda errs: False
+
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        captured_prompt: list[str] = []
+
+        def capture(**kw):
+            captured_prompt.append(kw["system_prompt"])
+            return {"workers": [], "candidates": [], "decisions": [],
+                    "handoffs": [], "main_worker_id": "worker_main"}
+
+        executor.client.call_json = capture
+        executor._execute_legacy_single_call(spans, routes, None)
+
+        assert len(captured_prompt) == 1
+        assert "CONSTRUCT:" not in captured_prompt[0]
+
+    def test_guard_mixed_unbacked_input_rejected(self) -> None:
+        """One backed + one invented input with hard_inputs -> rejected."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        mat = WorkerPlanMaterializer()
+        candidate = CandidateTaskUnitIR(
+            candidate_id="c_mixed",
+            source_span_ids=["s1"],
+            task_text="Match template to request.",
+            purpose="Apply a formatting template.",
+            candidate_kind="bounded_subtask",
+            possible_inputs=[
+                ContractFieldIR("user_request", "text", True, "User request", "input"),
+                ContractFieldIR("template_id", "text", True, "Template ID", "input"),  # invented
+            ],
+            possible_outputs=[ContractFieldIR("draft", "text", True, "Draft", "output")],
+            signals=[],
+            risks=[],
+        )
+        decision = WorkerBoundaryDecisionIR(
+            candidate_id="c_mixed",
+            decision="extract_child_worker",
+            boundary_strength="strong",
+            boundary_kind="bounded_subtask",
+            rejection_reason=None,
+            reason="Should be rejected.",
+            evidence=["bounded_io"],
+        )
+        hard_inputs = [ContractFieldIR("user_request", "text", True, "User request", "input")]
+        hard_outputs = [ContractFieldIR("draft", "text", True, "Draft", "output")]
+        worker = mat._candidate_to_worker(candidate, decision, hard_inputs, hard_outputs)
+        assert worker is not None
+        backed = mat._contract_fields_backed(worker, candidate, hard_inputs, hard_outputs)
+        assert backed is False  # template_id is invented
+
+    def test_guard_all_backed_passes(self) -> None:
+        """All inputs match hard_inputs, all outputs match hard_outputs -> pass."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        mat = WorkerPlanMaterializer()
+        candidate = CandidateTaskUnitIR(
+            candidate_id="c_good",
+            source_span_ids=["s2"],
+            task_text="Retrieve sources.",
+            purpose="Gather source evidence.",
+            candidate_kind="bounded_subtask",
+            possible_inputs=[ContractFieldIR("connectors", "text", True, "Connectors", "input")],
+            possible_outputs=[ContractFieldIR("evidence_set", "text", True, "Evidence", "output")],
+            signals=["explicit_delegation"],
+            risks=[],
+        )
+        decision = WorkerBoundaryDecisionIR(
+            candidate_id="c_good",
+            decision="extract_child_worker",
+            boundary_strength="strong",
+            boundary_kind="bounded_subtask",
+            rejection_reason=None,
+            reason="Source-backed.",
+            evidence=["explicit_delegation"],
+        )
+        hard_inputs = [ContractFieldIR("connectors", "text", True, "Available connectors", "input")]
+        hard_outputs = [ContractFieldIR("evidence_set", "text", True, "Evidence", "output")]
+        worker = mat._candidate_to_worker(candidate, decision, hard_inputs, hard_outputs)
+        assert worker is not None
+        backed = mat._contract_fields_backed(worker, candidate, hard_inputs, hard_outputs)
+        assert backed is True
+
+    def test_guard_passes_without_hard_facts(self) -> None:
+        """No hard facts -> pass."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        mat = WorkerPlanMaterializer()
+        candidate = CandidateTaskUnitIR(
+            candidate_id="c_any",
+            source_span_ids=["s3"],
+            task_text="Normalize request.",
+            purpose="Normalize procurement request.",
+            candidate_kind="bounded_subtask",
+            possible_inputs=[ContractFieldIR("purchase_request", "text", True, "Request", "input")],
+            possible_outputs=[ContractFieldIR("normalized_request", "text", True, "Result", "output")],
+            signals=["bounded_io"],
+            risks=[],
+        )
+        decision = WorkerBoundaryDecisionIR(
+            candidate_id="c_any",
+            decision="extract_child_worker",
+            boundary_strength="moderate",
+            boundary_kind="bounded_subtask",
+            rejection_reason=None,
+            reason="Pass-through.",
+            evidence=["bounded_io"],
+        )
+        worker = mat._candidate_to_worker(candidate, decision, [], [])
+        assert worker is not None
+        backed = mat._contract_fields_backed(worker, candidate, [], [])
+        assert backed is True
+
+    def test_guard_mixed_unbacked_materialize_rejected(self) -> None:
+        """materialize() rejects candidate with mixed backed+unbacked fields."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        mat = WorkerPlanMaterializer()
+        candidate = CandidateTaskUnitIR(
+            candidate_id="c_mixed",
+            source_span_ids=["s1"],
+            task_text="Apply template.",
+            purpose="Template matching.",
+            candidate_kind="bounded_subtask",
+            possible_inputs=[
+                ContractFieldIR("user_request", "text", True, "User request", "input"),
+                ContractFieldIR("template_id", "text", True, "Template ID", "input"),
+            ],
+            possible_outputs=[ContractFieldIR("draft", "text", True, "Draft", "output")],
+            signals=[],
+            risks=[],
+        )
+        decision = WorkerBoundaryDecisionIR(
+            candidate_id="c_mixed",
+            decision="extract_child_worker",
+            boundary_strength="strong",
+            boundary_kind="bounded_subtask",
+            rejection_reason=None,
+            reason="Should be rejected by guard.",
+            evidence=["bounded_io"],
+        )
+        hard_inputs = [ContractFieldIR("user_request", "text", True, "User request", "input")]
+        hard_outputs = [ContractFieldIR("draft", "text", True, "Draft", "output")]
+        plan, warnings = mat.materialize(
+            candidates=[candidate],
+            decisions=[decision],
+            hard_fact_inputs=hard_inputs,
+            hard_fact_outputs=hard_outputs,
+            behavior_span_ids={"s1"},
+        )
+        # Only main worker, no child workers
+        assert len(plan.workers) == 1
+        assert plan.handoffs == []
+        assert any("not source-backed" in w for w in warnings)
+
+    def test_guard_all_backed_materialize_passes(self) -> None:
+        """materialize() passes candidate with all-backed fields."""
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        mat = WorkerPlanMaterializer()
+        candidate = CandidateTaskUnitIR(
+            candidate_id="c_good",
+            source_span_ids=["s2"],
+            task_text="Retrieve sources.",
+            purpose="Gather source evidence.",
+            candidate_kind="bounded_subtask",
+            possible_inputs=[ContractFieldIR("connectors", "text", True, "Connectors", "input")],
+            possible_outputs=[ContractFieldIR("evidence_set", "text", True, "Evidence", "output")],
+            signals=["explicit_delegation"],
+            risks=[],
+        )
+        decision = WorkerBoundaryDecisionIR(
+            candidate_id="c_good",
+            decision="extract_child_worker",
+            boundary_strength="strong",
+            boundary_kind="bounded_subtask",
+            rejection_reason=None,
+            reason="Source-backed.",
+            evidence=["explicit_delegation"],
+        )
+        hard_inputs = [ContractFieldIR("connectors", "text", True, "Available connectors", "input")]
+        hard_outputs = [ContractFieldIR("evidence_set", "text", True, "Evidence", "output")]
+        plan, warnings = mat.materialize(
+            candidates=[candidate],
+            decisions=[decision],
+            hard_fact_inputs=hard_inputs,
+            hard_fact_outputs=hard_outputs,
+            behavior_span_ids={"s2"},
+        )
+        # Main + child worker
+        assert len(plan.workers) == 2
+        assert len(plan.handoffs) == 1

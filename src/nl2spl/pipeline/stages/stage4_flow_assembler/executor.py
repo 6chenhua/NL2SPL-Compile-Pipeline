@@ -8,6 +8,7 @@ from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
+from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR, WorkerSpecIR
 from nl2spl.llm.prompts import load_prompt
 
@@ -116,6 +117,8 @@ class ExecutorMixin:
         behavior_text = self._format_span_text(behavior_spans)
         source_text = self._format_span_text(spans)
         system_prompt = load_prompt("stage4")
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage4")
 
         if worker is None:
             user_prompt = f"""Assemble flow structure from behavior spans.

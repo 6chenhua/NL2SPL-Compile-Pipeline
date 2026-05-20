@@ -22,6 +22,8 @@ class BlockRendererMixin:
 
         for block in blocks:
             block_steps = self._steps_for_block(block, steps)
+            if not block_steps:
+                continue
 
             if block.block_type == "SEQUENTIAL":
                 lines.append(f"{indent_str}[SEQUENTIAL_BLOCK]")

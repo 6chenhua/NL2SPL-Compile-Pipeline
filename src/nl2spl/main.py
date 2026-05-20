@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from nl2spl.config import load_config
+from nl2spl.compiler.feedback_report_renderer import render_feedback_report
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -76,6 +77,21 @@ def main() -> None:
         report_path = config.run_dir / "compile_report.txt"
         report_path.write_text(result.readable_report, encoding="utf-8")
         print(f"Compile report saved to: {report_path}", file=sys.stderr)
+
+        # Write user-facing feedback report
+        feedback_report = render_feedback_report(
+            spl_text=result.spl_text,
+            completeness=result.completeness,
+            diagnostics=result.compile_diagnostics,
+            assumptions=result.assumptions,
+            traces=result.traces,
+            adapter_warnings=result.adapter_warnings,
+            validation_errors=result.validation_errors,
+            validation_warnings=result.validation_warnings,
+        )
+        feedback_path = config.run_dir / "feedback_report.md"
+        feedback_path.write_text(feedback_report, encoding="utf-8")
+        print(f"Feedback report saved to: {feedback_path}", file=sys.stderr)
 
         # Compile status summary
         diag_count = len(result.compile_diagnostics)

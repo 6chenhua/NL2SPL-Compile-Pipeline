@@ -1,0 +1,7 @@
+We need to process user requests and produce a report.
+
+The system should gather approved sources. If a source is unavailable or the
+user does not provide a timeframe, flag the issue and ask for clarification.
+Do not finalize missing required fields.
+
+A source gathering task may be delegated to a specialized agent if needed.

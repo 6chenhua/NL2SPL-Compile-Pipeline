@@ -1,0 +1,20 @@
+Task family:
+Internal reporting.
+
+Inputs for each run:
+- user_request: The user's request.
+
+Required outputs:
+- topic_summary: A short summary of the requested topic.
+
+Reusable process:
+Read the request and summarize the topic.
+
+Policies:
+Do not invent missing fields.
+
+Failure handling:
+- Missing timeframe: The user did not provide a timeframe.
+
+Delegation policy:
+

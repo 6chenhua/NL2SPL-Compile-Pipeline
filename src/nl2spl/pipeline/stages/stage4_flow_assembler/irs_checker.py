@@ -18,7 +18,7 @@ from __future__ import annotations
 from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
     SlotSatisfaction,
-    SPLConstructRegistry,
+    SPLConstructRegistry, ConstructCompleteness,
 )
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR

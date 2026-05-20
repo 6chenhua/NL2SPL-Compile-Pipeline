@@ -21,6 +21,7 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
+from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.llm.prompts import load_prompt
 
 
@@ -178,6 +179,9 @@ class WorkerScopedMethodsMixin:
         system_prompt = load_prompt("stage7").replace(
             "{variable_list}", variable_list
         )
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
+
         user_prompt = f"""请从以下文本中提取 step：
 
 behavior spans：

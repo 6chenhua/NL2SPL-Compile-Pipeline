@@ -1,0 +1,19 @@
+Task family:
+Internal research reporting.
+
+Inputs for each run:
+- user_request: The user's research request.
+
+Required outputs:
+- final_report: A compiled report of gathered sources and analysis.
+
+Reusable process:
+Read the user request and identify the research topic.
+
+Policies:
+Do not invent facts or links.
+
+Failure handling:
+
+Delegation policy:
+

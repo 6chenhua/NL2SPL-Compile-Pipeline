@@ -1,23 +1,53 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-05-12T13:40:26.830392",
+  "timestamp": "2026-05-13T21:50:39.317314",
   "metadata": {},
   "result": {
     "worker_blocks": {
       "worker_main": {
-        "main_flow_blocks": [],
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s18"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "IF",
+            "condition_text": "all gates pass",
+            "spans": [
+              "s23"
+            ]
+          }
+        ],
         "alternative_flow_blocks": {},
         "exception_flow_blocks": {
-          "exc_1": [],
-          "exc_2": [],
-          "exc_3": [],
-          "exc_4": [],
-          "exc_5": [],
-          "exc_6": [],
-          "exc_7": []
+          "exc_1": [
+            {
+              "block_id": "b_3",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s20"
+              ]
+            }
+          ],
+          "exc_2": [
+            {
+              "block_id": "b_4",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s21"
+              ]
+            }
+          ]
         }
       },
-      "worker_normalize_request": {
+      "normalize_procurement_request": {
         "main_flow_blocks": [
           {
             "block_id": "b_1",
@@ -31,7 +61,7 @@
         "alternative_flow_blocks": {},
         "exception_flow_blocks": {}
       },
-      "worker_vendor_pool": {
+      "identify_vendor_pool": {
         "main_flow_blocks": [
           {
             "block_id": "b_1",
@@ -44,11 +74,52 @@
         ],
         "alternative_flow_blocks": {},
         "exception_flow_blocks": {}
+      },
+      "evaluate_sourcing_submission": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s19",
+              "s37"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      },
+      "route_procurement_approval": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s22"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      },
+      "archive_audit_evidence": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s24"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
       }
     },
     "control_complexity_regions": [],
-    "warnings": [
-      "Worker worker_main has no owned behavior spans for Stage 4."
-    ]
+    "warnings": []
   }
 }

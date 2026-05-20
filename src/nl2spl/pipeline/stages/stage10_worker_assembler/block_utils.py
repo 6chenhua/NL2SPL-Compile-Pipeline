@@ -26,6 +26,8 @@ class BlockUtilsMixin:
         unrendered_steps: list[StepIR] = []
 
         for step in steps:
+            if step.flow_ref and step.flow_ref != "main":
+                continue
             if step.block_ref and step.block_ref in block_ids:
                 continue
             if any(span_id in block_spans for span_id in step.source_span_ids):
@@ -33,7 +35,10 @@ class BlockUtilsMixin:
             unrendered_steps.append(step)
 
         if not blocks:
-            unrendered_steps = list(steps)
+            unrendered_steps = [
+                step for step in steps
+                if not step.flow_ref or step.flow_ref == "main"
+            ]
 
         if not unrendered_steps:
             return blocks

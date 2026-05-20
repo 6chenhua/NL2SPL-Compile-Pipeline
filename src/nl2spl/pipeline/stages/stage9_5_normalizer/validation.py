@@ -378,6 +378,8 @@ class ValidationMixin:
                             f"{constraint.constraint_id} references unknown step: {target_id}"
                         )
                     elif target_type == "variable" and target_id not in symbol_table.variables:
+                        if target_id in getattr(self, "_pruned_variable_names", set()):
+                            continue
                         errors.append(
                             "Constraint "
                             f"{constraint.constraint_id} references unknown variable: {target_id}"

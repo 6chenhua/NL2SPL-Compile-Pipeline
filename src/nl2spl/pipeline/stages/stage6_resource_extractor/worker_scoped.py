@@ -32,6 +32,12 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
 )
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
+    build_resource_context,
+)
+from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter import (
+    is_allowed_resource_variable,
+)
 
 
 class WorkerScopedMixin:
@@ -56,6 +62,7 @@ class WorkerScopedMixin:
         """
         symbol_table = SymbolTable()
         worker_scoped_resources = WorkerScopedResourceIR()
+        self.resource_filter_warnings: list[str] = []
 
         # 1. Extract global resources (from main worker)
         main_worker_id = worker_plan.main_worker_id
@@ -150,19 +157,33 @@ class WorkerScopedMixin:
         worker_spec: WorkerSpecIR | None = None,
     ) -> tuple[ResourceRegistryIR, SymbolTable]:
         """Extract resources for a specific scope (LLM call + parsing)."""
-        behavior_json = json.dumps(
-            [s.to_dict() for s in spans if s.span_id in routes.behavior],
-            ensure_ascii=False,
-        )
-        integrations_json = json.dumps(
-            [s.to_dict() for s in spans if s.span_id in routes.integrations],
-            ensure_ascii=False,
-        )
-        structure_context = ""
-        if flow is not None and blocks is not None:
-            flow_json = json.dumps(asdict(flow), ensure_ascii=False)
-            blocks_json = json.dumps(asdict(blocks), ensure_ascii=False)
-            structure_context = f"""
+        system_prompt = load_prompt("stage6")
+        if self.config.enable_stage6_resource_context_v2:
+            user_prompt = build_resource_context(
+                spans=spans,
+                routes=routes,
+                flow=flow,
+                blocks=blocks,
+                symbol_table=symbol_table,
+                canonical_input=canonical_input,
+                worker_spec=worker_spec,
+                scope_kind=scope_kind,
+                scope_id=scope_id,
+            )
+        else:
+            behavior_json = json.dumps(
+                [s.to_dict() for s in spans if s.span_id in routes.behavior],
+                ensure_ascii=False,
+            )
+            integrations_json = json.dumps(
+                [s.to_dict() for s in spans if s.span_id in routes.integrations],
+                ensure_ascii=False,
+            )
+            structure_context = ""
+            if flow is not None and blocks is not None:
+                flow_json = json.dumps(asdict(flow), ensure_ascii=False)
+                blocks_json = json.dumps(asdict(blocks), ensure_ascii=False)
+                structure_context = f"""
 
 flow structure:
 ---
@@ -174,46 +195,45 @@ block structure:
 {blocks_json}
 ---"""
 
-        worker_context = ""
-        if worker_spec is not None:
-            lines: list[str] = [
-                f"  name: {worker_spec.worker_name}",
-                f"  kind: {worker_spec.kind}",
-                f"  purpose: {worker_spec.purpose}",
-            ]
-            if worker_spec.input_contract:
-                lines.append("  inputs:")
-                for field in worker_spec.input_contract:
-                    lines.append(
-                        f"    - {field.name}: {field.data_type} "
-                        f"(required={field.required}) - {field.description}"
-                    )
-            if worker_spec.output_contract:
-                lines.append("  outputs:")
-                for field in worker_spec.output_contract:
-                    lines.append(
-                        f"    - {field.name}: {field.data_type} "
-                        f"(required={field.required}) - {field.description}"
-                    )
-            worker_context = f"""
+            worker_context = ""
+            if worker_spec is not None:
+                lines: list[str] = [
+                    f"  name: {worker_spec.worker_name}",
+                    f"  kind: {worker_spec.kind}",
+                    f"  purpose: {worker_spec.purpose}",
+                ]
+                if worker_spec.input_contract:
+                    lines.append("  inputs:")
+                    for field in worker_spec.input_contract:
+                        lines.append(
+                            f"    - {field.name}: {field.data_type} "
+                            f"(required={field.required}) - {field.description}"
+                        )
+                if worker_spec.output_contract:
+                    lines.append("  outputs:")
+                    for field in worker_spec.output_contract:
+                        lines.append(
+                            f"    - {field.name}: {field.data_type} "
+                            f"(required={field.required}) - {field.description}"
+                        )
+                worker_context = f"""
 
 worker context:
 {chr(10).join(lines)}
 """
 
-        known_vars = symbol_table.get_variable_list_for_worker_prompt(
-            scope_id or "main"
-        )
-        known_vars_context = ""
-        if known_vars != "No variables available.":
-            known_vars_context = f"""
+            known_vars = symbol_table.get_variable_list_for_worker_prompt(
+                scope_id or "main"
+            )
+            known_vars_context = ""
+            if known_vars != "No variables available.":
+                known_vars_context = f"""
 
 known variables:
 {known_vars}
 """
 
-        system_prompt = load_prompt("stage6")
-        user_prompt = f"""请从以下文本中提取资源：
+            user_prompt = f"""请从以下文本中提取资源：
 
 behavior spans：
 ---
@@ -242,10 +262,19 @@ integrations spans：
             ) from e
 
         variables: list[VariableSpec] = []
+        filter_warnings: list[str] = []
         for var_data in result.get("variables", []):
             try:
+                name = var_data["name"]
+                if self.config.enable_resource_name_filter:
+                    allowed, reason = is_allowed_resource_variable(name)
+                    if not allowed:
+                        filter_warnings.append(
+                            f"Rejected schema-looking variable '{name}': {reason}"
+                        )
+                        continue
                 var = VariableSpec(
-                    name=var_data["name"],
+                    name=name,
                     data_type=var_data["data_type"],
                     required=var_data.get("required", False),
                     description=var_data.get("description", ""),
@@ -331,6 +360,11 @@ integrations spans：
                 scope_kind=scope_kind,
                 scope_id=scope_id,
             )
+
+        if not hasattr(self, "resource_filter_warnings"):
+            self.resource_filter_warnings = list(filter_warnings)
+        else:
+            self.resource_filter_warnings.extend(filter_warnings)
 
         self.logger.info(
             "Extracted %d variables, %d files, %d APIs, %d types for scope %s:%s",

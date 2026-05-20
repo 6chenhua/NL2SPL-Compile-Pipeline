@@ -15,6 +15,7 @@ from nl2spl.canonical import (
     SemanticPacket,
     VariableFact,
 )
+from nl2spl.config import load_config
 
 
 STRUCTURAL_TEXT = """Task family:
@@ -107,6 +108,63 @@ def test_generic_freeform_uses_generic_adapter() -> None:
     assert canonical.raw_text == "Please draft a concise update."
     assert canonical.raw_sections == []
     assert canonical.semantic_packets == []
+
+
+def test_registry_adapter_llm_engine_off_passes_no_clients() -> None:
+    registry = InputAdapterRegistry(llm_client=object(), adapter_llm_engine="off")
+
+    structural, generic = registry.adapters
+
+    assert isinstance(structural, StructuralNLAdapter)
+    assert isinstance(generic, GenericNLAdapter)
+    assert getattr(structural, "_llm_client") is None
+    assert getattr(generic, "_llm_client") is None
+
+
+def test_registry_adapter_llm_engine_generic_only() -> None:
+    client = object()
+    registry = InputAdapterRegistry(llm_client=client, adapter_llm_engine="generic_only")
+
+    structural, generic = registry.adapters
+
+    assert getattr(structural, "_llm_client") is None
+    assert getattr(generic, "_llm_client") is client
+
+
+def test_registry_adapter_llm_engine_structural_enrich() -> None:
+    client = object()
+    registry = InputAdapterRegistry(
+        llm_client=client,
+        adapter_llm_engine="structural_enrich",
+    )
+
+    structural, generic = registry.adapters
+
+    assert getattr(structural, "_llm_client") is client
+    assert getattr(generic, "_llm_client") is None
+
+
+def test_registry_adapter_llm_engine_all() -> None:
+    client = object()
+    registry = InputAdapterRegistry(llm_client=client, adapter_llm_engine="all")
+
+    structural, generic = registry.adapters
+
+    assert getattr(structural, "_llm_client") is client
+    assert getattr(generic, "_llm_client") is client
+
+
+def test_load_config_reads_adapter_llm_engine_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("NL2SPL_ADAPTER_LLM_ENGINE", "generic_only")
+
+    config = load_config(output_dir=tmp_path)
+
+    assert config.adapter_llm_engine == "generic_only"
+
+
+def test_load_config_rejects_invalid_adapter_llm_engine(tmp_path) -> None:
+    with pytest.raises(ValueError, match="adapter_llm_engine"):
+        load_config(output_dir=tmp_path, adapter_llm_engine="invalid")
 
 
 def test_structural_adapter_extracts_hard_facts_and_hints() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Literal
+from typing import Any, Literal
 
 from nl2spl.adapters.base import InputAdapter
 from nl2spl.canonical import (
@@ -13,13 +13,15 @@ from nl2spl.canonical import (
     CanonicalCompileInput,
     CompileHint,
     CompileHints,
+    DelegationIntentFact,
+    EvidenceRef,
     FailureModeFact,
     HardFacts,
     RawSection,
     SemanticPacket,
     VariableFact,
 )
-
+from nl2spl.llm.prompts import load_prompt
 
 STRUCTURAL_NL_SECTIONS = {
     "task family": "task_family",
@@ -61,10 +63,18 @@ VARIABLE_NAME_ALIASES = {
 
 
 class StructuralNLAdapter(InputAdapter):
-    """Parse known structural NL section headings into canonical input."""
+    """Parse known structural NL section headings into canonical input.
+
+    When *llm_client* is provided and enrichment is enabled, the adapter
+    may use the LLM engine to add missing descriptions or discover
+    additional facts.  Deterministic section facts always take priority.
+    """
 
     name = "structural_nl"
     schema_version = "1.0"
+
+    def __init__(self, llm_client: object | None = None) -> None:
+        self._llm_client = llm_client
 
     def detect(self, raw_text: str) -> AdapterDetectionResult:
         """Detect structural_nl by section evidence."""
@@ -123,6 +133,7 @@ class StructuralNLAdapter(InputAdapter):
                         source_section_id=section.section_id,
                         text=section.text,
                         target="profile.persona",
+                        evidence=[self._make_evidence(section)],
                     )
                 )
             elif title == "inputs_for_each_run":
@@ -163,6 +174,7 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=text,
                             suggested_flow="main",
+                            evidence=[self._make_evidence(section)],
                         )
                     )
             elif title == "policies":
@@ -173,6 +185,7 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=text,
                             suggested_kind=self._suggest_constraint_kind(text),
+                            evidence=[self._make_evidence(section)],
                         )
                     )
             elif title == "failure_handling":
@@ -195,16 +208,25 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=mode.text,
                             suggested_flow="exception",
+                            evidence=[self._make_evidence(section)],
                         )
                     )
             elif title == "delegation_policy":
                 semantic_packets.extend(self._sentence_packets("delegation_rule", section))
                 for text in self._split_sentences(section.text):
+                    hard_facts.delegation_intents.append(
+                        DelegationIntentFact(
+                            name=self._variable_name(text),
+                            text=text[:1].upper() + text[1:],
+                            evidence=[self._make_evidence(section)],
+                        )
+                    )
                     compile_hints.delegation_hints.append(
                         CompileHint(
                             source_section_id=section.section_id,
                             text=text,
                             suggested_type="child_worker_candidate",
+                            evidence=[self._make_evidence(section)],
                         )
                     )
                     compile_hints.constraint_hints.append(
@@ -212,8 +234,28 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=text,
                             suggested_kind="delegation_boundary",
+                            evidence=[self._make_evidence(section)],
                         )
                     )
+
+        # Optional LLM enrichment (Phase 7)
+        if self._llm_client is not None:
+            try:
+                hard_facts, llm_warns = self._enrich_with_llm(
+                    raw_text, sections, semantic_packets, hard_facts,
+                )
+                warnings.extend(llm_warns)
+            except Exception as exc:
+                warnings.append(
+                    AdapterWarning(
+                        code="LLM_ENRICHMENT_FAILED",
+                        message=(
+                            f"LLM enrichment failed: {exc}. "
+                            f"Deterministic facts preserved."
+                        ),
+                        severity="warning",
+                    )
+                )
 
         return CanonicalCompileInput(
             source_schema=self.name,
@@ -226,6 +268,51 @@ class StructuralNLAdapter(InputAdapter):
             warnings=warnings,
             detection=detection,
         )
+
+    def _enrich_with_llm(
+        self,
+        raw_text: str,
+        sections: list[Any],
+        packets: list[Any],
+        deterministic: Any,
+    ) -> tuple[Any, list[Any]]:
+        """Run LLM enrichment and merge with deterministic facts."""
+        import json as _json
+
+        from nl2spl.adapters.fact_verifier import FactVerifier
+        from nl2spl.adapters.llm_engine import parse_llm_fact_json
+
+        section_ids = {s.section_id for s in sections}
+        packet_by_id = {p.packet_id: p for p in packets}
+
+        packet_lines = []
+        for p in packets:
+            packet_lines.append(
+                f"  {p.packet_id} ({p.packet_type}, "
+                f"section={p.source_section_id}): {p.text}"
+            )
+
+        user_prompt = (
+            "Enrich the following structural input with additional "
+            "facts if any are missing. Cite the appropriate "
+            "source_section_id and source_packet_id for every fact.\n\n"
+            "Available packets:\n" + "\n".join(packet_lines) + "\n\n"
+            f"Raw text:\n{raw_text}"
+        )
+
+        system_prompt = load_prompt("input_adapter_fact_extractor")
+        result_dict = self._llm_client.call_json(  # type: ignore[union-attr]
+            stage_name="structural_enrich",
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_tokens=4096,
+        )
+
+        extraction = parse_llm_fact_json(
+            _json.dumps(result_dict), section_ids, packet_by_id,
+        )
+        verifier = FactVerifier()
+        return verifier.verify_and_merge(deterministic, extraction)
 
     def _parse_sections(self, raw_text: str) -> tuple[list[RawSection], list[str]]:
         lines = raw_text.splitlines(keepends=True)
@@ -357,6 +444,7 @@ class StructuralNLAdapter(InputAdapter):
                     data_type=self._infer_data_type(clean),
                     required=required,
                     source_section_id=section.section_id,
+                    evidence=[self._make_evidence(section)],
                 )
             )
         return facts
@@ -391,6 +479,7 @@ class StructuralNLAdapter(InputAdapter):
                         name=self._variable_name(clean),
                         text=clean[:1].upper() + clean[1:],
                         source_section_id=section.section_id,
+                        evidence=[self._make_evidence(section)],
                     )
                 )
         return modes
@@ -438,6 +527,11 @@ class StructuralNLAdapter(InputAdapter):
             if count:
                 packet.packet_id = f"{packet.packet_id}_{count + 1}"
         return packets
+
+    @staticmethod
+    def _make_evidence(section: RawSection) -> EvidenceRef:
+        """Build a minimal EvidenceRef from a raw section."""
+        return EvidenceRef(source_section_id=section.section_id)
 
     @staticmethod
     def _split_list_items(text: str) -> list[str]:
@@ -491,3 +585,4 @@ class StructuralNLAdapter(InputAdapter):
         if "evidence" in lowered:
             return "evidence"
         return "requirement"
+

@@ -37,6 +37,7 @@ class WorkerBoundaryPlanner(
         "policy_or_constraint",
         "alternative_flow",
         "exception_flow",
+        "failure_recovery_protocol",
         "single_api_call",
         "insufficient_semantic_boundary",
         "over_fragmentation",

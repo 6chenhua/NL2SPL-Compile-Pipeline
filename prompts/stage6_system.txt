@@ -86,4 +86,8 @@ Keywords: type, structure, schema, enum, status
 Rules:
 - Variable names must be snake_case
 - If no items of a category are found, return []
+- Do not extract schema, IR, JSON, diagnostic, span, flow, block, step,
+  source_section, or source_packet fields as domain variables.
+- Only extract variables that the user requirement itself needs as task
+  inputs, outputs, or resources.
 - Do not add fields beyond those specified

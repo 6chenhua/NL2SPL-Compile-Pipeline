@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
@@ -23,6 +23,9 @@ from nl2spl.ir.worker_plan_ir import (
 
 class PlanParserMixin:
     """Mixin providing LLM output parsing methods."""
+
+    _VALID_SIGNALS = set(get_args(Signal))
+    _VALID_RISKS = set(get_args(Risk))
 
     def _parse_worker_plan(self, data: dict[str, Any]) -> WorkerPlanIR:
         return WorkerPlanIR(
@@ -57,6 +60,8 @@ class PlanParserMixin:
         )
 
     def _parse_candidate(self, data: dict[str, Any]) -> CandidateTaskUnitIR:
+        signals, signal_risks = self._parse_signal_values(data.get("signals", []))
+        explicit_risks = self._parse_risk_values(data.get("risks", []))
         return CandidateTaskUnitIR(
             candidate_id=data["candidate_id"],
             source_span_ids=self._str_list(data.get("source_span_ids", [])),
@@ -71,8 +76,8 @@ class PlanParserMixin:
                 self._parse_contract_field(field)
                 for field in data.get("possible_outputs", [])
             ],
-            signals=cast(list[Signal], self._str_list(data.get("signals", []))),
-            risks=cast(list[Risk], self._str_list(data.get("risks", []))),
+            signals=signals,
+            risks=[*explicit_risks, *signal_risks],
         )
 
     def _parse_decision(self, data: dict[str, Any]) -> WorkerBoundaryDecisionIR:
@@ -84,7 +89,7 @@ class PlanParserMixin:
             boundary_kind=data.get("boundary_kind", "not_a_worker"),
             rejection_reason=rejection_reason,
             reason=data.get("reason", ""),
-            evidence=cast(list[Signal], self._str_list(data.get("evidence", []))),
+            evidence=self._parse_positive_signals(data.get("evidence", [])),
         )
 
     def _parse_worker(self, data: dict[str, Any]) -> WorkerSpecIR:
@@ -105,12 +110,44 @@ class PlanParserMixin:
             depends_on=self._str_list(data.get("depends_on", [])),
             constraints=self._str_list(data.get("constraints", [])),
             boundary_kind=data.get("boundary_kind", "main_worker"),
-            decision_evidence=cast(
-                list[Signal],
-                self._str_list(data.get("decision_evidence", [])),
+            decision_evidence=self._parse_positive_signals(
+                data.get("decision_evidence", [])
             ),
             reason=data.get("reason", ""),
         )
+
+    def _parse_signal_values(self, value: object) -> tuple[list[Signal], list[Risk]]:
+        """Parse candidate signals and recover misplaced risk values.
+
+        LLMs sometimes place risk labels in ``signals`` even when the prompt
+        separates positive signals from negative risks. Keep only known
+        positive signals as signals; known risks are preserved as risks so
+        downstream semantic validation can still reject unsafe candidates.
+        """
+        signals: list[Signal] = []
+        risks: list[Risk] = []
+        for item in self._str_list(value):
+            if item in self._VALID_SIGNALS:
+                signals.append(cast(Signal, item))
+            elif item in self._VALID_RISKS:
+                risks.append(cast(Risk, item))
+        return signals, risks
+
+    def _parse_positive_signals(self, value: object) -> list[Signal]:
+        """Parse a list of positive signal values, dropping enum drift."""
+        return [
+            cast(Signal, item)
+            for item in self._str_list(value)
+            if item in self._VALID_SIGNALS
+        ]
+
+    def _parse_risk_values(self, value: object) -> list[Risk]:
+        """Parse a list of risk values, dropping enum drift."""
+        return [
+            cast(Risk, item)
+            for item in self._str_list(value)
+            if item in self._VALID_RISKS
+        ]
 
     def _parse_handoff(self, data: dict[str, Any]) -> WorkerHandoffIR:
         return WorkerHandoffIR(

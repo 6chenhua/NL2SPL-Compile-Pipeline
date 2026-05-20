@@ -17,6 +17,9 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerFlowPlanIR,
 )
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage5_block_assembler.block_postprocess import (
+    merge_adjacent_sequential_blocks,
+)
 
 
 class ExecutorMixin:
@@ -181,6 +184,8 @@ Return JSON only."""
             alternative_flow_blocks=alternative_flow_blocks,
             exception_flow_blocks=exception_flow_blocks,
         )
+
+        block_structure = merge_adjacent_sequential_blocks(block_structure)
 
         if allowed_span_ids is not None:
             return self._enforce_worker_span_boundary(

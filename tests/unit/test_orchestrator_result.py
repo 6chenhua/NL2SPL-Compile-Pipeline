@@ -148,7 +148,7 @@ class TestOrchestratorRunPath:
         )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable()),
+            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
         )
 
         # Stage 7 — inject a diagnostic via the orchestrator's _run_stage7 wrapper
@@ -157,6 +157,7 @@ class TestOrchestratorRunPath:
             return (
                 [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
                 SymbolTable(),
+                [],
             )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage7", _fake_stage7,
@@ -277,7 +278,7 @@ class TestOrchestratorRunPath:
         )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable()),
+            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
         )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage7",
@@ -366,7 +367,7 @@ class TestOrchestratorRunPath:
         )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable()),
+            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
         )
         monkeypatch.setattr(
             PipelineOrchestrator, "_run_stage7",
@@ -433,9 +434,9 @@ class TestOrchestratorRunPath:
 # ---------------------------------------------------------------------------
 
 class TestCliReportFile:
-    """Verify main.py writes compile_report.txt to run_dir."""
+    """Verify main.py writes report artifacts to run_dir."""
 
-    def test_report_file_written(self, tmp_path: Path) -> None:
+    def test_report_files_written(self, tmp_path: Path) -> None:
         from nl2spl import main as main_module
 
         fake_result = PipelineResult(
@@ -443,8 +444,22 @@ class TestCliReportFile:
             validation_errors=[],
             validation_warnings=[],
             completeness="partial",
+            compile_diagnostics=[
+                CompileDiagnostic(
+                    "D1", "missing_handler", "warning",
+                    "No handler.", target_ref="exception_flow:exc_1",
+                ),
+            ],
             assumptions=[
                 CompileAssumption("A1", "e:e1", text="Add handler."),
+            ],
+            traces=[
+                TraceRecord(
+                    "flow:exc_1",
+                    ["s1"],
+                    source_section_id="sec_failure_handling",
+                    relation="direct",
+                ),
             ],
             readable_report="NL2SPL Compile Report\nStatus: partial\n...",
         )
@@ -470,3 +485,11 @@ class TestCliReportFile:
         content = report_path.read_text(encoding="utf-8")
         assert "NL2SPL Compile Report" in content
         assert "Status: partial" in content
+
+        feedback_path = tmp_path / "feedback_report.md"
+        assert feedback_path.exists(), f"feedback_report.md missing in {tmp_path}"
+        feedback = feedback_path.read_text(encoding="utf-8")
+        assert "NL2SPL Feedback Report" in feedback
+        assert "Completeness: `partial`" in feedback
+        assert "missing_handler" in feedback
+        assert "section=`sec_failure_handling`" in feedback

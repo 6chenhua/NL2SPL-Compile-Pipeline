@@ -49,6 +49,7 @@ class ProvenanceAggregator:
         declared_apis: set[str] | None = None,
         worker_owned_spans: dict[str, list[str]] | None = None,
         variable_facts: list[Any] | None = None,
+        delegation_intents: list[Any] | None = None,
     ) -> tuple[list[TraceRecord], list[CompileDiagnostic]]:
         """Produce traces and missing-provenance diagnostics.
 
@@ -57,6 +58,8 @@ class ProvenanceAggregator:
                 WorkerSpecIR (for worker trace section/packet resolution).
             variable_facts: VariableFact objects from the adapter, carrying
                 source_section_id for hard-fact variable provenance.
+            delegation_intents: DelegationIntentFact objects from the
+                adapter (non-executable, trace-only).
 
         Returns:
             (traces, diagnostics) -- traces link elements to source evidence;
@@ -81,6 +84,12 @@ class ProvenanceAggregator:
         # 5. Handoff provenance
         if handoffs:
             self._trace_handoffs(handoffs, span_index, traces)
+
+        # 5b. Delegation intent provenance (non-executable, trace-only)
+        if delegation_intents:
+            self._trace_delegation_intents(
+                delegation_intents, span_index, traces,
+            )
 
         # 6. Variable provenance
         self._trace_variables(
@@ -355,6 +364,65 @@ class ProvenanceAggregator:
                         f"({h.from_worker} {mode_desc}) "
                         f"with {len(h.input_bindings)} input(s) and "
                         f"{len(h.output_bindings)} output(s)."
+                    ),
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # Delegation intents
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _trace_delegation_intents(
+        intents: list[Any],
+        span_index: dict[str, SpanIR],
+        traces: list[TraceRecord],
+    ) -> None:
+        """Produce non-executable trace records for delegation intent facts.
+
+        These are provenance-only -- the compiler does NOT create
+        INVOKE_WORKER from delegation intents without a valid handoff.
+        """
+        for intent in intents:
+            # Resolve section/packet from evidence
+            ev_span_ids: list[str] = []
+            section_id = None
+            packet_id = None
+            for ev in getattr(intent, "evidence", []):
+                if getattr(ev, "source_span_ids", None):
+                    ev_span_ids.extend(ev.source_span_ids)
+                sid = getattr(ev, "source_section_id", None)
+                pid = getattr(ev, "source_packet_id", None)
+                if sid and section_id is None:
+                    section_id = sid
+                if pid and packet_id is None:
+                    packet_id = pid
+            # Resolve from span_index if no direct evidence
+            if not ev_span_ids and section_id:
+                ev_span_ids = [
+                    s.span_id for s in span_index.values()
+                    if s.source_section_id == section_id
+                ]
+            if not section_id and ev_span_ids:
+                for sid in ev_span_ids:
+                    span = span_index.get(sid)
+                    if span and span.source_section_id:
+                        section_id = span.source_section_id
+                        break
+
+            worker_hint = getattr(intent, "suggested_worker_name", None) or ""
+            traces.append(
+                TraceRecord(
+                    target_ref=f"delegation_intent:{intent.name}",
+                    source_span_ids=ev_span_ids,
+                    source_section_id=section_id,
+                    source_packet_id=packet_id,
+                    relation="inferred",
+                    explanation=(
+                        f"Delegation intent '{intent.name}': "
+                        f"{getattr(intent, 'text', '')[:120]}"
+                        + (f" (suggested worker: {worker_hint})"
+                           if worker_hint else "")
                     ),
                 )
             )

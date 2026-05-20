@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
@@ -131,6 +132,8 @@ class ExecutorMixin:
     ) -> WorkerPlanIR:
         """Run the previous single-call WorkerPlanIR generation path."""
         system_prompt = load_prompt("stage3_5")
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5")
         user_prompt = self._build_user_prompt(spans, routes, canonical_input)
 
         try:
@@ -209,6 +212,8 @@ class ExecutorMixin:
         canonical_input: CanonicalCompileInput | None,
     ) -> list[CandidateTaskUnitIR]:
         system_prompt = load_prompt("stage3_5a")
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5a")
         user_prompt = self._build_candidate_prompt(spans, routes, canonical_input)
         result = self.client.call_json(
             stage_name="stage3_5a_candidate_task_units",
@@ -229,6 +234,8 @@ class ExecutorMixin:
         candidates: list[CandidateTaskUnitIR],
     ) -> list[WorkerBoundaryDecisionIR]:
         system_prompt = load_prompt("stage3_5b")
+        if self.config.enable_irs_prompt_builder:
+            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5b")
         user_prompt = self._build_decision_prompt(
             spans,
             routes,

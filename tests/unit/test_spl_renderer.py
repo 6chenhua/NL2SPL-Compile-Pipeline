@@ -163,6 +163,41 @@ class TestSPLRenderer:
         assert "[EXCEPTION_FLOW: error]" in spl_text
         assert "[END_EXCEPTION_FLOW]" in spl_text
 
+    def test_empty_blocks_are_not_rendered(self) -> None:
+        """Known partial flows stay visible without empty block wrappers."""
+        renderer = SPLRenderer()
+        from nl2spl.ir.worker_ir import ExceptionFlowRef
+
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            main_flow=MagicMock(
+                blocks=[BlockIR("b_main_empty", "SEQUENTIAL", None, ["s1"])]
+            ),
+            exception_flows=[
+                ExceptionFlowRef(
+                    "exc_1",
+                    "missing timeframe",
+                    [BlockIR("b_exc_empty", "SEQUENTIAL", None, ["s2"])],
+                ),
+            ],
+        )
+        profile = AgentProfileIR()
+
+        spl_text, _, _ = renderer.render(
+            worker,
+            profile,
+            ResourceRegistryIR(),
+            SymbolTable(),
+            [],
+            [],
+        )
+
+        assert "[EXCEPTION_FLOW: missing timeframe]" in spl_text
+        assert "[END_EXCEPTION_FLOW]" in spl_text
+        assert "[SEQUENTIAL_BLOCK]" not in spl_text
+        assert "[END_SEQUENTIAL_BLOCK]" not in spl_text
+
     def test_rendering_with_multiple_aspects(self) -> None:
         """Test rendering with multiple persona aspects."""
         # Arrange

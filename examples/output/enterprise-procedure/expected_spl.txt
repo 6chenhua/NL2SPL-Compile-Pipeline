@@ -1,0 +1,173 @@
+[DEFINE_AGENT: MainWorker "Procurement workflow agent"]
+    [DEFINE_PERSONA:]
+        ROLE: Procurement process coordinator
+    [END_PERSONA]
+
+    [DEFINE_CONSTRAINTS:]
+        Requirement: Require minimum quote count unless exception approved.
+        Prohibition: Do not proceed with ineligible vendors.
+        Requirement: Require category-specific approval thresholds.
+        Requirement: Record justification for sole source or waiver cases.
+        Gate: Deny issuance without audit-complete evidence.
+        DelegationBoundary: Bounded sourcing or quote-comparison subtasks may be delegated, but vendor decision promotion requires normalized quote and compliance artifacts.
+    [END_CONSTRAINTS]
+
+    [DEFINE_TYPES:]
+        ProcurementCategory = [standard_purchase, software_services, equipment_purchase, vendor_renewal, exception_handled]
+        QuoteArtifact = { vendor_name: text, offer_summary: text, price: number, eligibility_status: text, source_evidence: text }
+        ComplianceArtifact = { budget_status: text, policy_status: text, vendor_eligibility_status: text, remediation_required: boolean }
+        SourcingEvaluationRecord = { quotes: List [QuoteArtifact], compliance: ComplianceArtifact, justification: text, audit_notes: text }
+        ApprovalRecord = { approval_status: text, approver: text, threshold_basis: text, decision_notes: text }
+        AuditEvidenceBundle = { sourcing_evidence: text, approval_evidence: text, compliance_evidence: text, issuance_evidence: text }
+    [END_TYPES:]
+
+    [DEFINE_VARIABLES:]
+        "Purchase request." purchase_request: text
+        "Requested item or service." requested_item_or_service: text
+        "Budget owner." budget_owner: text
+        "Cost center." cost_center: text
+        "Urgency." urgency: text
+        "Procurement category." procurement_category: ProcurementCategory
+        "Policy profile." policy_profile: text
+        "Vendor eligibility context." vendor_eligibility_context: text
+        "Initial vendor suggestions." initial_vendor_suggestions: List [text]
+
+        "Eligible vendor pool." eligible_vendor_pool: List [text]
+        "Normalized quote artifacts." normalized_quote_artifacts: List [QuoteArtifact]
+        "Compliance artifacts." compliance_artifacts: ComplianceArtifact
+        "Sourcing and evaluation record." sourcing_evaluation_record: SourcingEvaluationRecord
+        "Selected vendor decision or rejection outcome." selected_vendor_decision_or_rejection_outcome: text
+        "Approval record." approval_record: ApprovalRecord
+        "PO or equivalent issuance artifact." po_or_equivalent_issuance_artifact: text
+        "Audit evidence bundle." audit_evidence_bundle: AuditEvidenceBundle
+    [END_VARIABLES:]
+
+    [DEFINE_WORKER: "Bounded sourcing worker" BoundedSourcingWorker]
+        [INPUTS]
+            REQUIRED <REF>procurement_category</REF>
+            REQUIRED <REF>policy_profile</REF>
+            REQUIRED <REF>vendor_eligibility_context</REF>
+            OPTIONAL <REF>initial_vendor_suggestions</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>normalized_quote_artifacts</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [COMMAND Identify eligible vendors and solicit quotes according to policy based on <REF>procurement_category</REF>, <REF>policy_profile</REF>, <REF>vendor_eligibility_context</REF>, and <REF>initial_vendor_suggestions</REF> RESULT normalized_quote_artifacts: List [QuoteArtifact] SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: insufficient quotes]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-2 [COMMAND Record quote shortage and return available sourcing evidence based on <REF>normalized_quote_artifacts</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+
+    [DEFINE_WORKER: "Quote comparison and compliance artifact worker" QuoteComparisonWorker]
+        [INPUTS]
+            REQUIRED <REF>normalized_quote_artifacts</REF>
+            REQUIRED <REF>budget_owner</REF>
+            REQUIRED <REF>cost_center</REF>
+            REQUIRED <REF>policy_profile</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>compliance_artifacts</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-3 [COMMAND Compare quote artifacts and evaluate budget, policy compliance, and vendor eligibility based on <REF>normalized_quote_artifacts</REF>, <REF>budget_owner</REF>, <REF>cost_center</REF>, and <REF>policy_profile</REF> RESULT compliance_artifacts: ComplianceArtifact SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+    [END_WORKER]
+
+    [DEFINE_WORKER: "Main procurement workflow" MainWorker]
+        [INPUTS]
+            REQUIRED <REF>purchase_request</REF>
+            REQUIRED <REF>requested_item_or_service</REF>
+            REQUIRED <REF>budget_owner</REF>
+            REQUIRED <REF>cost_center</REF>
+            REQUIRED <REF>urgency</REF>
+            REQUIRED <REF>procurement_category</REF>
+            REQUIRED <REF>policy_profile</REF>
+            REQUIRED <REF>vendor_eligibility_context</REF>
+            OPTIONAL <REF>initial_vendor_suggestions</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>sourcing_evaluation_record</REF>
+            REQUIRED <REF>selected_vendor_decision_or_rejection_outcome</REF>
+            REQUIRED <REF>approval_record</REF>
+            REQUIRED <REF>po_or_equivalent_issuance_artifact</REF>
+            REQUIRED <REF>audit_evidence_bundle</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-4 [COMMAND Normalize the purchase request and confirm procurement category based on <REF>purchase_request</REF>, <REF>requested_item_or_service</REF>, and <REF>procurement_category</REF> RESULT <REF>procurement_category</REF> SET]
+                COMMAND-5 [COMMAND Identify eligible vendor pool based on <REF>procurement_category</REF>, <REF>policy_profile</REF>, and <REF>vendor_eligibility_context</REF> RESULT eligible_vendor_pool: List [text] SET]
+                COMMAND-6 [INVOKE BoundedSourcingWorker WITH <REF>procurement_category</REF>, <REF>policy_profile</REF>, <REF>vendor_eligibility_context</REF>, <REF>initial_vendor_suggestions</REF> RESPONSE normalized_quote_artifacts: List [QuoteArtifact] SET]
+                COMMAND-7 [INVOKE QuoteComparisonWorker WITH <REF>normalized_quote_artifacts</REF>, <REF>budget_owner</REF>, <REF>cost_center</REF>, <REF>policy_profile</REF> RESPONSE compliance_artifacts: ComplianceArtifact SET]
+            [END_SEQUENTIAL_BLOCK]
+
+            DECISION-1 [IF over budget]
+                COMMAND-8 [COMMAND Attempt bounded renegotiation or broaden the vendor set based on <REF>normalized_quote_artifacts</REF> and <REF>compliance_artifacts</REF> RESULT <REF>normalized_quote_artifacts</REF> SET]
+            [END_IF]
+
+            DECISION-2 [IF non-compliance occurs]
+                COMMAND-9 [COMMAND Route remediation, waiver, or sourcing restart according to policy based on <REF>compliance_artifacts</REF> RESULT <REF>compliance_artifacts</REF> SET]
+            [END_IF]
+
+            [SEQUENTIAL_BLOCK]
+                COMMAND-10 [COMMAND Produce sourcing and evaluation record based on <REF>normalized_quote_artifacts</REF> and <REF>compliance_artifacts</REF> RESULT sourcing_evaluation_record: SourcingEvaluationRecord SET]
+                COMMAND-11 [COMMAND Promote vendor decision only after normalized quote and compliance artifacts are available based on <REF>sourcing_evaluation_record</REF> RESULT selected_vendor_decision_or_rejection_outcome: text SET]
+                COMMAND-12 [COMMAND Route approval based on category and threshold policy based on <REF>selected_vendor_decision_or_rejection_outcome</REF>, <REF>procurement_category</REF>, and <REF>policy_profile</REF> RESULT approval_record: ApprovalRecord SET]
+            [END_SEQUENTIAL_BLOCK]
+
+            DECISION-3 [IF all approval and audit gates pass]
+                COMMAND-13 [COMMAND Issue PO or equivalent artifact based on <REF>approval_record</REF> and <REF>sourcing_evaluation_record</REF> RESULT po_or_equivalent_issuance_artifact: text SET]
+                COMMAND-14 [COMMAND Archive evidence for audit based on <REF>sourcing_evaluation_record</REF>, <REF>approval_record</REF>, and <REF>po_or_equivalent_issuance_artifact</REF> RESULT audit_evidence_bundle: AuditEvidenceBundle SET]
+            [END_IF]
+        [END_MAIN_FLOW]
+
+        [EXCEPTION_FLOW: insufficient quotes]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-15 [COMMAND Handle insufficient quotes by requesting exception approval or restarting sourcing based on <REF>sourcing_evaluation_record</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: over-budget proposals]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-16 [COMMAND Handle over-budget proposals through bounded renegotiation or vendor pool broadening based on <REF>compliance_artifacts</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: vendor ineligibility]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-17 [COMMAND Reject ineligible vendors and restart sourcing if needed based on <REF>vendor_eligibility_context</REF> and <REF>normalized_quote_artifacts</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: approval denial]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-18 [COMMAND Record approval denial and return rejection outcome based on <REF>approval_record</REF> RESULT <REF>selected_vendor_decision_or_rejection_outcome</REF> SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: missing documents]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-19 [COMMAND Request or recover missing procurement documents before final issuance based on <REF>sourcing_evaluation_record</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: compliance failure]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-20 [COMMAND Route remediation, waiver, or sourcing restart based on <REF>compliance_artifacts</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+
+        [EXCEPTION_FLOW: waiver rejection]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-21 [COMMAND Record waiver rejection and restart sourcing or return rejection outcome based on <REF>compliance_artifacts</REF>]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+[END_AGENT]

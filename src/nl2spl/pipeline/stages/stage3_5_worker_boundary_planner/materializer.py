@@ -1,4 +1,4 @@
-"""Stage 3.5c: WorkerPlanMaterializer — deterministic WorkerPlanIR builder.
+"""Stage 3.5c: WorkerPlanMaterializer -- deterministic WorkerPlanIR builder.
 
 Converts accepted/rejected decisions and candidate units into a valid
 WorkerPlanIR. Graph invariants (exactly one worker per accepted decision,
@@ -175,23 +175,54 @@ class WorkerPlanMaterializer:
                 continue
 
             worker = self._candidate_to_worker(candidate, decision, hard_inputs, hard_outputs)
-            if worker is None:
-                reason = self._missing_contract_reason(
-                    candidate,
-                    hard_inputs,
-                    hard_outputs,
-                )
+            if worker is not None and not self._contract_fields_backed(
+                worker, candidate, hard_inputs, hard_outputs,
+            ):
                 warnings.append(
-                    f"Candidate {candidate.candidate_id} accepted but missing {reason}; "
-                    "rejecting."
+                    f"Candidate {candidate.candidate_id} accepted but contract "
+                    f"fields are not source-backed; rejecting."
                 )
                 rejected_decision = self._reject_decision(
                     decision,
-                    reason,
-                    "Accepted candidate did not provide a deterministic worker contract.",
+                    "insufficient_semantic_boundary",
+                    "Accepted candidate has invented (non-source-backed) contract fields.",
                 )
                 materialized_decisions.append(rejected_decision)
                 continue
+
+            if worker is None:
+                # Attempt recovery from hard facts: if the LLM's IRS-compliant
+                # candidate has empty IO but hard facts provide the contract,
+                # build the worker from hard facts deterministically.
+                recovered = self._recover_from_hard_facts(
+                    candidate, decision, hard_inputs, hard_outputs,
+                )
+                if recovered is not None and self._contract_fields_backed(
+                    recovered, candidate, hard_inputs, hard_outputs,
+                ):
+                    worker = recovered
+                    warnings.append(
+                        f"Candidate {candidate.candidate_id} recovered contract "
+                        f"from adapter hard facts."
+                    )
+                else:
+                    reason = self._missing_contract_reason(
+                        candidate,
+                        hard_inputs,
+                        hard_outputs,
+                    )
+                    warnings.append(
+                        f"Candidate {candidate.candidate_id} accepted but missing "
+                        f"{reason}; rejecting."
+                    )
+                    rejected_decision = self._reject_decision(
+                        decision,
+                        reason,
+                        "Accepted candidate did not provide a deterministic "
+                        "worker contract.",
+                    )
+                    materialized_decisions.append(rejected_decision)
+                    continue
 
             main_owned.difference_update(worker.owned_span_ids)
             workers.append(worker)
@@ -240,11 +271,11 @@ class WorkerPlanMaterializer:
     ) -> str:
         has_inputs = bool(
             candidate.possible_inputs
-            or self._match_hard_fact_contracts(candidate, hard_inputs)
+            or WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_inputs)
         )
         has_outputs = bool(
             candidate.possible_outputs
-            or self._match_hard_fact_contracts(candidate, hard_outputs)
+            or WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_outputs)
         )
         if not has_inputs:
             return "no_clear_input_contract"
@@ -265,7 +296,7 @@ class WorkerPlanMaterializer:
             boundary_kind="not_a_worker",
             rejection_reason=rejection_reason,  # type: ignore[arg-type]
             reason=reason,
-            evidence=list(decision.evidence),
+            evidence=[],
         )
 
     def _candidate_to_worker(
@@ -281,9 +312,9 @@ class WorkerPlanMaterializer:
         outputs = list(candidate.possible_outputs) if candidate.possible_outputs else []
 
         if not inputs:
-            inputs = self._match_hard_fact_contracts(candidate, hard_inputs)
+            inputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_inputs)
         if not outputs:
-            outputs = self._match_hard_fact_contracts(candidate, hard_outputs)
+            outputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_outputs)
         if not inputs or not outputs:
             return None
 
@@ -303,7 +334,38 @@ class WorkerPlanMaterializer:
             reason=decision.reason,
         )
 
-    @staticmethod
+    def _recover_from_hard_facts(
+        self,
+        candidate: CandidateTaskUnitIR,
+        decision: WorkerBoundaryDecisionIR,
+        hard_inputs: list[ContractFieldIR],
+        hard_outputs: list[ContractFieldIR],
+    ) -> WorkerSpecIR | None:
+        """Build a worker purely from hard facts when candidate IO is empty.
+
+        Used when the IRS-compliant Stage 3.5a candidate has empty
+        possible_inputs/possible_outputs but the adapter hard facts
+        provide a complete contract.
+        """
+        matched_inputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_inputs)
+        matched_outputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_outputs)
+        if not matched_inputs or not matched_outputs:
+            return None
+        worker_id = self._worker_id_from_candidate(candidate.candidate_id)
+        worker_name = self._worker_name_from_candidate(candidate)
+        return WorkerSpecIR(
+            worker_id=worker_id,
+            worker_name=worker_name,
+            kind="child",
+            purpose=candidate.purpose or candidate.task_text,
+            owned_span_ids=list(candidate.source_span_ids),
+            input_contract=matched_inputs,
+            output_contract=matched_outputs,
+            boundary_kind=candidate.candidate_kind,
+            decision_evidence=list(decision.evidence),
+            reason=decision.reason,
+        )
+
     def _match_hard_fact_contracts(
         candidate: CandidateTaskUnitIR,
         facts: list[ContractFieldIR],
@@ -338,6 +400,33 @@ class WorkerPlanMaterializer:
             for token in re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
             if token
         )
+
+    @staticmethod
+    def _contract_fields_backed(
+        worker: WorkerSpecIR,
+        candidate: CandidateTaskUnitIR,
+        hard_inputs: list[ContractFieldIR],
+        hard_outputs: list[ContractFieldIR],
+    ) -> bool:
+        """Return True when contract fields are not LLM-invented.
+
+        Per-side guard:
+        - If hard_inputs exist, every input field must match hard_inputs.
+        - If hard_outputs exist, every output field must match hard_outputs.
+        - A side with no hard facts passes through (relies on prompt).
+        """
+        hard_in_names: set[str] = {f.name for f in hard_inputs}
+        hard_out_names: set[str] = {f.name for f in hard_outputs}
+
+        if hard_inputs and worker.input_contract:
+            if not all(f.name in hard_in_names for f in worker.input_contract):
+                return False
+        if hard_outputs and worker.output_contract:
+            if not all(f.name in hard_out_names for f in worker.output_contract):
+                return False
+        if not worker.input_contract and not worker.output_contract:
+            return False
+        return True
 
     def _build_handoff(
         self,

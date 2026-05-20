@@ -1,6 +1,6 @@
 {
   "stage": "stage3_5_worker_boundary_planner",
-  "timestamp": "2026-05-12T13:40:09.424216",
+  "timestamp": "2026-05-13T21:50:04.352456",
   "metadata": {},
   "result": {
     "main_worker_id": "worker_main",
@@ -9,35 +9,12 @@
         "worker_id": "worker_main",
         "worker_name": "MainWorker",
         "kind": "main",
-        "purpose": "Handle the end-to-end procurement process, including normalization, vendor evaluation, compliance checks, approvals, and issuance.",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
         "owned_span_ids": [
-          "s1",
-          "s2",
-          "s3",
-          "s4",
-          "s5",
-          "s6",
-          "s7",
-          "s8",
-          "s9",
-          "s10",
-          "s11",
-          "s12",
-          "s13",
-          "s14",
-          "s15",
-          "s25",
-          "s26",
-          "s27",
-          "s28",
-          "s29",
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35",
-          "s36"
+          "s18",
+          "s20",
+          "s21",
+          "s23"
         ],
         "input_contract": [
           {
@@ -100,7 +77,7 @@
             "name": "any_initial_vendor_suggestions",
             "data_type": "text",
             "required": true,
-            "description": "Any initial vendor suggestions",
+            "description": "Any initial vendor\nsuggestions",
             "source": "input"
           }
         ],
@@ -123,7 +100,7 @@
             "name": "approval_record",
             "data_type": "text",
             "required": true,
-            "description": "Approval record",
+            "description": "Approval\nrecord",
             "source": "output"
           },
           {
@@ -145,13 +122,13 @@
         "constraints": [],
         "boundary_kind": "main_worker",
         "decision_evidence": [],
-        "reason": "This scope encompasses the entire procurement process and does not require delegation for the described spans."
+        "reason": ""
       },
       {
-        "worker_id": "worker_normalize_request",
-        "worker_name": "NormalizeRequestWorker",
+        "worker_id": "normalize_procurement_request",
+        "worker_name": "Worker_normalize_procurement_request",
         "kind": "child",
-        "purpose": "Normalize the purchase request and determine the procurement category.",
+        "purpose": "Create a consistent categorized procurement request that downstream sourcing, approval, and issuance activities can rely on.",
         "owned_span_ids": [
           "s16"
         ],
@@ -160,23 +137,51 @@
             "name": "purchase_request",
             "data_type": "text",
             "required": true,
-            "description": "Purchase request",
+            "description": "Original purchase request details.",
             "source": "input"
           },
           {
             "name": "requested_item_or_service",
             "data_type": "text",
             "required": true,
-            "description": "Requested item or service",
+            "description": "Description of the item or service being requested.",
+            "source": "input"
+          },
+          {
+            "name": "urgency",
+            "data_type": "text",
+            "required": true,
+            "description": "Urgency context that may affect normalization or categorization.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Applicable policy profile used to interpret and classify the request.",
+            "source": "input"
+          },
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": false,
+            "description": "Caller-provided category hint if already known.",
             "source": "input"
           }
         ],
         "output_contract": [
           {
-            "name": "procurement_category",
+            "name": "normalized_request",
             "data_type": "text",
             "required": true,
-            "description": "Procurement category",
+            "description": "Structured, normalized representation of the procurement request.",
+            "source": "output"
+          },
+          {
+            "name": "determined_procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Resolved procurement category for downstream policy and approval routing.",
             "source": "output"
           }
         ],
@@ -185,31 +190,46 @@
         "boundary_kind": "bounded_subtask",
         "decision_evidence": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
         ],
-        "reason": "Normalization and category determination are distinct, reusable steps that can be isolated."
+        "reason": "This is a coherent normalization/classification job with explicit inputs and outputs that downstream sourcing, approval, and issuance steps depend on. It has a clear invocation point at the start of the reusable process, and its results can be bound directly into caller state as normalized_request and determined_procurement_category."
       },
       {
-        "worker_id": "worker_vendor_pool",
-        "worker_name": "VendorPoolWorker",
+        "worker_id": "identify_vendor_pool",
+        "worker_name": "Worker_identify_vendor_pool",
         "kind": "child",
-        "purpose": "Identify eligible vendor pool based on the procurement category and vendor eligibility context.",
+        "purpose": "Produce a candidate set of vendors that are eligible to participate in sourcing.",
         "owned_span_ids": [
           "s17"
         ],
         "input_contract": [
           {
-            "name": "procurement_category",
+            "name": "normalized_request",
             "data_type": "text",
             "required": true,
-            "description": "Procurement category",
+            "description": "Normalized procurement request and category context.",
             "source": "input"
           },
           {
             "name": "vendor_eligibility_context",
             "data_type": "text",
             "required": true,
-            "description": "Vendor eligibility context",
+            "description": "Eligibility rules, approved lists, and related qualification context.",
+            "source": "input"
+          },
+          {
+            "name": "any_initial_vendor_suggestions",
+            "data_type": "text",
+            "required": true,
+            "description": "Suggested vendors provided with the request.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Policy context governing vendor eligibility.",
             "source": "input"
           }
         ],
@@ -218,7 +238,7 @@
             "name": "eligible_vendor_pool",
             "data_type": "text",
             "required": true,
-            "description": "Eligible vendor pool",
+            "description": "List or description of vendors eligible for sourcing.",
             "source": "output"
           }
         ],
@@ -227,19 +247,213 @@
         "boundary_kind": "bounded_subtask",
         "decision_evidence": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
         ],
-        "reason": "Vendor pool identification is a distinct step that can be isolated for reuse."
+        "reason": "This candidate performs a distinct callable job: deriving an eligible vendor pool from the normalized request and eligibility context. Inputs are named, output is singular and useful, and it has a clear invocation point immediately after request normalization with straightforward handoff into subsequent sourcing."
+      },
+      {
+        "worker_id": "evaluate_sourcing_submission",
+        "worker_name": "Worker_evaluate_sourcing_submission",
+        "kind": "child",
+        "purpose": "Determine whether a sourced option is promotable toward vendor selection and approval.",
+        "owned_span_ids": [
+          "s19",
+          "s37"
+        ],
+        "input_contract": [
+          {
+            "name": "normalized_quote_set",
+            "data_type": "text",
+            "required": true,
+            "description": "Normalized quote or offer information from sourcing.",
+            "source": "input"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": true,
+            "description": "Compliance documentation required for evaluation and decision promotion.",
+            "source": "input"
+          },
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Rules and evidence for determining vendor eligibility.",
+            "source": "input"
+          },
+          {
+            "name": "budget_owner",
+            "data_type": "text",
+            "required": true,
+            "description": "Budget owner context for assessing affordability and acceptance.",
+            "source": "input"
+          },
+          {
+            "name": "cost_center",
+            "data_type": "text",
+            "required": true,
+            "description": "Cost center context relevant to budget checks.",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "evaluation_result",
+            "data_type": "text",
+            "required": true,
+            "description": "Assessment of budget, compliance, and eligibility status.",
+            "source": "output"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": false,
+            "description": "Preliminary promotion-ready vendor decision or rejection outcome.",
+            "source": "output"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": false,
+            "description": "Recorded evaluation details and supporting rationale.",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ],
+        "reason": "This is a well-bounded evaluation job that consumes normalized sourcing artifacts and produces a promotability decision plus evaluation record. The process explicitly invokes this after sourcing, and the outputs bind directly into approval routing or rejection handling. It is more than a simple step because it consolidates budget, compliance, and eligibility determination into a reusable callable unit."
+      },
+      {
+        "worker_id": "route_procurement_approval",
+        "worker_name": "Worker_route_procurement_approval",
+        "kind": "child",
+        "purpose": "Obtain the required approval outcome using category- and threshold-based routing rules.",
+        "owned_span_ids": [
+          "s22"
+        ],
+        "input_contract": [
+          {
+            "name": "determined_procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Category used to select approval routing rules.",
+            "source": "input"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": true,
+            "description": "Decision package or rejection context requiring approval review.",
+            "source": "input"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Supporting sourcing and evaluation evidence for approvers.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval threshold and routing policy context.",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Recorded approval decision and routing trace.",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "integration_wrapper",
+        "decision_evidence": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ],
+        "reason": "Approval routing is a coherent callable job with named inputs, a clear output contract, and an explicit invocation point after vendor selection/evaluation. The returned approval_record binds directly to issuance and audit steps. Despite being integration-oriented, it is broader than a single raw API call because it applies threshold/category routing rules to obtain the outcome."
+      },
+      {
+        "worker_id": "archive_audit_evidence",
+        "worker_name": "Worker_archive_audit_evidence",
+        "kind": "child",
+        "purpose": "Persist the final audit-ready evidence bundle for compliance and traceability.",
+        "owned_span_ids": [
+          "s24"
+        ],
+        "input_contract": [
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Sourcing and evaluation documentation.",
+            "source": "input"
+          },
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval history and decision evidence.",
+            "source": "input"
+          },
+          {
+            "name": "po_or_equivalent_issuance_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "Issuance artifact to include in the audit record.",
+            "source": "input"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": false,
+            "description": "Compliance evidence to preserve in the archive bundle.",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "audit_evidence_bundle",
+            "data_type": "text",
+            "required": true,
+            "description": "Archived evidence bundle suitable for audit review.",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "integration_wrapper",
+        "decision_evidence": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ],
+        "reason": "Archiving audit evidence is a discrete callable persistence job with clear inputs, a useful output artifact, and an explicit invocation point at the end of the process. Its result can be handed back directly as audit_evidence_bundle, and the persistence behavior has reuse value beyond this single sequence."
       }
     ],
     "handoffs": [
       {
-        "handoff_id": "handoff_normalize_request",
+        "handoff_id": "handoff_normalize_procurement_request",
         "from_worker": "worker_main",
-        "to_worker": "worker_normalize_request",
+        "to_worker": "normalize_procurement_request",
         "api_ref": null,
         "mode": "invoke",
-        "condition_text": "Normalize the purchase request and determine the procurement category.",
+        "condition_text": "Create a consistent categorized procurement request that downstream sourcing, approval, and issuance activities can rely on.",
         "ordering": "after",
         "input_bindings": [
           {
@@ -253,12 +467,36 @@
             "child_input": "requested_item_or_service",
             "required": true,
             "default_value": null
+          },
+          {
+            "parent_variable": "urgency",
+            "child_input": "urgency",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "policy_profile",
+            "child_input": "policy_profile",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "procurement_category",
+            "child_input": "procurement_category",
+            "required": false,
+            "default_value": null
           }
         ],
         "output_bindings": [
           {
-            "child_output": "procurement_category",
-            "parent_variable": "procurement_category",
+            "child_output": "normalized_request",
+            "parent_variable": "normalized_request",
+            "required": true,
+            "merge_strategy": "set"
+          },
+          {
+            "child_output": "determined_procurement_category",
+            "parent_variable": "determined_procurement_category",
             "required": true,
             "merge_strategy": "set"
           }
@@ -266,36 +504,46 @@
         "invoke_location_hint": {
           "flow_kind": "main",
           "flow_id": null,
-          "after_span_id": "s16",
-          "before_span_id": null,
+          "after_span_id": null,
+          "before_span_id": "s17",
           "block_hint": "sequential"
         },
         "failure_policy": {
           "policy_kind": "propagate_exception",
-          "description": "If normalization fails, propagate the exception to the main worker.",
-          "source_span_ids": [
-            "s16"
-          ]
+          "description": "If Worker_normalize_procurement_request fails, propagate to parent.",
+          "source_span_ids": []
         }
       },
       {
-        "handoff_id": "handoff_vendor_pool",
+        "handoff_id": "handoff_identify_vendor_pool",
         "from_worker": "worker_main",
-        "to_worker": "worker_vendor_pool",
+        "to_worker": "identify_vendor_pool",
         "api_ref": null,
         "mode": "invoke",
-        "condition_text": "Identify eligible vendor pool based on the procurement category and vendor eligibility context.",
+        "condition_text": "Produce a candidate set of vendors that are eligible to participate in sourcing.",
         "ordering": "after",
         "input_bindings": [
           {
-            "parent_variable": "procurement_category",
-            "child_input": "procurement_category",
+            "parent_variable": "normalized_request",
+            "child_input": "normalized_request",
             "required": true,
             "default_value": null
           },
           {
             "parent_variable": "vendor_eligibility_context",
             "child_input": "vendor_eligibility_context",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "any_initial_vendor_suggestions",
+            "child_input": "any_initial_vendor_suggestions",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "policy_profile",
+            "child_input": "policy_profile",
             "required": true,
             "default_value": null
           }
@@ -311,80 +559,304 @@
         "invoke_location_hint": {
           "flow_kind": "main",
           "flow_id": null,
-          "after_span_id": "s17",
+          "after_span_id": "s16",
+          "before_span_id": "s18",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_identify_vendor_pool fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      },
+      {
+        "handoff_id": "handoff_evaluate_sourcing_submission",
+        "from_worker": "worker_main",
+        "to_worker": "evaluate_sourcing_submission",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "Determine whether a sourced option is promotable toward vendor selection and approval.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "normalized_quote_set",
+            "child_input": "normalized_quote_set",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "compliance_artifacts",
+            "child_input": "compliance_artifacts",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "vendor_eligibility_context",
+            "child_input": "vendor_eligibility_context",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "budget_owner",
+            "child_input": "budget_owner",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "cost_center",
+            "child_input": "cost_center",
+            "required": true,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "evaluation_result",
+            "parent_variable": "evaluation_result",
+            "required": true,
+            "merge_strategy": "set"
+          },
+          {
+            "child_output": "selected_vendor_decision_or_rejection_outcome",
+            "parent_variable": "selected_vendor_decision_or_rejection_outcome",
+            "required": false,
+            "merge_strategy": "set"
+          },
+          {
+            "child_output": "sourcing_evaluation_record",
+            "parent_variable": "sourcing_evaluation_record",
+            "required": false,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s18",
           "before_span_id": null,
           "block_hint": "sequential"
         },
         "failure_policy": {
           "policy_kind": "propagate_exception",
-          "description": "If vendor pool identification fails, propagate the exception to the main worker.",
-          "source_span_ids": [
-            "s17"
-          ]
+          "description": "If Worker_evaluate_sourcing_submission fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      },
+      {
+        "handoff_id": "handoff_route_procurement_approval",
+        "from_worker": "worker_main",
+        "to_worker": "route_procurement_approval",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "Obtain the required approval outcome using category- and threshold-based routing rules.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "determined_procurement_category",
+            "child_input": "determined_procurement_category",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "selected_vendor_decision_or_rejection_outcome",
+            "child_input": "selected_vendor_decision_or_rejection_outcome",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "sourcing_evaluation_record",
+            "child_input": "sourcing_evaluation_record",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "policy_profile",
+            "child_input": "policy_profile",
+            "required": true,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "approval_record",
+            "parent_variable": "approval_record",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s21",
+          "before_span_id": "s23",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_route_procurement_approval fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      },
+      {
+        "handoff_id": "handoff_archive_audit_evidence",
+        "from_worker": "worker_main",
+        "to_worker": "archive_audit_evidence",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "Persist the final audit-ready evidence bundle for compliance and traceability.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "sourcing_evaluation_record",
+            "child_input": "sourcing_evaluation_record",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "approval_record",
+            "child_input": "approval_record",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "po_or_equivalent_issuance_artifact",
+            "child_input": "po_or_equivalent_issuance_artifact",
+            "required": true,
+            "default_value": null
+          },
+          {
+            "parent_variable": "compliance_artifacts",
+            "child_input": "compliance_artifacts",
+            "required": false,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "audit_evidence_bundle",
+            "parent_variable": "audit_evidence_bundle",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s23",
+          "before_span_id": "s37",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_archive_audit_evidence fails, propagate to parent.",
+          "source_span_ids": []
         }
       }
     ],
     "candidates": [
       {
-        "candidate_id": "candidate_normalize_request",
+        "candidate_id": "candidate_normalize_procurement_request",
         "source_span_ids": [
           "s16"
         ],
-        "task_text": "Normalize the request and determine procurement category.",
-        "purpose": "Normalization and category determination.",
+        "task_text": "Normalize the incoming purchase request and determine the applicable procurement category.",
+        "purpose": "Create a consistent categorized procurement request that downstream sourcing, approval, and issuance activities can rely on.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
             "name": "purchase_request",
             "data_type": "text",
             "required": true,
-            "description": "Purchase request",
+            "description": "Original purchase request details.",
             "source": "input"
           },
           {
             "name": "requested_item_or_service",
             "data_type": "text",
             "required": true,
-            "description": "Requested item or service",
+            "description": "Description of the item or service being requested.",
+            "source": "input"
+          },
+          {
+            "name": "urgency",
+            "data_type": "text",
+            "required": true,
+            "description": "Urgency context that may affect normalization or categorization.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Applicable policy profile used to interpret and classify the request.",
+            "source": "input"
+          },
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": false,
+            "description": "Caller-provided category hint if already known.",
             "source": "input"
           }
         ],
         "possible_outputs": [
           {
-            "name": "procurement_category",
+            "name": "normalized_request",
             "data_type": "text",
             "required": true,
-            "description": "Procurement category",
+            "description": "Structured, normalized representation of the procurement request.",
+            "source": "output"
+          },
+          {
+            "name": "determined_procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Resolved procurement category for downstream policy and approval routing.",
             "source": "output"
           }
         ],
         "signals": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
         ],
         "risks": []
       },
       {
-        "candidate_id": "candidate_vendor_pool",
+        "candidate_id": "candidate_identify_vendor_pool",
         "source_span_ids": [
           "s17"
         ],
-        "task_text": "Identify eligible vendor pool.",
-        "purpose": "Vendor pool identification.",
+        "task_text": "Identify an eligible pool of vendors for the procurement request.",
+        "purpose": "Produce a candidate set of vendors that are eligible to participate in sourcing.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
-            "name": "procurement_category",
+            "name": "normalized_request",
             "data_type": "text",
             "required": true,
-            "description": "Procurement category",
+            "description": "Normalized procurement request and category context.",
             "source": "input"
           },
           {
             "name": "vendor_eligibility_context",
             "data_type": "text",
             "required": true,
-            "description": "Vendor eligibility context",
+            "description": "Eligibility rules, approved lists, and related qualification context.",
+            "source": "input"
+          },
+          {
+            "name": "any_initial_vendor_suggestions",
+            "data_type": "text",
+            "required": true,
+            "description": "Suggested vendors provided with the request.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Policy context governing vendor eligibility.",
             "source": "input"
           }
         ],
@@ -393,44 +865,615 @@
             "name": "eligible_vendor_pool",
             "data_type": "text",
             "required": true,
-            "description": "Eligible vendor pool",
+            "description": "List or description of vendors eligible for sourcing.",
             "source": "output"
           }
         ],
         "signals": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_conduct_bounded_sourcing",
+        "source_span_ids": [
+          "s18",
+          "s37"
+        ],
+        "task_text": "Solicit quotes or equivalent offers according to policy and return normalized sourcing artifacts suitable for vendor decision promotion.",
+        "purpose": "Run a bounded sourcing or quote-comparison activity while producing the normalized artifacts required for downstream evaluation.",
+        "candidate_kind": "explicit_delegation",
+        "possible_inputs": [
+          {
+            "name": "normalized_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Normalized request and procurement category.",
+            "source": "input"
+          },
+          {
+            "name": "eligible_vendor_pool",
+            "data_type": "text",
+            "required": true,
+            "description": "Eligible vendors to solicit.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Policy requirements governing quote solicitation and comparison.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "normalized_quote_set",
+            "data_type": "text",
+            "required": true,
+            "description": "Quotes or equivalent offers normalized for comparison and downstream decision use.",
+            "source": "output"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": true,
+            "description": "Artifacts needed to support later vendor decision promotion.",
+            "source": "output"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": false,
+            "description": "Documented sourcing activity and quote-comparison record.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "explicit_delegation",
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_evaluate_sourcing_submission",
+        "source_span_ids": [
+          "s19",
+          "s37"
+        ],
+        "task_text": "Evaluate proposed vendor options for budget fit, compliance, and vendor eligibility using normalized sourcing artifacts.",
+        "purpose": "Determine whether a sourced option is promotable toward vendor selection and approval.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "normalized_quote_set",
+            "data_type": "text",
+            "required": true,
+            "description": "Normalized quote or offer information from sourcing.",
+            "source": "input"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": true,
+            "description": "Compliance documentation required for evaluation and decision promotion.",
+            "source": "input"
+          },
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Rules and evidence for determining vendor eligibility.",
+            "source": "input"
+          },
+          {
+            "name": "budget_owner",
+            "data_type": "text",
+            "required": true,
+            "description": "Budget owner context for assessing affordability and acceptance.",
+            "source": "input"
+          },
+          {
+            "name": "cost_center",
+            "data_type": "text",
+            "required": true,
+            "description": "Cost center context relevant to budget checks.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "evaluation_result",
+            "data_type": "text",
+            "required": true,
+            "description": "Assessment of budget, compliance, and eligibility status.",
+            "source": "output"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": false,
+            "description": "Preliminary promotion-ready vendor decision or rejection outcome.",
+            "source": "output"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": false,
+            "description": "Recorded evaluation details and supporting rationale.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_handle_over_budget_sourcing",
+        "source_span_ids": [
+          "s20"
+        ],
+        "task_text": "Address over-budget proposals through bounded renegotiation or by broadening the vendor set.",
+        "purpose": "Apply a constrained recovery path when sourced proposals exceed budget limits.",
+        "candidate_kind": "failure_recovery_protocol",
+        "possible_inputs": [
+          {
+            "name": "evaluation_result",
+            "data_type": "text",
+            "required": true,
+            "description": "Current evaluation showing the proposals are over budget.",
+            "source": "input"
+          },
+          {
+            "name": "normalized_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement request details needed to continue sourcing recovery.",
+            "source": "input"
+          },
+          {
+            "name": "eligible_vendor_pool",
+            "data_type": "text",
+            "required": true,
+            "description": "Current vendor pool that may be broadened.",
+            "source": "input"
+          },
+          {
+            "name": "normalized_quote_set",
+            "data_type": "text",
+            "required": false,
+            "description": "Existing quotes that may be renegotiated.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "revised_quote_set_or_vendor_pool",
+            "data_type": "text",
+            "required": true,
+            "description": "Updated quotes and/or updated vendor pool after recovery attempts.",
+            "source": "output"
+          },
+          {
+            "name": "over_budget_resolution_status",
+            "data_type": "text",
+            "required": true,
+            "description": "Outcome of bounded renegotiation or vendor-pool expansion effort.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "independent_failure_policy",
+          "multi_step_process",
+          "complex_control"
+        ],
+        "risks": [
+          "alternative_flow"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_compliance_remediation",
+        "source_span_ids": [
+          "s21"
+        ],
+        "task_text": "Route non-compliance cases to remediation, waiver handling, or sourcing restart according to policy.",
+        "purpose": "Provide a policy-governed recovery mechanism for compliance failures before final approval or issuance.",
+        "candidate_kind": "failure_recovery_protocol",
+        "possible_inputs": [
+          {
+            "name": "evaluation_result",
+            "data_type": "text",
+            "required": true,
+            "description": "Evaluation findings indicating non-compliance.",
+            "source": "input"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": true,
+            "description": "Current compliance documentation and deficiencies.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Policy rules for remediation, waiver, or restart routing.",
+            "source": "input"
+          },
+          {
+            "name": "normalized_request",
+            "data_type": "text",
+            "required": false,
+            "description": "Request context needed if sourcing must be restarted.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "compliance_resolution_path",
+            "data_type": "text",
+            "required": true,
+            "description": "Chosen remediation, waiver, or restart path.",
+            "source": "output"
+          },
+          {
+            "name": "updated_compliance_artifacts_or_restart_instruction",
+            "data_type": "text",
+            "required": true,
+            "description": "Artifacts showing remediation progress or an instruction to restart sourcing.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "independent_failure_policy",
+          "complex_control",
+          "multi_step_process"
+        ],
+        "risks": [
+          "alternative_flow"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_procurement_approval",
+        "source_span_ids": [
+          "s22"
+        ],
+        "task_text": "Route the procurement package for approval based on thresholds and category.",
+        "purpose": "Obtain the required approval outcome using category- and threshold-based routing rules.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "determined_procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Category used to select approval routing rules.",
+            "source": "input"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": true,
+            "description": "Decision package or rejection context requiring approval review.",
+            "source": "input"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Supporting sourcing and evaluation evidence for approvers.",
+            "source": "input"
+          },
+          {
+            "name": "policy_profile",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval threshold and routing policy context.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Recorded approval decision and routing trace.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_issue_procurement_order",
+        "source_span_ids": [
+          "s23"
+        ],
+        "task_text": "Issue the PO or equivalent only after all required gates have passed.",
+        "purpose": "Create the final issuance artifact once approvals, compliance, and evidence gates are satisfied.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval evidence showing authorization to proceed.",
+            "source": "input"
+          },
+          {
+            "name": "selected_vendor_decision_or_rejection_outcome",
+            "data_type": "text",
+            "required": true,
+            "description": "Final selected vendor decision to be reflected in the PO or equivalent.",
+            "source": "input"
+          },
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": false,
+            "description": "Supporting sourcing record referenced during issuance.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "po_or_equivalent_issuance_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "Issued PO or equivalent procurement commitment artifact.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "external_integration",
+          "testability"
+        ],
+        "risks": [
+          "policy_or_constraint"
+        ]
+      },
+      {
+        "candidate_id": "candidate_archive_audit_evidence",
+        "source_span_ids": [
+          "s24"
+        ],
+        "task_text": "Archive procurement evidence for audit.",
+        "purpose": "Persist the final audit-ready evidence bundle for compliance and traceability.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "sourcing_evaluation_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Sourcing and evaluation documentation.",
+            "source": "input"
+          },
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval history and decision evidence.",
+            "source": "input"
+          },
+          {
+            "name": "po_or_equivalent_issuance_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "Issuance artifact to include in the audit record.",
+            "source": "input"
+          },
+          {
+            "name": "compliance_artifacts",
+            "data_type": "text",
+            "required": false,
+            "description": "Compliance evidence to preserve in the archive bundle.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "audit_evidence_bundle",
+            "data_type": "text",
+            "required": true,
+            "description": "Archived evidence bundle suitable for audit review.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
         ],
         "risks": []
       }
     ],
     "decisions": [
       {
-        "candidate_id": "candidate_normalize_request",
+        "candidate_id": "candidate_normalize_procurement_request",
         "decision": "extract_child_worker",
         "boundary_strength": "strong",
         "boundary_kind": "bounded_subtask",
         "rejection_reason": null,
-        "reason": "Normalization and category determination are distinct, reusable steps that can be isolated.",
+        "reason": "This is a coherent normalization/classification job with explicit inputs and outputs that downstream sourcing, approval, and issuance steps depend on. It has a clear invocation point at the start of the reusable process, and its results can be bound directly into caller state as normalized_request and determined_procurement_category.",
         "evidence": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
         ]
       },
       {
-        "candidate_id": "candidate_vendor_pool",
+        "candidate_id": "candidate_identify_vendor_pool",
         "decision": "extract_child_worker",
         "boundary_strength": "strong",
         "boundary_kind": "bounded_subtask",
         "rejection_reason": null,
-        "reason": "Vendor pool identification is a distinct step that can be isolated for reuse.",
+        "reason": "This candidate performs a distinct callable job: deriving an eligible vendor pool from the normalized request and eligibility context. Inputs are named, output is singular and useful, and it has a clear invocation point immediately after request normalization with straightforward handoff into subsequent sourcing.",
         "evidence": [
           "bounded_io",
-          "explicit_delegation"
+          "reuse_potential",
+          "testability"
+        ]
+      },
+      {
+        "candidate_id": "candidate_conduct_bounded_sourcing",
+        "decision": "needs_repair_or_warning",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Although delegation is explicitly allowed for bounded sourcing or quote-comparison subtasks, the candidate_kind is explicit_delegation rather than bounded_subtask, so it does not satisfy the required accepted boundary_kind match. The task itself has strong callable characteristics, but the candidate metadata needs repair before extraction under the required format.",
+        "evidence": [
+          "explicit_delegation",
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ]
+      },
+      {
+        "candidate_id": "candidate_evaluate_sourcing_submission",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "This is a well-bounded evaluation job that consumes normalized sourcing artifacts and produces a promotability decision plus evaluation record. The process explicitly invokes this after sourcing, and the outputs bind directly into approval routing or rejection handling. It is more than a simple step because it consolidates budget, compliance, and eligibility determination into a reusable callable unit.",
+        "evidence": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ]
+      },
+      {
+        "candidate_id": "candidate_handle_over_budget_sourcing",
+        "decision": "compile_as_alternative_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "alternative_flow",
+        "reason": "This candidate is explicitly an over-budget recovery path triggered only when evaluation fails budget limits. That makes it an alternative/failure path rather than an independently valuable callable boundary in the main decomposition.",
+        "evidence": [
+          "independent_failure_policy",
+          "complex_control",
+          "multi_step_process"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_compliance_remediation",
+        "decision": "compile_as_alternative_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "alternative_flow",
+        "reason": "This candidate handles non-compliance remediation, waiver, or restart behavior only when compliance failure occurs. It is therefore an alternative/exceptional flow governed by policy, not a primary independent worker boundary for the main process.",
+        "evidence": [
+          "independent_failure_policy",
+          "complex_control",
+          "multi_step_process"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_procurement_approval",
+        "decision": "extract_child_worker",
+        "boundary_strength": "moderate",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "Approval routing is a coherent callable job with named inputs, a clear output contract, and an explicit invocation point after vendor selection/evaluation. The returned approval_record binds directly to issuance and audit steps. Despite being integration-oriented, it is broader than a single raw API call because it applies threshold/category routing rules to obtain the outcome.",
+        "evidence": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ]
+      },
+      {
+        "candidate_id": "candidate_issue_procurement_order",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "This is the straightforward issuance step that follows once approvals and gates pass. While inputs and output are named, it functions as an ordinary terminal sequential step tightly coupled to the main flow rather than an independently valuable semantic boundary.",
+        "evidence": [
+          "bounded_io",
+          "external_integration",
+          "testability"
+        ]
+      },
+      {
+        "candidate_id": "candidate_archive_audit_evidence",
+        "decision": "extract_child_worker",
+        "boundary_strength": "moderate",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "Archiving audit evidence is a discrete callable persistence job with clear inputs, a useful output artifact, and an explicit invocation point at the end of the process. Its result can be handed back directly as audit_evidence_bundle, and the persistence behavior has reuse value beyond this single sequence.",
+        "evidence": [
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
         ]
       }
     ],
-    "rejected_candidates": [],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_conduct_bounded_sourcing",
+        "decision": "needs_repair_or_warning",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Although delegation is explicitly allowed for bounded sourcing or quote-comparison subtasks, the candidate_kind is explicit_delegation rather than bounded_subtask, so it does not satisfy the required accepted boundary_kind match. The task itself has strong callable characteristics, but the candidate metadata needs repair before extraction under the required format.",
+        "evidence": [
+          "explicit_delegation",
+          "bounded_io",
+          "external_integration",
+          "reuse_potential"
+        ]
+      },
+      {
+        "candidate_id": "candidate_handle_over_budget_sourcing",
+        "decision": "compile_as_alternative_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "alternative_flow",
+        "reason": "This candidate is explicitly an over-budget recovery path triggered only when evaluation fails budget limits. That makes it an alternative/failure path rather than an independently valuable callable boundary in the main decomposition.",
+        "evidence": [
+          "independent_failure_policy",
+          "complex_control",
+          "multi_step_process"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_compliance_remediation",
+        "decision": "compile_as_alternative_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "alternative_flow",
+        "reason": "This candidate handles non-compliance remediation, waiver, or restart behavior only when compliance failure occurs. It is therefore an alternative/exceptional flow governed by policy, not a primary independent worker boundary for the main process.",
+        "evidence": [
+          "independent_failure_policy",
+          "complex_control",
+          "multi_step_process"
+        ]
+      },
+      {
+        "candidate_id": "candidate_issue_procurement_order",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "This is the straightforward issuance step that follows once approvals and gates pass. While inputs and output are named, it functions as an ordinary terminal sequential step tightly coupled to the main flow rather than an independently valuable semantic boundary.",
+        "evidence": [
+          "bounded_io",
+          "external_integration",
+          "testability"
+        ]
+      }
+    ],
     "control_complexity_regions": [],
     "unassigned_span_ids": [],
     "warnings": []

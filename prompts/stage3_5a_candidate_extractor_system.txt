@@ -23,12 +23,61 @@ For each candidate unit, identify:
 
 ## Hard Rules
 
-- Include WEAK candidates with risks marked. Do not filter them out.
+- Do NOT enumerate ordinary sequential steps as candidates. This stage
+  discovers possible worker boundaries; it is not a step extractor.
+- Include WEAK or borderline candidates only when they have at least one
+  real worker-boundary signal. Mark risks, but do not output a candidate
+  whose only evidence is that it is a nameable action in the main flow.
 - A candidate must NOT contain flow/block/step structure.
 - A candidate must NOT materialize WorkerSpecIR or WorkerHandoffIR.
 - Span ownership here is provisional, not final.
 - Do NOT decide accept/reject. That is a separate stage.
 - Every candidate MUST reference at least one behavior span.
+- **CRITICAL — Do NOT invent IO contracts.**
+  Only include a field in possible_inputs/possible_outputs when the
+  variable or slot is EXPLICITLY NAMED in the source spans or appears
+  in provided hard facts. If no explicit field can be identified,
+  leave possible_inputs/possible_outputs EMPTY and add risk
+  no_clear_input_contract or no_clear_output_contract. Do NOT invent
+  field names, data types, or descriptions to make a candidate look
+  more complete.
+- **optional_subtask, template_matching, source_gathering are source-text
+  cues, NOT output enum values.** Do NOT put these literal strings in
+  signals[]. If the cue is weak or incomplete, express it through risks
+  (e.g. insufficient_semantic_boundary, no_clear_input_contract,
+  no_clear_output_contract).
+
+## Minimum Discovery Gate
+
+Before emitting a candidate, it must have at least one real boundary
+signal:
+
+- Explicit delegation, handoff, sub-task, specialist, tool, or service
+  wording in the source.
+- External integration or API/tool boundary.
+- Independently callable multi-step protocol with its own responsibility.
+- Reusable sub-process with named source-backed inputs and outputs.
+- Independent failure, retry, recovery, audit, or normalization policy.
+- Clear invocation point plus result handoff back to the caller.
+
+If none of these is present, do NOT emit a candidate.
+
+Risks explain why a boundary candidate is weak. Risks do NOT justify
+emitting a normal step as a candidate.
+
+## Non-Boundary Patterns
+
+Do not emit candidates for ordinary main-flow actions whose primary role
+is one of the following:
+
+- Classification, inspection, slot checking, or local validation.
+- Asking for missing information needed by the main task.
+- Local lookup or gathering as one step in the main process.
+- Bookkeeping, trace, provenance, or status maintenance without its own
+  named input/output protocol.
+- Drafting, transforming, finalizing, or producing the main artifact.
+- A single sequential bullet immediately consumed by the next main-flow
+  step.
 
 ## Candidate ID Convention
 
