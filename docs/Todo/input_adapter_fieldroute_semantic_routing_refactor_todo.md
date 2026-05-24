@@ -1335,9 +1335,36 @@ This refactor does not attempt to:
 - require all routing to be LLM-based;
 - make incomplete input compile as complete SPL.
 
-## Immediate Next Actions
+## Implementation Status (as of 2026-05-24)
 
-1. Implement Phase 0 baseline tests.
-2. Implement Phase 1 adapter hint/evidence strengthening.
-3. Add `RouteAnnotation` in Phase 2 without changing stage behavior.
-4. Review the resulting intermediate JSON before changing Stage 7 or Stage 4.
+All 15 phases (F0-F4 + D0-D8) plus the adapter-guided LLM FieldRoute refinement
+group (Steps 01-05) have been implemented and approved:
+
+- **F0-F4**: Frontend semantic contract — RouteAnnotation IR, hint-aware FieldRouter, annotation-aware AmbiguityResolver.
+- **D0**: Downstream baseline and route helper adoption.
+- **D1**: WorkerBoundaryPlanner annotation migration.
+- **D2**: FlowAssembler route-driven exception materialization + condition-backed guard.
+- **D3**: Worker-aware exception flow migration.
+- **D4**: BlockAssembler partial skeleton support.
+- **D5**: Resource, profile, constraint consumers made annotation-aware.
+- **D6**: StepExtractor executable filtering (failure/delegation/api_candidate non-executable → no command).
+- **D7**: Normalizer, gate, renderer, provenance.
+- **D8**: Bridge deprecation (compatibility fallback only).
+
+Adapter-Guided LLM FieldRoute Refinement (2026-05-24):
+- Step 01: Baseline gap tests (4 baseline-current + 4 target, 1370 passed)
+- Step 02: Prompt and schema contract
+- Step 03: FieldRouter LLM refinement path (default enabled)
+- Step 04: Validator and merge (11 rules)
+- Step 05: Downstream alignment regression (Stage 4/7/9/worker-aware guards)
+
+Final full unit test suite: **1375 passed, 0 xfailed**.
+
+## Residual Work Register
+
+1. **Full bridge deletion**: Failure and delegation bridges can be deleted once generic NL
+   inputs have route annotation coverage (currently bridges are compatibility fallbacks).
+
+2. **Stage 6 resource name filter hardening**: Could consume route annotations directly
+   instead of text matching.
+

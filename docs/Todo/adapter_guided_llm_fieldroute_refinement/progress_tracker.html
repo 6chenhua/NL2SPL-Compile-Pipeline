@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adapter-Guided LLM FieldRoute Refinement 进度跟踪</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #5d6673;
+      --line: #d8dde5;
+      --line-strong: #b9c1cd;
+      --accent: #0f766e;
+      --accent-soft: #e0f2f1;
+      --warn: #9a5b00;
+      --warn-soft: #fff4d8;
+      --bad: #a61b2b;
+      --bad-soft: #fde7eb;
+      --ok: #1f7a3a;
+      --ok-soft: #e7f6ec;
+      --code: #eef2f6;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 24px 28px 18px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      max-width: 1100px;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      padding: 18px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+
+    h3 {
+      margin: 18px 0 10px;
+      font-size: 15px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+
+    .col-2 { grid-column: span 2; }
+    .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      white-space: pre-wrap;
+    }
+
+    .small-textarea { min-height: 56px; }
+    .large-textarea { min-height: 140px; }
+
+    .phase {
+      border-left: 5px solid var(--line-strong);
+    }
+
+    .phase[data-state="approved"] { border-left-color: var(--ok); }
+    .phase[data-state="changes"] { border-left-color: var(--bad); }
+    .phase[data-state="review"] { border-left-color: var(--warn); }
+    .phase[data-state="progress"] { border-left-color: var(--accent); }
+
+    .phase-title {
+      display: flex;
+      gap: 12px;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .phase-title strong {
+      font-size: 17px;
+    }
+
+    .doc-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .doc-link:hover { text-decoration: underline; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: var(--code);
+      color: var(--muted);
+    }
+
+    .pill.ok { background: var(--ok-soft); color: var(--ok); border-color: #bde8ca; }
+    .pill.warn { background: var(--warn-soft); color: var(--warn); border-color: #efd48b; }
+    .pill.bad { background: var(--bad-soft); color: var(--bad); border-color: #f2b6c0; }
+    .pill.info { background: var(--accent-soft); color: var(--accent); border-color: #a7d8d3; }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 16px;
+      margin-top: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .check input {
+      width: auto;
+      margin-top: 3px;
+      flex: 0 0 auto;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: #fff;
+      padding: 8px 11px;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    button.danger {
+      border-color: #efb4be;
+      color: var(--bad);
+      background: var(--bad-soft);
+    }
+
+    code {
+      background: var(--code);
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    .note {
+      border: 1px solid var(--line);
+      background: #fbfcfd;
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .review-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfd;
+      margin-top: 12px;
+    }
+
+    .review-box h3:first-child { margin-top: 0; }
+
+    .required {
+      color: var(--bad);
+      font-weight: 700;
+    }
+
+    @media (max-width: 860px) {
+      header { position: static; }
+      main { padding: 12px; }
+      .grid { grid-template-columns: 1fr; }
+      .col-2, .col-3, .col-4, .col-6, .col-8, .col-12 { grid-column: span 1; }
+      .checklist { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Adapter-Guided LLM FieldRoute Refinement 进度跟踪</h1>
+    <p class="subtitle">
+      用于记录 R3 任务组的实施、测试、代码审核和整改闭环。审核时必须以真实代码为准，不接受仅凭提交报告判定通过。
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>总览</h2>
+      <div class="grid">
+        <div class="col-3">
+          <label>当前负责人</label>
+          <input data-key="owner" placeholder="填写实施人" value="Claude Code / 6chenhua" />
+        </div>
+        <div class="col-3">
+          <label>当前审核人</label>
+          <input data-key="reviewer" placeholder="PM / Codex" value="PM / Codex" />
+        </div>
+        <div class="col-3">
+          <label>当前阶段</label>
+          <select data-key="currentPhase">
+            <option value="">未选择</option>
+            <option>01 Baseline Gap Tests</option>
+            <option>02 Prompt and Schema Contract</option>
+            <option>03 FieldRoute LLM Refinement Path</option>
+            <option>04 Validation and Merge</option>
+            <option selected>05 Downstream Alignment Regression</option>
+            <option>05 Downstream Alignment Regression</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>整体状态</label>
+          <select data-key="overallStatus">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>in_review</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label>当前分支 / commit</label>
+          <input data-key="branchCommit" placeholder="branch name / commit hash" value="main (2026-05-24)" />
+        </div>
+        <div class="col-6">
+          <label>最后全量测试结果</label>
+          <input data-key="latestFullTest" placeholder="例如：pytest tests/unit/ -q -> 1284 passed" value="pytest tests/unit/ -q -> 1375 passed, 0 xfailed" />
+        </div>
+        <div class="col-12">
+          <label>总备注</label>
+          <textarea data-key="overallNotes" class="small-textarea" placeholder="记录整体风险、当前阻塞、阶段间依赖等">2026-05-24: 第 1 步审核通过。
+6 passed (4 baseline-current + 1 safety net + 1 generic NL), 4 xfailed (target behavior).
+1290 passed, 4 xfailed 全量零回归。
+下一步: 02 Prompt and Schema Contract.</textarea>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="primary" id="saveBtn">保存到浏览器</button>
+        <button id="exportBtn">导出 JSON</button>
+        <button id="importBtn">导入 JSON</button>
+        <button class="danger" id="clearBtn">清空本页数据</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+      </div>
+    </section>
+
+    <section>
+      <h2>PM 审核原则</h2>
+      <div class="note">
+        每次提交审核时，审核人必须读取相关代码、测试和 prompt，不得只依据实施报告判断。若发现问题，必须指出具体文件/行或行为缺口，并给出核心解决思路。测试通过不是充分条件，验收标准逐条满足才可批准。
+      </div>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="auditRule.codeRead" /> 已阅读相关生产代码</label>
+        <label class="check"><input type="checkbox" data-key="auditRule.testsRead" /> 已阅读新增/修改测试</label>
+        <label class="check"><input type="checkbox" data-key="auditRule.promptRead" /> 如涉及 LLM，已阅读 prompt / schema</label>
+        <label class="check"><input type="checkbox" data-key="auditRule.acceptanceMapped" /> 已逐条映射验收标准</label>
+        <label class="check"><input type="checkbox" data-key="auditRule.testsRun" /> 已运行相关测试或记录无法运行原因</label>
+        <label class="check"><input type="checkbox" data-key="auditRule.noReportOnly" /> 未仅凭提交报告批准</label>
+      </div>
+    </section>
+
+    <section class="phase" data-phase="01" data-state="approved">
+      <div class="phase-title">
+        <div>
+          <strong>01 Baseline Gap Tests</strong>
+          <span class="pill ok">审核通过</span>
+        </div>
+        <a class="doc-link" href="01_baseline_gap_tests.md">任务文档</a>
+      </div>
+      <div class="grid">
+        <div class="col-3">
+          <label>实施状态</label>
+          <select data-key="phase01.status" class="phase-status">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>submitted</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>审核结论</label>
+          <select data-key="phase01.reviewDecision">
+            <option></option>
+            <option selected>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>开始日期</label>
+          <input data-key="phase01.startDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-3">
+          <label>完成日期</label>
+          <input data-key="phase01.doneDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-6">
+          <label>修改文件</label>
+          <textarea data-key="phase01.changedFiles" class="small-textarea" placeholder="列出测试文件，不应包含生产代码">tests/unit/test_adapter_guided_fieldroute_refinement.py (NEW)
+无生产代码修改</textarea>
+        </div>
+        <div class="col-6">
+          <label>测试命令与结果</label>
+          <textarea data-key="phase01.tests" class="small-textarea" placeholder="pytest ... -> ...">pytest tests/unit/test_adapter_guided_fieldroute_refinement.py -q -> 6 passed, 4 xfailed
+pytest tests/unit/ -q -> 1290 passed, 4 xfailed</textarea>
+        </div>
+        <div class="col-12">
+          <label>实施摘要</label>
+          <textarea data-key="phase01.summary" placeholder="说明覆盖了哪些 deterministic routing 缺陷">两层测试结构（4个gap × 2层）：
+
+Layer 1 — test_current_* (PASS, 无 xfail)
+  记录当前确定性 FieldRoute 对混合语义输入的缺陷行为：
+  1. Failure handling: condition+handler 被折叠为单个 failure_mode
+  2. Delegation policy: API/worker/boundary/prohibition 全部相同 delegation_intent
+  3. Reusable process: constraint 被标记 executable process_step
+  4. Output section: 行为文本被静默折叠为 output_contract
+
+Layer 2 — test_target_* (XFAIL, strict=True)
+  断言 R3 目标行为，当前因 LLM refinement 未实现而失败：
+  1. handler annotation 或 split_recommendation 存在
+  2. api_candidate / worker_handoff_candidate 被区分
+  3. constraint 有 semantic_role in {constraint,precondition,policy} + executable=False
+  4. 行为文本产生 conflict diagnostic 或独立非 resource-contract annotation
+
+安全网：condition-only 不虚构 handler、generic NL 路径不受影响</textarea>
+        </div>
+      </div>
+      <h3>验收核对</h3>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="phase01.ac.failureMixed" checked /> Failure handling condition + handler 有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase01.ac.conditionOnly" checked /> condition-only 不虚构 handler 有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase01.ac.delegationMixed" checked /> Delegation API / worker / policy 混合有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase01.ac.reusableConstraint" checked /> Reusable process 中 constraint 不 executable 有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase01.ac.ioMixed" checked /> Input/output section 混入行为有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase01.ac.noProdCode" checked /> 未修改生产代码</label>
+      </div>
+      <div class="review-box">
+        <h3>审核记录</h3>
+        <label>代码核验证据 <span class="required">*</span></label>
+        <textarea data-key="phase01.reviewEvidence" placeholder="审核人填写：读了哪些文件、确认了哪些行为、是否发现报告与代码不一致">已阅读：
+- tests/unit/test_adapter_guided_fieldroute_refinement.py（新增，10 测试）
+- src/nl2spl/pipeline/stages/stage2_field_router.py（确认未修改）
+- src/nl2spl/adapters/structural_nl.py（确认未修改）
+
+确认：
+- 4 个 baseline-current 测试正确记录当前确定性路由缺陷
+- 4 个 target-xfail 测试正确断言 R3 目标行为（strict=True）
+- 1 个安全网测试确保 condition-only 不虚构 handler
+- 1 个 cross-cutting 测试确保 generic NL 路径不受影响
+- 无 XPASS 污染（6 passed, 4 xfailed）
+- 全量 1290 passed, 4 xfailed, 零回归
+
+P1 问题已修复：xfail 不再断言当前缺陷行为，target 层直接断言目标行为
+P2 问题已修复：constraint target 断言收紧为 role + executable 同时校验</textarea>
+        <label>问题与核心解决思路</label>
+        <textarea data-key="phase01.findings">第一轮审核 (P1): xfail 用反了——断言当前缺陷导致 XPASS
+→ 改为两层结构：baseline-current PASS + target-xfail XFAIL
+
+第二轮审核 (P2): target constraint 断言太弱——允许 process_step+executable=False
+→ 收紧为 semantic_role in {constraint,precondition,policy} AND executable=False
+
+最终结果：6 passed, 4 xfailed, 0 xpassed ✅</textarea>
+      </div>
+    </section>
+
+    <section class="phase" data-phase="02" data-state="approved">
+      <div class="phase-title">
+        <div>
+          <strong>02 Prompt and Schema Contract</strong>
+          <span class="pill ok">审核通过</span>
+        </div>
+        <a class="doc-link" href="02_prompt_and_schema_contract.md">任务文档</a>
+      </div>
+      <div class="grid">
+        <div class="col-3">
+          <label>实施状态</label>
+          <select data-key="phase02.status" class="phase-status">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>submitted</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>审核结论</label>
+          <select data-key="phase02.reviewDecision">
+            <option></option>
+            <option selected>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>开始日期</label>
+          <input data-key="phase02.startDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-3">
+          <label>完成日期</label>
+          <input data-key="phase02.doneDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-6">
+          <label>修改文件</label>
+          <textarea data-key="phase02.changedFiles" class="small-textarea" placeholder="prompt / schema / tests">prompts/stage2_adapter_guided_system.txt (NEW)
+src/nl2spl/pipeline/stages/stage2_field_router_prompt.py (NEW)
+src/nl2spl/llm/prompts.py (MODIFIED: +stage2_adapter_guided)
+tests/unit/test_adapter_guided_fieldroute_refinement.py (新增 18 个 Step 2 测试)</textarea>
+        </div>
+        <div class="col-6">
+          <label>测试命令与结果</label>
+          <textarea data-key="phase02.tests" class="small-textarea">pytest tests/unit/test_adapter_guided_fieldroute_refinement.py -q -> 28 passed, 4 xfailed
+pytest tests/unit/ -q -> 1312 passed, 4 xfailed</textarea>
+        </div>
+        <div class="col-12">
+          <label>Prompt 输入字段摘要</label>
+          <textarea data-key="phase02.promptInputs" placeholder="spans / sections / packets / hard facts / compile hints / priors / allowed schema">spans: span_id, text, source_section_id, source_packet_id
+sections: section_id, canonical_title, original_title, text
+semantic_packets: packet_id, source_section_id, packet_type, text, compile_targets, metadata
+hard_facts: inputs/outputs/failure_modes/delegation_intents + evidence chain (source_section_id, source_packet_id, source_span_ids, quoted_text)
+compile_hints: 6 categories (flow/delegation/constraint/process/profile/resource), 11 fields per hint, + evidence
+deterministic_priors: prior_source=packet_type_deterministic_mapping + annotation fields
+allowed_schema: fields, semantic_roles, construct_targets, slot_targets, non_executable_roles, executable_roles</textarea>
+        </div>
+        <div class="col-12">
+          <label>LLM 输出 schema 摘要</label>
+          <textarea data-key="phase02.outputSchema" placeholder="annotations / split_recommendations / diagnostics">{annotations: [{span_id, field, semantic_role, route_family, construct_target, slot_target, executable, source_section_id, source_packet_id, primary, reason}]}
+{split_recommendations: [{parent_span_id, reason, segments: [{text, semantic_role, construct_target, slot_target, executable}]}]}
+{diagnostics: [{span_id, kind, message}]}
++ parse_diagnostics (内部): missing/malformed field 记录，parser 不注入业务默认值</textarea>
+        </div>
+      </div>
+      <h3>验收核对</h3>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="phase02.ac.adapterEvidence" checked /> Prompt 包含 adapter evidence</label>
+        <label class="check"><input type="checkbox" data-key="phase02.ac.priorsNotTruth" checked /> 明确 hints/priors 不是最终裁决</label>
+        <label class="check"><input type="checkbox" data-key="phase02.ac.noSpl" checked /> 明确禁止生成 SPL / workers / handoffs</label>
+        <label class="check"><input type="checkbox" data-key="phase02.ac.mixedExamples" checked /> 包含 failure/delegation mixed 示例</label>
+        <label class="check"><input type="checkbox" data-key="phase02.ac.provenance" checked /> 要求保留 provenance</label>
+        <label class="check"><input type="checkbox" data-key="phase02.ac.schemaTested" checked /> 输出 schema 有测试覆盖</label>
+      </div>
+      <div class="review-box">
+        <h3>审核记录</h3>
+        <label>代码 / Prompt 核验证据 <span class="required">*</span></label>
+        <textarea data-key="phase02.reviewEvidence">已阅读：
+- prompts/stage2_adapter_guided_system.txt (11.6K chars, 8 核心规则, 3 完整示例)
+- src/nl2spl/pipeline/stages/stage2_field_router_prompt.py (prompt builder + output schema dataclasses)
+- src/nl2spl/llm/prompts.py (新增 stage2_adapter_guided 映射)
+
+确认：
+- build_adapter_guided_user_prompt() 保留 hard_facts 和 compile_hints 的完整 evidence chain (source_packet_id, source_span_ids, quoted_text)
+- CompileHint 字段覆盖完整 (11 fields)，hint categories 覆盖 6 类包括 resource_hints
+- parse_refinement_result() 不注入业务默认值；缺 field/executable → None + parse_diagnostic
+- bool("false") 不会强转为 True；非 bool 类型记录 malformed diagnostic
+- System prompt provenance 规则使用 MUST (非 SHOULD)；delegation 示例全部标注 provenance
+- 新增测试全部为 controlled-input 硬断言
+
+P1 问题 (第一轮): evidence 丢失 → 新增 _evidence_to_dict(), _fact_to_dict() 以及 _hint_to_dict() 保留完整 evidence
+P1 问题 (第二轮): parser bool("false") → 只接受真实 bool, 非 bool 类型 → None + malformed diagnostic
+P2 问题: hint 字段不完整 → 补全 suggested_block_type/step_type, resource_hints category</textarea>
+        <label>问题与核心解决思路</label>
+        <textarea data-key="phase02.findings">第一轮 P1: evidence chain 丢失 → _evidence_to_dict() 序列化所有 EvidenceRef 字段
+  P1: parser 默认值伪造语义 → field/executable 改为 Optional[None], 缺失=parse_diagnostic
+  P2: prompt "SHOULD" 偏弱 → 改为 "MUST"; delegation 示例补 provenance
+  P2: 测试空断言 → 改写为 controlled-input 硬断言
+
+第二轮 P1: bool() 强转 "false"→True → isinstance check, 非 bool→None+malformed diagnostic
+  P2: CompileHint 漏 suggested_block_type/step_type + resource_hints → 补全
+  测试新增: test_parse_string_false_not_coerced_to_true, test_compile_hints_payload_preserves_all_fields
+
+最终: 28 passed, 4 xfailed, 1312 full suite passed ✅</textarea>
+      </div>
+    </section>
+
+    <section class="phase" data-phase="03" data-state="approved">
+      <div class="phase-title">
+        <div>
+          <strong>03 FieldRoute LLM Refinement Path</strong>
+          <span class="pill ok">审核通过</span>
+        </div>
+        <a class="doc-link" href="03_fieldroute_llm_refinement_path.md">任务文档</a>
+      </div>
+      <div class="grid">
+        <div class="col-3">
+          <label>实施状态</label>
+          <select data-key="phase03.status" class="phase-status">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>submitted</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>审核结论</label>
+          <select data-key="phase03.reviewDecision">
+            <option></option>
+            <option selected>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>开始日期</label>
+          <input data-key="phase03.startDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-3">
+          <label>完成日期</label>
+          <input data-key="phase03.doneDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-6">
+          <label>修改文件</label>
+          <textarea data-key="phase03.changedFiles" class="small-textarea">src/nl2spl/config.py (新增 enable_adapter_guided_fieldroute_llm)
+src/nl2spl/pipeline/stages/stage2_field_router.py (重构 _execute_canonical + 5 helper methods)
+tests/unit/test_adapter_guided_fieldroute_refinement.py (新增 16 个 Step 3 测试)</textarea>
+        </div>
+        <div class="col-6">
+          <label>测试命令与结果</label>
+          <textarea data-key="phase03.tests" class="small-textarea">pytest tests/unit/test_adapter_guided_fieldroute_refinement.py -q -> 44 passed, 4 xfailed
+pytest tests/unit/ -q -> 1328 passed, 4 xfailed</textarea>
+        </div>
+        <div class="col-4">
+          <label>新增配置项</label>
+          <input data-key="phase03.configFlag" placeholder="enable_adapter_guided_fieldroute_llm" value="enable_adapter_guided_fieldroute_llm" />
+        </div>
+        <div class="col-4">
+          <label>默认值</label>
+          <input data-key="phase03.defaultValue" placeholder="true / false" value="False" />
+        </div>
+        <div class="col-4">
+          <label>LLM failure policy</label>
+          <input data-key="phase03.failurePolicy" placeholder="fallback / raise" value="fallback (implicit)" />
+        </div>
+        <div class="col-12">
+          <label>LLM payload 示例</label>
+          <textarea data-key="phase03.payloadExample" class="large-textarea">_execute_canonical() 流程:
+1. 构建 old-list routes (packet_type → 兼容字段, 不受 LLM 影响)
+2. _build_deterministic_priors() → RouteAnnotation 列表
+3. 如果 flag 启用: _call_adapter_guided_llm() → parse_refinement_result()
+4. _merge_llm_refinement(): 校验 field/executable/semantic_role/construct_target/slot_target
+   - 非法/缺失/未知 span → 拒绝 + diagnostic
+   - 合法 annotation: 按 (span_id, field, semantic_role, construct_target, slot_target) 替换或追加 (multi-label)
+   - NON_EXECUTABLE_ROLES 强制 executable=False
+5. split_recommendations → ambiguity_updates 返回给 Stage 3
+6. checkpoint 包含 llm_refinement 元数据 + 实际 ambiguity_updates</textarea>
+        </div>
+      </div>
+      <h3>验收核对</h3>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="phase03.ac.flag" checked /> 有配置开关</label>
+        <label class="check"><input type="checkbox" data-key="phase03.ac.callsLlm" checked /> 开启时 structural FieldRoute 调 LLM</label>
+        <label class="check"><input type="checkbox" data-key="phase03.ac.disabledFallback" checked /> 关闭时 deterministic fallback 可用</label>
+        <label class="check"><input type="checkbox" data-key="phase03.ac.genericUnaffected" checked /> Generic NL 路径不受影响</label>
+        <label class="check"><input type="checkbox" data-key="phase03.ac.failurePolicy" checked /> LLM 失败策略有测试</label>
+        <label class="check"><input type="checkbox" data-key="phase03.ac.intermediate" checked /> intermediate/checkpoint 记录摘要</label>
+      </div>
+      <div class="review-box">
+        <h3>审核记录</h3>
+        <label>代码核验证据 <span class="required">*</span></label>
+        <textarea data-key="phase03.reviewEvidence">已阅读：
+- src/nl2spl/config.py (enable_adapter_guided_fieldroute_llm: bool = False)
+- src/nl2spl/pipeline/stages/stage2_field_router.py (_execute_canonical + 5 helpers)
+- tests/unit/test_adapter_guided_fieldroute_refinement.py (16 Step 3 tests)
+
+确认：
+- 默认关闭，structural NL 走 deterministic path
+- 开启后调用 stage2_adapter_guided，payload 使用 adapter evidence
+- generic NL 走原 stage2_field_router，不受 flag 影响
+- LLM failure → fallback to deterministic priors + checkpoint diagnostic
+- 同 span 多标签已保留 (list merge, 5-tuple key)
+- malformed field/executable → 拒绝, 不注入 behavior/True
+- unknown span + 非法 role/construct/slot → 全部拒绝
+- split recommendations → ambiguity_updates 返回给 Stage 3
+- checkpoint ambiguity_updates 写入实际值
+
+Round 1 P1: multi-label 覆盖 → list merge, (span_id, semantic_role) key
+  P1: malformed 被默认值接受 → 拒绝 field=None/非法 + executable 非 bool
+  P2: split 不返回 → 转 ambiguity_updates, 修改返回值
+  P2: 测试恒真断言 → 全量重写为硬断言
+
+Round 2 P1: allowed schema 未校验 → 新增 semantic_role/construct_target/slot_target 校验
+  P2: merge key 过粗 → 扩展为 (span_id, field, semantic_role, construct_target, slot_target)
+  P2: checkpoint 不一致 → ambiguity_updates 写入实际值</textarea>
+        <label>问题与核心解决思路</label>
+        <textarea data-key="phase03.findings">最终: 44 passed, 4 xfailed, 1328 full suite passed ✅
+Flag 默认关闭，等待 Step 4 validator 完成后才建议默认启用。</textarea>
+      </div>
+    </section>
+
+    <section class="phase" data-phase="04" data-state="approved">
+      <div class="phase-title">
+        <div>
+          <strong>04 Validation and Merge</strong>
+          <span class="pill ok">审核通过</span>
+        </div>
+        <a class="doc-link" href="04_validation_and_merge.md">任务文档</a>
+      </div>
+      <div class="grid">
+        <div class="col-3">
+          <label>实施状态</label>
+          <select data-key="phase04.status" class="phase-status">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>submitted</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>审核结论</label>
+          <select data-key="phase04.reviewDecision">
+            <option></option>
+            <option selected>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>开始日期</label>
+          <input data-key="phase04.startDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-3">
+          <label>完成日期</label>
+          <input data-key="phase04.doneDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-6">
+          <label>修改文件</label>
+          <textarea data-key="phase04.changedFiles" class="small-textarea">src/nl2spl/pipeline/stages/stage2_field_router_validator.py (NEW: RouteRefinementValidator + ValidatedRefinementResult)
+src/nl2spl/pipeline/stages/stage2_field_router.py (_merge_llm_refinement 使用 validator)
+tests/unit/test_adapter_guided_fieldroute_refinement.py (新增 21 个 Step 4 测试)</textarea>
+        </div>
+        <div class="col-6">
+          <label>测试命令与结果</label>
+          <textarea data-key="phase04.tests" class="small-textarea">pytest tests/unit/test_adapter_guided_fieldroute_refinement.py -q -> 65 passed, 4 xfailed
+pytest tests/unit/ -q -> 1349 passed, 4 xfailed</textarea>
+        </div>
+        <div class="col-12">
+          <label>Validator 规则摘要</label>
+          <textarea data-key="phase04.validatorRules" class="large-textarea" placeholder="unknown span / invalid role / executable constraints / provenance / conflict diagnostics">1. Span existence — unknown span_id → reject
+2. Allowed schema — field/role/construct/slot not in allowed set → reject
+3. Executable bool — None/malformed → reject
+4. NON_EXECUTABLE_ROLES — failure_mode/delegation_intent/input_contract/etc with executable=True → reject
+5. Role-specific contracts — failure_mode must be EXCEPTION_FLOW.condition; handler must be EXCEPTION_FLOW.handler; executable must match
+6. Anti-fabrication — handler action needs verb in span text; worker_handoff_candidate needs worker name in source; api_candidate needs API name
+7. Provenance alignment — LLM source_section_id/source_packet_id mismatch with span → warning diagnostic (not reject)
+8. Hard fact conflict — failure_mode hard fact vs process_step annotation → warning diagnostic
+9. Split validation — parent_span_id must exist; segment text non-empty; text in parent span or warning
+10. Fallback — >50% rejected → deterministic priors, split recommendations suppressed to []
+11. Merge provenance — prior provenance preferred over LLM provenance</textarea>
+        </div>
+        <div class="col-12">
+          <label>Invalid LLM output 示例与处理结果</label>
+          <textarea data-key="phase04.invalidExamples">unknown span → reject + "Rejected: unknown span_id" diagnostic
+invalid semantic_role → reject
+executable input_contract → reject
+executable failure_mode → reject
+wrong construct_target for failure_mode → reject ("requires construct_target='EXCEPTION_FLOW'")
+handler without action verb → reject ("no handler action verb in source text")
+LLM fake source_packet_id → warning + prior provenance preserved in merge
+fallback triggered (>50%) → deterministic priors, split suppressed, diagnostic recorded</textarea>
+        </div>
+      </div>
+      <h3>验收核对</h3>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="phase04.ac.validatorIsolated" checked /> Validator 独立或清晰隔离</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.unknownSpan" checked /> unknown span 被拒绝</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.invalidSchema" checked /> invalid role/field/slot 被拒绝</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.resourceNonExec" checked /> resource contract 强制 non-executable</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.failureNonExec" checked /> failure condition 不能 executable</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.delegationNonExec" checked /> delegation 无 contract 不能 executable</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.provenance" checked /> provenance 补齐或诊断</label>
+        <label class="check"><input type="checkbox" data-key="phase04.ac.conflictDiag" checked /> prior 冲突产生 diagnostic</label>
+      </div>
+      <div class="review-box">
+        <h3>审核记录</h3>
+        <label>代码核验证据 <span class="required">*</span></label>
+        <textarea data-key="phase04.reviewEvidence">已阅读：
+- src/nl2spl/pipeline/stages/stage2_field_router_validator.py (独立 validator, 11 条规则)
+- src/nl2spl/pipeline/stages/stage2_field_router.py (_merge_llm_refinement validator 集成)
+- tests/unit/test_adapter_guided_fieldroute_refinement.py (21 Step 4 测试)
+
+确认：
+- RouteRefinementValidator 独立于 FieldRouter, 不调 LLM
+- 9 条 validation rule + fallback/merge provenance 规则
+- 11 个 replacement + 4 个 return fix points 全部核验
+
+Round 1 P1: provenance 未校验 → LLM mismatch → warning; merge 优先 prior provenance
+  P1: conflict diagnostic 丢弃 → _validate_one 返回 (bool, str, list[str]), warnings 收集到 diagnostics
+  P2: split 未校验 → _validate_split_recommendations: parent exists, segment non-empty, in-parent check
+
+Round 2 P1: split 绕过 validator → 非 fallback 使用 validated.split_recommendations
+  P1: append provenance 仍信任 LLM → prior provenance 优先
+
+Round 3 P1: fallback 仍返回 LLM split → fallback 返回 [], suppressed diagnostic
+
+最终: 65 passed, 4 xfailed, 1349 full suite passed ✅</textarea>
+        <label>问题与核心解决思路</label>
+        <textarea data-key="phase04.findings">Validator 主干: schema/role/executable/anti-fabrication/provenance/split/fallback 全链路校验
+Merge 安全边界: prior provenance 优先, LLM 错误值不污染 FieldRouteIR
+Flag 默认关闭，Step 4 validator 是 LLM 输出进入 pipeline 前的最后一道安全门</textarea>
+      </div>
+    </section>
+
+    <section class="phase" data-phase="05" data-state="approved">
+      <div class="phase-title">
+        <div>
+          <strong>05 Downstream Alignment Regression</strong>
+          <span class="pill ok">审核通过</span>
+        </div>
+        <a class="doc-link" href="05_downstream_alignment_regression.md">任务文档</a>
+      </div>
+      <div class="grid">
+        <div class="col-3">
+          <label>实施状态</label>
+          <select data-key="phase05.status" class="phase-status">
+            <option>not_started</option>
+            <option>in_progress</option>
+            <option>submitted</option>
+            <option>changes_requested</option>
+            <option selected>approved</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>审核结论</label>
+          <select data-key="phase05.reviewDecision">
+            <option></option>
+            <option selected>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-3">
+          <label>开始日期</label>
+          <input data-key="phase05.startDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-3">
+          <label>完成日期</label>
+          <input data-key="phase05.doneDate" placeholder="YYYY-MM-DD" value="2026-05-24" />
+        </div>
+        <div class="col-6">
+          <label>修改文件</label>
+          <textarea data-key="phase05.changedFiles" class="small-textarea">tests/unit/test_adapter_guided_fieldroute_refinement.py (修复2 P1 + 保留8下游测试)
+tests/unit/test_step_extractor.py (新增 test_api_candidate_not_call_api_without_contract)
+tests/unit/test_flow_assembler.py (新增 5 个 D2 guard 测试)
+tests/unit/pipeline/stages/test_worker_aware_flow_assembler.py (新增 worker-aware guard 测试)
+src/nl2spl/pipeline/stages/stage4_flow_assembler/executor.py (_filter_non_condition_exception_flows + worker-aware 集成)</textarea>
+        </div>
+        <div class="col-6">
+          <label>测试命令与结果</label>
+          <textarea data-key="phase05.tests" class="small-textarea">pytest tests/unit/test_flow_assembler.py tests/unit/pipeline/stages/test_worker_aware_flow_assembler.py -q -> 40 passed
+pytest tests/unit/ -q -> 1367 passed, 4 xfailed</textarea>
+        </div>
+        <div class="col-6">
+          <label>Mixed failure handling 下游输出摘要</label>
+          <textarea data-key="phase05.failureSummary">Stage 4 guard: condition-backed-only filter
+- LLM handler span exception flow → 过滤
+- LLM handler+process span exception flow → 过滤
+- LLM condition+handler span exception flow → 保留，spans 净化为 condition-only
+- LLM wrong condition_text → 用 span 原文替代
+- 无 condition annotation 时 → 全部 LLM flow 过滤
+- Worker-aware 路径同等过滤
+- 无 annotation 时保留 legacy 行为
+Stage 7 guard (D6): api_candidate/executable=False → CALL_API 被 drop</textarea>
+        </div>
+        <div class="col-6">
+          <label>Mixed delegation policy 下游输出摘要</label>
+          <textarea data-key="phase05.delegationSummary">Stage 7: delegation_intent/executable=False → INVOKE_WORKER 被 drop
+Stage 9: delegation_boundary_constraint → 正常提取
+Stage 9: failure_mode → 从 constraint prompt 排除
+Stage 6: failure_mode span → 不被提取为 resource variable</textarea>
+        </div>
+        <div class="col-12">
+          <label>全量回归备注</label>
+          <textarea data-key="phase05.regressionNotes">零回归。D0-D8 测试全部通过。
+Guard 条件：annotation-aware (有 routes.annotations 时激活) vs legacy (无 annotations 时不变)。
+condition span 交集判断替代了 handler-only 判断。
+condition_text 来自 span 原文，不信任 LLM。</textarea>
+        </div>
+      </div>
+      <h3>验收核对</h3>
+      <div class="checklist">
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage4ConditionOnly" checked /> Stage 4 只 materialize condition</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage5NoHandler" checked /> Stage 5 不虚构 handler</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage7NoFailureCommand" checked /> Stage 7 不从 failure condition 生成 command</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage7NoDelegationInvoke" checked /> Stage 7 不从 pure delegation 生成 INVOKE_WORKER</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage7NoApiCall" checked /> Stage 7 不从 API candidate 直接 CALL_API</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage9Constraints" checked /> Stage 9 保留 boundary / prohibition / precondition</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.stage6Clean" checked /> Stage 6 不污染 resource variables</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.workerAware" checked /> Worker-aware path 保留 failure semantics</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.provenance" checked /> Provenance / report 正确且不重复</label>
+        <label class="check"><input type="checkbox" data-key="phase05.ac.fullSuite" checked /> 全量单元测试通过</label>
+      </div>
+      <div class="review-box">
+        <h3>审核记录</h3>
+        <label>代码核验证据 <span class="required">*</span></label>
+        <textarea data-key="phase05.reviewEvidence">Stage 4 guard (_filter_non_condition_exception_flows):
+- condition_span_ids from routes + failure_mode/EXCEPTION_FLOW/condition/executable=False
+- No condition: all LLM flows filtered (annotation-aware path)
+- Has condition: keep flows with ∩ condition_span_ids; sanitize spans + correct condition_text from span
+- Dedup by normalized condition_text
+- Worker-aware path equally filtered
+
+Stage 7 D6 guard: api_candidate test proves CALL_API dropped
+Stage 9 guard: failure_mode excluded from prompt+output; delegation_boundary_constraint survives
+
+Production changes: stage4_flow_assembler/executor.py (filter + worker integration, ~40 lines)
+Tests: 4 files, +10 tests</textarea>
+        <label>问题与核心解决思路</label>
+        <textarea data-key="phase05.findings">Round 1 P1: false positive tests (mock returned []) → mock returns bad steps, assert dropped + good survives
+Round 2 P1: Stage 4 guard too narrow (only full-handler) → condition intersection check
+Round 3 P1: no-condition allows LLM flows → annotation-aware blocks all without condition
+Round 3 P1: mixed flow pollutes provenance → spans sanitized to condition-only
+Round 4 P1: wrong condition_text trusted → corrected from span text; dedup added
+
+最终: 1367 passed, 4 xfailed ✅</textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>最终验收</h2>
+      <div class="grid">
+        <div class="col-4">
+          <label>最终结论</label>
+          <select data-key="final.decision">
+            <option></option>
+            <option>approved</option>
+            <option>changes_requested</option>
+            <option>blocked</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label>最终测试结果</label>
+          <input data-key="final.tests" placeholder="pytest tests/unit/ -q -> ..." />
+        </div>
+        <div class="col-4">
+          <label>最终审核日期</label>
+          <input data-key="final.date" placeholder="YYYY-MM-DD" />
+        </div>
+        <div class="col-12">
+          <label>最终审核摘要</label>
+          <textarea data-key="final.summary" class="large-textarea" placeholder="说明是否真正达到 adapter-guided LLM FieldRoute refinement 的目标"></textarea>
+        </div>
+        <div class="col-12">
+          <label>剩余风险 / 后续任务</label>
+          <textarea data-key="final.residualRisks" placeholder="记录未纳入本任务组的后续事项"></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const storageKey = "adapter_guided_llm_fieldroute_progress_v1";
+
+    function getFields() {
+      return Array.from(document.querySelectorAll("[data-key]"));
+    }
+
+    function readData() {
+      const data = {};
+      for (const el of getFields()) {
+        const key = el.dataset.key;
+        if (el.type === "checkbox") {
+          data[key] = el.checked;
+        } else {
+          data[key] = el.value;
+        }
+      }
+      return data;
+    }
+
+    function writeData(data) {
+      for (const el of getFields()) {
+        const key = el.dataset.key;
+        if (!(key in data)) continue;
+        if (el.type === "checkbox") {
+          el.checked = Boolean(data[key]);
+        } else {
+          el.value = data[key] ?? "";
+        }
+      }
+      updatePhaseStates();
+    }
+
+    function saveData() {
+      localStorage.setItem(storageKey, JSON.stringify(readData(), null, 2));
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      try {
+        writeData(JSON.parse(raw));
+      } catch (err) {
+        console.warn("无法读取本地保存数据", err);
+      }
+    }
+
+    function updatePhaseStates() {
+      for (const phase of document.querySelectorAll(".phase")) {
+        const select = phase.querySelector(".phase-status");
+        const value = select ? select.value : "";
+        let state = "";
+        if (value === "approved") state = "approved";
+        else if (value === "changes_requested") state = "changes";
+        else if (value === "submitted") state = "review";
+        else if (value === "in_progress") state = "progress";
+        phase.dataset.state = state;
+      }
+    }
+
+    document.addEventListener("input", (event) => {
+      if (event.target.matches("[data-key]")) {
+        updatePhaseStates();
+        saveData();
+      }
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      saveData();
+      alert("已保存到浏览器 localStorage。");
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(readData(), null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "adapter_guided_llm_fieldroute_progress.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("importBtn").addEventListener("click", () => {
+      document.getElementById("importFile").click();
+    });
+
+    document.getElementById("importFile").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      writeData(JSON.parse(text));
+      saveData();
+      event.target.value = "";
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      if (!confirm("确认清空本页所有进度数据？")) return;
+      localStorage.removeItem(storageKey);
+      for (const el of getFields()) {
+        if (el.type === "checkbox") el.checked = false;
+        else el.value = "";
+      }
+      updatePhaseStates();
+    });
+
+    loadData();
+    updatePhaseStates();
+  </script>
+</body>
+</html>

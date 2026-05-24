@@ -5,13 +5,15 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from nl2spl.adapters import GenericNLAdapter, StructuralNLAdapter
-from nl2spl.ir.block_structure_ir import BlockStructureIR
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
+from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
+from nl2spl.pipeline.fact_bridges import bridge_delegation_intents
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 
 
@@ -175,6 +177,142 @@ def test_orchestrator_records_adapter_intermediate_results(
     assert "adapter_detection" in result.intermediate_results
 
 
+# ===========================================================================
+# F0 Baseline: uncovered section provenance
+# ===========================================================================
+
+
+def test_stage1_uncovered_section_spans_preserve_section_provenance(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """F0 Baseline: sections not covered by semantic_packets still carry source_section_id."""
+    from nl2spl.canonical import CanonicalCompileInput, RawSection, SemanticPacket
+
+    canonical = CanonicalCompileInput(
+        source_schema="structural_nl",
+        schema_version="1.0",
+        raw_text="Task family:\nExample.\n\nExtra section:\nExtra text.",
+        raw_sections=[
+            RawSection("sec_task_family", "task_family", "Task family", "Example.", 1),
+            RawSection("sec_extra", "failure_handling", "Failure handling", "Extra text.", 2),
+        ],
+        semantic_packets=[
+            SemanticPacket(
+                "p1", "sec_task_family", "task_family", "Example.", "hint"
+            ),
+        ],
+    )
+    slicer = SpanSlicer(pipeline_config, mock_client)
+
+    spans = slicer.execute(canonical)
+
+    uncovered_spans = [s for s in spans if s.source_packet_id is None]
+    assert len(uncovered_spans) >= 1, "Expected at least one uncovered section span"
+    for span in uncovered_spans:
+        assert span.source_section_id, (
+            f"Uncovered span {span.span_id} missing source_section_id"
+        )
+    mock_client.call_json.assert_not_called()
+
+
+# ===========================================================================
+# F0 Baseline: per-packet-type FieldRouter routing
+# ===========================================================================
+
+
+F0_STRUCTURAL_TEXT = """Task family:
+Internal newsletters and announcements.
+
+Inputs for each run:
+A user request, optional known topics, optional timeframe.
+
+Required outputs:
+A draft communication artifact, a source/evidence set, a short assumptions log, and a completion status.
+
+Reusable process:
+First determine what kind of communication is requested.
+If sources are needed and available, retrieve them using approved source recipes.
+
+Policies:
+Do not invent links or unseen facts. Require evidence for sourced claims.
+
+Failure handling:
+Missing timeframe, conflicting instructions, evidence shortage, and provenance failure.
+
+Delegation policy:
+Optional delegated subtasks such as source gathering or template matching may be used if bounded.
+"""
+
+
+def test_stage2_canonical_routing_per_packet_type(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """F0 Baseline: verify FieldRouter routes each packet type to correct field.
+
+    Documents CURRENT behavior — including failure_mode → rules routing
+    which the target design will change to EXCEPTION_FLOW.condition annotations.
+    """
+    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    pipeline_config.enable_adapter_guided_fieldroute_llm = False
+    router = FieldRouter(pipeline_config, mock_client)
+
+    routes, ambiguity_updates = router.execute((spans, canonical))
+
+    packets = {packet.packet_id: packet for packet in canonical.semantic_packets}
+    span_by_packet_type: dict[str, list[str]] = {}
+    for span in spans:
+        if span.source_packet_id and span.source_packet_id in packets:
+            ptype = packets[span.source_packet_id].packet_type
+            span_by_packet_type.setdefault(ptype, []).append(span.span_id)
+
+    # task_family → domain
+    for sid in span_by_packet_type.get("task_family", []):
+        assert sid in routes.domain, f"task_family span {sid} should be in domain"
+
+    # process_step → behavior
+    for sid in span_by_packet_type.get("process_step", []):
+        assert sid in routes.behavior, f"process_step span {sid} should be in behavior"
+
+    # policy → rules
+    for sid in span_by_packet_type.get("policy", []):
+        assert sid in routes.rules, f"policy span {sid} should be in rules"
+
+    # CURRENT BASELINE: failure_mode routes to rules.
+    # Target design: failure_mode should become a non-executable
+    # EXCEPTION_FLOW.condition route annotation (not rules).
+    for sid in span_by_packet_type.get("failure_mode", []):
+        assert sid in routes.rules, (
+            f"BASELINE: failure_mode span {sid} routes to rules. "
+            f"Target will change this to EXCEPTION_FLOW.condition annotation."
+        )
+
+    # delegation_rule → behavior
+    for sid in span_by_packet_type.get("delegation_rule", []):
+        assert sid in routes.behavior, (
+            f"delegation_rule span {sid} should be in behavior"
+        )
+
+    # runtime_input / required_output → NOT in any route (consumed by adapter)
+    hard_fact_types = {"runtime_input", "required_output"}
+    all_route_ids = routes.get_all_span_ids()
+    for ptype in hard_fact_types:
+        for sid in span_by_packet_type.get(ptype, []):
+            assert sid not in all_route_ids, (
+                f"{ptype} span {sid} should be consumed by adapter, not in routes"
+            )
+
+    # canonical path produces no ambiguity_updates
+    assert ambiguity_updates == []
+
+    # LLM should not be called — deterministic baseline
+    # (adapter-guided LLM refinement is tested separately)
+    pipeline_config.enable_adapter_guided_fieldroute_llm = False
+    mock_client.call_json.assert_not_called()
+
+
 def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
     pipeline_config: MagicMock,
 ) -> None:
@@ -223,3 +361,942 @@ def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
     assert canonical.source_schema == "generic_nl"
     assert canonical.hard_facts.outputs[0].name == "summary"
     assert canonical.raw_sections[0].section_id == "sec_freeform_input"
+
+
+# ===========================================================================
+# F3 Baseline: Hint-Aware FieldRouter emits RouteAnnotations
+# ===========================================================================
+
+
+def _adapt_slice_route(text: str, pipeline_config, mock_client):
+    """Helper: adapter → slicer → router for structural NL."""
+    canonical = StructuralNLAdapter().adapt(text)
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    router = FieldRouter(pipeline_config, mock_client)
+    return router.execute((spans, canonical))
+
+
+class TestF3StructuralAnnotations:
+    """F3: FieldRouter canonical path emits RouteAnnotations."""
+
+    def test_canonical_emits_annotations(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        pipeline_config.enable_adapter_guided_fieldroute_llm = False
+        routes, ambiguity_updates = _adapt_slice_route(
+            F0_STRUCTURAL_TEXT, pipeline_config, mock_client
+        )
+
+        assert len(routes.annotations) >= 1, "Expected at least one annotation"
+        assert ambiguity_updates == []
+        mock_client.call_json.assert_not_called()
+
+        packets_by_pid = {}  # We don't have canonical here, but check provenance
+        for ann in routes.annotations:
+            assert ann.span_id
+            if ann.source_packet_id:
+                assert ann.source_section_id, (
+                    f"Annotation {ann.span_id} has packet_id but no section_id"
+                )
+
+    def test_failure_mode_annotation(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        routes, _ = _adapt_slice_route(
+            F0_STRUCTURAL_TEXT, pipeline_config, mock_client
+        )
+
+        failure_anns = routes.get_annotations_by_role("failure_mode")
+        assert len(failure_anns) >= 1, "Expected at least one failure_mode annotation"
+
+        for ann in failure_anns:
+            # Old-list compatibility: failure_mode remains in rules
+            assert ann.span_id in routes.rules, (
+                f"BASELINE: failure_mode span {ann.span_id} still in routes.rules"
+            )
+            # Annotation semantics
+            assert ann.field == "behavior"
+            assert ann.semantic_role == "failure_mode"
+            assert ann.route_family == "flow_relevant"
+            assert ann.construct_target == "EXCEPTION_FLOW"
+            assert ann.slot_target == "condition"
+            assert ann.executable is False
+            assert ann.source_section_id
+            assert ann.source_packet_id
+            assert ann.source_packet_id.startswith("p_failure_mode_")
+
+    def test_resource_contract_annotations_not_routed(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        routes, _ = _adapt_slice_route(
+            F0_STRUCTURAL_TEXT, pipeline_config, mock_client
+        )
+
+        all_route_ids = routes.get_all_span_ids()
+        input_anns = routes.get_annotations_by_role("input_contract")
+        output_anns = routes.get_annotations_by_role("output_contract")
+
+        assert len(input_anns) >= 1, "Expected at least one input_contract annotation"
+        assert len(output_anns) >= 1, "Expected at least one output_contract annotation"
+
+        for ann in input_anns + output_anns:
+            assert ann.span_id not in all_route_ids, (
+                f"Resource contract span {ann.span_id} must not be in old route lists"
+            )
+            assert ann.route_family == "resource_contract"
+            assert ann.executable is False
+            assert ann.source_section_id
+            assert ann.source_packet_id
+
+    def test_delegation_non_executable_boundary(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        routes, _ = _adapt_slice_route(
+            F0_STRUCTURAL_TEXT, pipeline_config, mock_client
+        )
+
+        delegation_anns = routes.get_annotations_by_role("delegation_intent")
+        assert len(delegation_anns) >= 1, "Expected at least one delegation annotation"
+
+        for ann in delegation_anns:
+            # Old-list compatibility: delegation_rule remains in behavior
+            assert ann.span_id in routes.behavior, (
+                f"BASELINE: delegation span {ann.span_id} still in routes.behavior"
+            )
+            assert ann.semantic_role == "delegation_intent"
+            assert ann.route_family == "delegation_boundary"
+            assert ann.executable is False
+
+    def test_process_step_remains_executable(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        routes, _ = _adapt_slice_route(
+            F0_STRUCTURAL_TEXT, pipeline_config, mock_client
+        )
+
+        process_anns = routes.get_annotations_by_role("process_step")
+        assert len(process_anns) >= 1, "Expected at least one process_step annotation"
+
+        for ann in process_anns:
+            assert ann.span_id in routes.behavior
+            assert ann.semantic_role == "process_step"
+            assert ann.route_family == "flow_relevant"
+            assert ann.executable is True
+
+        # Verify get_executable_behavior_span_ids includes process_step spans
+        executable_ids = routes.get_executable_behavior_span_ids()
+        for ann in process_anns:
+            assert ann.span_id in executable_ids, (
+                f"Process step {ann.span_id} must appear in executable behavior"
+            )
+
+    def test_generic_nl_path_has_empty_annotations(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """F3: generic NL (LLM) path still produces annotations == []."""
+        mock_client.call_json.return_value = {
+            "routes": {
+                "identity": ["s1"],
+                "audience": [],
+                "rules": [],
+                "domain": [],
+                "integrations": [],
+                "behavior": [],
+            },
+            "ambiguity_updates": [],
+        }
+        router = FieldRouter(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "test")]
+
+        routes, _ = router.execute(spans)
+        assert routes.annotations == []
+
+    def test_checkpoint_includes_annotations(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """F3: Stage 2 checkpoint serializes annotations for canonical input."""
+        from unittest.mock import patch
+
+        canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        router = FieldRouter(pipeline_config, mock_client)
+
+        with patch.object(router, "save_checkpoint") as mock_save:
+            router.execute((spans, canonical))
+
+        mock_save.assert_called_once()
+        checkpoint = mock_save.call_args[0][0]
+        routes_data = checkpoint["routes"]
+        assert "annotations" in routes_data, "Checkpoint routes missing annotations"
+        assert len(routes_data["annotations"]) >= 1
+
+    def test_hint_conflict_recorded_as_diagnostic(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """F3: conflicting hint does NOT override packet semantics, diagnostic added."""
+        from nl2spl.canonical import (
+            CanonicalCompileInput,
+            CompileHint,
+            CompileHints,
+            EvidenceRef,
+            RawSection,
+            SemanticPacket,
+        )
+
+        section = RawSection(
+            "sec_failure_handling", "failure_handling",
+            "Failure handling", "Missing timeframe.", 1,
+        )
+        packet = SemanticPacket(
+            "p_failure_mode_missing_timeframe", "sec_failure_handling",
+            "failure_mode", "Missing timeframe.", "hard_fact",
+            compile_targets=["flow.exception.condition"],
+        )
+        hint = CompileHint(
+            source_section_id="sec_failure_handling",
+            text="Missing timeframe.",
+            target="EXCEPTION_FLOW",
+            suggested_flow="exception",
+            suggested_condition="Missing timeframe.",
+            evidence=[
+                EvidenceRef(
+                    source_section_id="sec_failure_handling",
+                    source_packet_id="p_failure_mode_missing_timeframe",
+                )
+            ],
+            metadata={
+                "route_family": "flow_relevant",
+                "slot_target": "handler",  # CONFLICT: packet says "condition"
+                "semantic_role": "failure_mode",
+                "executable": True,  # CONFLICT: packet says False
+            },
+        )
+        compile_hints = CompileHints(flow_hints=[hint])
+        canonical = CanonicalCompileInput(
+            source_schema="structural_nl", schema_version="1.0",
+            raw_text="Failure handling:\nMissing timeframe.",
+            raw_sections=[section],
+            semantic_packets=[packet],
+            compile_hints=compile_hints,
+        )
+        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        router = FieldRouter(pipeline_config, mock_client)
+        routes, _ = router.execute((spans, canonical))
+
+        failure_anns = routes.get_annotations_by_role("failure_mode")
+        assert len(failure_anns) == 1
+        ann = failure_anns[0]
+
+        # Packet-derived semantics are NOT overridden
+        assert ann.slot_target == "condition", (
+            f"Hint slot_target should not override packet-derived 'condition': {ann.slot_target}"
+        )
+        assert ann.executable is False, (
+            f"Hint executable should not override packet-derived False: {ann.executable}"
+        )
+        assert ann.construct_target == "EXCEPTION_FLOW"
+
+        # Conflict is recorded
+        assert len(ann.diagnostics) >= 1, (
+            f"Expected at least one conflict diagnostic, got: {ann.diagnostics}"
+        )
+
+    def test_section_only_hints_populate_source_hint_ids(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """F3: section-only hints (no packet evidence) still reach annotations."""
+        canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        router = FieldRouter(pipeline_config, mock_client)
+        routes, _ = router.execute((spans, canonical))
+
+        # process_step spans should have hint provenance from section-only process hints
+        process_anns = routes.get_annotations_by_role("process_step")
+        assert len(process_anns) >= 1
+        # At least one process annotation should carry source_hint_ids
+        # (the adapter puts process hints on reusable_process section)
+        anns_with_hints = [a for a in process_anns if a.source_hint_ids]
+        assert len(anns_with_hints) >= 1, (
+            "Expected at least one process_step annotation with source_hint_ids from section hints"
+        )
+
+        # domain/task_family annotations should also find section-level profile hints
+        domain_anns = routes.get_annotations_by_role("profile_domain")
+        assert len(domain_anns) >= 1
+        domain_with_hints = [a for a in domain_anns if a.source_hint_ids]
+        assert len(domain_with_hints) >= 1, (
+            "Expected profile_domain annotation with source_hint_ids from section hints"
+        )
+
+
+# ===========================================================================
+# D5: Resource, Profile, Constraint annotation consumption
+# ===========================================================================
+
+
+def test_d5_stage6_failure_variable_rejected_legitimate_kept(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: failure-derived variable rejected; legitimate variable kept."""
+    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+    spans = [
+        SpanIR("s1", "Determine communication type."),
+        SpanIR("s2", "Missing timeframe."),
+    ]
+    routes = FieldRouteIR(
+        behavior=["s1", "s2"],
+        annotations=[
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="process_step", executable=True),
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition",
+                            executable=False),
+        ],
+    )
+    # LLM returns failure-derived variable + legitimate variable
+    mock_client.call_json.return_value = {
+        "variables": [
+            {"name": "missing_timeframe", "data_type": "text", "required": False,
+             "description": "Missing timeframe condition", "source": "step"},
+            {"name": "communication_type", "data_type": "text", "required": False,
+             "description": "Communication type", "source": "step"},
+        ],
+        "files": [], "apis": [], "types": [],
+    }
+    extractor = ResourceExtractor(pipeline_config, mock_client)
+    resources, _ = extractor.execute(
+        (spans, routes, FlowStructureIR(), BlockStructureIR(), canonical)
+    )
+
+    names = {v.name for v in resources.variables}
+    assert "communication_type" in names, "Legitimate variable must survive"
+    assert "missing_timeframe" not in names, (
+        "Failure-derived variable must be rejected"
+    )
+    warnings = getattr(extractor, "resource_filter_warnings", [])
+    assert any("missing_timeframe" in w or "failure" in w.lower()
+               for w in warnings), f"Expected D5 failure filter warning: {warnings}"
+
+
+def test_d5_stage9_excludes_failure_from_prompt_and_rejects_output(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: failure_mode excluded from prompt AND parse-rejected."""
+    from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
+
+    spans = [
+        SpanIR("s_policy", "Do not invent facts."),
+        SpanIR("s_failure", "Missing timeframe."),
+    ]
+    routes = FieldRouteIR(
+        rules=["s_policy", "s_failure"],
+        annotations=[
+            RouteAnnotation(span_id="s_policy", field="rules",
+                            semantic_role="constraint", executable=False),
+            RouteAnnotation(span_id="s_failure", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition", executable=False),
+        ],
+    )
+    flow = FlowStructureIR()
+    blocks = BlockStructureIR()
+    symbols = SymbolTable()
+    steps: list = []
+
+    mock_client.call_json.return_value = {
+        "constraints": [
+            {"constraint_id": "c_bad", "text": "Handle missing timeframe",
+             "kind": "prohibition", "targets": ["global"],
+             "source_span_ids": ["s_failure"]},
+        ],
+    }
+    extractor = ConstraintExtractor(pipeline_config, mock_client)
+    result = extractor.execute((spans, routes, flow, blocks, symbols, steps))
+
+    # Prompt: policy span present, failure excluded
+    prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    assert "Do not invent facts" in prompt
+    assert "Missing timeframe" not in prompt
+    # Output: failure-sourced constraint rejected
+    assert len(result) == 0, "Failure-sourced constraint must be rejected"
+
+
+def test_d5_stage9_pure_delegation_intent_excluded(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: pure delegation_intent excluded from constraint prompt+output."""
+    from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
+
+    spans = [SpanIR("s_del", "delegate research")]
+    routes = FieldRouteIR(
+        rules=["s_del"],
+        annotations=[
+            RouteAnnotation(span_id="s_del", field="behavior",
+                            semantic_role="delegation_intent",
+                            route_family="delegation_boundary",
+                            executable=False),
+        ],
+    )
+    flow = FlowStructureIR()
+    blocks = BlockStructureIR()
+    symbols = SymbolTable()
+    steps: list = []
+
+    mock_client.call_json.return_value = {
+        "constraints": [
+            {"constraint_id": "c_del", "text": "delegate research",
+             "kind": "obligation", "targets": ["delegation"],
+             "source_span_ids": ["s_del"]},
+        ],
+    }
+    extractor = ConstraintExtractor(pipeline_config, mock_client)
+    result = extractor.execute((spans, routes, flow, blocks, symbols, steps))
+
+    prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    assert "delegate research" not in prompt, "Pure delegation intent excluded from prompt"
+    assert len(result) == 0, "Pure delegation intent constraint rejected at parse"
+
+
+def test_d5_stage9_delegation_boundary_rule_survives(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: delegation boundary rule ('Only delegate...when...') survives."""
+    from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
+
+    spans = [
+        SpanIR("s_rule", "Only delegate source collection when external sources are required."),
+    ]
+    routes = FieldRouteIR(
+        rules=["s_rule"],
+        annotations=[
+            RouteAnnotation(span_id="s_rule", field="behavior",
+                            semantic_role="delegation_intent",
+                            route_family="delegation_boundary",
+                            executable=False),
+        ],
+    )
+    flow = FlowStructureIR()
+    blocks = BlockStructureIR()
+    symbols = SymbolTable()
+    steps: list = []
+
+    mock_client.call_json.return_value = {
+        "constraints": [
+            {"constraint_id": "c_ok", "text": "Only delegate when external needed",
+             "kind": "obligation", "targets": ["delegation"],
+             "source_span_ids": ["s_rule"]},
+        ],
+    }
+    extractor = ConstraintExtractor(pipeline_config, mock_client)
+    result = extractor.execute((spans, routes, flow, blocks, symbols, steps))
+
+    # Prompt includes boundary rule span
+    prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    assert "Only delegate" in prompt, "Boundary rule must appear in rules context"
+    # Constraint survives
+    assert len(result) == 1, "Boundary rule constraint must survive"
+    assert result[0].constraint_id == "c_ok"
+
+
+# ===========================================================================
+# D10: Route-driven delegation diagnostics
+# ===========================================================================
+
+
+def test_d10_route_driven_delegation_diagnostic_from_annotation(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D10: route-driven delegation intent annotation emits diagnostic."""
+    from nl2spl.pipeline.delegation_diagnostics import (
+        diagnose_delegation_intents_from_routes,
+    )
+
+    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
+
+    # Verify delegation annotations exist
+    del_anns = routes.get_annotations_by_role("delegation_intent")
+    assert len(del_anns) >= 1, "F0_STRUCTURAL_TEXT must have delegation annotation"
+
+    diags = diagnose_delegation_intents_from_routes(routes, spans)
+    assert len(diags) >= 1
+    for d in diags:
+        assert d.kind == "type_or_contract_ambiguity"
+        assert d.source_span_ids
+        # D10: provenance evidence in message
+        assert "no-section" in d.message or "sec_" in d.message
+
+
+def test_d10_bridge_fallback_still_works_without_delegation_annotations(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D10: when no delegation annotations exist, bridge fallback still emits."""
+    from nl2spl.canonical import (
+        CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts, RawSection,
+    )
+
+    section = RawSection(
+        "sec_delegation_policy", "delegation_policy",
+        "Delegation policy", "source gathering", 1,
+    )
+    canonical = CanonicalCompileInput(
+        source_schema="structural_nl", schema_version="1.0",
+        raw_text="Delegation policy:\nsource gathering",
+        raw_sections=[section],
+        hard_facts=HardFacts(
+            delegation_intents=[
+                DelegationIntentFact(
+                    name="source_gathering", text="Source gathering",
+                    evidence=[EvidenceRef(source_section_id="sec_delegation_policy")],
+                ),
+            ],
+        ),
+    )
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
+
+    # No delegation annotations → bridge fallback
+    assert routes.get_annotations_by_role("delegation_intent") == []
+
+    diags = bridge_delegation_intents(
+        list(canonical.hard_facts.delegation_intents),
+        None, spans,
+    )
+    assert len(diags) >= 1
+    assert diags[0].kind == "type_or_contract_ambiguity"
+
+
+def test_d10_orchestrator_run_delegation_diagnostics(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D10: _run_delegation_diagnostics uses route-driven + coverage-based fallback."""
+    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
+
+    text = (
+        "Task family: Test.\n\nInputs for each run:\nA request.\n\n"
+        "Required outputs:\nA result.\n\nReusable process:\nDetermine type.\n\n"
+        "Policies:\nDo not invent.\n\nFailure handling:\nMissing timeframe.\n\n"
+        "Delegation policy:\nOptional source gathering if bounded.\n"
+    )
+    canonical = StructuralNLAdapter().adapt(text)
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
+
+    # Run _run_delegation_diagnostics directly
+    diags = PipelineOrchestrator._run_delegation_diagnostics(
+        routes, spans, canonical, None, set(), {"test_api"},
+    )
+    # Route delegation annotation exists → route-driven diagnostics present
+    del_anns = routes.get_annotations_by_role("delegation_intent")
+    assert len(del_anns) >= 1
+    assert len(diags) >= 1
+    assert all(d.kind == "type_or_contract_ambiguity" for d in diags)
+
+
+def test_d10_same_section_unrelated_intent_not_over_suppressed(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D10: route covers one intent; unrelated hard fact in same section still diagnosed.
+
+    Source_gathering is covered by route annotation (packet_id match).
+    Template_matching has only section evidence and DIFFERENT span text —
+    so it must still produce a bridge-derived diagnostic independently.
+    """
+    from nl2spl.canonical import (
+        CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts,
+        RawSection,
+    )
+
+    section = RawSection(
+        "sec_delegation_policy", "delegation_policy",
+        "Delegation policy",
+        "Source gathering may be used if bounded. "
+        "Template matching may be used if available.", 1,
+    )
+    # Manual construction: exactly ONE delegation_intent annotation
+    # covering source_gathering only.
+    canonical = CanonicalCompileInput(
+        source_schema="structural_nl", schema_version="1.0",
+        raw_text="Delegation policy:\nSource gathering. Template matching.",
+        raw_sections=[section],
+        hard_facts=HardFacts(
+            delegation_intents=[
+                DelegationIntentFact(
+                    name="source_gathering", text="Source gathering",
+                    evidence=[EvidenceRef(
+                        source_section_id="sec_delegation_policy",
+                        source_packet_id="p_delegation_source",
+                    )],
+                ),
+                DelegationIntentFact(
+                    name="template_matching", text="Template matching",
+                    evidence=[EvidenceRef(
+                        source_section_id="sec_delegation_policy",
+                    )],
+                ),
+            ],
+        ),
+    )
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
+
+    # Manually add ONLY one delegation annotation for source_gathering
+    from nl2spl.ir.field_route_ir import RouteAnnotation
+    routes.annotations = [
+        RouteAnnotation(
+            span_id=spans[0].span_id if spans else "s_src",
+            field="behavior",
+            semantic_role="delegation_intent",
+            route_family="delegation_boundary",
+            executable=False,
+            source_section_id="sec_delegation_policy",
+            source_packet_id="p_delegation_source",
+        ),
+    ]
+    # Force behavior list so the annotation span is accessible
+    routes.behavior = [a.span_id for a in routes.annotations]
+
+    diags = PipelineOrchestrator._run_delegation_diagnostics(
+        routes, spans, canonical, None, set(), set(),
+    )
+    refs = {d.target_ref for d in diags}
+    # Route-derived for source_gathering plus bridge-derived for template_matching
+    assert len(diags) >= 1, f"Got {len(diags)} with refs {refs}"
+
+
+def test_d10_section_handoff_does_not_suppress_unrelated_intent() -> None:
+    """D10: valid handoff for source_gathering does not suppress template_matching."""
+    from nl2spl.canonical import DelegationIntentFact, EvidenceRef
+
+    spans = [
+        SpanIR("s_src", "Source gathering may be used.", source_section_id="sec_del"),
+        SpanIR("s_tmpl", "Template matching may be used.", source_section_id="sec_del"),
+    ]
+    intents = [
+        DelegationIntentFact(
+            name="source_gathering", text="Source gathering",
+            evidence=[EvidenceRef(source_section_id="sec_del")],
+        ),
+        DelegationIntentFact(
+            name="template_matching", text="Template matching",
+            evidence=[EvidenceRef(source_section_id="sec_del")],
+        ),
+    ]
+    from nl2spl.ir.worker_plan_ir import (
+        InputBindingIR, InvokeLocationHintIR, OutputBindingIR, WorkerHandoffIR,
+    )
+    # Valid handoff only covers s_src
+    handoff = WorkerHandoffIR(
+        handoff_id="h1", from_worker="w_main", to_worker="w_child",
+        api_ref=None, mode="invoke", condition_text=None, ordering="after",
+        input_bindings=[InputBindingIR("a", "b", True)],
+        output_bindings=[OutputBindingIR("c", "d", True, "set")],
+        invoke_location_hint=InvokeLocationHintIR(
+            flow_kind="main", flow_id=None,
+            after_span_id="s_src", before_span_id=None,
+            block_hint="unknown",
+        ),
+    )
+    diags = bridge_delegation_intents(
+        intents, handoffs=[handoff], spans=spans,
+        known_child_worker_ids={"w_child"},
+    )
+    # Only template_matching should produce a diagnostic
+    assert len(diags) == 1, (
+        f"Expected 1 (template_matching), got {len(diags)}: "
+        f"{[d.message for d in diags]}"
+    )
+    assert diags[0].target_ref == "delegation_intent:template_matching"
+    assert diags[0].source_span_ids == ["s_tmpl"]
+    assert "template_matching" in diags[0].message.lower()
+
+
+def test_d10_nonmatching_text_not_suppressed_by_section_fallback() -> None:
+    """D10: template_matching with non-matching span text still diagnosed."""
+    from nl2spl.canonical import DelegationIntentFact, EvidenceRef
+    from nl2spl.ir.worker_plan_ir import (
+        InputBindingIR, InvokeLocationHintIR, OutputBindingIR, WorkerHandoffIR,
+    )
+
+    # s_tmpl text does NOT contain "Template matching" → text narrowing fails
+    spans = [
+        SpanIR("s_src", "Source gathering may be used.", source_section_id="sec_del"),
+        SpanIR("s_tmpl", "Additional research tasks.", source_section_id="sec_del"),
+    ]
+    intents = [
+        DelegationIntentFact(
+            name="source_gathering", text="Source gathering",
+            evidence=[EvidenceRef(source_section_id="sec_del")],
+        ),
+        DelegationIntentFact(
+            name="template_matching", text="Template matching",
+            evidence=[EvidenceRef(source_section_id="sec_del")],
+        ),
+    ]
+    handoff = WorkerHandoffIR(
+        handoff_id="h1", from_worker="w_main", to_worker="w_child",
+        api_ref=None, mode="invoke", condition_text=None, ordering="after",
+        input_bindings=[InputBindingIR("a", "b", True)],
+        output_bindings=[OutputBindingIR("c", "d", True, "set")],
+        invoke_location_hint=InvokeLocationHintIR(
+            flow_kind="main", flow_id=None,
+            after_span_id="s_src", before_span_id=None,
+            block_hint="unknown",
+        ),
+    )
+    diags = bridge_delegation_intents(
+        intents, handoffs=[handoff], spans=spans,
+        known_child_worker_ids={"w_child"},
+    )
+    # Source_gathering suppressed (s_src matches text); template_matching
+    # must still be diagnosed because text narrowing failed and multi-span
+    # section is NOT eligible for whole-section suppression fallback.
+    assert len(diags) == 1, (
+        f"Expected only template_matching diagnostic: {[d.message for d in diags]}"
+    )
+    assert diags[0].target_ref == "delegation_intent:template_matching"
+    assert set(diags[0].source_span_ids) == {"s_src", "s_tmpl"}
+    assert "source_gathering" not in diags[0].message
+    assert "template_matching" in diags[0].message
+
+def test_d5_stage8_profile_annotation_only_no_old_list(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: annotation-only profile span used when old domain list is empty."""
+    from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
+
+    spans = [
+        SpanIR("s_task", "Internal newsletters and announcements."),
+        SpanIR("s_failure", "Missing timeframe."),
+    ]
+    # domain=[] — only annotation provides profile evidence
+    routes = FieldRouteIR(
+        domain=[], identity=[], audience=[],
+        annotations=[
+            RouteAnnotation(span_id="s_task", field="domain",
+                            semantic_role="profile_domain", executable=False),
+            RouteAnnotation(span_id="s_failure", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition", executable=False),
+        ],
+    )
+    symbols = SymbolTable()
+
+    mock_client.call_json.return_value = {
+        "persona": {"role": "Assistant"}, "aspects": [], "concepts": [],
+    }
+    extractor = ProfileExtractor(pipeline_config, mock_client)
+    extractor.execute((spans, routes, symbols))
+
+    prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    # Profile annotation span appears in identity/domain evidence
+    assert "Internal newsletters" in prompt
+    # Failure span NOT in strong profile sections (identity/domain/audience)
+    id_start = prompt.index("identity spans")
+    domain_start = prompt.index("domain spans")
+    audience_start = prompt.index("audience spans") if "audience spans" in prompt else len(prompt)
+    profile_sections = prompt[id_start:max(domain_start, audience_start) + 1000]
+    assert "Missing timeframe" not in profile_sections, (
+        "Failure span must not appear in strong profile evidence sections"
+    )
+
+
+def test_d5_worker_scoped_stage6_child_failure_guard(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D5: child-owned failure span does not become child variable."""
+    from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
+    from nl2spl.ir.worker_plan_ir import (
+        WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerHandoffIR,
+        WorkerPlanIR, WorkerSpecIR, InputBindingIR,
+        InvokeLocationHintIR, OutputBindingIR,
+    )
+
+    main_flow = FlowStructureIR(main_flow_spans=["s_main"])
+    child_flow = FlowStructureIR(main_flow_spans=["s_fail"])
+    main_blocks = BlockStructureIR(
+        main_flow_blocks=[BlockIR("b_main", "SEQUENTIAL", None, ["s_main"])]
+    )
+    child_blocks = BlockStructureIR(
+        main_flow_blocks=[BlockIR("b_child", "SEQUENTIAL", None, ["s_fail"])]
+    )
+    wf = WorkerFlowPlanIR(worker_flows={
+        "worker_main": main_flow, "worker_child": child_flow,
+    })
+    wb = WorkerBlockPlanIR(worker_blocks={
+        "worker_main": main_blocks, "worker_child": child_blocks,
+    })
+    handoff = WorkerHandoffIR(
+        handoff_id="h_main_child", from_worker="worker_main",
+        to_worker="worker_child", api_ref=None, mode="invoke",
+        condition_text=None, ordering="after",
+        input_bindings=[InputBindingIR("in", "child_in", True)],
+        output_bindings=[OutputBindingIR("child_out", "out", True, "set")],
+        invoke_location_hint=InvokeLocationHintIR(
+            flow_kind="main", flow_id=None,
+            after_span_id="s_main", before_span_id=None,
+            block_hint="unknown",
+        ),
+    )
+    wp = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(worker_id="worker_main", worker_name="Main",
+                         kind="main", purpose="Main",
+                         owned_span_ids=["s_main"],
+                         input_contract=[], output_contract=[],
+                         boundary_kind="main_worker"),
+            WorkerSpecIR(worker_id="worker_child", worker_name="Child",
+                         kind="child", purpose="Child worker",
+                         owned_span_ids=["s_fail"],
+                         input_contract=[], output_contract=[],
+                         boundary_kind="bounded_subtask"),
+        ],
+        handoffs=[handoff],
+    )
+
+    routes = FieldRouteIR(
+        behavior=["s_main", "s_fail"],
+        annotations=[
+            RouteAnnotation(span_id="s_main", field="behavior",
+                            semantic_role="process_step", executable=True),
+            RouteAnnotation(span_id="s_fail", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition",
+                            executable=False),
+        ],
+    )
+    spans = [SpanIR("s_main", "Main work."), SpanIR("s_fail", "Missing timeframe.")]
+
+    # Main + child LLM responses
+    mock_client.call_json.side_effect = [
+        {"variables": [{"name": "main_var", "data_type": "text",
+                         "required": False, "description": "Main var",
+                         "source": "step"}],
+         "files": [], "apis": [], "types": []},
+        {"variables": [{"name": "missing_timeframe", "data_type": "text",
+                         "required": False, "description": "Failure var",
+                         "source": "step"},
+                        {"name": "child_var", "data_type": "text",
+                         "required": False, "description": "Child var",
+                         "source": "step"}],
+         "files": [], "apis": [], "types": []},
+    ]
+
+    result, _ = ResourceExtractor(pipeline_config, mock_client).execute_worker_scoped(
+        spans, routes, wf, wb, wp,
+    )
+    assert isinstance(result, WorkerScopedResourceIR)
+    # Child scope: failure variable should be rejected
+    if "worker_child" in result.worker_resources:
+        child_vars = {v.name for v in result.worker_resources["worker_child"].variables}
+        assert "missing_timeframe" not in child_vars, (
+            "Child failure-derived variable must be rejected"
+        )
+        assert "child_var" in child_vars, "Legitimate child variable must survive"
+
+
+def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """Stage 2 route diagnostics become CompileDiagnostic in orchestrator output."""
+    pipeline_config.enable_adapter_guided_fieldroute_llm = True
+    pipeline_config.enable_irs_diagnostic_consolidation = True
+    pipeline_config.enable_irs_post_normalize_check = False
+
+    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+
+    # LLM returns valid annotations + one route diagnostic
+    failure_span = next((s for s in spans if "Evidence shortage" in s.text), None)
+    assert failure_span is not None
+
+    mock_client.call_json.return_value = {
+        "annotations": [
+            {"span_id": failure_span.span_id, "field": "behavior",
+             "semantic_role": "failure_mode",
+             "construct_target": "EXCEPTION_FLOW",
+             "slot_target": "condition", "executable": False},
+        ],
+        "split_recommendations": [],
+        "diagnostics": [
+            {"span_id": failure_span.span_id,
+             "kind": "mixed_failure_semantics",
+             "message": "Failure condition may need handler text."},
+        ],
+    }
+
+    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
+    orchestrator = PipelineOrchestrator(pipeline_config)
+    orchestrator.client = mock_client
+
+    # Mock all other stages
+    from unittest.mock import MagicMock as M
+    from nl2spl.ir.flow_structure_ir import FlowStructureIR
+    from nl2spl.ir.block_structure_ir import BlockStructureIR
+
+    setattr(orchestrator, "_run_stage3", M(return_value=(spans, FieldRouteIR())))
+    setattr(orchestrator, "_run_stage4", M(return_value=FlowStructureIR()))
+    setattr(orchestrator, "_run_stage5", M(return_value=BlockStructureIR()))
+    setattr(orchestrator, "_run_stage6", M(return_value=(M(variables=[]), M(), [])))
+    setattr(orchestrator, "_run_stage7", M(return_value=([], M(), [])))
+    setattr(orchestrator, "_run_stage8", M(return_value=M()))
+    setattr(orchestrator, "_run_stage9", M(return_value=[]))
+    setattr(orchestrator, "_run_normalization", M(
+        return_value=(FlowStructureIR(), BlockStructureIR(), [], [], M(), [], [])))
+    setattr(orchestrator, "_run_stage10", M(return_value=M()))
+    setattr(orchestrator, "_run_stage11", M(return_value=("SPL", [], [])))
+
+    result = orchestrator.run(STRUCTURAL_TEXT)
+
+    # Stage 2 route diagnostics must appear as CompileDiagnostic
+    # 1. Intermediate: must be CompileDiagnostic objects, not strings
+    s2_diags_raw = result.intermediate_results.get("stage_local_diagnostics", {}).get("stage2", [])
+    assert len(s2_diags_raw) >= 1, (
+        f"Expected CompileDiagnostic objects in stage2, got {s2_diags_raw}"
+    )
+    from nl2spl.ir.diagnostics import CompileDiagnostic as CD
+    for d in s2_diags_raw:
+        assert isinstance(d, CD), f"Expected CompileDiagnostic, got {type(d)}: {d}"
+        assert d.kind.startswith("route_refinement_")
+        assert d.severity == "warning"
+        assert d.blocks_completion is False
+
+    # 2. compile_diagnostics: route diagnostics must be present
+    assert len(result.compile_diagnostics) >= 1, (
+        f"Expected compile_diagnostics, got {result.compile_diagnostics}"
+    )
+    assert all(isinstance(d, CD) for d in result.compile_diagnostics), (
+        "All compile_diagnostics must be CompileDiagnostic objects"
+    )
+    assert any(
+        d.kind.startswith("route_refinement_")
+        for d in result.compile_diagnostics
+    ), f"No route_refinement_* in compile_diagnostics: {result.compile_diagnostics}"
+    assert not any(
+        isinstance(d, str) for d in result.compile_diagnostics
+    ), "No bare strings in compile_diagnostics"
+
+    # 3. Readable report: contains the LLM diagnostic message
+    report = result.readable_report or ""
+    assert "Failure condition may need handler text" in report, (
+        f"LLM diagnostic message must appear in readable report. "
+        f"Report length: {len(report)}"
+    )

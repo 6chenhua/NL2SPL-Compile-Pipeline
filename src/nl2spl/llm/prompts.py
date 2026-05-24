@@ -19,6 +19,7 @@ STAGE_PROMPT_FILES = {
     "stage8": PROMPTS_DIR / "stage8_system.txt",
     "stage9": PROMPTS_DIR / "stage9_system.txt",
     "input_adapter_fact_extractor": PROMPTS_DIR / "input_adapter_fact_extractor_system.txt",
+    "stage2_adapter_guided": PROMPTS_DIR / "stage2_adapter_guided_system.txt",
 }
 
 

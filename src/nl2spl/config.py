@@ -104,6 +104,12 @@ class PipelineConfig:
     # mis-extracted variables.  Applies to both legacy and worker-scoped paths.
     enable_stage6_resource_context_v2: bool = False
 
+    # Adapter-guided LLM FieldRoute refinement:
+    # When enabled, the structural NL FieldRouter calls an LLM with adapter
+    # evidence to refine deterministic priors.  Default on — the Step 4
+    # validator acts as the safety boundary for LLM output.
+    enable_adapter_guided_fieldroute_llm: bool = True
+
     # Adapter LLM engine: off | generic_only | structural_enrich | all
     adapter_llm_engine: str = "off"
 

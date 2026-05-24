@@ -69,7 +69,12 @@ def pipeline_config(tmp_path: Path) -> PipelineConfig:
 def mock_client() -> MagicMock:
     """Create mock LLM client with default responses."""
     client = MagicMock(spec=LLMClient)
-    client.call_json.return_value = {"spans": [{"span_id": "s1", "text": "test"}]}
+    client.call_json.return_value = {
+        "spans": [{"span_id": "s1", "text": "test"}],
+        "annotations": [],
+        "split_recommendations": [],
+        "diagnostics": [],
+    }
     client.call_text.return_value = "test response"
     return client
 

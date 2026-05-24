@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR, WorkerSpecIR
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
@@ -129,3 +129,322 @@ def test_child_owned_spans_do_not_appear_in_main_worker_flow(
     assert isinstance(result, WorkerFlowPlanIR)
     assert result.worker_flows["worker_main"].main_flow_spans == ["s1", "s3"]
     assert "s2" not in result.worker_flows["worker_main"].get_all_flow_spans()
+
+
+# ===========================================================================
+# D3: Worker-aware exception flow materialization
+# ===========================================================================
+
+
+def _d3_spans() -> list[SpanIR]:
+    return [
+        SpanIR("s1", "Determine communication type."),
+        SpanIR("s2", "Missing timeframe."),
+        SpanIR("s3", "Produce final answer."),
+    ]
+
+
+def _d3_routes() -> FieldRouteIR:
+    return FieldRouteIR(
+        behavior=["s1", "s2", "s3"],
+        annotations=[
+            RouteAnnotation(
+                span_id="s2", field="behavior",
+                semantic_role="failure_mode",
+                construct_target="EXCEPTION_FLOW",
+                slot_target="condition",
+                executable=False,
+            ),
+        ],
+    )
+
+
+def test_d3_main_worker_materializes_owned_failure_condition(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D3: main worker that owns failure span gets ExceptionFlow."""
+    mock_client.call_json.return_value = {
+        "main_flow_spans": ["s1", "s3"],
+        "alternative_flows": [],
+        "exception_flows": [],
+    }
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[worker("worker_main", "main", ["s1", "s2", "s3"])],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (_d3_spans(), _d3_routes(), plan)
+    )
+
+    main_flow = result.worker_flows["worker_main"]
+    failure_exceptions = [
+        e for e in main_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(failure_exceptions) >= 1, (
+        "Worker-aware Stage 4 must materialize route-derived failure exception"
+    )
+    assert failure_exceptions[0].condition_text == "Missing timeframe."
+    assert "s2" in failure_exceptions[0].spans
+
+
+def test_d3_child_worker_materializes_owned_failure_condition(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D3: child worker that owns failure span gets ExceptionFlow."""
+    mock_client.call_json.side_effect = [
+        {"main_flow_spans": ["s1", "s3"], "alternative_flows": [],
+         "exception_flows": []},
+        {"main_flow_spans": ["s2"], "alternative_flows": [],
+         "exception_flows": []},
+    ]
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            worker("worker_main", "main", ["s1", "s3"]),
+            worker("worker_child", "child", ["s2"]),
+        ],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (_d3_spans(), _d3_routes(), plan)
+    )
+
+    child_flow = result.worker_flows["worker_child"]
+    failure_exceptions = [
+        e for e in child_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(failure_exceptions) >= 1, (
+        "Child worker must receive route-derived failure exception"
+    )
+    # Main worker must NOT duplicate
+    main_flow = result.worker_flows["worker_main"]
+    main_failures = [
+        e for e in main_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(main_failures) == 0, (
+        f"Main worker must not duplicate child-owned failure: {main_failures}"
+    )
+
+
+def test_d3_unowned_failure_falls_back_to_main_worker(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D3: failure span owned by no worker → main worker with warning."""
+    mock_client.call_json.return_value = {
+        "main_flow_spans": ["s1", "s3"],
+        "alternative_flows": [],
+        "exception_flows": [],
+    }
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[worker("worker_main", "main", ["s1", "s3"])],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (_d3_spans(), _d3_routes(), plan)
+    )
+
+    # s2 not owned → falls back to main worker
+    main_flow = result.worker_flows["worker_main"]
+    failure_exceptions = [
+        e for e in main_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(failure_exceptions) >= 1, (
+        "Unowned failure must fall back to main worker"
+    )
+    # Warning recorded
+    warning_texts = " ".join(result.warnings).lower()
+    assert "unowned" in warning_texts or "fallback" in warning_texts or "main worker" in warning_texts, (
+        f"Expected ownership fallback warning, got: {result.warnings}"
+    )
+
+
+def test_d3_ambiguous_ownership_falls_back_to_main(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D3: span owned by multiple workers → main worker with ambiguous warning."""
+    mock_client.call_json.side_effect = [
+        {"main_flow_spans": ["s1", "s3"], "alternative_flows": [],
+         "exception_flows": []},
+        {"main_flow_spans": ["s2"], "alternative_flows": [],
+         "exception_flows": []},
+    ]
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            worker("worker_main", "main", ["s1", "s2", "s3"]),
+            worker("worker_child", "child", ["s2"]),
+        ],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (_d3_spans(), _d3_routes(), plan)
+    )
+
+    # Condition goes to main worker only (not duplicated in child)
+    main_flow = result.worker_flows["worker_main"]
+    main_failures = [
+        e for e in main_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(main_failures) == 1
+
+    child_flow = result.worker_flows["worker_child"]
+    child_failures = [
+        e for e in child_flow.exception_flows
+        if "timeframe" in e.condition_text.lower()
+    ]
+    assert len(child_failures) == 0, "Ambiguous span must not duplicate in child"
+
+    # Warning mentions ambiguous/multiple
+    warning_texts = " ".join(result.warnings).lower()
+    assert "multiple" in warning_texts or "ambiguous" in warning_texts, (
+        f"Expected ambiguous ownership warning, got: {result.warnings}"
+    )
+
+
+def test_d3_route_plus_bridge_worker_path_no_duplicate(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D3: route-derived exception + bridge hard fact → no duplicate across workers."""
+    from nl2spl.canonical import EvidenceRef, FailureModeFact
+    from nl2spl.pipeline.fact_bridges import bridge_failure_modes_worker_scoped
+
+    mock_client.call_json.side_effect = [
+        {"main_flow_spans": ["s1", "s3"], "alternative_flows": [],
+         "exception_flows": []},
+        {"main_flow_spans": ["s2"], "alternative_flows": [],
+         "exception_flows": []},
+    ]
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            worker("worker_main", "main", ["s1", "s3"]),
+            worker("worker_child", "child", ["s2"]),
+        ],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (_d3_spans(), _d3_routes(), plan)
+    )
+
+    # Route-derived exception in child worker
+    child_flow = result.worker_flows["worker_child"]
+    assert len(child_flow.exception_flows) >= 1
+
+    # Bridge with same hard fact → no extra copy in main
+    fact = FailureModeFact(
+        name="missing_timeframe", text="Missing timeframe.",
+        source_section_id="sec_fail",
+        evidence=[EvidenceRef(source_section_id="sec_fail")],
+    )
+    bridged = bridge_failure_modes_worker_scoped(
+        [fact], _d3_spans(), result, plan,
+    )
+
+    # Count timeframe exceptions across ALL workers
+    total = sum(
+        len([e for e in flow.exception_flows if "timeframe" in e.condition_text.lower()])
+        for flow in bridged.worker_flows.values()
+    )
+    assert total == 1, f"Route + bridge must not duplicate: got {total} timeframe exceptions"
+
+
+def test_worker_aware_handler_exception_flow_filtered(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """Worker-aware: LLM handler-sourced exception flow is filtered."""
+    # Main worker owns condition span; child worker owns handler+process
+    mock_client.call_json.side_effect = [
+        {  # Main worker
+            "main_flow_spans": ["s_cond"],
+            "alternative_flows": [],
+            "exception_flows": [],
+        },
+        {  # Child worker — LLM fabricates handler-backed exception
+            "main_flow_spans": ["s_handler", "s_process"],
+            "alternative_flows": [],
+            "exception_flows": [
+                {
+                    "flow_id": "exc_bad",
+                    "condition_text": "ask one clarifying question",
+                    "spans": ["s_handler", "s_process"],
+                    "flow_type": "exception",
+                },
+            ],
+        },
+    ]
+
+    s_cond = SpanIR("s_cond", "Missing timeframe.")
+    s_handler = SpanIR("s_handler", "ask one clarifying question.")
+    s_process = SpanIR("s_process", "Determine communication type.")
+    all_spans = [s_cond, s_handler, s_process]
+
+    routes = FieldRouteIR(
+        behavior=["s_cond", "s_handler", "s_process"],
+        annotations=[
+            RouteAnnotation(span_id="s_cond", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition", executable=False),
+            RouteAnnotation(span_id="s_handler", field="behavior",
+                            semantic_role="exception_handler_action",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="handler", executable=True),
+            RouteAnnotation(span_id="s_process", field="behavior",
+                            semantic_role="process_step", executable=True),
+        ],
+    )
+
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                worker_id="worker_main", worker_name="Main",
+                kind="main", purpose="Main worker",
+                owned_span_ids=["s_cond"],
+                boundary_kind="main_worker",
+            ),
+            WorkerSpecIR(
+                worker_id="worker_child", worker_name="Child",
+                kind="child", purpose="Child worker",
+                owned_span_ids=["s_handler", "s_process"],
+                boundary_kind="bounded_subtask",
+            ),
+        ],
+    )
+
+    result = FlowAssembler(pipeline_config, mock_client).execute(
+        (all_spans, routes, plan)
+    )
+
+    # Child worker: LLM handler exception must be filtered
+    child_flow = result.worker_flows["worker_child"]
+    bad = [
+        exc for exc in child_flow.exception_flows
+        if "s_handler" in exc.spans
+    ]
+    assert len(bad) == 0, (
+        f"Worker-aware: handler-sourced exception flow must be filtered, "
+        f"got {len(bad)}"
+    )
+    # Main worker: route-derived condition must be materialized
+    main_flow = result.worker_flows["worker_main"]
+    cond_exc = [
+        exc for exc in main_flow.exception_flows
+        if "s_cond" in exc.spans
+    ]
+    assert len(cond_exc) >= 1, (
+        "Worker-aware: route-derived condition must survive in main worker"
+    )

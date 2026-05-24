@@ -22,6 +22,7 @@ from nl2spl.config import PipelineConfig
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
@@ -37,6 +38,9 @@ from nl2spl.ir.worker_plan_ir import (
 )
 from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
+from nl2spl.pipeline.delegation_diagnostics import (
+    diagnose_delegation_intents_from_routes,
+)
 from nl2spl.pipeline.fact_bridges import (
     bridge_delegation_intents,
     bridge_failure_modes,
@@ -199,6 +203,20 @@ class PipelineOrchestrator:
         self.logger.info("Stage 2: Field Routing")
         routes, ambiguity_updates = self._run_stage2(spans, canonical_input)
         intermediate["stage2_routes"] = routes
+        if routes.structured_route_diagnostics:
+            intermediate.setdefault("stage_local_diagnostics", {})
+            s2_diags: list[Any] = []
+            for sd in routes.structured_route_diagnostics:
+                s2_diags.append(CompileDiagnostic(
+                    diagnostic_id=f"diag_rf_{len(s2_diags):03d}",
+                    kind=sd.get("kind", "route_refinement_diagnostic"),
+                    severity="warning",
+                    message=sd.get("message", ""),
+                    target_ref=f"stage2:field_route:{sd.get('span_id', '')}",
+                    source_span_ids=[sd["span_id"]] if sd.get("span_id") else [],
+                    blocks_completion=False,
+                ))
+            intermediate["stage_local_diagnostics"]["stage2"] = s2_diags
 
         # Stage 3: Ambiguity Resolution
         self.logger.info("Stage 3: Ambiguity Resolution")
@@ -257,26 +275,34 @@ class PipelineOrchestrator:
             flow_structure = self._run_stage4(resolved_spans, resolved_routes)
         intermediate["stage4_flow"] = flow_structure
 
-        # FailureModeFact bridge: create partial ExceptionFlow skeletons
-        # from adapter hard facts before Stage 5 block assembly runs.
-        # Only applies when the adapter produced failure modes that
-        # Stage 4 did not already convert to exception flows.
+        # D8: Bridge fallback — only runs when route annotations did NOT
+        # already materialize failure exception flows.  Hard-fact-only
+        # input without route annotations still receives compatibility
+        # fallback so failure conditions are not silently dropped.
         if canonical_input.hard_facts.failure_modes:
             if worker_flow_plan is not None and worker_plan is not None:
-                worker_flow_plan = bridge_failure_modes_worker_scoped(
+                if self._bridge_fallback_needed_worker_scoped(
                     canonical_input.hard_facts.failure_modes,
-                    resolved_spans,
                     worker_flow_plan,
-                    worker_plan,
-                )
-                intermediate["stage4_worker_flows"] = worker_flow_plan
+                ):
+                    worker_flow_plan = bridge_failure_modes_worker_scoped(
+                        canonical_input.hard_facts.failure_modes,
+                        resolved_spans,
+                        worker_flow_plan,
+                        worker_plan,
+                    )
+                    intermediate["stage4_worker_flows"] = worker_flow_plan
             else:
-                flow_structure = bridge_failure_modes(
+                if self._bridge_fallback_needed(
                     canonical_input.hard_facts.failure_modes,
-                    resolved_spans,
                     flow_structure,
-                )
-                intermediate["stage4_flow"] = flow_structure
+                ):
+                    flow_structure = bridge_failure_modes(
+                        canonical_input.hard_facts.failure_modes,
+                        resolved_spans,
+                        flow_structure,
+                    )
+                    intermediate["stage4_flow"] = flow_structure
 
         # Stage 4 IRS check: exception flow slot satisfaction (Phase 3).
         if self.config.enable_irs_stage4_exception_flow_check:
@@ -613,14 +639,17 @@ class PipelineOrchestrator:
             delegation_intents=prov_delegation_intents,
         )
 
-        # Delegation intent diagnostics: emit type_or_contract_ambiguity
-        # for intents without a valid handoff contract.
-        delegation_diags = bridge_delegation_intents(
-            list(canonical_input.hard_facts.delegation_intents),
-            worker_plan.handoffs if worker_plan else None,
+        # D10: route-driven delegation diagnostics are the preferred path.
+        # Emit route-derived diagnostics first, then bridge fallback for
+        # hard facts not covered by route annotation provenance (see
+        # _run_delegation_diagnostics for coverage logic).
+        delegation_diags = self._run_delegation_diagnostics(
+            resolved_routes,
             resolved_spans,
-            known_child_worker_ids=prov_child_ids,
-            declared_apis=prov_declared_apis,
+            canonical_input,
+            worker_plan,
+            prov_child_ids,
+            prov_declared_apis,
         )
 
         # Semantic conflict analysis (Phase 6) -- before consolidation.
@@ -914,6 +943,133 @@ class PipelineOrchestrator:
         if findings:
             self._pending_construct_findings = findings
         return result
+
+    # -- D10 delegation diagnostics -------------------------------------------
+
+    @staticmethod
+    def _run_delegation_diagnostics(
+        resolved_routes: FieldRouteIR,
+        resolved_spans: list[SpanIR],
+        canonical_input: CanonicalCompileInput,
+        worker_plan: WorkerPlanIR | None,
+        prov_child_ids: set[str],
+        prov_declared_apis: set[str],
+    ) -> list[CompileDiagnostic]:
+        """D10: route-driven delegation diagnostics preferred; bridge fallback
+        only for hard facts not covered by route annotation provenance.
+
+        Route-derived diagnostics come first.  The hard-fact bridge then
+        runs as a compatibility fallback using provenance-coverage:
+        source_packet_id match > source_span_ids overlap > section-level
+        match with normalized text containment.
+        """
+        import re as _re
+
+        def _norm(text: str) -> str:
+            return _re.sub(r"[^\w\s]", "", text.strip().lower())
+
+        diags = diagnose_delegation_intents_from_routes(
+            resolved_routes,
+            resolved_spans,
+            worker_plan,
+            declared_apis=prov_declared_apis,
+        )
+        # Collect precise provenance evidence from route delegation annotations
+        covered_packet_ids: set[str] = set()
+        covered_span_ids: set[str] = set()
+        covered_texts: dict[str, set[str]] = {}  # section_id → set of normalized span texts
+        for ann in resolved_routes.get_annotations_by_role("delegation_intent"):
+            if ann.source_packet_id:
+                covered_packet_ids.add(ann.source_packet_id)
+            covered_span_ids.add(ann.span_id)
+            sid = ann.source_section_id
+            if sid:
+                span = next(
+                    (s for s in resolved_spans if s.span_id == ann.span_id), None
+                )
+                if span:
+                    covered_texts.setdefault(sid, set()).add(
+                        _norm(span.text)
+                    )
+
+        # Bridge: only run for hard facts whose evidence is NOT covered
+        uncovered_hard_facts = []
+        for fact in list(canonical_input.hard_facts.delegation_intents):
+            covered = False
+            fact_norm = _norm(fact.text)
+            for ev in fact.evidence:
+                pid = getattr(ev, "source_packet_id", None)
+                if pid and pid in covered_packet_ids:
+                    covered = True
+                    break
+                span_ids = getattr(ev, "source_span_ids", None) or []
+                if any(sid in covered_span_ids for sid in span_ids):
+                    covered = True
+                    break
+                # Section-level only with normalized text containment guard
+                sid = getattr(ev, "source_section_id", None)
+                if sid and sid in covered_texts:
+                    for covered_t in covered_texts[sid]:
+                        if fact_norm in covered_t or covered_t in fact_norm:
+                            covered = True
+                            break
+                if covered:
+                    break
+            if not covered:
+                uncovered_hard_facts.append(fact)
+        if uncovered_hard_facts:
+            bridge_diags = bridge_delegation_intents(
+                uncovered_hard_facts,
+                worker_plan.handoffs if worker_plan else None,
+                resolved_spans,
+                known_child_worker_ids=prov_child_ids,
+                declared_apis=prov_declared_apis,
+            )
+            diags.extend(bridge_diags)
+
+        return diags
+
+    # -- D8 bridge fallback guards -------------------------------------------
+
+    @staticmethod
+    def _bridge_fallback_needed(
+        failure_modes: list, flow: FlowStructureIR,
+    ) -> bool:
+        """D8: bridge fallback only for hard-fact failure conditions that
+        are NOT already covered by an existing exception flow (by normalized
+        condition text).  Returns True when at least one failure fact needs
+        fallback materialization."""
+        import re as _re
+        existing = {
+            _re.sub(r"[^\w\s]", "", exc.condition_text.strip().lower())
+            for exc in flow.exception_flows
+        }
+        for fact in failure_modes:
+            norm = _re.sub(r"[^\w\s]", "", fact.text.strip().lower())
+            if norm not in existing:
+                return True
+        return False
+
+    @staticmethod
+    def _bridge_fallback_needed_worker_scoped(
+        failure_modes: list,
+        worker_flow_plan: WorkerFlowPlanIR,
+    ) -> bool:
+        """D8: worker-scoped bridge fallback — checks ALL worker flows for
+        coverage of each hard-fact failure condition."""
+        import re as _re
+        all_existing: set[str] = set()
+        for flow in worker_flow_plan.worker_flows.values():
+            for exc in flow.exception_flows:
+                norm = _re.sub(r"[^\w\s]", "", exc.condition_text.strip().lower())
+                all_existing.add(norm)
+        for fact in failure_modes:
+            norm = _re.sub(r"[^\w\s]", "", fact.text.strip().lower())
+            if norm not in all_existing:
+                return True
+        return False
+
+    # ------------------------------------------------------------------------
 
     def _run_stage10(
         self,
