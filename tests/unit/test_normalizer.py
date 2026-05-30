@@ -552,3 +552,47 @@ class TestIRNormalizer:
         assert len(normalized_flow.exception_flows) == 1
         assert normalized_flow.exception_flows[0].flow_id == "exc_1"
         assert normalized_flow.exception_flows[0].condition_text == "Missing timeframe."
+
+
+# ===========================================================================
+# D7: Normalizer preserves route-derived condition-only exception flows
+# ===========================================================================
+
+
+def test_d7_condition_only_flow_survives_normalizer() -> None:
+    """D7: route-derived exc_adapter_00 with empty blocks survives normalization."""
+    from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
+    from nl2spl.config import PipelineConfig
+
+    flow = FlowStructureIR(
+        main_flow_spans=["s_main"],
+        exception_flows=[
+            ExceptionFlow(
+                flow_id="exc_adapter_00",
+                condition_text="Missing timeframe.",
+                spans=["s_fail"],
+            ),
+        ],
+    )
+    blocks = BlockStructureIR(
+        main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s_main"])],
+        exception_flow_blocks={"exc_adapter_00": []},
+    )
+    steps = [StepIR("st1", "Main work", ["s_main"], "GENERAL_COMMAND")]
+
+    normalizer = IRNormalizer()
+    normalized_flow, _, _, normalized_steps, _, _, _ = normalizer.normalize(
+        flow, blocks, ResourceRegistryIR(), SymbolTable(), steps, [],
+    )
+
+    assert len(normalized_flow.exception_flows) == 1
+    assert normalized_flow.exception_flows[0].flow_id == "exc_adapter_00"
+    # Check normalized steps (not original list) for handler fabrication
+    handler_steps = [
+        s for s in normalized_steps
+        if s.flow_ref == "exc_adapter_00"
+    ]
+    assert len(handler_steps) == 0, (
+        f"No handler step should be fabricated for exc_adapter_00; "
+        f"got {[(s.step_id, s.text) for s in handler_steps]}"
+    )

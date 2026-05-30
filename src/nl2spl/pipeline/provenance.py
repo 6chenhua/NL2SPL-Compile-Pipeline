@@ -214,7 +214,7 @@ class ProvenanceAggregator:
             )
 
         for exc in worker.exception_flows:
-            exc_span_ids: list[str] = []
+            exc_span_ids: list[str] = list(exc.spans) if exc.spans else []
             for block in exc.blocks:
                 if block.spans:
                     exc_span_ids.extend(block.spans)
@@ -236,6 +236,36 @@ class ProvenanceAggregator:
                     ),
                 )
             )
+
+        # D7: trace child worker exception flows
+        for child in worker.child_workers:
+            for exc in child.exception_flows:
+                exc_span_ids: list[str] = list(exc.spans) if exc.spans else []
+                for block in exc.blocks:
+                    if block.spans:
+                        exc_span_ids.extend(block.spans)
+                e_section, e_packet = self._resolve_span_origin(
+                    exc_span_ids, span_index,
+                )
+                traces.append(
+                    TraceRecord(
+                        target_ref=(
+                            f"worker:{child.worker_name}."
+                            f"exception_flow:{exc.flow_id}"
+                        ),
+                        source_span_ids=exc_span_ids,
+                        source_section_id=e_section,
+                        source_packet_id=e_packet,
+                        relation=(
+                            "direct" if exc_span_ids else "inferred"
+                        ),
+                        explanation=(
+                            f"Child worker '{child.worker_name}' "
+                            f"exception flow '{exc.flow_id}': "
+                            f"{exc.condition_text}"
+                        ),
+                    )
+                )
 
     # ------------------------------------------------------------------
     # Steps

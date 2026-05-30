@@ -1,75 +1,83 @@
 {
   "stage": "stage4_flow_assembler",
-  "timestamp": "2026-05-13T21:50:22.367610",
+  "timestamp": "2026-05-24T22:02:51.411941",
   "metadata": {},
   "result": {
     "worker_flows": {
       "worker_main": {
         "main_flow_spans": [
+          "s16",
+          "s17",
           "s18",
-          "s23"
+          "s19",
+          "s22",
+          "s23",
+          "s24"
         ],
         "alternative_flows": [],
         "exception_flows": [
           {
-            "flow_id": "exc_1",
-            "condition_text": "Quoted or offered pricing is over budget, requiring recovery through bounded renegotiation or vendor-pool expansion",
+            "flow_id": "exc_adapter_00",
+            "condition_text": "Insufficient quotes",
             "spans": [
-              "s20"
+              "s30"
             ]
           },
           {
-            "flow_id": "exc_2",
-            "condition_text": "Non-compliance is detected, requiring remediation, waiver handling, or sourcing restart according to policy",
+            "flow_id": "exc_adapter_01",
+            "condition_text": "Over-budget proposals",
             "spans": [
-              "s21"
+              "s31"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_02",
+            "condition_text": "Vendor ineligibility",
+            "spans": [
+              "s32"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_03",
+            "condition_text": "Approval denial",
+            "spans": [
+              "s33"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_04",
+            "condition_text": "Missing\ndocuments",
+            "spans": [
+              "s34"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_05",
+            "condition_text": "Compliance failure",
+            "spans": [
+              "s35"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_06",
+            "condition_text": "Waiver rejection",
+            "spans": [
+              "s36"
             ]
           }
         ],
         "delegation_candidates": []
-      },
-      "normalize_procurement_request": {
-        "main_flow_spans": [
-          "s16"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
-      },
-      "identify_vendor_pool": {
-        "main_flow_spans": [
-          "s17"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
-      },
-      "evaluate_sourcing_submission": {
-        "main_flow_spans": [
-          "s19",
-          "s37"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
-      },
-      "route_procurement_approval": {
-        "main_flow_spans": [
-          "s22"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
-      },
-      "archive_audit_evidence": {
-        "main_flow_spans": [
-          "s24"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
       }
     },
-    "warnings": []
+    "warnings": [
+      "Candidate candidate_normalize_request accepted but contract fields are not source-backed; rejecting.",
+      "D3: failure condition span 's30' (Insufficient quotes) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's31' (Over-budget proposals) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's32' (Vendor ineligibility) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's33' (Approval denial) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's34' (Missing\ndocuments) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's35' (Compliance failure) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's36' (Waiver rejection) is not owned by any worker; attached to main worker 'worker_main'."
+    ]
   }
 }

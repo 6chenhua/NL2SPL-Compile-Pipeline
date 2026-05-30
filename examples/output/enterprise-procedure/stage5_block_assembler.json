@@ -1,6 +1,6 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-05-13T21:50:39.317314",
+  "timestamp": "2026-05-24T22:02:53.947686",
   "metadata": {},
   "result": {
     "worker_blocks": {
@@ -11,115 +11,38 @@
             "block_type": "SEQUENTIAL",
             "condition_text": null,
             "spans": [
-              "s18"
-            ]
-          },
-          {
-            "block_id": "b_2",
-            "block_type": "IF",
-            "condition_text": "all gates pass",
-            "spans": [
-              "s23"
-            ]
-          }
-        ],
-        "alternative_flow_blocks": {},
-        "exception_flow_blocks": {
-          "exc_1": [
-            {
-              "block_id": "b_3",
-              "block_type": "SEQUENTIAL",
-              "condition_text": null,
-              "spans": [
-                "s20"
-              ]
-            }
-          ],
-          "exc_2": [
-            {
-              "block_id": "b_4",
-              "block_type": "SEQUENTIAL",
-              "condition_text": null,
-              "spans": [
-                "s21"
-              ]
-            }
-          ]
-        }
-      },
-      "normalize_procurement_request": {
-        "main_flow_blocks": [
-          {
-            "block_id": "b_1",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
-              "s16"
-            ]
-          }
-        ],
-        "alternative_flow_blocks": {},
-        "exception_flow_blocks": {}
-      },
-      "identify_vendor_pool": {
-        "main_flow_blocks": [
-          {
-            "block_id": "b_1",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
-              "s17"
-            ]
-          }
-        ],
-        "alternative_flow_blocks": {},
-        "exception_flow_blocks": {}
-      },
-      "evaluate_sourcing_submission": {
-        "main_flow_blocks": [
-          {
-            "block_id": "b_1",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
+              "s16",
+              "s17",
+              "s18",
               "s19",
-              "s37"
-            ]
-          }
-        ],
-        "alternative_flow_blocks": {},
-        "exception_flow_blocks": {}
-      },
-      "route_procurement_approval": {
-        "main_flow_blocks": [
-          {
-            "block_id": "b_1",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
-              "s22"
-            ]
-          }
-        ],
-        "alternative_flow_blocks": {},
-        "exception_flow_blocks": {}
-      },
-      "archive_audit_evidence": {
-        "main_flow_blocks": [
-          {
-            "block_id": "b_1",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
+              "s22",
+              "s23",
               "s24"
             ]
           }
         ],
         "alternative_flow_blocks": {},
-        "exception_flow_blocks": {}
+        "exception_flow_blocks": {
+          "exc_adapter_00": [],
+          "exc_adapter_01": [],
+          "exc_adapter_02": [],
+          "exc_adapter_03": [],
+          "exc_adapter_04": [],
+          "exc_adapter_05": [],
+          "exc_adapter_06": []
+        }
       }
     },
     "control_complexity_regions": [],
-    "warnings": []
+    "warnings": [
+      "Candidate candidate_normalize_request accepted but contract fields are not source-backed; rejecting.",
+      "D3: failure condition span 's30' (Insufficient quotes) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's31' (Over-budget proposals) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's32' (Vendor ineligibility) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's33' (Approval denial) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's34' (Missing\ndocuments) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's35' (Compliance failure) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's36' (Waiver rejection) is not owned by any worker; attached to main worker 'worker_main'."
+    ]
   }
 }

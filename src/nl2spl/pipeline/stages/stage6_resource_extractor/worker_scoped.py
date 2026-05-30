@@ -80,6 +80,8 @@ class WorkerScopedMixin:
             main_routes = FieldRouteIR(
                 behavior=[s for s in routes.behavior if s in main_span_ids],
                 integrations=[s for s in routes.integrations if s in main_span_ids],
+                annotations=[a for a in routes.annotations
+                             if a.span_id in main_span_ids],
             )
             global_resources, symbol_table = self._extract_resources_for_scope(
                 spans=main_spans,
@@ -115,6 +117,8 @@ class WorkerScopedMixin:
             worker_routes = FieldRouteIR(
                 behavior=[s for s in routes.behavior if s in worker_span_ids],
                 integrations=[s for s in routes.integrations if s in worker_span_ids],
+                annotations=[a for a in routes.annotations
+                             if a.span_id in worker_span_ids],
             )
 
             worker_resources, symbol_table = self._extract_resources_for_scope(
@@ -263,6 +267,14 @@ integrations spans：
 
         variables: list[VariableSpec] = []
         filter_warnings: list[str] = []
+        # D5: identify failure mode span texts for variable filtering
+        failure_texts: set[str] = set()
+        if routes.annotations:
+            for a in routes.annotations:
+                if a.semantic_role == "failure_mode" and a.executable is False:
+                    span = next((s for s in spans if s.span_id == a.span_id), None)
+                    if span:
+                        failure_texts.add(span.text.strip().rstrip(".").lower())
         for var_data in result.get("variables", []):
             try:
                 name = var_data["name"]
@@ -271,6 +283,17 @@ integrations spans：
                     if not allowed:
                         filter_warnings.append(
                             f"Rejected schema-looking variable '{name}': {reason}"
+                        )
+                        continue
+                # D5: reject variables derived from failure condition text
+                if failure_texts:
+                    var_text = (
+                        name.replace("_", " ").strip().lower()
+                        + " " + var_data.get("description", "").strip().lower()
+                    )
+                    if any(ft in var_text for ft in failure_texts):
+                        filter_warnings.append(
+                            f"D5: rejected failure-derived variable '{name}'"
                         )
                         continue
                 var = VariableSpec(

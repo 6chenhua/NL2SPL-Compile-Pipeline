@@ -57,7 +57,7 @@ class WorkerScopedMethodsMixin:
         worker_step_plan = WorkerStepPlanIR(main_worker_id=worker_plan.main_worker_id)
         all_warnings: list[str] = []
         self.stage7_diagnostics: list[CompileDiagnostic] = []
-        self._pending_unmapped_data: dict[str, tuple[list[SpanIR], dict[str, str]]] = {}
+        self._pending_unmapped_data: dict[str, tuple[list[SpanIR], dict[str, str], set[str]]] = {}
 
         # 1. 对每个 worker 提取 steps
         for worker in worker_plan.workers:
@@ -105,13 +105,15 @@ class WorkerScopedMethodsMixin:
             pending = self._pending_unmapped_data.get(worker.worker_id)
             if pending is None:
                 continue
-            behavior_spans, llm_unmapped = pending
+            behavior_spans, llm_unmapped, *extra = pending
+            non_exec_ids: set[str] = extra[0] if extra else set()
             final_steps = worker_step_plan.worker_steps.get(worker.worker_id, [])
             self._detect_unmapped_spans(
                 final_steps,
                 behavior_spans,
                 llm_unmapped,
                 worker.worker_id,
+                non_exec_ids,
             )
 
         worker_step_plan.warnings = all_warnings
@@ -140,7 +142,12 @@ class WorkerScopedMethodsMixin:
         prompt_variables = self._build_worker_prompt_variables(worker, symbol_table)
 
         # 获取 behavior spans（使用 routes.behavior 和 flow 的交集）
-        behavior_span_ids = set(routes.behavior)
+        non_exec_span_ids: set[str] = set()
+        if routes.annotations:
+            behavior_span_ids = set(routes.get_executable_behavior_span_ids())
+            non_exec_span_ids = set(routes.get_non_executable_behavior_span_ids())
+        else:
+            behavior_span_ids = set(routes.behavior)
         flow_span_ids = set(flow.get_all_flow_spans())
         if flow_span_ids:
             behavior_span_ids = behavior_span_ids.intersection(flow_span_ids)
@@ -182,6 +189,21 @@ class WorkerScopedMethodsMixin:
         if self.config.enable_irs_prompt_builder:
             system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
 
+        non_exec_context = ""
+        if non_exec_span_ids:
+            owned_non_exec = non_exec_span_ids & set(worker.owned_span_ids)
+            if owned_non_exec:
+                non_exec_spans = [s for s in spans if s.span_id in owned_non_exec]
+                non_exec_json = json.dumps(
+                    [s.to_dict() for s in non_exec_spans], ensure_ascii=False
+                )
+                non_exec_context = (
+                    "Non-executable context only (failure conditions, "
+                    "delegation boundaries — do NOT create COMMAND, REQUEST_INPUT, "
+                    "INVOKE_WORKER, or CALL_API from these spans):\n"
+                    f"---\n{non_exec_json}\n---\n\n"
+                )
+
         user_prompt = f"""请从以下文本中提取 step：
 
 behavior spans：
@@ -189,7 +211,7 @@ behavior spans：
 {behavior_json}
 ---
 
-Flow 结构：
+{non_exec_context}Flow 结构：
 ---
 {flow_json}
 ---
@@ -249,6 +271,20 @@ Worker 信息：
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
+        # D6 guard: drop steps sourced only from non-executable spans
+        if non_exec_span_ids:
+            kept_steps: list[StepIR] = []
+            for step in steps:
+                source_ids = set(step.source_span_ids)
+                if source_ids and source_ids.issubset(non_exec_span_ids):
+                    self.logger.info(
+                        "D6 guard (worker %s): dropped non-executable step %s",
+                        worker.worker_id, step.step_id,
+                    )
+                    continue
+                kept_steps.append(step)
+            steps = kept_steps
+
         # 子 worker 不应包含 INVOKE_WORKER 步骤（只有主 worker 通过 handoff
         # 生成 INVOKE）。LLM 可能因 prompt 中列出了 INVOKE_WORKER 类型而误生成。
         # 不能直接 drop——会丢失 child-owned span 的真实行为。
@@ -291,6 +327,7 @@ Worker 信息：
         self._pending_unmapped_data[worker.worker_id] = (
             list(behavior_spans),
             llm_unmapped,
+            non_exec_span_ids,  # D6: skip non-executable in unmapped check
         )
 
         # 处理 new_variables — declare with worker scope
@@ -335,6 +372,7 @@ Worker 信息：
         behavior_spans: list[SpanIR],
         llm_unmapped: dict[str, str],
         worker_id: str,
+        non_exec_span_ids: set[str] | None = None,
     ) -> None:
         """Emit unmapped_behavior_span diagnostics for the final step list.
 
@@ -351,7 +389,10 @@ Worker 信息：
             for span in behavior_spans
             if span.span_id not in covered_behavior_span_ids
         }
+        skip_ids = non_exec_span_ids or set()
         for span_id in sorted(missing_behavior_span_ids):
+            if span_id in skip_ids:
+                continue  # D6: non-executable spans are not expected to map to steps
             reason = llm_unmapped.get(
                 span_id,
                 "Behavior span not mapped to any step by LLM",

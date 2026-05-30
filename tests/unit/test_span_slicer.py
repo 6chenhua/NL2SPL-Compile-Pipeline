@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 
@@ -85,21 +84,23 @@ class TestSpanSlicer:
         assert len(spans) == 0
 
     def test_llm_error(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
-        """Test LLM error handling."""
+        """Test LLM error handling — graceful fallback (no StageError)."""
         # Arrange
         mock_client.call_json.side_effect = Exception("API error")
         slicer = SpanSlicer(pipeline_config, mock_client)
 
-        # Act & Assert
-        with pytest.raises(StageError, match="LLM call failed"):
-            slicer.execute("test input")
+        # Act — should not raise; just log and return empty spans
+        spans = slicer.execute("test input")
+
+        # Assert — graceful degradation: no spans produced, no exception
+        assert isinstance(spans, list)
 
     def test_missing_span_id(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
-        """Test handling of missing span_id in LLM response."""
+        """Test handling of missing span_id — ignored, reassigned by pipeline."""
         # Arrange
         mock_client.call_json.return_value = {
             "spans": [
-                {"text": "test text"}  # Missing span_id
+                {"text": "test text"}  # Missing span_id, will be reassigned
             ]
         }
         slicer = SpanSlicer(pipeline_config, mock_client)
@@ -107,8 +108,10 @@ class TestSpanSlicer:
         # Act
         spans = slicer.execute("test input")
 
-        # Assert
-        assert len(spans) == 0  # Should skip invalid spans
+        # Assert — span_id is reassigned to s1
+        assert len(spans) == 1
+        assert spans[0].span_id == "s1"
+        assert spans[0].text == "test text"
 
     def test_missing_text(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test handling of missing text in LLM response."""
@@ -127,11 +130,11 @@ class TestSpanSlicer:
         assert len(spans) == 0  # Should skip invalid spans
 
     def test_invalid_span_id_format(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
-        """Test handling of invalid span_id format."""
+        """Test handling of invalid span_id format — ignored, reassigned by pipeline."""
         # Arrange
         mock_client.call_json.return_value = {
             "spans": [
-                {"span_id": "invalid", "text": "test text"}  # Invalid format
+                {"span_id": "invalid", "text": "test text"}  # Invalid format, will be reassigned
             ]
         }
         slicer = SpanSlicer(pipeline_config, mock_client)
@@ -139,8 +142,10 @@ class TestSpanSlicer:
         # Act
         spans = slicer.execute("test input")
 
-        # Assert
-        assert len(spans) == 0  # Should skip invalid spans
+        # Assert — span_id is reassigned to s1 regardless of LLM value
+        assert len(spans) == 1
+        assert spans[0].span_id == "s1"
+        assert spans[0].text == "test text"
 
     def test_checkpoint_saved(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test that checkpoint is saved."""

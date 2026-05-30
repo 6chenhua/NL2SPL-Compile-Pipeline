@@ -326,3 +326,177 @@ class TestWorkerAssembler:
         assert len(worker.outputs) == 1
         assert worker.inputs[0].name == "input_var"
         assert worker.outputs[0].name == "output_var"
+
+
+# ===========================================================================
+# D3: Stage 10 preserves worker-local exception flow refs
+# ===========================================================================
+
+
+class TestD3WorkerAssemblerExceptionRefs:
+    """D3: Stage 10 preserves main and child worker exception flow refs."""
+
+    def test_main_worker_exception_flow_ref_preserved(self) -> None:
+        from nl2spl.ir.worker_plan_ir import (
+            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR,
+            WorkerSpecIR, WorkerStepPlanIR,
+        )
+
+        flow = FlowStructureIR(
+            main_flow_spans=["s1"],
+            exception_flows=[
+                ExceptionFlow(
+                    flow_id="exc_adapter_00",
+                    condition_text="Missing timeframe.",
+                    spans=["s_fail"],
+                ),
+            ],
+        )
+        blocks = BlockStructureIR(
+            main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])],
+            exception_flow_blocks={"exc_adapter_00": []},
+        )
+        steps = [StepIR("st1", "Test", ["s1"], "GENERAL_COMMAND")]
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("in", "text", True, "input", "input"),
+                VariableSpec("out", "text", True, "output", "output"),
+            ]
+        )
+        symbols = SymbolTable()
+
+        wf = WorkerFlowPlanIR(worker_flows={"worker_main": flow})
+        wb = WorkerBlockPlanIR(worker_blocks={"worker_main": blocks})
+        wsp = WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={"worker_main": steps},
+        )
+        wp = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="worker_main", worker_name="Main",
+                    kind="main", purpose="Main worker",
+                    owned_span_ids=["s1", "s_fail"],
+                    input_contract=[], output_contract=[],
+                    boundary_kind="main_worker",
+                ),
+            ],
+        )
+
+        assembler = WorkerAssembler()
+        worker = assembler.assemble_from_worker_scoped(
+            wsp, resources, symbols, wp, wf, wb,
+        )
+
+        assert len(worker.exception_flows) >= 1
+        exc = worker.exception_flows[0]
+        assert exc.flow_id == "exc_adapter_00"
+        assert exc.condition_text == "Missing timeframe."
+        assert exc.blocks == []  # empty blocks allowed for partial skeleton
+        assert exc.spans == ["s_fail"], "Stage 10 must copy ExceptionFlow.spans"
+
+    def test_child_worker_exception_flow_ref_preserved(self) -> None:
+        from nl2spl.ir.worker_plan_ir import (
+            InputBindingIR, InvokeLocationHintIR, OutputBindingIR,
+            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerHandoffIR,
+            WorkerPlanIR, WorkerSpecIR, WorkerStepPlanIR,
+        )
+
+        child_flow = FlowStructureIR(
+            main_flow_spans=["s_fail"],
+            exception_flows=[
+                ExceptionFlow(
+                    flow_id="exc_adapter_00",
+                    condition_text="Missing timeframe.",
+                    spans=["s_fail"],
+                ),
+            ],
+        )
+        main_flow = FlowStructureIR(main_flow_spans=["s_main"])
+        child_blocks = BlockStructureIR(
+            main_flow_blocks=[],
+            exception_flow_blocks={"exc_adapter_00": []},
+        )
+        main_blocks = BlockStructureIR(
+            main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s_main"])],
+        )
+        main_steps = [
+            StepIR("st_invoke", "Invoke child", ["s_main"], "INVOKE_WORKER",
+                    handoff_id="h_child"),
+        ]
+        child_steps = [StepIR("st_c", "Child work", ["s_fail"], "GENERAL_COMMAND")]
+
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("in", "text", True, "input", "input"),
+                VariableSpec("out", "text", True, "output", "output"),
+            ]
+        )
+        symbols = SymbolTable()
+
+        wf = WorkerFlowPlanIR(worker_flows={
+            "worker_main": main_flow, "worker_child": child_flow,
+        })
+        wb = WorkerBlockPlanIR(worker_blocks={
+            "worker_main": main_blocks, "worker_child": child_blocks,
+        })
+        wsp = WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={
+                "worker_main": main_steps,
+                "worker_child": child_steps,
+            },
+        )
+        handoff = WorkerHandoffIR(
+            handoff_id="h_child", from_worker="worker_main",
+            to_worker="worker_child", api_ref=None, mode="invoke",
+            condition_text=None, ordering="after",
+            input_bindings=[
+                InputBindingIR("in", "child_in", True),
+            ],
+            output_bindings=[
+                OutputBindingIR("child_out", "out", True, "set"),
+            ],
+            invoke_location_hint=InvokeLocationHintIR(
+                flow_kind="main", flow_id=None,
+                after_span_id="s_main", before_span_id=None,
+                block_hint="unknown",
+            ),
+        )
+        wp = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="worker_main", worker_name="Main",
+                    kind="main", purpose="Main",
+                    owned_span_ids=["s_main"],
+                    input_contract=[], output_contract=[],
+                    boundary_kind="main_worker",
+                ),
+                WorkerSpecIR(
+                    worker_id="worker_child", worker_name="Child",
+                    kind="child", purpose="Child",
+                    owned_span_ids=["s_fail"],
+                    input_contract=[], output_contract=[],
+                    boundary_kind="bounded_subtask",
+                ),
+            ],
+            handoffs=[handoff],
+        )
+
+        assembler = WorkerAssembler()
+        worker = assembler.assemble_from_worker_scoped(
+            wsp, resources, symbols, wp, wf, wb,
+        )
+
+        # Child worker exception ref preserved
+        child_workers = worker.child_workers
+        assert len(child_workers) >= 1
+        child = child_workers[0]
+        assert len(child.exception_flows) >= 1
+        exc = child.exception_flows[0]
+        assert exc.flow_id == "exc_adapter_00"
+        assert exc.condition_text == "Missing timeframe."
+        assert exc.blocks == []
+        assert exc.spans == ["s_fail"]

@@ -86,8 +86,36 @@ class ConstraintExtractor(PipelineStage[
             spans, routes, flow, blocks, symbol_table, steps, canonical_input = input_data
         self.logger.info("Starting constraint extraction with %d spans", len(spans))
 
-        # 1. Filter rules spans
+        # 1. Filter rules spans with annotation-driven candidate selection
         rules_spans = [s for s in spans if s.span_id in routes.rules]
+        excluded_failure_ids: set[str] = set()
+        if routes.annotations:
+            excluded_failure_ids = {
+                a.span_id for a in routes.annotations
+                if a.semantic_role == "failure_mode"
+                and a.construct_target == "EXCEPTION_FLOW"
+                and a.executable is False
+            }
+            # Pure delegation intent (no constraint/rule semantics) excluded;
+            # delegation boundary rules (only/must/when/unless/if patterns)
+            # remain available as constraint candidates.
+            pure_intent_ids: set[str] = set()
+            boundary_rule_patterns = (
+                "only delegate", "must delegate", "do not delegate",
+                "must not delegate", "delegate only", "delegate when",
+                "delegate unless", "delegate if",
+            )
+            for a in routes.annotations:
+                if (a.semantic_role == "delegation_intent"
+                        and a.route_family == "delegation_boundary"
+                        and a.executable is False):
+                    span = next((s for s in spans if s.span_id == a.span_id), None)
+                    span_text = (span.text.lower() if span else "")
+                    if any(p in span_text for p in boundary_rule_patterns):
+                        continue  # boundary rule — keep as candidate
+                    pure_intent_ids.add(a.span_id)
+            excluded_failure_ids |= pure_intent_ids
+            rules_spans = [s for s in rules_spans if s.span_id not in excluded_failure_ids]
 
         self.logger.info("Found %d rules spans", len(rules_spans))
 
@@ -134,12 +162,21 @@ adapter constraint hints（仅作为提示，不是 ConstraintIR）：
             self.logger.error("LLM call failed: %s", e)
             raise
 
-        # 4. Parse constraints
+        # 4. Parse constraints with D5 guard
         constraints = []
         constraints_data = result.get("constraints", [])
 
         for const_data in constraints_data:
             try:
+                source_ids = set(const_data.get("source_span_ids", []))
+                # D5: reject constraints sourced only from excluded failure/delegation spans
+                if source_ids and excluded_failure_ids and source_ids.issubset(excluded_failure_ids):
+                    self.logger.info(
+                        "D5 guard: rejecting constraint '%s' sourced only from "
+                        "excluded non-executable spans %s",
+                        const_data.get("constraint_id", "?"), sorted(source_ids),
+                    )
+                    continue
                 constraint = ConstraintIR(
                     constraint_id=const_data["constraint_id"],
                     text=const_data["text"],

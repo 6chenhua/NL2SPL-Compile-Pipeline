@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from nl2spl.errors.exceptions import StageError
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import AmbiguityInfo, SpanIR
 from nl2spl.pipeline.stages.stage3_ambiguity_resolver import AmbiguityResolver
 
@@ -334,3 +334,260 @@ class TestAmbiguityResolver:
             assert checkpoint_data["original_spans_count"] == 1
             assert checkpoint_data["resolved_spans_count"] == 1
             assert checkpoint_data["resolved_spans"][0]["span_id"] == "s1a"
+
+
+# ===========================================================================
+# F4: Annotation-aware AmbiguityResolver
+# ===========================================================================
+
+
+class TestF4AnnotationAwareResolver:
+    """F4: Stage 3 preserves provenance and annotations during split."""
+
+    def test_no_ambiguity_preserves_original_routes(self, pipeline_config, mock_client):
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "Determine type")]
+        routes = FieldRouteIR(
+            behavior=["s1"],
+            annotations=[RouteAnnotation(span_id="s1", field="behavior")],
+        )
+        result_spans, result_routes = resolver.execute((spans, routes, []))
+        assert result_routes is routes
+        assert len(result_routes.annotations) == 1
+
+    def test_child_spans_inherit_provenance(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "Determine type", "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "but do not invent", "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": [], "audience": [], "rules": ["s1b"],
+                "domain": [], "integrations": [], "behavior": ["s1a"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "Determine type, but do not invent",
+                         source_section_id="sec_process",
+                         source_packet_id="p_process_step_determine")]
+        routes = FieldRouteIR(behavior=["s1"])
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_action_and_policy"], "needs_split": True,
+        }]
+
+        result_spans, _ = resolver.execute((spans, routes, ambiguity_updates))
+
+        for child in result_spans:
+            assert child.source_section_id == "sec_process", (
+                f"Child {child.span_id} missing source_section_id"
+            )
+            assert child.source_packet_id == "p_process_step_determine", (
+                f"Child {child.span_id} missing source_packet_id"
+            )
+
+    def test_non_ambiguous_annotation_preserved(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "Determine type", "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "but do not invent", "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": ["s2"], "audience": [], "rules": ["s1b"],
+                "domain": [], "integrations": [], "behavior": ["s1a"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "mixed text"), SpanIR("s2", "keep me")]
+        routes = FieldRouteIR(
+            behavior=["s1"], identity=["s2"],
+            annotations=[
+                RouteAnnotation(span_id="s1", field="behavior"),
+                RouteAnnotation(span_id="s2", field="identity",
+                                semantic_role="profile_domain"),
+            ],
+        )
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_action_and_policy"], "needs_split": True,
+        }]
+
+        _, result_routes = resolver.execute((spans, routes, ambiguity_updates))
+
+        s2_anns = result_routes.get_annotations("s2")
+        assert len(s2_anns) == 1, "s2 annotation should be preserved"
+        assert s2_anns[0].semantic_role == "profile_domain"
+
+    def test_action_policy_split_annotations(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "Determine type", "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "but do not invent", "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": [], "audience": [], "rules": ["s1b"],
+                "domain": [], "integrations": [], "behavior": ["s1a"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "Determine type, but do not invent",
+                         source_section_id="sec_process")]
+        routes = FieldRouteIR(
+            behavior=["s1"],
+            annotations=[
+                RouteAnnotation(span_id="s1", field="behavior",
+                                semantic_role="process_step",
+                                source_section_id="sec_process",
+                                executable=True),
+            ],
+        )
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_action_and_policy"], "needs_split": True,
+        }]
+
+        _, result_routes = resolver.execute((spans, routes, ambiguity_updates))
+
+        # s1a in behavior → executable
+        s1a_anns = result_routes.get_annotations("s1a")
+        assert len(s1a_anns) >= 1
+        assert s1a_anns[0].field == "behavior"
+        assert s1a_anns[0].executable is True
+        assert s1a_anns[0].source_section_id == "sec_process"
+
+        # s1b in rules → constraint, non-executable
+        s1b_anns = result_routes.get_annotations("s1b")
+        assert len(s1b_anns) >= 1
+        assert s1b_anns[0].field == "rules"
+        assert s1b_anns[0].semantic_role == "constraint"
+        assert s1b_anns[0].executable is False
+        assert s1b_anns[0].source_section_id == "sec_process"
+
+    def test_failure_mode_annotation_stays_non_executable(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "Missing timeframe", "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "log and retry", "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": [], "audience": [], "rules": [],
+                "domain": [], "integrations": [], "behavior": ["s1a", "s1b"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "Missing timeframe, log and retry",
+                         source_section_id="sec_failure_handling",
+                         source_packet_id="p_failure_mode_missing")]
+        routes = FieldRouteIR(
+            rules=["s1"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s1", field="behavior",
+                    semantic_role="failure_mode",
+                    route_family="flow_relevant",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                    source_section_id="sec_failure_handling",
+                    source_packet_id="p_failure_mode_missing",
+                ),
+            ],
+        )
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_failure_and_action"], "needs_split": True,
+        }]
+
+        _, result_routes = resolver.execute((spans, routes, ambiguity_updates))
+
+        for child_id in ("s1a", "s1b"):
+            child_anns = result_routes.get_annotations(child_id)
+            assert len(child_anns) >= 1, f"Child {child_id} missing annotation"
+            for ann in child_anns:
+                assert ann.executable is False, (
+                    f"Child {child_id}: failure_mode must stay executable=False, "
+                    f"got {ann.executable}"
+                )
+                assert ann.construct_target == "EXCEPTION_FLOW"
+
+    def test_delegation_split_stays_non_executable(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "source gathering if bounded",
+                 "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "must have handoff contract",
+                 "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": [], "audience": [], "rules": ["s1b"],
+                "domain": [], "integrations": [], "behavior": ["s1a"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "source gathering if bounded, must have contract",
+                         source_section_id="sec_delegation_policy",
+                         source_packet_id="p_delegation_rule_source_gathering")]
+        routes = FieldRouteIR(
+            behavior=["s1"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s1", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                    source_section_id="sec_delegation_policy",
+                    source_packet_id="p_delegation_rule_source_gathering",
+                ),
+            ],
+        )
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_delegation_and_policy"], "needs_split": True,
+        }]
+
+        _, result_routes = resolver.execute((spans, routes, ambiguity_updates))
+
+        # Both children must stay non-executable
+        for child_id in ("s1a", "s1b"):
+            child_anns = result_routes.get_annotations(child_id)
+            assert len(child_anns) >= 1, f"Child {child_id} missing annotation"
+            for ann in child_anns:
+                assert ann.executable is False, (
+                    f"Child {child_id}: delegation intent must stay executable=False, "
+                    f"got {ann.executable}"
+                )
+                # Delegation semantics preserved
+                if child_id == "s1a":
+                    assert ann.semantic_role == "delegation_intent"
+                    assert ann.route_family == "delegation_boundary"
+
+    def test_checkpoint_includes_annotations(self, pipeline_config, mock_client):
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s1a", "text": "Determine type", "parent_span_id": "s1"},
+                {"span_id": "s1b", "text": "but do not invent", "parent_span_id": "s1"},
+            ],
+            "resolved_routes": {
+                "identity": [], "audience": [], "rules": ["s1b"],
+                "domain": [], "integrations": [], "behavior": ["s1a"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "mixed")]
+        routes = FieldRouteIR(
+            behavior=["s1"],
+            annotations=[RouteAnnotation(span_id="s1", field="behavior")],
+        )
+        ambiguity_updates = [{
+            "span_id": "s1", "is_ambiguous": True,
+            "reasons": ["mixed_action_and_policy"], "needs_split": True,
+        }]
+
+        with patch.object(resolver, "save_checkpoint") as mock_save:
+            resolver.execute((spans, routes, ambiguity_updates))
+
+        mock_save.assert_called_once()
+        checkpoint = mock_save.call_args[0][0]
+        routes_data = checkpoint["resolved_routes"]
+        assert "annotations" in routes_data
+        assert len(routes_data["annotations"]) >= 1

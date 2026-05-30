@@ -84,7 +84,12 @@ class StepExtractor(
         )
 
         # 1. Build prompts with variable list
-        behavior_span_ids = list(routes.behavior)
+        non_exec_span_ids: set[str] = set()
+        if routes.annotations:
+            behavior_span_ids = routes.get_executable_behavior_span_ids()
+            non_exec_span_ids = set(routes.get_non_executable_behavior_span_ids())
+        else:
+            behavior_span_ids = list(routes.behavior)
         if worker_plan is not None:
             self._assert_legacy_main_view_excludes_child_spans(
                 flow_structure,
@@ -110,6 +115,19 @@ class StepExtractor(
         if self.config.enable_irs_prompt_builder:
             system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
 
+        non_exec_context = ""
+        if non_exec_span_ids:
+            non_exec_spans = [s for s in spans if s.span_id in non_exec_span_ids]
+            non_exec_json = json.dumps(
+                [s.to_dict() for s in non_exec_spans], ensure_ascii=False
+            )
+            non_exec_context = (
+                "Non-executable context only (failure conditions, "
+                "delegation boundaries — do NOT create COMMAND, REQUEST_INPUT, "
+                "INVOKE_WORKER, or CALL_API from these spans):\n"
+                f"---\n{non_exec_json}\n---\n\n"
+            )
+
         user_prompt = f"""请从以下文本中提取 step：
 
 behavior spans：
@@ -117,7 +135,7 @@ behavior spans：
 {behavior_json}
 ---
 
-Flow 结构：
+{non_exec_context}Flow 结构：
 ---
 {flow_json}
 ---
@@ -172,6 +190,36 @@ Block 结构：
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
+        # 3.5 D6 guard: drop steps sourced only from non-executable spans
+        if non_exec_span_ids:
+            kept_steps: list[StepIR] = []
+            for step in steps:
+                source_ids = set(step.source_span_ids)
+                if source_ids and source_ids.issubset(non_exec_span_ids):
+                    self.stage7_diagnostics.append(
+                        CompileDiagnostic(
+                            diagnostic_id=f"diag_s7_{len(self.stage7_diagnostics):04d}",
+                            kind="non_executable_route_material_excluded",
+                            severity="warning",
+                            message=(
+                                f"Step '{step.step_id}' ({step.text[:80]}) "
+                                f"dropped: all source spans {sorted(source_ids)} "
+                                f"are non-executable route material."
+                            ),
+                            target_ref=f"step:{step.step_id}",
+                            source_span_ids=list(source_ids),
+                            blocks_rendering=False,
+                            blocks_completion=False,
+                        )
+                    )
+                    self.logger.info(
+                        "D6 guard: dropped non-executable step %s (%s)",
+                        step.step_id, step.text[:60],
+                    )
+                    continue
+                kept_steps.append(step)
+            steps = kept_steps
+
         # 4. Handle new_variables (declare before updating producers/consumers)
         for new_var_data in result.get("new_variables", []):
             try:
@@ -218,6 +266,8 @@ Block 结构：
         for span_id in behavior_span_ids:
             if span_id in covered_span_ids:
                 continue
+            if span_id in non_exec_span_ids:
+                continue  # D6: non-executable spans are not expected to map to steps
             reason = llm_unmapped.get(span_id, "Behavior span not mapped to any step")
             span_text = next(
                 (s.text for s in behavior_spans if s.span_id == span_id), span_id

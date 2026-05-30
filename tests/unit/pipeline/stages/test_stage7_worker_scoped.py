@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
@@ -199,3 +199,141 @@ def test_child_worker_invalid_invoke_step_is_rewritten_to_command(
     assert child_steps[0].step_id == "st_child_bad_invoke"
     assert child_steps[0].command_type == "GENERAL_COMMAND"
     assert child_steps[0].source_span_ids == ["s2"]
+
+
+def _d6_flow_plan() -> WorkerFlowPlanIR:
+    mf = FlowStructureIR(main_flow_spans=["s1", "s2"])
+    return WorkerFlowPlanIR(worker_flows={"worker_main": mf})
+
+
+def _d6_block_plan() -> WorkerBlockPlanIR:
+    bs = BlockStructureIR(
+        main_flow_blocks=[
+            BlockIR("b1", "SEQUENTIAL", None, ["s1"]),
+            BlockIR("b2", "SEQUENTIAL", None, ["s2"]),
+        ]
+    )
+    return WorkerBlockPlanIR(worker_blocks={"worker_main": bs})
+
+
+def test_d6_worker_scoped_filters_non_executable_spans(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    """D6: worker-scoped Stage 7 excludes non-executable owned spans from steps."""
+    handoff = WorkerHandoffIR(
+        handoff_id="h_main_child",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[
+            InputBindingIR("request_context", "child_input", True),
+        ],
+        output_bindings=[
+            OutputBindingIR("child_output", "evidence_set", True, "set"),
+        ],
+        invoke_location_hint=InvokeLocationHintIR(
+            flow_kind="main", flow_id=None,
+            after_span_id="s1", before_span_id=None,
+            block_hint="unknown",
+        ),
+    )
+    worker_plan = _worker_plan(handoff)
+    # Main worker owns both executable process span and non-executable failure span
+    worker_plan.workers[0].owned_span_ids = ["s1", "s2"]
+
+    mock_client.call_json.side_effect = [
+        # Main worker LLM: returns bad failure command + good process command
+        {
+            "steps": [
+                {
+                    "step_id": "st_bad", "text": "Handle missing timeframe",
+                    "source_span_ids": ["s1"], "command_type": "GENERAL_COMMAND",
+                    "inputs": [], "outputs": [],
+                    "integration_ref": None, "flow_ref": "main",
+                    "block_ref": "b1", "kind": "normal",
+                },
+                {
+                    "step_id": "st_good", "text": "Determine type",
+                    "source_span_ids": ["s2"], "command_type": "GENERAL_COMMAND",
+                    "inputs": [], "outputs": ["communication_type"],
+                    "integration_ref": None, "flow_ref": "main",
+                    "block_ref": "b2", "kind": "normal",
+                },
+            ],
+            "new_variables": [],
+        },
+        # Child worker LLM: returns simple step
+        {
+            "steps": [
+                {
+                    "step_id": "st_child", "text": "Gather sources",
+                    "source_span_ids": ["s2"], "command_type": "GENERAL_COMMAND",
+                    "inputs": ["child_input"], "outputs": ["child_output"],
+                    "integration_ref": None, "flow_ref": "main",
+                    "block_ref": "b2", "kind": "normal",
+                },
+            ],
+            "new_variables": [],
+        },
+    ]
+
+    worker_step_plan, _ = StepExtractor(
+        pipeline_config,
+        mock_client,
+    ).execute_worker_scoped(
+        spans=[
+            SpanIR("s1", "Missing timeframe."),
+            SpanIR("s2", "Determine type."),
+        ],
+        routes=FieldRouteIR(
+            behavior=["s1", "s2"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s1", field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s2", field="behavior",
+                    semantic_role="process_step", executable=True,
+                ),
+            ],
+        ),
+        worker_flow_plan=_d6_flow_plan(),
+        worker_block_plan=_d6_block_plan(),
+        symbol_table=SymbolTable(),
+        worker_plan=worker_plan,
+    )
+
+    main_steps = worker_step_plan.worker_steps["worker_main"]
+    # Good process step + generated handoff step survive; failure command is filtered
+    step_ids = [s.step_id for s in main_steps]
+    assert "st_good" in step_ids, f"Good step missing from {step_ids}"
+    assert "st_bad" not in step_ids, f"Bad failure step should be filtered, got {step_ids}"
+    # Contract-backed handoff step still generated
+    handoff_steps = [s for s in main_steps if s.command_type == "INVOKE_WORKER"]
+    assert len(handoff_steps) >= 1, "Contract-backed handoff step must survive D6 filter"
+    assert handoff_steps[0].handoff_id == "h_main_child"
+
+    # Prompt separation: executable section excludes failure span
+    main_worker_prompt = mock_client.call_json.call_args_list[0].kwargs["user_prompt"]
+    assert "behavior spans" in main_worker_prompt
+    beh_start = main_worker_prompt.index("behavior spans")
+    non_exec_idx = main_worker_prompt.index("Non-executable context only")
+    beh_section = main_worker_prompt[beh_start:non_exec_idx]
+    non_exec_section = main_worker_prompt[non_exec_idx:]
+
+    assert "Determine type" in beh_section
+    assert "Missing timeframe" not in beh_section, (
+        "Failure span must not appear in executable behavior section"
+    )
+    assert "Missing timeframe" in non_exec_section, (
+        "Failure span must appear in non-executable context section"
+    )
+    assert "do NOT create COMMAND" in non_exec_section

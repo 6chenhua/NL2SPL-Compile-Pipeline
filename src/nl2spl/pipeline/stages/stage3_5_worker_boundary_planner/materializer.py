@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from nl2spl.ir.field_route_ir import RouteAnnotation
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     ContractFieldIR,
@@ -51,31 +52,23 @@ class WorkerPlanMaterializer:
         existing_handoffs: list[WorkerHandoffIR] | None = None,
         main_worker_id: str = "worker_main",
         main_worker_name: str = "MainWorker",
+        annotations: list[RouteAnnotation] | None = None,
     ) -> tuple[WorkerPlanIR, list[str]]:
-        """Materialize a WorkerPlanIR from decisions and candidates.
-
-        Args:
-            candidates: Candidate task units discovered by Stage 3.5a.
-            decisions: Boundary decisions from Stage 3.5b.
-            hard_fact_inputs: Hard-fact input variables for contracts.
-            hard_fact_outputs: Hard-fact output variables for contracts.
-            behavior_span_ids: All behavior span IDs.
-            behavior_span_order: Ordered behavior span IDs for invoke
-                location computation (caller-owned neighbor lookup).
-            existing_workers: Pre-existing workers (legacy path only).
-            existing_handoffs: Pre-existing handoffs (legacy path only).
-            main_worker_id: ID for the main worker.
-            main_worker_name: SPL-safe name for the main worker.
-
-        Returns:
-            Tuple of (WorkerPlanIR, warnings).
-        """
+        """Materialize a WorkerPlanIR from decisions and candidates."""
         warnings: list[str] = []
         candidates_by_id = {c.candidate_id: c for c in candidates}
         hard_inputs = hard_fact_inputs or []
         hard_outputs = hard_fact_outputs or []
         behavior_all = behavior_span_ids or set()
         span_order = behavior_span_order or []
+
+        # Build non-executable span set from annotations
+        non_exec_span_ids: set[str] = set()
+        if annotations:
+            non_exec_span_ids = {
+                a.span_id for a in annotations
+                if a.executable is False and a.field == "behavior"
+            }
 
         main_worker = self._build_main_worker(
             main_worker_id, main_worker_name, hard_inputs, hard_outputs,
@@ -94,6 +87,38 @@ class WorkerPlanMaterializer:
                 child_workers, handoffs, existing_workers, existing_handoffs or [],
                 candidates_by_id, warnings,
             )
+
+        # D1 guard: reject child workers whose spans are all non-executable
+        if non_exec_span_ids:
+            kept_workers: list[WorkerSpecIR] = []
+            kept_handoffs: list[WorkerHandoffIR] = []
+            for i, child in enumerate(child_workers):
+                owned = set(child.owned_span_ids)
+                if owned and owned.issubset(non_exec_span_ids):
+                    warnings.append(
+                        f"D1 guard: rejecting child worker '{child.worker_id}': "
+                        f"all owned spans {sorted(owned)} are non-executable "
+                        f"(failure_mode / delegation_intent without contract)"
+                    )
+                    # Downgrade the matching accepted decision to rejected
+                    candidate_id = self._find_candidate_id_for_spans(
+                        owned, candidates_by_id,
+                    )
+                    if candidate_id:
+                        for j, dec in enumerate(materialized_decisions):
+                            if dec.candidate_id == candidate_id and dec.decision == "extract_child_worker":
+                                materialized_decisions[j] = self._reject_decision(
+                                    dec,
+                                    "insufficient_semantic_boundary",
+                                    "All source spans are non-executable "
+                                    "(failure_mode / delegation_intent without contract).",
+                                )
+                                break
+                    continue
+                kept_workers.append(child)
+                if i < len(handoffs):
+                    kept_handoffs.append(handoffs[i])
+            child_workers, handoffs = kept_workers, kept_handoffs
 
         all_workers = [main_worker] + child_workers
         if behavior_all:
@@ -298,6 +323,17 @@ class WorkerPlanMaterializer:
             reason=reason,
             evidence=[],
         )
+
+    @staticmethod
+    def _find_candidate_id_for_spans(
+        span_ids: set[str],
+        candidates_by_id: dict[str, CandidateTaskUnitIR],
+    ) -> str | None:
+        """Find the candidate whose source spans match *span_ids*."""
+        for cid, candidate in candidates_by_id.items():
+            if set(candidate.source_span_ids) == span_ids:
+                return cid
+        return None
 
     def _candidate_to_worker(
         self,

@@ -42,11 +42,13 @@ class ExceptionFlowRef:
         flow_id: Flow ID
         condition_text: Trigger condition
         blocks: Block IRs in this flow
+        spans: Source span IDs from the original ExceptionFlow
     """
 
     flow_id: str
     condition_text: str
     blocks: list[BlockIR] = field(default_factory=list)
+    spans: list[str] = field(default_factory=list)
 
 
 @dataclass

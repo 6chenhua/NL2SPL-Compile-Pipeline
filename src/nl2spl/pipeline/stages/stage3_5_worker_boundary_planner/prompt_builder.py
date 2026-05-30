@@ -44,6 +44,31 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
     ) -> str:
+        if routes.annotations:
+            exec_ids = routes.get_executable_behavior_span_ids()
+            non_exec_ids = routes.get_non_executable_behavior_span_ids()
+            exec_section = (
+                "Executable behavior spans (candidate source_span_ids):\n"
+                f"---\n{self._format_route_spans(spans, exec_ids)}\n---"
+            )
+            ctx_section = ""
+            if non_exec_ids:
+                ctx_section = (
+                    "\nNon-executable context (failure conditions, "
+                    "delegation boundaries — NOT task unit candidates):\n"
+                    f"---\n{self._format_route_spans(spans, non_exec_ids)}\n---"
+                )
+            non_beh = self._format_non_behavior_context(spans, routes)
+            return (
+                f"Discover candidate task units before worker-boundary decisions.\n\n"
+                f"{exec_section}\n"
+                f"{ctx_section}\n"
+                f"Non-behavior context:\n---\n{non_beh}\n---\n\n"
+                f"Adapter metadata:\n---\n"
+                f"{self._format_adapter_metadata(canonical_input)}\n---\n\n"
+                f"Return JSON only with a top-level \"candidates\" array.\n"
+                f"Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."
+            )
         return f"""Discover candidate task units before worker-boundary decisions.
 
 Behavior spans available for candidate source_span_ids:
@@ -71,6 +96,32 @@ Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
         canonical_input: CanonicalCompileInput | None,
         candidates: list[CandidateTaskUnitIR],
     ) -> str:
+        if routes.annotations:
+            exec_ids = routes.get_executable_behavior_span_ids()
+            non_exec_ids = routes.get_non_executable_behavior_span_ids()
+            exec_section = (
+                "Executable behavior span context:\n"
+                f"---\n{self._format_route_spans(spans, exec_ids)}\n---"
+            )
+            ctx_section = ""
+            if non_exec_ids:
+                ctx_section = (
+                    "\nNon-executable context (failure conditions, "
+                    "delegation boundaries):\n"
+                    f"---\n{self._format_route_spans(spans, non_exec_ids)}\n---"
+                )
+            return (
+                f"Decide worker boundaries for candidate task units.\n\n"
+                f"Candidates to decide:\n---\n"
+                f"{self._format_candidates(candidates)}\n---\n\n"
+                f"{exec_section}\n"
+                f"{ctx_section}\n"
+                f"Adapter metadata:\n---\n"
+                f"{self._format_adapter_metadata(canonical_input)}\n---\n\n"
+                f"Return JSON only with a top-level \"decisions\" array.\n"
+                f"Return exactly one decision for every candidate_id listed above.\n"
+                f"Do not output workers, handoffs, flow, blocks, steps, or SPL."
+            )
         return f"""Decide worker boundaries for candidate task units.
 
 Candidates to decide:

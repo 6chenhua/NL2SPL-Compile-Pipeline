@@ -466,3 +466,90 @@ class TestSPLRenderer:
             "COMMAND-1 [COMMAND Produce a draft based on <REF>user_request</REF> "
             "RESULT draft: text SET]"
         ) in spl_text
+
+
+# ===========================================================================
+# D7: Renderer partial exception skeleton
+# ===========================================================================
+
+
+def test_d7_renderer_condition_only_exception_partial_skeleton() -> None:
+    """D7: empty blocks render [EXCEPTION_FLOW] with condition, no synthetic command."""
+    from nl2spl.ir.worker_ir import ExceptionFlowRef, FlowRef
+
+    worker = WorkerIR(
+        worker_name="MainWorker",
+        description="Test.",
+        steps=[StepIR("st1", "Main work", ["s_main"], "GENERAL_COMMAND")],
+        inputs=[WorkerInput("in", required=True)],
+        outputs=[WorkerOutput("out", required=True)],
+        main_flow=FlowRef(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s_main"])]),
+        exception_flows=[
+            ExceptionFlowRef(
+                flow_id="exc_adapter_00",
+                condition_text="Missing timeframe.",
+                blocks=[],
+            ),
+        ],
+    )
+    profile = AgentProfileIR(persona=PersonaIR(role="Assistant"))
+    resources = ResourceRegistryIR()
+    symbols = SymbolTable()
+    steps = [StepIR("st1", "Main work", ["s_main"], "GENERAL_COMMAND")]
+    constraints: list[ConstraintIR] = []
+
+    renderer = SPLRenderer()
+    spl_text, _, _ = renderer.render(worker, profile, resources, symbols, steps, constraints)
+
+    assert "[EXCEPTION_FLOW: Missing timeframe]" in spl_text
+    assert "[END_EXCEPTION_FLOW]" in spl_text
+    # No synthetic handler command between EXCEPTION_FLOW and END_EXCEPTION_FLOW
+    exc_section = spl_text.split("[EXCEPTION_FLOW:")[1].split("[END_EXCEPTION_FLOW]")[0]
+    assert "COMMAND" not in exc_section, (
+        f"No synthetic handler command between EXCEPTION_FLOW brackets: {exc_section}"
+    )
+
+
+def test_d7_renderer_child_worker_partial_exception() -> None:
+    """D7: child worker partial exception skeleton renders under child worker."""
+    from nl2spl.ir.worker_ir import ChildWorkerIR, ExceptionFlowRef, FlowRef
+
+    child = ChildWorkerIR(
+        worker_name="ChildWorker",
+        description="Child.",
+        task_text="Delegate task.",
+        steps=[StepIR("st_child", "Child work", ["s_child"], "GENERAL_COMMAND")],
+        main_flow=FlowRef(blocks=[BlockIR("b_c", "SEQUENTIAL", None, ["s_child"])]),
+        exception_flows=[
+            ExceptionFlowRef(
+                flow_id="exc_adapter_01",
+                condition_text="Evidence shortage.",
+                blocks=[],
+                spans=["s_fail2"],
+            ),
+        ],
+    )
+    worker = WorkerIR(
+        worker_name="MainWorker",
+        description="Test.",
+        steps=[StepIR("st1", "Main work", ["s_main"], "GENERAL_COMMAND")],
+        main_flow=FlowRef(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s_main"])]),
+        child_workers=[child],
+    )
+
+    renderer = SPLRenderer()
+    spl_text, _, _ = renderer.render(
+        worker,
+        AgentProfileIR(persona=PersonaIR(role="Assistant")),
+        ResourceRegistryIR(), SymbolTable(),
+        [StepIR("st1", "Main", ["s_main"], "GENERAL_COMMAND")],
+        [],
+    )
+
+    assert "[EXCEPTION_FLOW: Evidence shortage]" in spl_text
+    assert "[END_EXCEPTION_FLOW]" in spl_text
+    assert "ChildWorker" in spl_text
+    # No synthetic COMMAND in child exception either
+    exc_section = spl_text.split("[EXCEPTION_FLOW: Evidence shortage]")[1]
+    exc_section = exc_section.split("[END_EXCEPTION_FLOW]")[0]
+    assert "COMMAND" not in exc_section

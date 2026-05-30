@@ -493,3 +493,39 @@ class TestConsolidationE2E:
         result = self._run(tmp_path, flag=True, flow_plan=flow_plan, step_plan=step_plan)
         assert "Diagnostics" in result.readable_report
         assert "type_or_contract_ambiguity" in result.readable_report
+
+
+# ===========================================================================
+# D7: Route-derived missing-handler exactly-once
+# ===========================================================================
+
+
+def test_d7_route_derived_missing_handler_exactly_once(tmp_path: Path) -> None:
+    """D7: duplicate exc_adapter_00 missing_handler consolidated to one."""
+    orch = _make_orchestrator(tmp_path)
+    existing = [
+        _diag(
+            "diag_001", "missing_handler",
+            target_ref="exception_flow:exc_adapter_00",
+            source_span_ids=["s_fail"],
+            message="Exception flow 'exc_adapter_00': Missing timeframe. has no handler.",
+        ),
+    ]
+    intermediate = {
+        "stage_local_diagnostics": {
+            "final_check": [
+                _diag(
+                    "diag_002", "missing_handler",
+                    target_ref="exception_flow:exc_adapter_00",
+                    source_span_ids=["s_fail"],
+                    message="Exception flow 'exc_adapter_00': Missing timeframe. has no handler (duplicate).",
+                ),
+            ],
+        },
+    }
+    result = orch._consolidate_compile_diagnostics(existing, intermediate)
+    assert len(result) == 1, f"Expected 1, got {len(result)}: {[(d.diagnostic_id, d.target_ref) for d in result]}"
+    assert result[0].diagnostic_id == "diag_001"
+    assert result[0].kind == "missing_handler"
+    assert result[0].target_ref == "exception_flow:exc_adapter_00"
+    assert result[0].source_span_ids == ["s_fail"]

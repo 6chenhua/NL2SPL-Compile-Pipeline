@@ -38,6 +38,15 @@ candidates.
    The block inside should typically be SEQUENTIAL unless there is an
    additional inner condition within the span itself.
 
+5b. **Condition-only exception flows are partial skeletons**: An
+   exception flow whose spans contain only failure-condition evidence
+   (no handler/recovery action spans) is a valid partial structure.
+   Do NOT invent handler blocks for these flows.  If the flow has no
+   handler spans, return an empty exception_flow_blocks entry
+   (`"exc_id": []`) rather than fabricating a SEQUENTIAL or ACTION
+   block.  The compiler will surface a missing_handler diagnostic
+   downstream; do not mask it.
+
 6. **No nested block output**: SPL block grammar does not allow an IF,
    FOR, or WHILE body to contain another block. If the source implies
    nested control, first try to split surrounding sequential blocks, then

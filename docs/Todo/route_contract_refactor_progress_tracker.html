@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Route Contract Refactor Progress Tracker</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --text: #1f2933;
+      --muted: #64748b;
+      --line: #d7dde6;
+      --accent: #0f766e;
+      --accent-soft: #e0f2f1;
+      --warn: #b45309;
+      --warn-soft: #fff7ed;
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+      --done: #166534;
+      --done-soft: #ecfdf3;
+      --blocked: #7f1d1d;
+      --blocked-soft: #fef2f2;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 24px 32px 18px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 20px;
+      padding: 20px 32px 40px;
+      align-items: start;
+    }
+
+    nav {
+      position: sticky;
+      top: 112px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    nav a {
+      display: block;
+      color: var(--text);
+      text-decoration: none;
+      padding: 7px 8px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    nav a:hover {
+      background: var(--accent-soft);
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+    }
+
+    section,
+    .phase-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      align-items: center;
+    }
+
+    button,
+    .file-label {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #ffffff;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 2px;
+    }
+
+    .progress-bar {
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 160ms ease;
+    }
+
+    .phase-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .phase-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px 160px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      background: #eef2f7;
+      margin-right: 6px;
+    }
+
+    .badge.required {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .status-not-started {
+      color: var(--muted);
+      background: #eef2f7;
+    }
+
+    .status-in-progress {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+
+    .status-review {
+      color: #075985;
+      background: #e0f2fe;
+    }
+
+    .status-done {
+      color: var(--done);
+      background: var(--done-soft);
+    }
+
+    .status-blocked {
+      color: var(--blocked);
+      background: var(--blocked-soft);
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 5px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      font: inherit;
+      color: var(--text);
+      background: #ffffff;
+    }
+
+    textarea {
+      min-height: 88px;
+      resize: vertical;
+    }
+
+    .large-text {
+      min-height: 140px;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 8px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .check-item {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      font-size: 14px;
+    }
+
+    .check-item input {
+      width: auto;
+      margin-top: 3px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 980px) {
+      header {
+        position: static;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+
+      nav {
+        position: static;
+      }
+
+      .summary-grid,
+      .phase-head,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      header,
+      nav,
+      .toolbar {
+        position: static;
+      }
+
+      button,
+      .file-label {
+        display: none;
+      }
+
+      .layout {
+        display: block;
+        padding: 0;
+      }
+
+      section,
+      .phase-card {
+        break-inside: avoid;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Route Contract Refactor Progress Tracker</h1>
+    <p class="subtle">用于记录 InputAdapter / FieldRoute route contract 重构进度、证据、测试、风险和 PM 审核结论。数据默认保存在浏览器 localStorage，可导出 JSON 归档。</p>
+    <div class="toolbar">
+      <button class="primary" id="saveBtn" type="button">保存到本地</button>
+      <button id="exportBtn" type="button">导出 JSON</button>
+      <label class="file-label" for="importFile">导入 JSON</label>
+      <input id="importFile" type="file" accept="application/json">
+      <button id="printBtn" type="button">打印 / 导出 PDF</button>
+      <button class="danger" id="resetBtn" type="button">清空本地记录</button>
+      <span class="subtle" id="saveState">尚未保存</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="页面导航">
+      <a href="#summary">总览</a>
+      <a href="#decision-log">决策记录</a>
+      <a href="#frontend">前端语义契约阶段 F0-F4</a>
+      <a href="#downstream">下游迁移阶段 D0-D8</a>
+      <a href="#review">PM 审核记录</a>
+      <a href="#risk-log">风险与阻塞</a>
+      <a href="#test-log">测试记录</a>
+      <a href="#release-gate">最终验收 Gate</a>
+    </nav>
+
+    <main>
+      <section id="summary">
+        <h2>总览</h2>
+        <div class="summary-grid">
+          <div class="metric">
+            <strong id="metricDone">0</strong>
+            <span>已完成阶段</span>
+          </div>
+          <div class="metric">
+            <strong id="metricReview">0</strong>
+            <span>待审核阶段</span>
+          </div>
+          <div class="metric">
+            <strong id="metricBlocked">0</strong>
+            <span>阻塞阶段</span>
+          </div>
+          <div class="metric">
+            <strong id="metricProgress">0%</strong>
+            <span>总体进度</span>
+            <div class="progress-bar"><div class="progress-fill" id="overallProgress"></div></div>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top: 14px;">
+          <div>
+            <label for="projectOwner">实施负责人</label>
+            <input id="projectOwner" data-track="projectOwner" placeholder="填写姓名 / 账号">
+          </div>
+          <div>
+            <label for="reviewOwner">PM / Reviewer</label>
+            <input id="reviewOwner" data-track="reviewOwner" placeholder="填写审核人">
+          </div>
+          <div>
+            <label for="targetDate">目标完成日期</label>
+            <input id="targetDate" data-track="targetDate" type="date">
+          </div>
+        </div>
+        <div style="margin-top: 12px;">
+          <label for="overallNotes">总体备注</label>
+          <textarea id="overallNotes" class="large-text" data-track="overallNotes" placeholder="记录总体目标、当前状态、外部依赖、代码分支、相关 PR 等。"></textarea>
+        </div>
+      </section>
+
+      <section id="decision-log">
+        <h2>决策记录</h2>
+        <p class="subtle">记录重要设计取舍，尤其是 route annotation 字段、bridge 删除时机、worker-aware 语义归属。</p>
+        <textarea id="decisionLog" class="large-text" data-track="decisionLog" placeholder="- 日期：
+- 决策：
+- 背景：
+- 影响：
+- 后续动作："></textarea>
+      </section>
+
+      <section id="frontend">
+        <h2>前端语义契约阶段 F0-F4</h2>
+        <p class="subtle">对应文档：route_contract_refactor_01_frontend_semantic_contract.md</p>
+        <div class="phase-list" id="frontendPhases"></div>
+      </section>
+
+      <section id="downstream">
+        <h2>下游迁移阶段 D0-D8</h2>
+        <p class="subtle">对应文档：route_contract_refactor_02_downstream_migration.md</p>
+        <div class="phase-list" id="downstreamPhases"></div>
+      </section>
+
+      <section id="review">
+        <h2>PM 审核记录</h2>
+        <div class="grid-2">
+          <div>
+            <label for="reviewSummary">审核总结</label>
+            <textarea id="reviewSummary" class="large-text" data-track="reviewSummary" placeholder="记录总体审核意见、是否允许进入下一阶段、需要返工的问题。"></textarea>
+          </div>
+          <div>
+            <label for="reviewChecklist">审核关注项</label>
+            <textarea id="reviewChecklist" class="large-text" data-track="reviewChecklist" placeholder="- 是否保持渐进式兼容？
+- 是否没有引入 command fabrication？
+- 是否有 legacy + worker-aware 测试？
+- 是否保留 provenance？
+- 是否有 bridge 删除计划？"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section id="risk-log">
+        <h2>风险与阻塞</h2>
+        <textarea id="riskLog" class="large-text" data-track="riskLog" placeholder="- 风险 / 阻塞：
+- 影响阶段：
+- 严重程度：
+- 当前 owner：
+- 解决方案：
+- 截止日期："></textarea>
+      </section>
+
+      <section id="test-log">
+        <h2>测试记录</h2>
+        <textarea id="testLog" class="large-text" data-track="testLog" placeholder="- 日期：
+- 命令：
+- 结果：
+- 失败项：
+- 关联阶段：
+- 后续动作："></textarea>
+      </section>
+
+      <section id="release-gate">
+        <h2>最终验收 Gate</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Gate</th>
+              <th>验收要求</th>
+              <th>状态</th>
+              <th>证据 / 备注</th>
+            </tr>
+          </thead>
+          <tbody id="gateRows"></tbody>
+        </table>
+        <p class="footer-note">D8 完成: failure bridge 已降级为条件覆盖 fallback，delegation bridge 保留为兼容诊断 helper。Route-driven delegation diagnostics 是 residual work。</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const storageKey = "route-contract-refactor-progress-v1";
+
+    const phases = [
+      {
+        group: "frontend",
+        id: "F0",
+        title: "Baseline Frontend Tests",
+        doc: "01 Frontend Semantic Contract",
+        expected: [
+          "记录当前 adapter 输出、Stage 1 provenance、Stage 2 route 行为。",
+          "确认 failure mode 当前路径和已知偏差。",
+          "不修改生产行为。"
+        ],
+        acceptance: [
+          "baseline tests 可运行或明确标记 known gap",
+          "无生产行为变化",
+          "当前 failure / delegation / resource contract 行为有记录"
+        ]
+      },
+      {
+        group: "frontend",
+        id: "F1",
+        title: "Adapter Hint and Evidence Strengthening",
+        doc: "01 Frontend Semantic Contract",
+        expected: [
+          "增强 failure / delegation / resource contract hints。",
+          "保留 CanonicalCompileInput 作为唯一 adapter 输出。",
+          "增加 packet-level evidence。"
+        ],
+        acceptance: [
+          "failure mode hint 指向 EXCEPTION_FLOW.condition",
+          "delegation 默认 non-executable",
+          "canonical validator 通过"
+        ]
+      },
+      {
+        group: "frontend",
+        id: "F2",
+        title: "RouteAnnotation IR",
+        doc: "01 Frontend Semantic Contract",
+        expected: [
+          "新增 RouteAnnotation。",
+          "FieldRouteIR 兼容旧六字段。",
+          "增加 helper API。"
+        ],
+        acceptance: [
+          "旧 FieldRouteIR(behavior=[...]) 测试仍可用",
+          "annotation helper tests 通过",
+          "checkpoint 可序列化 annotations"
+        ]
+      },
+      {
+        group: "frontend",
+        id: "F3",
+        title: "Hint-Aware FieldRouter",
+        doc: "01 Frontend Semantic Contract",
+        expected: [
+          "FieldRouter 消费 packets / hard_facts / compile_hints。",
+          "生成 route annotations。",
+          "保持旧 list fallback。"
+        ],
+        acceptance: [
+          "failure_mode annotation: semantic_role=failure_mode",
+          "construct_target=EXCEPTION_FLOW, slot_target=condition",
+          "inputs/outputs/delegation 均 non-executable"
+        ]
+      },
+      {
+        group: "frontend",
+        id: "F4",
+        title: "Annotation-Aware AmbiguityResolver",
+        doc: "01 Frontend Semantic Contract",
+        expected: [
+          "split span 时保留 provenance。",
+          "split route 时保留或修正 annotations。",
+          "支持 mixed action / policy / failure。"
+        ],
+        acceptance: [
+          "split 后 source_section_id/source_packet_id 不丢失",
+          "split 后 annotations 不静默丢失",
+          "action 与 constraint 可分离"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D0",
+        title: "Downstream Baseline and Route Helper Adoption",
+        doc: "02 Downstream Migration",
+        expected: [
+          "下游先使用 route helper fallback，不改变行为。",
+          "补充 flow / step / worker / resource / constraint baseline。"
+        ],
+        acceptance: [
+          "无行为变化",
+          "Stage 4 / Stage 7 可用 helper fallback",
+          "legacy tests 仍通过"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D1",
+        title: "WorkerBoundaryPlanner Migration",
+        doc: "02 Downstream Migration",
+        expected: [
+          "worker candidate 只消费 executable behavior。",
+          "failure condition 是 flow context，不是 task candidate。",
+          "delegation intent 无 contract 不生成 executable worker。"
+        ],
+        acceptance: [
+          "failure mode 不成为 worker task unit",
+          "delegation policy 无 contract 不生成 child worker",
+          "exception condition ownership 有记录"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D2",
+        title: "FlowAssembler Route-Driven Exception Materialization",
+        doc: "02 Downstream Migration",
+        expected: [
+          "Stage 4 从 route annotations materialize EXCEPTION_FLOW。",
+          "bridge_failure_modes 降级为 fallback。",
+          "dedupe LLM exception flow 与 route-derived flow。"
+        ],
+        acceptance: [
+          "failure modes 从 annotations 生成 partial ExceptionFlow",
+          "missing_handler 仍出现",
+          "orchestrator bridge-first 调用受 fallback guard 限制"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D6",
+        title: "StepExtractor Executable Filtering",
+        doc: "02 Downstream Migration",
+        expected: [
+          "Stage 7 只消费 executable behavior。",
+          "跳过 executable=false failure/delegation annotations。",
+          "不对跳过项报 unmapped behavior。"
+        ],
+        acceptance: [
+          "Missing timeframe 不生成 GENERAL_COMMAND",
+          "delegation intent 无 contract 不生成 INVOKE_WORKER",
+          "worker-scoped Stage 7 同步遵守"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D4",
+        title: "BlockAssembler Partial Skeleton Support",
+        doc: "02 Downstream Migration",
+        expected: [
+          "condition-only exception flow 可渲染 partial skeleton。",
+          "不生成 handler block 或 handler step。"
+        ],
+        acceptance: [
+          "partial EXCEPTION_FLOW 合法渲染",
+          "无 synthetic handler",
+          "missing_handler 保留"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D3",
+        title: "Worker-Aware Exception Flow Migration",
+        doc: "02 Downstream Migration",
+        expected: [
+          "worker-aware path 保留 route-derived exception flows。",
+          "main/child worker 都能渲染 partial exception flow。"
+        ],
+        acceptance: [
+          "enable_worker_boundary_planner=True 时 failure mode 不丢失",
+          "child worker exception flow 可渲染",
+          "ownership ambiguous 时有 diagnostic"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D5",
+        title: "Resource, Profile, and Constraint Consumers",
+        doc: "02 Downstream Migration",
+        expected: [
+          "Stage 6/8/9 消费 annotations，不误用 semantic material。",
+          "policy / failure / delegation boundary 分离。"
+        ],
+        acceptance: [
+          "inputs/outputs 保持 resource contract",
+          "failure mode 默认不变 variable/constraint",
+          "policy 与 delegation boundary extraction 正常"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D7",
+        title: "Normalizer, Gate, Renderer, Provenance",
+        doc: "02 Downstream Migration",
+        expected: [
+          "route-derived exception flow 有 missing_handler、provenance、report。",
+          "renderer 支持 main/child partial skeleton。"
+        ],
+        acceptance: [
+          "missing_handler 不重复",
+          "trace 包含 section/packet/span",
+          "readable report 展示 route-derived diagnostics"
+        ]
+      },
+      {
+        group: "downstream",
+        id: "D8",
+        title: "Bridge Deprecation and Deletion",
+        doc: "02 Downstream Migration",
+        expected: [
+          "failure bridge 降级为 condition-coverage guarded compatibility fallback。",
+          "bridge_failure_modes* docstrings 全部标记 D8 COMPATIBILITY FALLBACK。delegation bridge 保留为 active compatibility diagnostic helper（route-driven delegation diagnostics 是 residual work）。"
+        ],
+        acceptance: [
+          "failure bridges are condition-coverage guarded compatibility fallback",
+          "delegation bridge is active compatibility diagnostic helper (residual: route-driven delegation diagnostics)",
+          "legacy + worker-aware route-driven + fallback tests all pass (1270)"
+        ]
+      }
+    ];
+
+    const gates = [
+      ["Gate A", "Frontend contract ready: annotations exist, structural NL emits failure/input/output/delegation annotations."],
+      ["Gate B", "Downstream safe consumption ready: Stage 4 materializes route-derived exceptions and Stage 7 filters executable behavior."],
+      ["Gate C", "Worker-aware ready: route-derived exception flows survive worker-scoped flow/block/worker/render path."],
+      ["Gate D", "Diagnostics/provenance ready: missing_handler exactly-once after consolidation, direct span/section/packet provenance for main and child exception flows, feedback report names failure condition and evidence. Delegation diagnostics remain bridge-driven (residual)."],
+      ["Gate E", "Bridge bounded fallback: failure bridges are condition-coverage guarded compatibility fallback; delegation bridge remains active diagnostic helper pending route-driven delegation diagnostics (residual work)."]
+    ];
+
+    const statusOptions = [
+      ["not-started", "Not Started"],
+      ["in-progress", "In Progress"],
+      ["review", "Ready for Review"],
+      ["done", "Done"],
+      ["blocked", "Blocked"]
+    ];
+
+    function statusClass(status) {
+      return "status-" + (status || "not-started");
+    }
+
+    function phaseTemplate(phase) {
+      const status = statusOptions.map(([value, label]) =>
+        `<option value="${value}">${label}</option>`
+      ).join("");
+      const expected = phase.expected.map(item => `<li>${item}</li>`).join("");
+      const acceptance = phase.acceptance.map((item, index) => `
+        <li class="check-item">
+          <input type="checkbox" data-track="${phase.id}.acceptance.${index}">
+          <span>${item}</span>
+        </li>
+      `).join("");
+      return `
+        <article class="phase-card" id="${phase.id}">
+          <div class="phase-head">
+            <div>
+              <h3><span class="badge required">${phase.id}</span>${phase.title}</h3>
+              <p class="subtle">${phase.doc}</p>
+            </div>
+            <div>
+              <label for="${phase.id}.status">状态</label>
+              <select id="${phase.id}.status" data-track="${phase.id}.status">${status}</select>
+            </div>
+            <div>
+              <label for="${phase.id}.reviewDecision">PM 结论</label>
+              <select id="${phase.id}.reviewDecision" data-track="${phase.id}.reviewDecision">
+                <option value="">未审核</option>
+                <option value="approved">通过</option>
+                <option value="changes-requested">要求修改</option>
+                <option value="blocked">阻塞</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div>
+              <label for="${phase.id}.owner">Owner</label>
+              <input id="${phase.id}.owner" data-track="${phase.id}.owner" placeholder="负责人">
+            </div>
+            <div>
+              <label for="${phase.id}.start">开始日期</label>
+              <input id="${phase.id}.start" data-track="${phase.id}.start" type="date">
+            </div>
+            <div>
+              <label for="${phase.id}.end">完成日期</label>
+              <input id="${phase.id}.end" data-track="${phase.id}.end" type="date">
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 12px;">
+            <div>
+              <label>阶段目标</label>
+              <ul>${expected}</ul>
+            </div>
+            <div>
+              <label>验收项</label>
+              <ul class="checklist">${acceptance}</ul>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 12px;">
+            <div>
+              <label for="${phase.id}.codeChanges">代码改动记录</label>
+              <textarea id="${phase.id}.codeChanges" data-track="${phase.id}.codeChanges" placeholder="涉及文件、关键改动、迁移点、兼容策略。"></textarea>
+            </div>
+            <div>
+              <label for="${phase.id}.tests">测试与命令</label>
+              <textarea id="${phase.id}.tests" data-track="${phase.id}.tests" placeholder="测试命令、结果、失败项、未覆盖风险。"></textarea>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 12px;">
+            <div>
+              <label for="${phase.id}.evidence">证据链接 / 截图 / 输出</label>
+              <textarea id="${phase.id}.evidence" data-track="${phase.id}.evidence" placeholder="PR、commit、测试输出、intermediate JSON、report 摘要。"></textarea>
+            </div>
+            <div>
+              <label for="${phase.id}.risks">风险 / 后续事项</label>
+              <textarea id="${phase.id}.risks" data-track="${phase.id}.risks" placeholder="遗留问题、兼容风险、需要 PM 决策的点。"></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <label for="${phase.id}.pmNotes">PM 审核备注</label>
+            <textarea id="${phase.id}.pmNotes" data-track="${phase.id}.pmNotes" placeholder="审核意见、返工要求、进入下一阶段条件。"></textarea>
+          </div>
+        </article>
+      `;
+    }
+
+    function gateTemplate([id, text], index) {
+      const status = statusOptions.map(([value, label]) =>
+        `<option value="${value}">${label}</option>`
+      ).join("");
+      return `
+        <tr>
+          <td><strong>${id}</strong></td>
+          <td>${text}</td>
+          <td><select data-track="gate.${index}.status">${status}</select></td>
+          <td><textarea data-track="gate.${index}.notes" placeholder="填写证据、命令、PR、未完成项。"></textarea></td>
+        </tr>
+      `;
+    }
+
+    function render() {
+      document.getElementById("frontendPhases").innerHTML = phases
+        .filter(phase => phase.group === "frontend")
+        .map(phaseTemplate)
+        .join("");
+      document.getElementById("downstreamPhases").innerHTML = phases
+        .filter(phase => phase.group === "downstream")
+        .map(phaseTemplate)
+        .join("");
+      document.getElementById("gateRows").innerHTML = gates.map(gateTemplate).join("");
+    }
+
+    function collectData() {
+      const data = {};
+      document.querySelectorAll("[data-track]").forEach(element => {
+        const key = element.getAttribute("data-track");
+        if (!key) return;
+        if (element.type === "checkbox") {
+          data[key] = element.checked;
+        } else {
+          data[key] = element.value;
+        }
+      });
+      return data;
+    }
+
+    function applyData(data) {
+      document.querySelectorAll("[data-track]").forEach(element => {
+        const key = element.getAttribute("data-track");
+        if (!key || !(key in data)) return;
+        if (element.type === "checkbox") {
+          element.checked = Boolean(data[key]);
+        } else {
+          element.value = data[key];
+        }
+      });
+      updateMetrics();
+    }
+
+    function save() {
+      localStorage.setItem(storageKey, JSON.stringify(collectData(), null, 2));
+      const stamp = new Date().toLocaleString();
+      document.getElementById("saveState").textContent = `已保存：${stamp}`;
+      updateMetrics();
+    }
+
+    const _defaultData = {"F0.status":"done","F0.reviewDecision":"approved","F0.owner":"Codex","F0.start":"2026-05-20","F0.end":"2026-05-20","F0.acceptance.0":true,"F0.acceptance.1":true,"F0.acceptance.2":true,"F0.codeChanges":"tests/unit/test_input_adapters.py (+74): test_structural_adapter_semantic_packets_cover_all_seven_types, test_structural_adapter_hard_facts_delegation_intents_populated\ntests/unit/test_input_adapter_pipeline.py (+133): test_stage1_uncovered_section_spans_preserve_section_provenance, test_stage2_canonical_routing_per_packet_type\n\n未修改任何生产 .py 文件。","F0.tests":"pytest tests/unit/test_input_adapters.py tests/unit/test_input_adapter_pipeline.py -v  # 25 passed\npytest tests/unit/ -q  # 1168 passed","F0.evidence":"failure_mode → rules 断言中标注 CURRENT BASELINE (NOT target design)","F0.risks":"无","F0.pmNotes":"P2 已修复：raw_sections 七类 canonical title 显式断言已补入。","F1.status":"done","F1.reviewDecision":"approved","F1.owner":"Codex","F1.start":"2026-05-20","F1.end":"2026-05-20","F1.acceptance.0":true,"F1.acceptance.1":true,"F1.acceptance.2":true,"F1.acceptance.3":true,"F1.acceptance.4":true,"F1.acceptance.5":true,"F1.codeChanges":"src/nl2spl/adapters/structural_nl.py (+140/-33): strengthened failure_mode (target=EXCEPTION_FLOW, slot_target=condition, executable=False, compile_targets=['flow.exception.condition']), delegation (requires_contract=True, executable=False), inputs/outputs (resource_contract metadata, packet-level evidence)","F1.tests":"pytest tests/unit/test_input_adapters.py -v  # 22 passed (5 new F1)\npytest tests/unit/ -q  # 1173 passed","F1.evidence":"Failure hint: target=EXCEPTION_FLOW, slot_target=condition, executable=False. Input/output: resource_contract metadata. Delegation: requires_contract=True.","F1.risks":"无","F1.pmNotes":"P2 已修复：test_input_output_packets_non_executable_resource_contract 已补。","F2.status":"done","F2.reviewDecision":"approved","F2.owner":"Codex","F2.start":"2026-05-20","F2.end":"2026-05-20","F2.acceptance.0":true,"F2.acceptance.1":true,"F2.acceptance.2":true,"F2.codeChanges":"src/nl2spl/ir/field_route_ir.py (+111/-3): RouteAnnotation dataclass, annotations field, 6 helper methods. src/nl2spl/ir/__init__.py (+2/-1): export RouteAnnotation. tests/unit/test_field_route_ir.py (NEW): 19 tests.","F2.tests":"pytest tests/unit/test_field_route_ir.py -v  # 19 passed\npytest tests/unit/ -q  # 1192 passed","F2.evidence":"RouteAnnotation with executable/non-executable filtering. Old FieldRouteIR(behavior=[...]) compatible.","F2.risks":"无","F2.pmNotes":"P2 已修复：executable/non-executable helpers 保序，新增 TestBehaviorSpanOrdering。","F3.status":"done","F3.reviewDecision":"approved","F3.owner":"Codex","F3.start":"2026-05-20","F3.end":"2026-05-20","F3.acceptance.0":true,"F3.acceptance.1":true,"F3.acceptance.2":true,"F3.acceptance.3":true,"F3.codeChanges":"src/nl2spl/pipeline/stages/stage2_field_router.py (+179): _ANNOTATION_SEMANTICS, _build_hint_indexes (dual-by-packet+section), _build_packet_annotation, _build_section_annotation, _enrich_from_hints (full conflict detection), _hint_category_for. tests/unit/test_input_adapter_pipeline.py (+169): 9 F3 tests.","F3.tests":"pytest tests/unit/test_input_adapter_pipeline.py tests/unit/test_field_router.py tests/unit/test_field_route_ir.py -v  # 48 passed\npytest tests/unit/ -q  # 1201 passed","F3.evidence":"failure_mode: annotation field=behavior, EXCEPTION_FLOW.condition, executable=False, old list still rules. resource_contract: not routed, executable=False. delegation: non-executable boundary. process_step: executable=True. generic NL: annotations==[].","F3.risks":"P2-1+P2-2 已修复：hint conflict detection 完整 + section-level index fallback。","F3.pmNotes":"P2-1+P2-2 已修复。test_hint_conflict_recorded_as_diagnostic + test_section_only_hints_populate_source_hint_ids。","F4.status":"done","F4.reviewDecision":"approved","F4.owner":"Codex","F4.start":"2026-05-20","F4.end":"2026-05-20","F4.acceptance.0":true,"F4.acceptance.1":true,"F4.acceptance.2":true,"F4.acceptance.3":true,"F4.codeChanges":"src/nl2spl/pipeline/stages/stage3_ambiguity_resolver.py (+83):\n- _find_parent_span(): lookup helper\n- _derive_child_annotation(): clone parent annotation + adjust field/semantics per F4 table (rules→constraint, behavior→executable, failure_mode exception)\n- execute(): child spans inherit source_section_id/source_packet_id from parent; non-ambiguous annotations preserved; derived child annotations from resolved routes\n\ntests/unit/test_ambiguity_resolver.py (+208):\n- TestF4AnnotationAwareResolver: 6 tests\n  - no-ambiguity preserves original routes object, child provenance inheritance, non-ambiguous annotation preserved, action/policy split annotations, failure_mode stays non-executable, checkpoint includes annotations","F4.tests":"pytest tests/unit/test_ambiguity_resolver.py -v  # 16 passed (10 existing + 6 new)\npytest tests/unit/ -q  # 1207 passed","F4.evidence":"Child span inherits source_section_id/packet_id from parent. Action/policy split: behavior child → executable=True, rules child → semantic_role=constraint, executable=False. Failure_mode: stays executable=False regardless of child field. Non-ambiguous annotations preserved.","F4.risks":"无","F4.pmNotes":"P2 已修复：delegation boundary protection 已补，新增 test_delegation_split_stays_non_executable。","D0.status":"done","D0.reviewDecision":"approved","D0.owner":"Codex","D0.start":"2026-05-20","D0.end":"2026-05-20","D0.acceptance.0":true,"D0.acceptance.1":true,"D0.codeChanges":"tests/unit/test_flow_assembler.py: TestD0Stage4Baseline (baseline: annotations present → flow output same). tests/unit/test_step_extractor.py: TestD0Stage7Baseline (annotations → steps same). tests/unit/test_failure_mode_bridge.py: TestD0BridgeFirstBaseline (bridge baseline — now historical; D8 made bridge into condition-coverage fallback). tests/unit/pipeline/stages/test_stage3_5_worker_boundary_planner.py: worker planner tolerates annotations.\n\nZERO production code changes in D0.","D0.tests":"pytest tests/unit/ -q  # 1270 final","D0.evidence":"Historical baseline: Stage 4/7 output unchanged with annotations. Worker planner tolerates annotation-bearing routes. Bridge baseline: recorded pre-D8 behavior — now superseded by D8 condition-coverage fallback.","D0.risks":"无","D0.pmNotes":"","D1.status":"done","D1.reviewDecision":"approved","D1.owner":"Codex","D1.start":"2026-05-20","D1.end":"2026-05-20","D1.acceptance.0":true,"D1.acceptance.1":true,"D1.acceptance.2":true,"D1.acceptance.3":true,"D1.codeChanges":"src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/prompt_builder.py: separate executable/non-executable spans in candidate and decision prompts\nsrc/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/materializer.py: D1 guard rejects child workers whose owned spans are all non-executable\nsrc/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/executor.py: pass annotations to materializer\n\ntests/unit/pipeline/stages/test_stage3_5_worker_boundary_planner.py (+100): 4 D1 materializer tests","D1.tests":"pytest tests/unit/ -q  # 1270 final","D1.evidence":"Pure failure_mode spans → materializer rejects child worker. Pure delegation_intent → rejected. Mixed (executable + non-executable) → passes. No annotations → old behavior preserved.","D1.risks":"无","D1.pmNotes":"","D2.status":"done","D2.reviewDecision":"approved","D2.owner":"Codex","D2.start":"2026-05-20","D2.end":"2026-05-20","D2.acceptance.0":true,"D2.acceptance.1":true,"D2.codeChanges":"src/nl2spl/pipeline/fact_bridges.py (+52): materialize_route_exception_flows() – consumes RouteAnnotations targeting EXCEPTION_FLOW.condition, creates partial ExceptionFlow skeletons, dedup by condition text\nsrc/nl2spl/pipeline/stages/stage4_flow_assembler/executor.py (+6): call materialize_route_exception_flows() after _assemble_flow()\n\ntests/unit/test_flow_assembler.py (+178): 5 D2 tests + updated D0 test\n\nBridge dedup handles route+bridge no-duplicate automatically – no orchestrator change needed.","D2.tests":"pytest tests/unit/ -q  # 1270 final","D2.evidence":"Stage 4 input: failure annotation (s1, EXCEPTION_FLOW.condition, executable=False) → Output: ExceptionFlow(flow_id='exc_adapter_00', condition_text='Missing timeframe.', spans=['s1']). LLM already has exception → deduped. Bridge + route → no duplicate. Non-failure annotation (delegation) → ignored.","D2.risks":"无","D2.pmNotes":"","D6.status":"done","D6.reviewDecision":"approved","D6.owner":"Codex","D6.start":"2026-05-20","D6.end":"2026-05-20","D6.acceptance.0":true,"D6.acceptance.1":true,"D6.codeChanges":"src/.../stage7_step_extractor/extractor.py: get_executable_behavior_span_ids() for candidate selection; non-exec context in prompt; post-processing guard drops steps from non-executable-only spans; unmapped diagnostics skip non-executable\nsrc/.../stage7_step_extractor/worker_scoped.py: same filtering + guard + unmapped skip for worker-scoped path\n\ntests/unit/test_step_extractor.py: 4 D6 tests (failure no command, process still command, fallback, unmapped skip)","D6.tests":"pytest tests/unit/ -q  # 1270 final","D6.evidence":"Before: routes.behavior (all) → step candidates. After: routes.get_executable_behavior_span_ids() (only executable). Failure span 's1' with LLM command → guard drops it, diagnostic 'non_executable_route_material_excluded'. Process span 's2' → command still works. No-annotation fallback → routes.behavior preserved. Unmapped diagnostic skips non-executable spans.","D6.risks":"无","D6.pmNotes":"","D4.status":"done","D4.reviewDecision":"approved","D4.owner":"Codex","D4.start":"2026-05-20","D4.end":"2026-05-20","D4.codeChanges":"prompts/stage5_system.txt: rule 5b – condition-only flows are partial skeletons, do NOT invent handler blocks\nsrc/.../stage5_block_assembler/executor.py (+36): _guard_condition_only_exception_blocks() – strips fabricated handler blocks from exc_adapter_* flows, preserves empty entries for condition-only flows\ntests/unit/test_block_assembler.py: 4 D4 tests","D4.tests":"pytest tests/unit/ -q  # 1270 final","D4.evidence":"Condition-only ExceptionFlow(exc_adapter_00, 'Missing timeframe.', ['s1']) → Stage 5 output: exception_flow_blocks['exc_adapter_00'] = []. LLM-fabricated SEQUENTIAL block for exc_adapter_00 → stripped. Source-backed exc_1 with handler span → preserved. Prompt contains exception flow id + condition text.","D4.risks":"无","D4.pmNotes":"","D3.status":"done","D3.reviewDecision":"approved","D3.owner":"Codex","D3.start":"2026-05-20","D3.end":"2026-05-20","D3.acceptance.0":true,"D3.codeChanges":"stage4/executor.py: _materialize_worker_exceptions() — ownership-driven assignment (span_id→owner list; len=1→target worker, len=0→main+unowned warning, len>1→main+ambiguous warning). fact_bridges.py: bridge_failure_modes_worker_scoped dedup across ALL worker flows.\n\ntests/.../test_worker_aware_flow_assembler.py: 5 D3 tests (main/child/unowned/ambiguous/route+dedupe). test_worker_aware_block_assembler.py: 2 D3 tests (partial skeleton + source-backed preserve). test_worker_assembler.py: 2 D3 (main/child exception ref spans).","D3.tests":"pytest tests/unit/ -q  # 1270 final","D3.evidence":"Ownership-driven: child-owned s2→child flow only (main no duplicate). Unowned→main+warning. Ambiguous (multi-owner)→main+ambiguous warning. Worker Stage 5 preserves partial skeleton. Stage 10 copies ExceptionFlow.spans to ExceptionFlowRef.spans. Bridge dedup across all worker flows.","D3.risks":"无","D3.pmNotes":"","D5.status":"done","D5.reviewDecision":"approved","D5.owner":"Codex","D5.start":"2026-05-20","D5.end":"2026-05-20","D5.codeChanges":"stage6/worker_scoped.py: preserve annotations in scoped FieldRouteIR construction (main + child)\nstage8_profile_extractor.py: enrich domain spans with profile_domain annotations\nstage9_constraint_extractor.py: exclude failure_mode annotated spans from rules when annotations present\n\ntests/unit/test_input_adapter_pipeline.py: 4 D5 tests (Stage 6 hard facts, Stage 9 failure exclusion, Stage 8 profile, worker-scoped annotations)","D5.tests":"pytest tests/unit/ -q  # 1270 final","D5.evidence":"Stage 6: hard-fact input/output authoritative variables preserved. Stage 9: prompt shows policy span but excludes failure_mode span. Stage 8: profile_domain annotation enriches domain context. Worker-scoped Stage 6: annotations preserved in scoped routes.","D5.risks":"无","D5.pmNotes":"","D7.status":"done","D7.reviewDecision":"approved","D7.owner":"Codex","D7.start":"2026-05-20","D7.end":"2026-05-20","D7.codeChanges":"ExceptionFlowRef.spans field added; Stage 10 copies ExceptionFlow.spans (legacy+worker-scoped+child). Provenance _trace_flows reads spans from ExceptionFlowRef; child worker exception flows traced with worker-qualified target. Normalizer test checks normalized output (not original steps). Renderer legacy+child partial skeleton tests. Missing-handler consolidation exactly-once test. Feedback report evidence test.","D7.tests":"pytest tests/unit/ -q  # 1270 passed","D7.evidence":"Normalizer: exc_adapter_00 survives with empty blocks, normalized steps have no fabricated handler. Renderer: [EXCEPTION_FLOW: Missing timeframe] ... [END_EXCEPTION_FLOW] with no COMMAND. Child renderer: child worker partial exception renders. Provenance: direct trace with source_span_ids=['s_fail'], source_section_id='sec_failure_handling', source_packet_id='p_failure_mode_missing'. Child provenance: worker-qualified target with direct span/section/packet. Missing-handler: consolidation dedupes duplicate to exactly one. Feedback report: all evidence present.","D7.risks":"无","D7.pmNotes":"","D8.status":"done","D8.reviewDecision":"approved","D8.owner":"Codex","D8.start":"2026-05-20","D8.end":"2026-05-20","D8.codeChanges":"src/nl2spl/pipeline/orchestrator.py: _bridge_fallback_needed() + _bridge_fallback_needed_worker_scoped() guards; bridge calls now conditional\nsrc/nl2spl/pipeline/fact_bridges.py: D8 deprecation comments on all three bridge functions\n\n tests/unit/test_flow_assembler.py: 3 D8 tests (bridge skipped, fallback works, guard logic)\ntests/unit/test_failure_mode_bridge.py: rewrote D0 wording from primary path to fallback","D8.tests":"pytest tests/unit/ -q  # 1270 passed","D8.evidence":"Failure bridge guard: condition-coverage based (normalize each hard-fact condition vs existing exception flows; uncovered only trigger fallback). Covered→skip, unrelated→fallback, mixed→fallback, empty→fallback. Worker-scoped guard: covered/unrelated/mixed all correct. Delegation bridge: retained as compatibility diagnostic helper with clear residual note (route-driven delegation diagnostics not yet implemented). spy_bridge.assert_not_called() locks orchestrator path. Bridge docstrings: all three marked D8 COMPATIBILITY FALLBACK.","D8.risks":"delegation bridge remains active as compatibility helper; route-driven delegation diagnostics are residual work.","D8.pmNotes":"","D9.status":"done","D9.reviewDecision":"approved","D10.status":"done","D10.reviewDecision":"approved","D11.status":"done","D11.reviewDecision":"approved"};
+
+    function load() {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        applyData(_defaultData);
+        updateMetrics();
+        return;
+      }
+      try {
+        applyData(JSON.parse(raw));
+        document.getElementById("saveState").textContent = "已加载本地记录";
+      } catch {
+        document.getElementById("saveState").textContent = "本地记录解析失败";
+      }
+    }
+
+    function exportJson() {
+      const data = collectData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "route_contract_refactor_progress.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result || "{}"));
+          applyData(data);
+          save();
+          document.getElementById("saveState").textContent = "已导入并保存 JSON";
+        } catch {
+          document.getElementById("saveState").textContent = "导入失败：JSON 无效";
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function reset() {
+      const ok = window.confirm("确认清空本地保存的进度记录？页面中的当前填写内容也会清空。");
+      if (!ok) return;
+      localStorage.removeItem(storageKey);
+      document.querySelectorAll("[data-track]").forEach(element => {
+        if (element.type === "checkbox") {
+          element.checked = false;
+        } else {
+          element.value = "";
+        }
+      });
+      document.getElementById("saveState").textContent = "已清空";
+      updateMetrics();
+    }
+
+    function updateMetrics() {
+      const statuses = phases.map(phase => {
+        const element = document.querySelector(`[data-track="${phase.id}.status"]`);
+        return element ? element.value : "not-started";
+      });
+      const done = statuses.filter(status => status === "done").length;
+      const review = statuses.filter(status => status === "review").length;
+      const blocked = statuses.filter(status => status === "blocked").length;
+      const progress = Math.round((done / phases.length) * 100);
+      document.getElementById("metricDone").textContent = String(done);
+      document.getElementById("metricReview").textContent = String(review);
+      document.getElementById("metricBlocked").textContent = String(blocked);
+      document.getElementById("metricProgress").textContent = `${progress}%`;
+      document.getElementById("overallProgress").style.width = `${progress}%`;
+
+      document.querySelectorAll("select[data-track$='.status'], select[data-track^='gate.']").forEach(select => {
+        select.className = statusClass(select.value);
+      });
+    }
+
+    render();
+    load();
+    document.getElementById("saveBtn").addEventListener("click", save);
+    document.getElementById("exportBtn").addEventListener("click", exportJson);
+    document.getElementById("importFile").addEventListener("change", event => {
+      importJson(event.target.files[0]);
+      event.target.value = "";
+    });
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+    document.getElementById("resetBtn").addEventListener("click", reset);
+    document.addEventListener("change", event => {
+      if (event.target.matches("[data-track]")) {
+        updateMetrics();
+        save();
+      }
+    });
+    document.addEventListener("input", event => {
+      if (event.target.matches("[data-track]")) {
+        updateMetrics();
+      }
+    });
+  </script>
+</body>
+</html>

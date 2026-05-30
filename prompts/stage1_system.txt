@@ -13,30 +13,106 @@ text into semantically complete spans.
    - A list → split each item into its own span
    - A paragraph → split by semantic unit, not by line break
 
-3. **Strip Structural Labels**: If the original text has section headers
-   in the form "Label: content" (e.g. "Task family: newsletters..."),
-   strip the label and colon and include only the content in the span text.
-   Exception: keep the label if it is itself part of the semantic content
-   (e.g. "API name: arXiv" where the label names a concept).
+3. **Strip All Structural Markers**: Remove these patterns from span text:
 
-4. **Preserve Original Text**: Apart from the label-stripping rule above,
-   the span text must be an exact verbatim copy of the original. Do not
-   rewrite, paraphrase, translate, or summarize.
+   Markdown headers:
+   - `#`, `##`, `###` → remove the marker.
+   - If the header text (in lowercase) matches one of these known
+     organizational titles — "task family", "inputs for each run",
+     "required outputs", "reusable process", "policies", "failure
+     handling", "delegation policy" — strip the entire header;
+     do NOT produce a span for it.
+   - Otherwise, keep the text as a span (it names a concept, e.g.
+     "## API Reference").
+
+   Bold labels:
+   - `**Label:**` at the start of a line → strip both the `**`, the
+     `Label:`, and any immediately following inline markdown
+     (e.g. `_emphasis_`, `*italic*`); keep only the plain text content.
+
+   Bullet markers:
+   - `-`, `*`, `+` at the start of a list item → strip the marker;
+     keep only the item text.
+
+   Number markers:
+   - `1.`, `2.`, `3.` (etc.) at the start of an ordered list item →
+     strip the marker; keep only the step text.
+
+   En-dash meta-labels:
+   - `Title – MetaLabel` where MetaLabel contains any of the keywords:
+     "Description", "Document", "Specification", "Guide" → strip the
+     `– MetaLabel` portion and keep only the Title.
+   - DO NOT strip en-dash phrases that contain version information,
+     scope qualifiers, or proper nouns (e.g. "API Design – v2.0",
+     "Data Processing – With External Sources").
+
+4. **Preserve Original Text**: Apart from the structural-marker stripping
+   defined in Rule 3, the span text must be an exact verbatim copy of
+   the original. Do not rewrite, paraphrase, translate, or summarize.
+
+   Exception: structural markers listed in Rule 3 (markdown headers,
+   bold labels, bullet markers, number markers, en-dash meta-labels)
+   are excluded from the verbatim requirement — removing them is not
+   "rewriting", it is structural cleanup.
 
 5. **Maintain Order**: Spans must appear in the same order as the original
    text.
 
-6. **No Omission**: Every sentence and clause in the original text must
-   appear in exactly one span. Nothing may be dropped.
+6. **No Omission of Semantic Content**: Every semantic clause and sentence
+   must appear in exactly one span. However, organizational headers
+   (those whose lowercase text matches the whitelist in Rule 3) serve
+   only to label subsequent content; they are NOT semantic content
+   (they do not express a complete thought or clause) and should be
+   stripped, NOT included as spans.
+
+## Common Errors (DO NOT PRODUCE THESE)
+
+BAD:  {"text": "Task family: Internal newsletters, announcements..."}
+   REASON: Label "Task family:" must be stripped.
+   GOOD: {"text": "Internal newsletters, announcements..."}
+
+BAD:  {"text": "A user request, optional known topics, optional timeframe..."}
+   REASON: List items must each be a separate span.
+   GOOD: {"text": "A user request"}, {"text": "optional known topics"}, ...
+
+BAD:  {"text": "1. Receive request"}
+   REASON: Number marker must be stripped.
+   GOOD: {"text": "Receive request"}
+
+BAD:  {"text": "## Inputs for Each Run"}
+   REASON: Organizational headers must NOT appear as spans.
+   GOOD: Do not produce this span; include its subsection content instead.
+
+BAD:  {"text": "Internal Communications Drafting – Structural Requirement Description"}
+   REASON: "– Structural Requirement Description" is a meta-label;
+           strip it (contains keyword "Description").
+   GOOD: {"text": "Internal Communications Drafting"}
+
+BAD (from a different domain — API spec input):
+       {"text": "Endpoint: POST /api/v1/users"}
+   REASON: Label "Endpoint:" must be stripped.
+   GOOD: {"text": "POST /api/v1/users"}
+
+BAD (from a different domain — policy document input):
+       {"text": "## Rules and Regulations"}
+   REASON: Keep this — "Rules and Regulations" names a concept,
+           not an organizational header.
+   GOOD: {"text": "Rules and Regulations"}
 
 ## Output Format
 
 Output valid JSON only, no markdown fences:
 {
   "spans": [
-    {"span_id": "s1", "text": "..."},
-    {"span_id": "s2", "text": "..."}
+    {
+      "span_id": "s1",
+      "text": "...",
+      "section_context": "the nearest section header this span falls under, or null if at document top-level"
+    }
   ]
 }
+
+Note: span_id values will be reassigned by the pipeline. Use any valid
+format (e.g. s1, s2) — the pipeline will renumber them.
 
 span_id format: s{N}, starting from s1, incrementing by 1.

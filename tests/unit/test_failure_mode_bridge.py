@@ -458,3 +458,237 @@ class TestWorkerScopedFailureModeBridge:
 
         assert len(result.worker_flows["w_main"].exception_flows) == 1
         assert result.worker_flows["w_child"] == child_flow
+
+
+# ===========================================================================
+# D0: Bridge-first failure materialization baseline
+# ===========================================================================
+
+
+# ===========================================================================
+# D10: Baseline delegation diagnostics before route-driven migration
+# ===========================================================================
+
+
+def test_d10_bridge_delegation_baseline_pure_intent_emits_diagnostic() -> None:
+    """D10 baseline: bridge emits type_or_contract_ambiguity for pure delegation intent."""
+    spans = [_span("s_del", "sec_delegation_policy")]
+    diags = bridge_delegation_intents(
+        [_dintent("source_gathering")], handoffs=None, spans=spans,
+    )
+    assert len(diags) == 1
+    assert diags[0].kind == "type_or_contract_ambiguity"
+    assert "source_gathering" in diags[0].message
+
+
+def test_d10_bridge_delegation_baseline_valid_handoff_suppresses() -> None:
+    """D10 baseline: valid invoke handoff suppresses delegation diagnostic."""
+    spans = [_span("s_del", "sec_delegation_policy")]
+    h = _invoke_handoff("h1", to_worker="w_child")
+    diags = bridge_delegation_intents(
+        [_dintent("source_gathering")], handoffs=[h], spans=spans,
+        known_child_worker_ids={"w_child"},
+    )
+    assert diags == []
+
+
+# ===========================================================================
+# D10: Route-driven delegation diagnostic tests
+# ===========================================================================
+
+
+class TestD10RouteDrivenDelegation:
+    """D10: route-driven delegation diagnostics from annotations."""
+
+    def test_pure_delegation_annotation_emits_diagnostic(self) -> None:
+        from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+        from nl2spl.pipeline.delegation_diagnostics import (
+            diagnose_delegation_intents_from_routes,
+        )
+
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                    source_section_id="sec_delegation_policy",
+                    source_packet_id="p_delegation_rule_gather",
+                ),
+            ],
+        )
+        spans = [_span("s_del", "sec_delegation_policy")]
+
+        diags = diagnose_delegation_intents_from_routes(routes, spans)
+        assert len(diags) == 1
+        assert diags[0].kind == "type_or_contract_ambiguity"
+        assert "source_gathering" not in diags[0].message  # uses span text
+        assert diags[0].target_ref == "delegation_intent:s_del"
+        assert diags[0].source_span_ids == ["s_del"]
+        assert "sec_delegation_policy" in diags[0].message
+        assert "p_delegation_rule_gather" in diags[0].message
+
+    def test_valid_handoff_suppresses_diagnostic(self) -> None:
+        from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+        from nl2spl.ir.worker_plan_ir import (
+            InputBindingIR, InvokeLocationHintIR, OutputBindingIR,
+            WorkerHandoffIR, WorkerPlanIR, WorkerSpecIR,
+        )
+        from nl2spl.pipeline.delegation_diagnostics import (
+            diagnose_delegation_intents_from_routes,
+        )
+
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+            ],
+        )
+        spans = [_span("s_del", "sec_delegation_policy")]
+        handoff = WorkerHandoffIR(
+            handoff_id="h1", from_worker="w_main", to_worker="w_child",
+            api_ref=None, mode="invoke", condition_text=None, ordering="after",
+            input_bindings=[InputBindingIR("a", "b", True)],
+            output_bindings=[OutputBindingIR("c", "d", True, "set")],
+            invoke_location_hint=InvokeLocationHintIR(
+                flow_kind="main", flow_id=None,
+                after_span_id="s_del", before_span_id=None,
+                block_hint="unknown",
+            ),
+        )
+        wp = WorkerPlanIR(
+            main_worker_id="w_main",
+            workers=[
+                WorkerSpecIR("w_main", "Main", "main", "Main", [],
+                             input_contract=[], output_contract=[],
+                             boundary_kind="main_worker"),
+                WorkerSpecIR("w_child", "Child", "child", "Child", [],
+                             input_contract=[], output_contract=[],
+                             boundary_kind="bounded_subtask"),
+            ],
+            handoffs=[handoff],
+        )
+
+        diags = diagnose_delegation_intents_from_routes(routes, spans, wp)
+        assert diags == [], f"Valid handoff must suppress diagnostic: {diags}"
+
+    def test_no_annotations_returns_empty(self) -> None:
+        from nl2spl.ir.field_route_ir import FieldRouteIR
+        from nl2spl.pipeline.delegation_diagnostics import (
+            diagnose_delegation_intents_from_routes,
+        )
+        routes = FieldRouteIR(behavior=["s1"])  # no delegation annotations
+        spans = [_span("s1", "sec_x")]
+        assert diagnose_delegation_intents_from_routes(routes, spans) == []
+
+    def test_api_call_handoff_suppresses_diagnostic(self) -> None:
+        from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+        from nl2spl.ir.worker_plan_ir import (
+            InputBindingIR, InvokeLocationHintIR,
+            WorkerHandoffIR, WorkerPlanIR, WorkerSpecIR,
+        )
+        from nl2spl.pipeline.delegation_diagnostics import (
+            diagnose_delegation_intents_from_routes,
+        )
+
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+            ],
+        )
+        spans = [_span("s_del", "sec_delegation_policy")]
+        handoff = WorkerHandoffIR(
+            handoff_id="h_api", from_worker="w_main", to_worker=None,
+            api_ref="SearchAPI", mode="api_call",
+            condition_text=None, ordering="after",
+            input_bindings=[InputBindingIR("q", "query", True)],
+            output_bindings=[],
+            invoke_location_hint=InvokeLocationHintIR(
+                flow_kind="main", flow_id=None,
+                after_span_id="s_del", before_span_id=None,
+                block_hint="unknown",
+            ),
+        )
+        wp = WorkerPlanIR(
+            main_worker_id="w_main",
+            workers=[
+                WorkerSpecIR("w_main", "Main", "main", "Main", [],
+                             input_contract=[], output_contract=[],
+                             boundary_kind="main_worker"),
+            ],
+            handoffs=[handoff],
+        )
+
+        # Valid API handoff with declared API → suppressed
+        diags = diagnose_delegation_intents_from_routes(
+            routes, spans, wp, declared_apis={"SearchAPI"},
+        )
+        assert diags == [], "Valid API handoff must suppress diagnostic"
+
+        # Undeclared API → diagnostic emitted
+        diags_undeclared = diagnose_delegation_intents_from_routes(
+            routes, spans, wp, declared_apis=set(),
+        )
+        assert len(diags_undeclared) == 1, "Undeclared API must emit diagnostic"
+
+    def test_span_not_found_skips(self) -> None:
+        from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+        from nl2spl.pipeline.delegation_diagnostics import (
+            diagnose_delegation_intents_from_routes,
+        )
+        routes = FieldRouteIR(
+            behavior=[],
+            annotations=[
+                RouteAnnotation(span_id="s_missing", field="behavior",
+                                semantic_role="delegation_intent"),
+            ],
+        )
+        spans: list[SpanIR] = []
+        assert diagnose_delegation_intents_from_routes(routes, spans) == []
+
+
+class TestD0BridgeFirstBaseline:
+    """D8: bridge_failure_modes() is a hard-fact-only compatibility fallback."""
+
+    def test_bridge_still_creates_exception_flow_from_hard_facts(self) -> None:
+        """D8: hard-fact failure modes bridge into partial ExceptionFlow
+        as a compatibility fallback when route annotations are absent."""
+        spans = [
+            _span("s1", "sec_failure_handling"),
+            _span("s2", "sec_other"),
+        ]
+        facts = [
+            _fact("missing_timeframe", "Missing timeframe.", "sec_failure_handling"),
+            _fact("conflicting", "Conflicting instructions.", "sec_other"),
+        ]
+
+        result = bridge_failure_modes(facts, spans, FlowStructureIR())
+
+        assert len(result.exception_flows) == 2
+        conditions = {exc.condition_text for exc in result.exception_flows}
+        assert "Missing timeframe." in conditions
+        assert "Conflicting instructions." in conditions
+
+    def test_bridge_does_not_create_handler_steps(self) -> None:
+        """D0: bridge still creates condition-only partial exception flows."""
+        spans = [_span("s1", "sec_failure_handling")]
+        facts = [_fact("missing_timeframe", "Missing timeframe.", "sec_failure_handling")]
+
+        result = bridge_failure_modes(facts, spans, FlowStructureIR())
+
+        exc = result.exception_flows[0]
+        assert exc.condition_text == "Missing timeframe."
+        # No handler blocks/steps — bridge is condition-only

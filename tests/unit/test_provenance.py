@@ -926,3 +926,95 @@ class TestVariableFactProvenance:
         vt_no = next(t for t in traces if t.target_ref == "variable:no_fact")
         assert vt_has.source_section_id == "sec_inputs_for_each_run"
         assert vt_no.relation == "assumed"
+
+
+# ===========================================================================
+# D7: Provenance traces route-derived exception flow span evidence
+# ===========================================================================
+
+
+def test_d7_provenance_traces_exception_flow_span_evidence() -> None:
+    """D7: empty-block exception flow traces span_id, section_id, packet_id."""
+    from nl2spl.ir.worker_ir import ExceptionFlowRef
+
+    span = SpanIR(
+        "s_fail", "Missing timeframe.",
+        source_section_id="sec_failure_handling",
+        source_packet_id="p_failure_mode_missing",
+    )
+    worker = WorkerIR(
+        worker_name="Main",
+        description="Test.",
+        steps=[],
+        exception_flows=[
+            ExceptionFlowRef(
+                flow_id="exc_adapter_00",
+                condition_text="Missing timeframe.",
+                blocks=[],
+                spans=["s_fail"],  # D7: populated from Stage 10 ExceptionFlow.spans
+            ),
+        ],
+    )
+    aggregator = ProvenanceAggregator()
+    traces, _ = aggregator.aggregate(
+        worker, [], [],
+        ResourceRegistryIR(), SymbolTable(), [span],
+    )
+
+    flow_traces = [t for t in traces if t.target_ref == "flow:exc_adapter_00"]
+    assert len(flow_traces) == 1
+    trace = flow_traces[0]
+    assert trace.relation == "direct", (
+        f"With spans populated, relation must be direct: got {trace.relation}"
+    )
+    assert "s_fail" in trace.source_span_ids
+    assert trace.source_section_id == "sec_failure_handling"
+    assert trace.source_packet_id == "p_failure_mode_missing"
+
+
+def test_d7_child_worker_exception_flow_provenance() -> None:
+    """D7: child worker exception flow traced with worker-qualified target."""
+    from nl2spl.ir.worker_ir import ChildWorkerIR, ExceptionFlowRef, FlowRef
+
+    span = SpanIR(
+        "s_child_fail", "Evidence shortage.",
+        source_section_id="sec_failure_handling",
+        source_packet_id="p_failure_mode_evidence",
+    )
+    child = ChildWorkerIR(
+        worker_name="ChildWorker",
+        description="Child.",
+        task_text="Delegate task.",
+        steps=[],
+        main_flow=FlowRef(),
+        exception_flows=[
+            ExceptionFlowRef(
+                flow_id="exc_adapter_01",
+                condition_text="Evidence shortage.",
+                blocks=[],
+                spans=["s_child_fail"],
+            ),
+        ],
+    )
+    worker = WorkerIR(
+        worker_name="Main",
+        description="Test.",
+        steps=[],
+        child_workers=[child],
+    )
+    aggregator = ProvenanceAggregator()
+    traces, _ = aggregator.aggregate(
+        worker, [], [],
+        ResourceRegistryIR(), SymbolTable(), [span],
+    )
+
+    child_traces = [
+        t for t in traces
+        if "ChildWorker" in t.target_ref and "exc_adapter_01" in t.target_ref
+    ]
+    assert len(child_traces) == 1, f"Expected 1 child flow trace, got {len(child_traces)}"
+    ct = child_traces[0]
+    assert ct.relation == "direct"
+    assert "s_child_fail" in ct.source_span_ids
+    assert ct.source_section_id == "sec_failure_handling"
+    assert ct.source_packet_id == "p_failure_mode_evidence"

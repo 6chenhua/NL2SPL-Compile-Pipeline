@@ -140,32 +140,54 @@ class StructuralNLAdapter(InputAdapter):
                 inputs = self._extract_variables(section, source="input")
                 hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
                 for fact in inputs:
-                    semantic_packets.append(
-                        self._packet(
-                            "runtime_input",
-                            section,
-                            fact.description,
-                            "hard_fact",
-                            ["resource.variable", "worker.input"],
-                            fact.name,
-                            fact.required,
-                        )
+                    packet = self._packet(
+                        "runtime_input",
+                        section,
+                        fact.description,
+                        "hard_fact",
+                        ["resource.variable", "worker.input"],
+                        fact.name,
+                        fact.required,
                     )
+                    packet.metadata.update({
+                        "route_family": "resource_contract",
+                        "semantic_role": "input_contract",
+                        "executable": False,
+                    })
+                    semantic_packets.append(packet)
+                    fact.evidence = [
+                        EvidenceRef(
+                            source_section_id=section.section_id,
+                            source_packet_id=packet.packet_id,
+                            quoted_text=fact.description,
+                        )
+                    ]
             elif title == "required_outputs":
                 outputs = self._extract_variables(section, source="output")
                 hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
                 for fact in outputs:
-                    semantic_packets.append(
-                        self._packet(
-                            "required_output",
-                            section,
-                            fact.description,
-                            "hard_fact",
-                            ["resource.variable", "worker.output"],
-                            fact.name,
-                            fact.required,
-                        )
+                    packet = self._packet(
+                        "required_output",
+                        section,
+                        fact.description,
+                        "hard_fact",
+                        ["resource.variable", "worker.output"],
+                        fact.name,
+                        fact.required,
                     )
+                    packet.metadata.update({
+                        "route_family": "resource_contract",
+                        "semantic_role": "output_contract",
+                        "executable": False,
+                    })
+                    semantic_packets.append(packet)
+                    fact.evidence = [
+                        EvidenceRef(
+                            source_section_id=section.section_id,
+                            source_packet_id=packet.packet_id,
+                            quoted_text=fact.description,
+                        )
+                    ]
             elif title == "reusable_process":
                 semantic_packets.extend(self._sentence_packets("process_step", section))
                 for text in self._split_sentences(section.text):
@@ -189,36 +211,76 @@ class StructuralNLAdapter(InputAdapter):
                         )
                     )
             elif title == "failure_handling":
-                modes = self._extract_failure_modes(section)
-                hard_facts.failure_modes.extend(modes)
-                for mode in modes:
+                for item in self._split_list_items(section.text):
+                    clean = self._clean_item(item)
+                    if not clean:
+                        continue
+                    name = self._variable_name(clean)
+                    display_text = clean[:1].upper() + clean[1:]
+                    packet_id = f"p_failure_mode_{name}"
                     semantic_packets.append(
                         self._packet(
                             "failure_mode",
                             section,
-                            mode.text,
+                            display_text,
                             "hard_fact",
-                            ["flow.exception"],
-                            mode.name,
+                            ["flow.exception.condition"],
+                            name,
                             None,
+                        )
+                    )
+                    hard_facts.failure_modes.append(
+                        FailureModeFact(
+                            name=name,
+                            text=display_text,
+                            source_section_id=section.section_id,
+                            evidence=[
+                                EvidenceRef(
+                                    source_section_id=section.section_id,
+                                    source_packet_id=packet_id,
+                                    quoted_text=display_text,
+                                )
+                            ],
                         )
                     )
                     compile_hints.flow_hints.append(
                         CompileHint(
                             source_section_id=section.section_id,
-                            text=mode.text,
+                            text=display_text,
+                            target="EXCEPTION_FLOW",
                             suggested_flow="exception",
-                            evidence=[self._make_evidence(section)],
+                            suggested_condition=display_text,
+                            evidence=[
+                                EvidenceRef(
+                                    source_section_id=section.section_id,
+                                    source_packet_id=packet_id,
+                                    quoted_text=display_text,
+                                )
+                            ],
+                            metadata={
+                                "route_family": "flow_relevant",
+                                "slot_target": "condition",
+                                "semantic_role": "failure_mode",
+                                "executable": False,
+                            },
                         )
                     )
             elif title == "delegation_policy":
                 semantic_packets.extend(self._sentence_packets("delegation_rule", section))
                 for text in self._split_sentences(section.text):
+                    name = self._variable_name(text)
+                    display_text = text[:1].upper() + text[1:]
+                    packet_id = f"p_delegation_rule_{name}"
+                    evidence = EvidenceRef(
+                        source_section_id=section.section_id,
+                        source_packet_id=packet_id,
+                        quoted_text=display_text,
+                    )
                     hard_facts.delegation_intents.append(
                         DelegationIntentFact(
-                            name=self._variable_name(text),
-                            text=text[:1].upper() + text[1:],
-                            evidence=[self._make_evidence(section)],
+                            name=name,
+                            text=display_text,
+                            evidence=[evidence],
                         )
                     )
                     compile_hints.delegation_hints.append(
@@ -226,7 +288,13 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=text,
                             suggested_type="child_worker_candidate",
-                            evidence=[self._make_evidence(section)],
+                            evidence=[evidence],
+                            metadata={
+                                "route_family": "delegation_boundary",
+                                "semantic_role": "delegation_intent",
+                                "requires_contract": True,
+                                "executable": False,
+                            },
                         )
                     )
                     compile_hints.constraint_hints.append(
@@ -234,7 +302,13 @@ class StructuralNLAdapter(InputAdapter):
                             source_section_id=section.section_id,
                             text=text,
                             suggested_kind="delegation_boundary",
-                            evidence=[self._make_evidence(section)],
+                            evidence=[evidence],
+                            metadata={
+                                "route_family": "delegation_boundary",
+                                "semantic_role": "delegation_intent",
+                                "requires_contract": True,
+                                "executable": False,
+                            },
                         )
                     )
 

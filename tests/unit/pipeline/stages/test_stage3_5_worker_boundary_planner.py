@@ -17,7 +17,7 @@ from nl2spl.canonical import (
 )
 from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.errors.exceptions import StageError
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
@@ -1422,3 +1422,325 @@ class TestStage35PromptInjection:
         # Main + child worker
         assert len(plan.workers) == 2
         assert len(plan.handoffs) == 1
+
+
+# ===========================================================================
+# D0: Worker planner baseline — annotations don't crash
+# ===========================================================================
+
+
+def test_d0_worker_planner_tolerates_annotation_bearing_routes(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+    sample_spans: list[SpanIR],
+) -> None:
+    """D0: WorkerBoundaryPlanner.execute() handles annotation-bearing FieldRouteIR."""
+    mock_client.call_json.return_value = base_plan(
+        workers=[main_worker(["s2", "s5"])],
+    )
+
+    routes = FieldRouteIR(
+        behavior=["s2", "s5"],
+        annotations=[
+            RouteAnnotation(
+                span_id="s2", field="behavior",
+                semantic_role="failure_mode",
+                construct_target="EXCEPTION_FLOW",
+                slot_target="condition",
+                executable=False,
+            ),
+            RouteAnnotation(
+                span_id="s5", field="behavior",
+                semantic_role="process_step",
+                executable=True,
+            ),
+        ],
+    )
+
+    plan = planner.execute((sample_spans, routes))
+
+    assert isinstance(plan, WorkerPlanIR)
+    assert plan.main_worker_id == "worker_main"
+    assert len(plan.workers) == 1
+
+
+# ===========================================================================
+# D1: Annotation-aware candidate extraction and materializer guards
+# ===========================================================================
+
+
+def _make_candidate(
+    cid: str, span_ids: list[str], purpose: str = "Test candidate",
+) -> CandidateTaskUnitIR:
+    return CandidateTaskUnitIR(
+        candidate_id=cid,
+        source_span_ids=span_ids,
+        task_text=purpose,
+        purpose=purpose,
+        candidate_kind="bounded_subtask",
+        possible_inputs=[
+            ContractFieldIR(name="input_var", data_type="text", required=True,
+                            description="input variable", source="input"),
+        ],
+        possible_outputs=[ContractFieldIR(
+            name="result", data_type="text", required=True, description="result",
+            source="output",
+        )],
+        signals=["test"],
+        risks=[],
+    )
+
+
+def _make_hard_fact_input() -> ContractFieldIR:
+    return ContractFieldIR(
+        name="input_var", data_type="text", required=True,
+        description="input variable", source="input",
+    )
+
+
+def _make_decision(cid: str) -> WorkerBoundaryDecisionIR:
+    return WorkerBoundaryDecisionIR(
+        candidate_id=cid,
+        decision="extract_child_worker",
+        boundary_strength="strong",
+        boundary_kind="bounded_subtask",
+        rejection_reason=None,
+        reason="Test decision.",
+        evidence=["test"],
+    )
+
+
+class TestD1MaterializerGuard:
+    """D1: materializer rejects pure non-executable child workers."""
+
+    @staticmethod
+    def _materialize(**kwargs: Any) -> tuple[WorkerPlanIR, list[str]]:
+        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+            WorkerPlanMaterializer,
+        )
+        return WorkerPlanMaterializer().materialize(**kwargs)
+
+    def test_pure_failure_mode_child_worker_rejected(self) -> None:
+        anns = [
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="failure_mode", executable=False),
+        ]
+        plan, warnings = self._materialize(
+            candidates=[_make_candidate("c1", ["s1"])],
+            decisions=[_make_decision("c1")],
+            hard_fact_inputs=[_make_hard_fact_input()],
+            behavior_span_ids={"s1"},
+            behavior_span_order=["s1"],
+            annotations=anns,
+        )
+        # No child worker for pure failure_mode
+        assert len(plan.workers) == 1  # main only
+        assert any("non-executable" in w.lower() for w in warnings), warnings
+        # Decision must be downgraded, not extract_child_worker
+        decision_for_c1 = [d for d in plan.decisions if d.candidate_id == "c1"]
+        assert len(decision_for_c1) == 1
+        assert decision_for_c1[0].decision == "keep_in_main_worker"
+        assert decision_for_c1[0].rejection_reason == "insufficient_semantic_boundary"
+
+    def test_pure_delegation_child_worker_rejected(self) -> None:
+        anns = [
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="delegation_intent",
+                            route_family="delegation_boundary",
+                            executable=False),
+        ]
+        plan, warnings = self._materialize(
+            candidates=[_make_candidate("c1", ["s2"])],
+            decisions=[_make_decision("c1")],
+            behavior_span_ids={"s2"},
+            behavior_span_order=["s2"],
+            annotations=anns,
+        )
+        assert len(plan.workers) == 1
+        # Decision downgraded
+        decision_for_c1 = [d for d in plan.decisions if d.candidate_id == "c1"]
+        assert decision_for_c1[0].decision == "keep_in_main_worker"
+        # No duplicate rejected entries
+        rejected_c1 = [r for r in plan.rejected_candidates if r.candidate_id == "c1"]
+        assert len(rejected_c1) == 1, f"Expected 1 rejected for c1, got {len(rejected_c1)}"
+
+    def test_mixed_candidate_with_executable_span_passes(self) -> None:
+        anns = [
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="failure_mode", executable=False),
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="process_step", executable=True),
+        ]
+        plan, warnings = self._materialize(
+            candidates=[_make_candidate("c1", ["s1", "s2"])],
+            decisions=[_make_decision("c1")],
+            behavior_span_ids={"s1", "s2"},
+            behavior_span_order=["s1", "s2"],
+            annotations=anns,
+        )
+        # Mixed candidate passes because it has at least one executable span
+        assert len(plan.workers) >= 2  # main + child
+
+    def test_fallback_without_annotations_preserves_old_behavior(self) -> None:
+        plan, warnings = self._materialize(
+            candidates=[_make_candidate("c1", ["s1"])],
+            decisions=[_make_decision("c1")],
+            behavior_span_ids={"s1"},
+            behavior_span_order=["s1"],
+            annotations=None,  # no annotations → old behavior
+        )
+        assert len(plan.workers) == 2  # main + child (no guard applied)
+        assert not any("non-executable" in w.lower() for w in warnings)
+
+
+def test_d1_pure_failure_candidate_rejected_in_split_path(
+    planner: WorkerBoundaryPlanner,
+    mock_client: MagicMock,
+) -> None:
+    """D1: full split path rejects pure failure candidate and plan validates."""
+    spans = [
+        SpanIR("s1", "Determine communication type."),
+        SpanIR("s2", "Missing timeframe — handle gracefully."),
+    ]
+    routes = FieldRouteIR(
+        behavior=["s1", "s2"],
+        annotations=[
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="process_step", executable=True),
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition",
+                            executable=False),
+        ],
+    )
+    # LLM incorrectly accepts failure span as child worker candidate
+    failure_candidate = {
+        "candidate_id": "c_failure",
+        "source_span_ids": ["s2"],
+        "task_text": "Missing timeframe",
+        "purpose": "Handle missing timeframe gracefully.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [field("input_var")],
+        "possible_outputs": [field("result", "output")],
+        "signals": ["explicit_delegation"],
+        "risks": [],
+    }
+    failure_decision = {
+        "candidate_id": "c_failure",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": None,
+        "reason": "LLM incorrectly accepted failure as child worker.",
+        "evidence": ["explicit_delegation"],
+    }
+    mock_client.call_json.return_value = base_plan(
+        workers=[main_worker(["s1"])],
+        candidates=[failure_candidate],
+        decisions=[failure_decision],
+    )
+    plan = planner.execute((spans, routes))
+    assert isinstance(plan, WorkerPlanIR)
+    # The failure candidate should be rejected by D1 guard
+    failure_decisions = [d for d in plan.decisions if d.candidate_id == "c_failure"]
+    assert len(failure_decisions) == 1
+    assert failure_decisions[0].decision == "keep_in_main_worker"
+
+
+def test_d1_candidate_prompt_separates_all_non_executable() -> None:
+    """D1: candidate prompt partitions failure_mode + delegation from executable."""
+    from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.prompt_builder import (
+        PromptBuilderMixin,
+    )
+
+    spans = [
+        SpanIR("s1", "Determine communication type."),
+        SpanIR("s2", "Missing timeframe."),
+        SpanIR("s3", "Optional source gathering if bounded."),
+    ]
+    routes = FieldRouteIR(
+        behavior=["s1", "s2", "s3"],
+        annotations=[
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="process_step", executable=True),
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition", executable=False),
+            RouteAnnotation(span_id="s3", field="behavior",
+                            semantic_role="delegation_intent",
+                            route_family="delegation_boundary",
+                            executable=False),
+        ],
+    )
+
+    pb = PromptBuilderMixin()
+    prompt = pb._build_candidate_prompt(spans, routes, None)
+
+    assert "Executable behavior spans (candidate source_span_ids)" in prompt
+    assert "Non-executable context" in prompt
+    assert "NOT task unit candidates" in prompt
+
+    exec_start = prompt.index("Executable behavior spans (candidate source_span_ids)")
+    non_exec_start = prompt.index("Non-executable context")
+    exec_section = prompt[exec_start:non_exec_start]
+    ctx_section = prompt[non_exec_start:]
+
+    # Only process_step in executable; failure + delegation excluded
+    assert "s1:" in exec_section
+    assert "s2:" not in exec_section
+    assert "s3:" not in exec_section
+
+    # Both failure and delegation in non-executable context
+    assert "s2:" in ctx_section
+    assert "s3:" in ctx_section
+    assert "failure" in ctx_section.lower()
+    assert "delegation" in ctx_section.lower()
+
+
+def test_d1_decision_prompt_separates_context() -> None:
+    """D1: decision prompt partitions failure + delegation from executable."""
+    from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.prompt_builder import (
+        PromptBuilderMixin,
+    )
+
+    spans = [
+        SpanIR("s1", "Determine communication type."),
+        SpanIR("s2", "Missing timeframe."),
+        SpanIR("s3", "Optional source gathering if bounded."),
+    ]
+    routes = FieldRouteIR(
+        behavior=["s1", "s2", "s3"],
+        annotations=[
+            RouteAnnotation(span_id="s1", field="behavior",
+                            semantic_role="process_step", executable=True),
+            RouteAnnotation(span_id="s2", field="behavior",
+                            semantic_role="failure_mode",
+                            construct_target="EXCEPTION_FLOW",
+                            slot_target="condition", executable=False),
+            RouteAnnotation(span_id="s3", field="behavior",
+                            semantic_role="delegation_intent",
+                            route_family="delegation_boundary",
+                            executable=False),
+        ],
+    )
+
+    pb = PromptBuilderMixin()
+    prompt = pb._build_decision_prompt(spans, routes, None, [])
+
+    assert "Executable behavior span context:" in prompt
+    assert "Non-executable context" in prompt
+    assert "failure" in prompt.lower()
+    assert "delegation" in prompt.lower()
+
+    exec_start = prompt.index("Executable behavior span context:")
+    non_exec_start = prompt.index("Non-executable context")
+    exec_section = prompt[exec_start:non_exec_start]
+    ctx_section = prompt[non_exec_start:]
+
+    assert "s1:" in exec_section
+    assert "s2:" not in exec_section
+    assert "s3:" not in exec_section
+    assert "s2:" in ctx_section
+    assert "s3:" in ctx_section

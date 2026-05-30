@@ -58,6 +58,21 @@ _ANNOTATION_SEMANTICS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Exact mapping from section_context (lowercase) to semantic field.
+# Aligned with _ORGANIZATIONAL_TITLES in stage1_span_slicer.py.
+# ⚠️ SYNC CONSTRAINT: Any change here must also update
+# src/nl2spl/pipeline/stages/stage1_span_slicer.py (_ORGANIZATIONAL_TITLES)
+# and prompts/stage1_system.txt (Rule 3 "Strip All Structural Markers").
+_SECTION_CONTEXT_TO_FIELD: dict[str, str] = {
+    "task family": "domain",
+    "inputs for each run": "resources",
+    "required outputs": "resources",
+    "reusable process": "behavior",
+    "policies": "rules",
+    "failure handling": "behavior",
+    "delegation policy": "behavior",
+}
+
 
 class FieldRouter(
     PipelineStage[
@@ -105,13 +120,13 @@ class FieldRouter(
         # 1. Build prompts
         spans_json = json.dumps([s.to_dict() for s in spans], ensure_ascii=False, indent=2)
         system_prompt = load_prompt("stage2")
-        user_prompt = f"""请将以下 span 路由到 6 个语义字段：
+        user_prompt = f"""Route each span below to one of 6 semantic fields.
 
 ---
 {spans_json}
 ---
 
-输出 JSON："""
+Output valid JSON:"""
 
         # 2. Call LLM
         try:
@@ -332,15 +347,46 @@ class FieldRouter(
         span: SpanIR,
         canonical_input: CanonicalCompileInput,
     ) -> str:
-        """Derive old-list field for a section-only span (no packet)."""
-        sections = {s.section_id: s for s in canonical_input.raw_sections}
-        section = sections.get(span.source_section_id or "")
-        if section is None:
-            return "behavior"
-        if section.canonical_title == "task_family":
-            return "domain"
-        if section.canonical_title in {"policies", "failure_handling"}:
-            return "rules"
+        """Derive semantic field for a span, with three priority levels.
+
+        Priority 1: canonical source_section_id (structured, highest confidence)
+        Priority 2: section_context exact match (LLM path, medium confidence)
+        Priority 2b: section_context keyword fallback (low confidence)
+        Priority 3: default "behavior"
+        """
+        # Priority 1: canonical structured ID
+        if span.source_section_id:
+            sections = {s.section_id: s for s in canonical_input.raw_sections}
+            section = sections.get(span.source_section_id)
+            if section is not None:
+                if section.canonical_title == "task_family":
+                    return "domain"
+                if section.canonical_title in {"policies", "failure_handling"}:
+                    return "rules"
+                return "behavior"
+
+        # Shortcut: placeholder spans → route by section_context directly
+        if span.is_placeholder and span.section_context:
+            ctx_lower = span.section_context.strip().lower()
+            if ctx_lower in _SECTION_CONTEXT_TO_FIELD:
+                return _SECTION_CONTEXT_TO_FIELD[ctx_lower]
+
+        # Priority 2: section_context exact match
+        if span.section_context:
+            ctx_lower = span.section_context.strip().lower()
+            if ctx_lower in _SECTION_CONTEXT_TO_FIELD:
+                return _SECTION_CONTEXT_TO_FIELD[ctx_lower]
+            # Priority 2b: keyword fallback
+            if "input" in ctx_lower or "output" in ctx_lower:
+                return "resources"
+            if "policy" in ctx_lower or "rule" in ctx_lower or "constraint" in ctx_lower:
+                return "rules"
+            if "process" in ctx_lower or "step" in ctx_lower or "delegation" in ctx_lower:
+                return "behavior"
+            if "task" in ctx_lower or "family" in ctx_lower:
+                return "domain"
+
+        # Priority 3: default
         return "behavior"
 
     # =========================================================================

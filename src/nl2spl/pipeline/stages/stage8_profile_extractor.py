@@ -45,10 +45,35 @@ class ProfileExtractor(PipelineStage[
         spans, routes, symbol_table = input_data
         self.logger.info("Starting profile extraction with %d spans", len(spans))
 
-        # 1. Filter identity/audience/domain spans
+        # 1. Filter identity/audience/domain spans + annotation-driven profile
         identity_spans = [s for s in spans if s.span_id in routes.identity]
         audience_spans = [s for s in spans if s.span_id in routes.audience]
         domain_spans = [s for s in spans if s.span_id in routes.domain]
+
+        # D5: enrich with profile annotations, routing by semantic_role
+        if routes.annotations:
+            span_by_id = {s.span_id: s for s in spans}
+            identity_role_ids = {
+                a.span_id for a in routes.annotations
+                if a.semantic_role == "profile_domain"
+            }
+            persona_role_ids = {
+                a.span_id for a in routes.annotations
+                if a.semantic_role in ("identity", "persona")
+            }
+            for sid in identity_role_ids:
+                if sid in span_by_id and sid not in routes.identity:
+                    identity_spans.append(span_by_id[sid])
+            for sid in persona_role_ids:
+                if sid in span_by_id and sid not in routes.identity:
+                    identity_spans.append(span_by_id[sid])
+            domain_role_ids = {
+                a.span_id for a in routes.annotations
+                if a.semantic_role == "profile_domain"
+            }
+            for sid in domain_role_ids:
+                if sid in span_by_id and sid not in routes.domain:
+                    domain_spans.append(span_by_id[sid])
 
         self.logger.info(
             "Found %d identity, %d audience, %d domain spans",

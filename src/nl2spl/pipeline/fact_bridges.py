@@ -43,7 +43,12 @@ def bridge_failure_modes(
     spans: list[SpanIR],
     existing_flow: FlowStructureIR,
 ) -> FlowStructureIR:
-    """Create partial ExceptionFlow skeletons from FailureModeFact objects.
+    """D8: COMPATIBILITY FALLBACK — not the primary production path.
+
+    Use ``materialize_route_exception_flows()`` for route-annotated input.
+    This bridge only runs as a hard-fact fallback for failure conditions
+    not already covered by route-derived exception flows (see orchestrator
+    guard).
 
     For each failure fact, if no existing ExceptionFlow already has a
     matching normalized condition text, create a new skeleton.  No handler
@@ -119,7 +124,7 @@ def bridge_failure_modes_worker_scoped(
     worker_flow_plan: WorkerFlowPlanIR,
     worker_plan: WorkerPlanIR,
 ) -> WorkerFlowPlanIR:
-    """Worker-aware variant of :func:`bridge_failure_modes`.
+    """D8: COMPATIBILITY FALLBACK — not the primary production path.
 
     Appends source-backed ``ExceptionFlow`` skeletons to the **main
     worker's** ``FlowStructureIR`` inside the ``WorkerFlowPlanIR``.
@@ -149,10 +154,11 @@ def bridge_failure_modes_worker_scoped(
         if s.source_section_id:
             span_ids_by_section.setdefault(s.source_section_id, []).append(s.span_id)
 
-    # Collect existing condition text for dedup
+    # D3: collect existing condition text from ALL worker flows for dedup
     existing_conditions: set[str] = set()
-    for exc in main_flow.exception_flows:
-        existing_conditions.add(_normalize_condition(exc.condition_text))
+    for flow in worker_flow_plan.worker_flows.values():
+        for exc in flow.exception_flows:
+            existing_conditions.add(_normalize_condition(exc.condition_text))
 
     # Build new exception flows
     new_exc_flows: list[ExceptionFlow] = []
@@ -203,7 +209,9 @@ def bridge_delegation_intents(
     known_child_worker_ids: set[str] | None = None,
     declared_apis: set[str] | None = None,
 ) -> list[CompileDiagnostic]:
-    """Emit diagnostics for delegation intents without valid handoffs.
+    """D8: COMPATIBILITY FALLBACK — prefer route-driven delegation diagnostics.
+
+    Emit diagnostics for delegation intents without valid handoffs.
 
     For each DelegationIntentFact, if no *valid* handoff exists that
     covers the same evidence, emit a ``type_or_contract_ambiguity``
@@ -231,8 +239,8 @@ def bridge_delegation_intents(
 
     handoffs = handoffs or []
 
-    # Collect evidence sections covered by *valid* handoffs
-    valid_handoff_sections: set[str] = set()
+    # Collect span ids covered by *valid* handoffs
+    valid_handoff_span_ids: set[str] = set()
     for h in handoffs:
         if not _is_valid_handoff(h, known_child_worker_ids, declared_apis):
             continue
@@ -242,33 +250,53 @@ def bridge_delegation_intents(
         if h.invoke_location_hint.before_span_id:
             hint_span_ids.append(h.invoke_location_hint.before_span_id)
         hint_span_ids.extend(h.failure_policy.source_span_ids)
-        for sid in hint_span_ids:
-            span = next((s for s in spans if s.span_id == sid), None)
-            if span and span.source_section_id:
-                valid_handoff_sections.add(span.source_section_id)
+        valid_handoff_span_ids.update(hint_span_ids)
+
+    def _add_unique(target: list[str], source: list[str]) -> None:
+        for span_id in source:
+            if span_id not in target:
+                target.append(span_id)
 
     for idx, intent in enumerate(delegation_intents):
-        # Resolve evidence sections from the intent
-        intent_sections: set[str] = set()
-        intent_span_ids: list[str] = []
+        # Resolve suppression_span_ids separately from diagnostic_span_ids.
+        # Suppression must be precise; diagnostics can retain broader evidence.
+        suppression_span_ids: list[str] = []
+        diagnostic_span_ids: list[str] = []
         for ev in getattr(intent, "evidence", []):
-            sid = getattr(ev, "source_section_id", None)
-            if sid:
-                intent_sections.add(sid)
             if getattr(ev, "source_span_ids", None):
-                intent_span_ids.extend(ev.source_span_ids)
+                _add_unique(suppression_span_ids, ev.source_span_ids)
+                _add_unique(diagnostic_span_ids, ev.source_span_ids)
+        if not suppression_span_ids:
+            import re as _re
+            intent_norm = _re.sub(r"[^\w\s]", "", intent.text.strip().lower())
+            for sid in (getattr(ev, "source_section_id", None)
+                        for ev in getattr(intent, "evidence", [])
+                        if getattr(ev, "source_section_id", None)):
+                section_spans = [s for s in spans if s.source_section_id == sid]
+                section_span_ids = [s.span_id for s in section_spans]
+                narrowed = []
+                for s in section_spans:
+                    span_norm = _re.sub(r"[^\w\s]", "", s.text.strip().lower())
+                    if intent_norm in span_norm or span_norm in intent_norm:
+                        narrowed.append(s.span_id)
+                if narrowed:
+                    _add_unique(suppression_span_ids, narrowed)
+                    _add_unique(diagnostic_span_ids, narrowed)
+                elif len(section_spans) == 1:
+                    # Single-span section: the only span is the intent span.
+                    _add_unique(suppression_span_ids, section_span_ids)
+                    _add_unique(diagnostic_span_ids, section_span_ids)
+                else:
+                    # Multi-span section with no text match: keep evidence for
+                    # diagnostics, but do not allow section-wide suppression.
+                    _add_unique(diagnostic_span_ids, section_span_ids)
+                # else: multi-span section, no text match → do NOT suppress
 
-        # Resolve spans by section if no direct span_ids
-        if not intent_span_ids:
-            for sid in intent_sections:
-                intent_span_ids.extend(
-                    s.span_id for s in spans
-                    if s.source_section_id == sid
-                )
-
-        # Only a valid handoff suppresses the diagnostic
-        if intent_sections & valid_handoff_sections:
-            continue
+        # D10: suppress only when suppression_span_ids precisely overlap
+        # valid handoff span ids.  No section-wide fallback.
+        if suppression_span_ids and valid_handoff_span_ids:
+            if set(suppression_span_ids) & valid_handoff_span_ids:
+                continue
 
         diags.append(
             CompileDiagnostic(
@@ -281,7 +309,7 @@ def bridge_delegation_intents(
                     f"The delegation is not executable."
                 ),
                 target_ref=f"delegation_intent:{intent.name}",
-                source_span_ids=intent_span_ids,
+                source_span_ids=diagnostic_span_ids,
                 suggested_resolution=(
                     "Specify target worker, input bindings, output "
                     "bindings, and invocation condition for this "
@@ -321,3 +349,6 @@ def _is_valid_handoff(
                 return False
         return True
     return False
+
+
+# route-driven exception materializer moved to route_exception_materializer.py (D11)

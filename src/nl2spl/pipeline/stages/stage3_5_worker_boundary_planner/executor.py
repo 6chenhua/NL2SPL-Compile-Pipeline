@@ -86,6 +86,7 @@ class ExecutorMixin:
                 hard_fact_outputs=hard_outputs,
                 behavior_span_ids=behavior_span_ids,
                 behavior_span_order=list(routes.behavior),
+                annotations=routes.annotations if routes.annotations else None,
             )
             plan.warnings.extend(materialize_warnings)
             self._save_substage_checkpoint(
@@ -185,6 +186,7 @@ class ExecutorMixin:
                 existing_handoffs=None,
                 main_worker_id=plan.main_worker_id,
                 behavior_span_order=list(routes.behavior),
+                annotations=routes.annotations if routes.annotations else None,
             )
             plan.warnings.extend(materialize_warnings)
             validation = WorkerPlanValidator().validate(plan, known_span_ids)

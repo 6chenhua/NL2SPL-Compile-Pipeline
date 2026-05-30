@@ -119,6 +119,7 @@ class WorkerAssembler(
                     flow_id=exc_flow.flow_id,
                     condition_text=exc_flow.condition_text,
                     blocks=exc_blocks,
+                    spans=list(exc_flow.spans) if exc_flow.spans else [],
                 )
             )
 
@@ -283,6 +284,7 @@ class WorkerAssembler(
                         flow_id=exc_flow.flow_id,
                         condition_text=exc_flow.condition_text,
                         blocks=exc_blocks,
+                        spans=list(exc_flow.spans) if exc_flow.spans else [],
                     )
                 )
 

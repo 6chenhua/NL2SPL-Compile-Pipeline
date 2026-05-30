@@ -63,7 +63,7 @@ carriers.
         log_level="INFO",
         save_intermediate=True,
         output_dir=Path("output"),
-        run_name="internal-comms",
+        run_name="internal-comms-2",
         enable_worker_boundary_planner=True,
         enable_worker_boundary_planner_split=True,
         # --- v5 IRS flags (non-disruptive post-hoc checks) ---
