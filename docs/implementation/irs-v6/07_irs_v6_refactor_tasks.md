@@ -67,6 +67,15 @@ R0.3 增加 Stage3.5 IRS checklist 当前为空的测试或审计说明。
 R0.4 增加 Worker/Delegation 当前报告缺口的 xfail target tests 或 current-behavior tests。
 ```
 
+xfail 使用规则：
+
+```text
+1. current-behavior baseline tests 不允许 xfail。
+2. xfail 只允许用于 target-future tests。
+3. 每个 xfail 必须写明 reason，并关联具体后续任务编号。
+4. target xfail 一旦 XPASS，必须移除 xfail 或升级为正式验收测试。
+```
+
 ### 验收标准
 
 ```text
@@ -101,6 +110,20 @@ tests/unit/test_irs_*.py
 ```python
 ConstructEdge
 FrontierStatus
+```
+
+类型归属：
+
+```text
+ConstructEdge / ConstructGraph:
+    src/nl2spl/compiler/irs/graph.py
+
+FrontierStatus / CutlineReason:
+    src/nl2spl/compiler/irs/frontier.py
+
+ConstructSatisfactionReport:
+    兼容期继续位于 src/nl2spl/compiler/construct_registry.py。
+    R1 只扩展字段，不迁移文件。
 ```
 
 扩展 `ConstructSatisfactionReport`：
@@ -202,6 +225,14 @@ src/nl2spl/ir/diagnostics.py
 tests/unit/compiler/irs/test_projector.py
 ```
 
+配置语义：
+
+```text
+DiagnosticProjector 是 IRSRunner 的必需内部组件，不设置单独关闭开关。
+enable_irs_v6_runner=False 时，projector 不运行。
+enable_irs_v6_runner=True 时，projector 必须运行。
+```
+
 ### 实现思路
 
 `DiagnosticProjector.project(report)`：
@@ -212,6 +243,24 @@ tests/unit/compiler/irs/test_projector.py
 3. 从 DiagnosticRegistry 获取 default severity / blocks_completion / allowed targets。
 4. 生成 CompileDiagnostic。
 5. 生成稳定 diagnostic_id / target_ref / suggested_resolution。
+```
+
+最小 dedup key 规则：
+
+```python
+dedup_key = (
+    diagnostic.kind,
+    diagnostic.target_ref,
+    missing_slot_name,
+    tuple(sorted(source_span_ids)),
+)
+```
+
+Worker/Promotion diagnostics 还应写入：
+
+```python
+metadata["promotion_candidate_id"]
+metadata["promotion_missing_slot"]
 ```
 
 ### 验收标准
@@ -324,12 +373,19 @@ tests/unit/compiler/irs/test_runner_integration.py
 ```python
 enable_irs_v6_runner: bool = False
 enable_irs_worker_delegation_check: bool = False
-enable_irs_diagnostic_projector: bool = False
 ```
 
 ### 接入点
 
-建议在 Stage 3.5 / Stage 3.6 worker plan validation 后运行：
+建议接入点必须精确为：
+
+```text
+Stage 3.5 WorkerBoundaryPlanner 之后
+Stage 3.6 WorkerPlanValidator 之后
+Stage 4 Flow Assembly 之前
+```
+
+也就是：
 
 ```text
 Stage 3.5 WorkerBoundaryPlanner
@@ -614,4 +670,3 @@ Risks:
 Rollback:
 - 关闭 enable_irs_worker_delegation_check
 ```
-

@@ -57,3 +57,11 @@ ConstructGraph / ConstructEdge = 未来递归预留层
 | --- | --- |
 | [06_irs_v6_refactor_design.md](06_irs_v6_refactor_design.md) | 从当前 IRS v5/v5.5 代码迁移到 v6 目标架构的重构设计，说明目标模式、组件边界、兼容策略与非目标 |
 | [07_irs_v6_refactor_tasks.md](07_irs_v6_refactor_tasks.md) | IRS v6 重构的分阶段工程任务、可修改文件、验收标准、测试矩阵与回滚策略 |
+
+## 2026-06-01 分阶段实施计划
+
+| 目录 / 文件 | 作用 |
+| --- | --- |
+| [phase-implementation-plans/](phase-implementation-plans/) | R0-R9 的逐阶段实施计划与进度跟踪材料 |
+| [phase-implementation-plans/R0_baseline_audit_implementation_plan.md](phase-implementation-plans/R0_baseline_audit_implementation_plan.md) | R0 Baseline Audit 详细实施计划 |
+| [phase-implementation-plans/irs_v6_refactor_progress_tracker.html](phase-implementation-plans/irs_v6_refactor_progress_tracker.html) | IRS v6 重构进度跟踪 HTML |

@@ -171,6 +171,24 @@ src/nl2spl/compiler/irs/
     worker_delegation.py
 ```
 
+类型归属必须固定，避免实现时分散：
+
+```text
+ConstructEdge / ConstructGraph:
+    定义在 src/nl2spl/compiler/irs/graph.py
+
+FrontierStatus / CutlineReason:
+    定义在 src/nl2spl/compiler/irs/frontier.py
+
+ConstructSatisfactionReport:
+    兼容期仍保留在 src/nl2spl/compiler/construct_registry.py。
+    如需引用 graph/frontier 类型，应从 compiler/irs 子包 import。
+
+未来可选迁移:
+    如果 IRS v6 代码稳定，可再考虑把 report 类型迁移到 compiler/irs/report.py。
+    本轮不做该迁移，避免扩大改动面。
+```
+
 ### 7.1 context.py
 
 定义 `IRSCheckContext`。
@@ -455,9 +473,22 @@ frontier_status = cutline_partial when promotion blocked
 ```python
 enable_irs_v6_runner: bool = False
 enable_irs_worker_delegation_check: bool = False
-enable_irs_diagnostic_projector: bool = False
 enable_irs_stage4_v6_checker: bool = False
 enable_irs_stage7_v6_checker: bool = False
+```
+
+`DiagnosticProjector` 不建议作为独立可关闭路径。
+
+```text
+enable_irs_v6_runner = False:
+    v6 runner 与 projector 都不运行。
+
+enable_irs_v6_runner = True:
+    runner 内部必须使用 DiagnosticProjector。
+
+原因:
+    新 checker 输出 report/slot，不直接生成 CompileDiagnostic。
+    如果 runner 开启但 projector 关闭，会出现 report 存在但 diagnostics/report 不可见的半接入状态。
 ```
 
 ## 11. 非目标
@@ -501,4 +532,3 @@ enable_irs_stage7_v6_checker: bool = False
 6. 现有 Stage 4 / Stage 7 / Post-normalize 行为保持兼容。
 7. full test suite 通过。
 ```
-

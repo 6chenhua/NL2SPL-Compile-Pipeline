@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 2; // R0+R1 data version
+    const DATA_VERSION = 3; // R0+R1+R2 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -329,12 +329,12 @@
         }
       }
       if (needsUpdate) {
-        applyR0R1Data();
+        applyR0R1R2Data();
       }
       refreshSummary();
     }
 
-    function applyR0R1Data() {
+    function applyR0R1R2Data() {
       const r0Data = {
         "R0.status": "approved",
         "R0.reviewDecision": "approved",
@@ -378,7 +378,28 @@
         "R1.notes": "R1 阶段完成: 2026-06-01\n审核者确认: 类型契约、测试、全量回归均通过\n质量建议: 可用 typing.get_args() 进一步硬化 literal 枚举测试\n后续依赖: R2 基于这些类型建立 IRS v6 framework skeleton",
         "_version": DATA_VERSION
       };
-      applyState({...r0Data, ...r1Data});
+      const r2Data = {
+        "R2.status": "approved",
+        "R2.reviewDecision": "approved",
+        "R2.changedFiles": "新增框架文件:\n- src/nl2spl/compiler/irs/__init__.py (lazy __getattr__ 导出)\n- src/nl2spl/compiler/irs/context.py (IRSCheckContext)\n- src/nl2spl/compiler/irs/instance.py (ConstructInstance)\n- src/nl2spl/compiler/irs/checker.py (IRSChecker Protocol)\n- src/nl2spl/compiler/irs/registry.py (IRSCheckerRegistry)\n- src/nl2spl/compiler/irs/runner.py (IRSRunner, IRSRunResult)\n- src/nl2spl/compiler/irs/projector.py (DiagnosticProjector, DiagnosticProjectionResult)\n\n新增测试文件:\n- tests/unit/compiler/irs/test_r2_framework_skeleton.py (30 个测试)\n\nPrompt 修改:\n- 无",
+        "R2.tests": "R2 Framework 测试:\npython -m pytest tests/unit/compiler/irs/test_r2_framework_skeleton.py -v\n结果: 30 passed in 0.21s\n\nR0+R1+R2 回归:\npython -m pytest tests/unit/test_irs_v6_r0_baseline.py tests/unit/test_irs_v6_r1_report_schema.py tests/unit/compiler/irs/test_r2_framework_skeleton.py -q\n结果: 69 passed, 1 xfailed in 0.52s\n\n全量单元测试:\npython -m pytest tests/unit/ -q --basetemp=.pytest-tmp\n结果: 1509 passed, 1 xfailed in 26.34s\n\n测试计数: 1479 → 1509 (+30)",
+        "R2.evidence": "✅ IRSCheckContext (frozen dataclass): 3 个测试\n✅ ConstructInstance (materialized/source_demanded/candidate_only): 4 个测试\n✅ IRSChecker Protocol (extract_instances/check_instance): 5 个测试\n✅ IRSCheckerRegistry (registration/lookup): 4 个测试\n✅ IRSRunner + IRSRunResult (orchestration): 7 个测试\n✅ DiagnosticProjector + DiagnosticProjectionResult (skeleton): 6 个测试\n✅ 类型契约可自解析（无需 localns/globalns）: 1 个测试\n✅ 循环导入回归测试: 1 个测试\n✅ 类型契约使用真实类型注解:\n  - IRSRunResult.reports: list[ConstructSatisfactionReport]\n  - IRSRunResult.diagnostics: list[CompileDiagnostic]\n  - DiagnosticProjectionResult.diagnostics: list[CompileDiagnostic]\n✅ 无 orchestrator 接入\n✅ 无旧 checker 迁移\n✅ 无 Worker/Delegation checker 实现",
+        "R2.risks": "无",
+        "R2.llmRuleDecision": "无新增 LLM/rule-based 语义判断逻辑。只做 framework skeleton。",
+        "R2.reviewFindings": "初次提交发现 3 个问题，已全部修复:\nP1: Result/Projector 类型契约未落到 schema 层 - 已修复，使用真实类型注解\nP2: Runner 调用 projector 测试是弱断言 - 已修复，使用 RecordingProjector 验证调用\nP3: 新增文件 docstring 有编码污染 - 已清理\n\n复审发现 P1 仍未解决（类型不能自解析）:\n- 根因: irs/__init__.py eager export 导致循环导入风险\n- 修复: 使用 lazy __getattr__ 导出 R2 模块，运行时导入 construct_registry 类型\n- 验证: typing.get_type_hints() 可直接解析所有公共类型契约\n- 新增: 循环导入回归测试\n\n最终审核通过。",
+        "R2.check.0": true,
+        "R2.check.1": true,
+        "R2.check.2": true,
+        "R2.check.3": true,
+        "R2.check.4": true,
+        "R2.check.5": true,
+        "R2.check.6": true,
+        "R2.check.7": true,
+        "R2.check.8": true,
+        "R2.check.9": true,
+        "R2.notes": "R2 阶段完成: 2026-06-01\n审核者确认: 类型契约、循环导入、测试、全量回归均通过\n关键技术: lazy __getattr__ 避免 eager import 循环依赖\n后续依赖: R3 基于 DiagnosticProjector skeleton 实现完整投影链路"
+      };
+      applyState({...r0Data, ...r1Data, ...r2Data});
       saveState();
     }
 
