@@ -89,6 +89,19 @@ class PipelineConfig:
     # Default True — replaces Stage 9.5 diagnostic emission entirely.
     enable_irs_post_normalize_check: bool = True
 
+    # IRS v6 runner (Phase R5+):
+    # When enabled, runs the IRS v6 runner framework to produce
+    # construct satisfaction reports and diagnostics.
+    # Default False: no behavior change until explicitly enabled.
+    enable_irs_v6_runner: bool = False
+
+    # IRS v6 Worker/Delegation checker (Phase R5+):
+    # When enabled, registers WorkerDelegationIRSChecker to analyze
+    # worker promotion readiness and handoff satisfaction.
+    # Requires enable_irs_v6_runner=True to take effect.
+    # Default False: no behavior change until explicitly enabled.
+    enable_irs_worker_delegation_check: bool = False
+
     # LLM semantic conflict analyzer (Phase 6+):
     # When enabled, runs an LLM-backed conflict analysis pass.
     # Default NoOp -- zero behaviour change.

@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 5; // R0+R1+R2+R3+R4 data version
+    const DATA_VERSION = 6; // R0+R1+R2+R3+R4+R5 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -329,12 +329,13 @@
         }
       }
       if (needsUpdate) {
-        applyR0R1R2R3R4Data();
+        applyR0R1R2R3R4R5Data();
       }
+      applyR5IncrementalData();
       refreshSummary();
     }
 
-    function applyR0R1R2R3R4Data() {
+    function applyR0R1R2R3R4R5Data() {
       const r0Data = {
         "R0.status": "approved",
         "R0.reviewDecision": "approved",
@@ -442,6 +443,40 @@
         "R4.notes": "R4 阶段完成: 2026-06-01\n审核者确认: 按真实代码逐项核验通过\n关键设计: 结构化匹配 handoff 到 candidate，验证 target 存在，过滤非 worker candidates\n核心修复: _matching_handoffs_for_candidate(), _handoff_has_valid_target(), construct_path tuple, report provenance 继承\n后续依赖: R5 基于 R4 checker 接入 orchestrator"
       };
       applyState({...r0Data, ...r1Data, ...r2Data, ...r3Data, ...r4Data});
+      saveState();
+    }
+
+    // R5 data is applied separately so it can be updated independently
+    function applyR5IncrementalData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        // Only apply R5 data if R5 is not yet approved
+        if (data["R5.status"] === "approved") return;
+      } catch (_) { return; }
+      const r5Data = {
+        "R5.status": "approved",
+        "R5.reviewDecision": "approved",
+        "R5.changedFiles": "New production files:\n- src/nl2spl/compiler/irs/factory.py (IRS runner factory)\n\nModified production files:\n- src/nl2spl/config.py (R5 feature flags)\n- src/nl2spl/pipeline/orchestrator.py (IRS v6 runner integration)\n- src/nl2spl/compiler/irs/__init__.py (lazy exports)\n\nNew test files:\n- tests/unit/compiler/irs/test_r5_orchestrator_integration.py (7 tests)\n- tests/unit/compiler/irs/test_r5_runner_factory.py (8 tests)\n\nPrompt modifications:\n- None",
+        "R5.tests": "R5 Integration tests:\npython -m pytest tests/unit/compiler/irs/test_r5_orchestrator_integration.py -v\nResult: 7 passed\n\nR5 Factory tests:\npython -m pytest tests/unit/compiler/irs/test_r5_runner_factory.py -v\nResult: 8 passed\n\nR0-R5 regression:\npython -m pytest tests/unit/compiler/irs/ -q\nResult: 106 passed\n\nFull unit tests:\npython -m pytest --tb=short\nResult: 1699 passed, 4 skipped\n\nTest count: 1572 -> 1699 (+127, includes prior uncommitted tests)",
+        "R5.evidence": "Feature flag isolation:\n- enable_irs_v6_runner defaults to False\n- enable_irs_worker_delegation_check defaults to False\n- Both flags disabled: orchestrator output unchanged\n\nFactory isolation:\n- Orchestrator imports build_irs_runner from factory, not concrete checkers\n- build_irs_runner uses lazy import for WorkerDelegationIRSChecker\n- No LLM dependency in factory or runner\n\nOrchestrator integration:\n- IRS v6 runs after WorkerPlanValidator passes, before Stage 4\n- Reports written to intermediate['construct_satisfaction']['stage3_5']\n- Diagnostics written to intermediate['stage_local_diagnostics']['stage3_5']\n- Stage 3.5 IRS diagnostics merged into compile_diagnostics\n\nNegative test:\n- WorkerPlanValidator failure raises ValueError before IRS v6 runs\n- Spy confirms _run_stage3_5_irs_v6 not called on validation failure\n\nReadable report:\n- Each stage3_5 diagnostic kind, diagnostic_id, and missing_slot.slot_name\n  verified to appear in result.readable_report\n\nWorkerPlanIR immutability:\n- workers, candidates, handoffs, decisions counts unchanged after IRS v6 run",
+        "R5.risks": "None",
+        "R5.llmRuleDecision": "No new LLM/rule-based semantic judgment. Factory uses lazy import; runner only dispatches to registered checkers.",
+        "R5.reviewFindings": "First review found 4 issues, all fixed:\n\n[P2] readable_report assertion too wide:\n- Old: checked for 'type_or_contract_ambiguity'/'ambiguity'/'contract' substring\n- New: asserts each diagnostic's kind, diagnostic_id, missing_slot.slot_name\n  appear in readable_report; also asserts diagnostic ids in compile_diagnostics\n\n[P2] Missing validator-failure-skips-IRS test:\n- Added test_validator_failure_skips_irs_v6\n- Constructs invalid WorkerPlanIR (bad worker name)\n- Asserts ValueError raised and _run_stage3_5_irs_v6 not called\n\n[P3] config.py encoding pollution:\n- Replaced em-dash with ASCII colon in R5 flag comments\n\n[P3] factory.py duplicate import:\n- Removed redundant SPLConstructRegistry import inside build_irs_runner\n\nSecond review passed.",
+        "R5.check.0": true,
+        "R5.check.1": true,
+        "R5.check.2": true,
+        "R5.check.3": true,
+        "R5.check.4": true,
+        "R5.check.5": true,
+        "R5.check.6": true,
+        "R5.check.7": true,
+        "R5.check.8": true,
+        "R5.check.9": true,
+        "R5.notes": "R5 completed: 2026-06-01\nReviewer confirmed: code-level verification passed\nKey design: factory isolates concrete checkers, feature flags default off,\n  orchestrator only imports IRSRunner + factory, not concrete checker classes\nNext: R6 Stage4/Stage7 compatibility migration"
+      };
+      applyState(r5Data);
       saveState();
     }
 

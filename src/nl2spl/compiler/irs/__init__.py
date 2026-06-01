@@ -44,6 +44,9 @@ __all__ = [
     # R2: Projector
     "DiagnosticProjector",
     "DiagnosticProjectionResult",
+    # R5: Factory
+    "build_irs_runner",
+    "build_irs_checker_registry",
 ]
 
 
@@ -74,6 +77,13 @@ def __getattr__(name: str):
     elif name == "DiagnosticProjectionResult":
         from nl2spl.compiler.irs.projector import DiagnosticProjectionResult
         return DiagnosticProjectionResult
+    # R5: Factory functions
+    elif name == "build_irs_runner":
+        from nl2spl.compiler.irs.factory import build_irs_runner
+        return build_irs_runner
+    elif name == "build_irs_checker_registry":
+        from nl2spl.compiler.irs.factory import build_irs_checker_registry
+        return build_irs_checker_registry
     
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

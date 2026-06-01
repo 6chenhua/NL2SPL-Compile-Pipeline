@@ -75,6 +75,9 @@ from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
 from nl2spl.utils.persistence import save_final_spl
 
+# R5: IRS v6 runner factory (lazy import via __getattr__)
+from nl2spl.compiler.irs import build_irs_runner, IRSCheckContext, IRSRunResult
+
 
 @dataclass
 class PipelineResult:
@@ -240,6 +243,26 @@ class PipelineOrchestrator:
                 )
             intermediate["stage3_5_worker_plan"] = worker_plan
             intermediate["stage3_6_worker_plan_validation"] = worker_validation
+
+            # R5: IRS v6 runner for Stage 3.5 worker/delegation constructs
+            if (
+                self.config.enable_irs_v6_runner
+                and self.config.enable_irs_worker_delegation_check
+            ):
+                self.logger.info("Stage 3.5 IRS v6: Worker/Delegation Check")
+                irs_result = self._run_stage3_5_irs_v6(
+                    worker_plan=worker_plan,
+                    spans=resolved_spans,
+                    routes=resolved_routes,
+                    canonical_input=canonical_input,
+                )
+                intermediate.setdefault("construct_satisfaction", {})
+                intermediate.setdefault("stage_local_diagnostics", {})
+                intermediate["construct_satisfaction"]["stage3_5"] = irs_result.reports
+                intermediate["stage_local_diagnostics"]["stage3_5"] = irs_result.diagnostics
+                if irs_result.warnings:
+                    intermediate.setdefault("irs_v6_warnings", {})
+                    intermediate["irs_v6_warnings"]["stage3_5"] = irs_result.warnings
 
             # Defensive repair: worker ownership is required for behavior spans.
             # Non-behavior spans remain global/hint context and must not be
@@ -683,9 +706,16 @@ class PipelineOrchestrator:
         stage2_diags = intermediate.get(
             "stage_local_diagnostics", {}
         ).get("stage2", [])
+        # R5: Stage 3.5 IRS v6 diagnostics (worker promotion/delegation)
+        stage3_5_irs_diags = (
+            intermediate.get("stage_local_diagnostics", {}).get("stage3_5", [])
+            if self.config.enable_irs_v6_runner
+            and self.config.enable_irs_worker_delegation_check
+            else []
+        )
         all_diagnostics = (
-            stage2_diags + stage7_diags + post_norm_diags + conflict_diags
-            + gate_diags + provenance_diags + delegation_diags
+            stage2_diags + stage3_5_irs_diags + stage7_diags + post_norm_diags
+            + conflict_diags + gate_diags + provenance_diags + delegation_diags
         )
         # IRS consolidation only runs when the post-normalize checker is
         # disabled; otherwise Stage 4/7 IRS diagnostics stay as reports only.
@@ -764,6 +794,48 @@ class PipelineOrchestrator:
         """Stage 3.5: Worker Boundary Planning."""
         stage = WorkerBoundaryPlanner(self.config, self.client)
         return stage.execute((spans, routes, canonical_input))
+
+    def _run_stage3_5_irs_v6(
+        self,
+        *,
+        worker_plan: WorkerPlanIR,
+        spans: list[SpanIR],
+        routes: FieldRouteIR,
+        canonical_input: CanonicalCompileInput | None,
+    ) -> IRSRunResult:
+        """Run IRS v6 runner for Stage 3.5 worker/delegation constructs.
+
+        This method runs after WorkerPlanValidator passes and before Stage 4.
+        It produces construct satisfaction reports and diagnostics for
+        worker promotion readiness and handoff satisfaction.
+
+        Args:
+            worker_plan: Validated worker plan from Stage 3.5
+            spans: Resolved spans from Stage 3
+            routes: Resolved routes from Stage 3
+            canonical_input: Canonical input with adapter evidence
+
+        Returns:
+            IRSRunResult with reports, diagnostics, and warnings
+        """
+        runner = build_irs_runner(
+            enable_worker_delegation=self.config.enable_irs_worker_delegation_check,
+        )
+
+        context = IRSCheckContext(
+            stage_name="stage3_5",
+            spans=tuple(spans),
+            routes=routes,
+            worker_plan=worker_plan,
+            metadata={
+                "canonical_input_schema": (
+                    canonical_input.source_schema if canonical_input else None
+                ),
+                "planner_enabled": True,
+            },
+        )
+
+        return runner.run_stage("stage3_5", context)
 
     def _run_stage4(
         self,
