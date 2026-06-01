@@ -22,6 +22,9 @@ phase-implementation-plans/
 | [R0_baseline_audit_implementation_plan.md](R0_baseline_audit_implementation_plan.md) | R0 Baseline Audit 的详细实施计划 |
 | [R1_report_schema_foundation_implementation_plan.md](R1_report_schema_foundation_implementation_plan.md) | R1 Report Schema Foundation 的详细实施计划 |
 | [R2_irs_v6_framework_skeleton_implementation_plan.md](R2_irs_v6_framework_skeleton_implementation_plan.md) | R2 IRS v6 Framework Skeleton 的详细实施计划 |
+| [R3_diagnostic_projector_implementation_plan.md](R3_diagnostic_projector_implementation_plan.md) | R3 DiagnosticProjector 的详细实施计划 |
+| [R4_worker_delegation_checker_implementation_plan.md](R4_worker_delegation_checker_implementation_plan.md) | R4 Worker/Delegation Checker 的详细实施计划 |
+| [R5_runner_orchestrator_integration_implementation_plan.md](R5_runner_orchestrator_integration_implementation_plan.md) | R5 Runner Orchestrator Integration 的详细实施计划 |
 | [irs_v6_refactor_progress_tracker.html](irs_v6_refactor_progress_tracker.html) | R0-R9 重构进度跟踪 HTML |
 
 ## 审核原则
