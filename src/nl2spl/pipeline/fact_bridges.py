@@ -22,6 +22,88 @@ def _normalize_condition(text: str) -> str:
     return re.sub(r"[^\w\s]", "", text.strip().lower())
 
 
+def _is_empty_failure_marker(text: str) -> bool:
+    """检查 failure 文本是否为空标记。
+    
+    Args:
+        text: failure condition 文本
+    
+    Returns:
+        True 如果文本是空标记（如 "None", "N/A"）
+    """
+    candidate = text.strip()
+    candidate = re.sub(r"^\s*[-*+]\s+", "", candidate)
+    candidate = re.sub(r"^\s*\d+\.\s+", "", candidate)
+    if ":" in candidate or "：" in candidate:
+        _label, candidate = re.split(r"[:：]", candidate, maxsplit=1)
+    candidate = candidate.replace("**", "").replace("__", "")
+    normalized = re.sub(r"[^\w\s]", "", candidate.lower()).strip()
+    return normalized in {"none", "na", "not applicable", "nil", "empty"}
+
+
+def _is_aggregate_of_items(
+    candidate_text: str,
+    existing_texts: list[str]
+) -> bool:
+    """检查 candidate 是否为多个 existing items 的汇总。
+    
+    Args:
+        candidate_text: 候选文本（可能是 aggregate）
+        existing_texts: 已存在的文本列表
+    
+    Returns:
+        True 如果 candidate 包含 2+ 个 existing items
+    
+    Examples:
+        >>> _is_aggregate_of_items(
+        ...     "Missing inputs - Tone mismatch - Unverified facts",
+        ...     ["Missing inputs", "Tone mismatch"]
+        ... )
+        True
+    """
+    candidate_norm = _normalize_condition(candidate_text)
+    
+    contained_count = 0
+    for existing in existing_texts:
+        existing_norm = _normalize_condition(existing)
+        # 检查 existing 是否为 candidate 的子串
+        if existing_norm and existing_norm in candidate_norm:
+            contained_count += 1
+    
+    # 如果包含 2+ 个 items，认为是 aggregate
+    return contained_count >= 2
+
+
+def _is_item_of_aggregate(
+    item_text: str,
+    aggregate_text: str
+) -> bool:
+    """检查 item 是否为 aggregate 的一部分。
+    
+    Args:
+        item_text: 单个 item 文本
+        aggregate_text: 可能的 aggregate 文本
+    
+    Returns:
+        True 如果 item 是 aggregate 的一部分
+    
+    Examples:
+        >>> _is_item_of_aggregate(
+        ...     "Missing inputs",
+        ...     "Missing inputs - Tone mismatch - Unverified facts"
+        ... )
+        True
+    """
+    item_norm = _normalize_condition(item_text)
+    aggregate_norm = _normalize_condition(aggregate_text)
+    
+    # item 是 aggregate 的子串，且长度差异显著
+    if item_norm in aggregate_norm and len(item_norm) < len(aggregate_norm) * 0.6:
+        return True
+    
+    return False
+
+
 def _resolve_fact_span_ids(
     fact: FailureModeFact,
     span_ids_by_section: dict[str, list[str]],
@@ -42,6 +124,7 @@ def bridge_failure_modes(
     failure_modes: list[FailureModeFact],
     spans: list[SpanIR],
     existing_flow: FlowStructureIR,
+    intermediate_results: dict | None = None,
 ) -> FlowStructureIR:
     """D8: COMPATIBILITY FALLBACK — not the primary production path.
 
@@ -60,6 +143,10 @@ def bridge_failure_modes(
     and only the first is kept.  Multiple failure modes from the same
     section naturally share span IDs and are NOT deduplicated by span
     overlap.
+    
+    Aggregate deduplication: If a new item is part of an existing aggregate,
+    the aggregate is marked for removal and the item is kept. If a new
+    candidate is an aggregate of existing items, it is skipped.
 
     Args:
         failure_modes: FailureModeFact objects from the adapter.
@@ -79,41 +166,72 @@ def bridge_failure_modes(
         if s.source_section_id:
             span_ids_by_section.setdefault(s.source_section_id, []).append(s.span_id)
 
-    # Collect existing condition text for dedup
-    existing_conditions: set[str] = set()
-    for exc in existing_flow.exception_flows:
-        existing_conditions.add(_normalize_condition(exc.condition_text))
+    # Collect existing condition text for dedup and aggregate detection
+    existing_condition_texts: list[str] = [
+        exc.condition_text for exc in existing_flow.exception_flows
+    ]
+    existing_conditions: set[str] = {
+        _normalize_condition(text) for text in existing_condition_texts
+    }
+    
+    # Track aggregates to remove
+    aggregates_to_remove: set[str] = set()
 
     # Build new exception flows
     new_exc_flows: list[ExceptionFlow] = []
     flow_counter = len(existing_flow.exception_flows)
 
     for fact in failure_modes:
+        # 跳过空标记
+        if _is_empty_failure_marker(fact.text):
+            continue
+        
         normalized_condition = _normalize_condition(fact.text)
 
         # Dedup by normalized condition text only
         if normalized_condition in existing_conditions:
             continue
+        
+        # 检查是否为 aggregate（包含多个已存在的 items）
+        if _is_aggregate_of_items(fact.text, existing_condition_texts):
+            # 这是一个 aggregate，跳过
+            continue
+        
+        # 检查是否为某个 existing aggregate 的 item
+        for existing_text in existing_condition_texts:
+            if _is_item_of_aggregate(fact.text, existing_text):
+                # 这是一个具体 item，标记 aggregate 待移除
+                aggregates_to_remove.add(existing_text)
 
         existing_conditions.add(normalized_condition)
+        existing_condition_texts.append(fact.text)
         ev_span_ids = _resolve_fact_span_ids(fact, span_ids_by_section)
 
         flow_counter += 1
-        new_exc_flows.append(
-            ExceptionFlow(
-                flow_id=f"exc_adapter_{flow_counter - 1:02d}",
-                condition_text=fact.text,
-                spans=ev_span_ids,
-            )
+        new_flow = ExceptionFlow(
+            flow_id=f"exc_adapter_{flow_counter - 1:02d}",
+            condition_text=fact.text,
+            spans=ev_span_ids,
         )
+        new_exc_flows.append(new_flow)
 
-    if not new_exc_flows:
+        if intermediate_results is not None:
+            origins = intermediate_results.setdefault("flow_origins", {})
+            origins[new_flow.flow_id] = "bridge_fallback"
+
+    if not new_exc_flows and not aggregates_to_remove:
         return existing_flow
+    
+    # 过滤掉 aggregates
+    filtered_existing_flows = [
+        exc for exc in existing_flow.exception_flows
+        if exc.condition_text not in aggregates_to_remove
+    ]
 
     return FlowStructureIR(
         main_flow_spans=list(existing_flow.main_flow_spans),
         alternative_flows=list(existing_flow.alternative_flows),
-        exception_flows=existing_flow.exception_flows + new_exc_flows,
+        exception_flows=filtered_existing_flows + new_exc_flows,
         delegation_candidates=list(existing_flow.delegation_candidates),
     )
 
@@ -123,6 +241,7 @@ def bridge_failure_modes_worker_scoped(
     spans: list[SpanIR],
     worker_flow_plan: WorkerFlowPlanIR,
     worker_plan: WorkerPlanIR,
+    intermediate_results: dict | None = None,
 ) -> WorkerFlowPlanIR:
     """D8: COMPATIBILITY FALLBACK — not the primary production path.
 
@@ -130,6 +249,10 @@ def bridge_failure_modes_worker_scoped(
     worker's** ``FlowStructureIR`` inside the ``WorkerFlowPlanIR``.
     Deduplication and span resolution follow the same rules as the
     legacy bridge -- no handler blocks or steps are created.
+    
+    Aggregate deduplication: If a new item is part of an existing aggregate,
+    the aggregate is marked for removal and the item is kept. If a new
+    candidate is an aggregate of existing items, it is skipped.
 
     Args:
         failure_modes: ``FailureModeFact`` objects from the adapter.
@@ -155,41 +278,71 @@ def bridge_failure_modes_worker_scoped(
             span_ids_by_section.setdefault(s.source_section_id, []).append(s.span_id)
 
     # D3: collect existing condition text from ALL worker flows for dedup
+    existing_condition_texts: list[str] = []
     existing_conditions: set[str] = set()
     for flow in worker_flow_plan.worker_flows.values():
         for exc in flow.exception_flows:
+            existing_condition_texts.append(exc.condition_text)
             existing_conditions.add(_normalize_condition(exc.condition_text))
+    
+    # Track aggregates to remove from main_flow
+    aggregates_to_remove: set[str] = set()
 
     # Build new exception flows
     new_exc_flows: list[ExceptionFlow] = []
     flow_counter = len(main_flow.exception_flows)
 
     for fact in failure_modes:
+        # 跳过空标记
+        if _is_empty_failure_marker(fact.text):
+            continue
+        
         normalized_condition = _normalize_condition(fact.text)
 
         # Dedup by normalized condition text only
         if normalized_condition in existing_conditions:
             continue
+        
+        # 检查是否为 aggregate（包含多个已存在的 items）
+        if _is_aggregate_of_items(fact.text, existing_condition_texts):
+            # 这是一个 aggregate，跳过
+            continue
+        
+        # 检查是否为某个 existing aggregate 的 item
+        for existing_text in existing_condition_texts:
+            if _is_item_of_aggregate(fact.text, existing_text):
+                # 这是一个具体 item，标记 aggregate 待移除
+                aggregates_to_remove.add(existing_text)
 
         existing_conditions.add(normalized_condition)
+        existing_condition_texts.append(fact.text)
         ev_span_ids = _resolve_fact_span_ids(fact, span_ids_by_section)
 
         flow_counter += 1
-        new_exc_flows.append(
-            ExceptionFlow(
-                flow_id=f"exc_adapter_{flow_counter - 1:02d}",
-                condition_text=fact.text,
-                spans=ev_span_ids,
-            )
+        new_flow = ExceptionFlow(
+            flow_id=f"exc_adapter_{flow_counter - 1:02d}",
+            condition_text=fact.text,
+            spans=ev_span_ids,
         )
+        new_exc_flows.append(new_flow)
 
-    if not new_exc_flows:
+        if intermediate_results is not None:
+            origins = intermediate_results.setdefault("flow_origins", {})
+            origins[new_flow.flow_id] = "bridge_fallback"
+
+    if not new_exc_flows and not aggregates_to_remove:
         return worker_flow_plan
+    
+    # 过滤掉 aggregates
+    filtered_main_flows = [
+        exc for exc in main_flow.exception_flows
+        if exc.condition_text not in aggregates_to_remove
+    ]
 
     updated_flow = FlowStructureIR(
         main_flow_spans=list(main_flow.main_flow_spans),
         alternative_flows=list(main_flow.alternative_flows),
-        exception_flows=main_flow.exception_flows + new_exc_flows,
+        exception_flows=filtered_main_flows + new_exc_flows,
         delegation_candidates=list(main_flow.delegation_candidates),
     )
 

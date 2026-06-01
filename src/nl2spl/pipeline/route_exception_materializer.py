@@ -20,6 +20,25 @@ def _normalize_condition(text: str) -> str:
     return re.sub(r"[^\w\s]", "", text.strip().lower())
 
 
+def _is_empty_condition(text: str) -> bool:
+    """检查 condition 文本是否为空标记。
+    
+    Args:
+        text: condition 文本
+    
+    Returns:
+        True 如果文本是空标记（如 "None", "N/A"）
+    """
+    candidate = text.strip()
+    candidate = re.sub(r"^\s*[-*+]\s+", "", candidate)
+    candidate = re.sub(r"^\s*\d+\.\s+", "", candidate)
+    if ":" in candidate or "：" in candidate:
+        _label, candidate = re.split(r"[:：]", candidate, maxsplit=1)
+    candidate = candidate.replace("**", "").replace("__", "")
+    normalized = re.sub(r"[^\w\s]", "", candidate.lower()).strip()
+    return normalized in {"none", "na", "not applicable", "nil", "empty"}
+
+
 def materialize_route_exception_flows(
     flow: FlowStructureIR,
     routes: Any,  # FieldRouteIR (lazy import to avoid cycle)
@@ -54,7 +73,16 @@ def materialize_route_exception_flows(
         span = span_by_id.get(ann.span_id)
         if span is None:
             continue
+        
+        # 跳过 placeholder spans
+        if span.is_placeholder:
+            continue
+        
+        # 额外防御：检查文本内容
         cond_text = span.text
+        if _is_empty_condition(cond_text):
+            continue
+        
         if _normalize_condition(cond_text) in existing_conditions:
             continue
         existing_conditions.add(_normalize_condition(cond_text))

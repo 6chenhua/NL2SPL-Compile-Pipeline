@@ -14,6 +14,7 @@ from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR, WorkerSpecI
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.route_exception_materializer import (
     materialize_route_exception_flows,
+    _is_empty_condition,
 )
 
 
@@ -250,6 +251,11 @@ Return JSON only."""
             span = span_by_id.get(sid)
             if span is None:
                 continue
+            
+            # 跳过 placeholder spans
+            if span.is_placeholder:
+                continue
+            
             owners = owners_by_span.get(sid, [])
             if len(owners) == 1:
                 target_worker = owners[0]
@@ -342,6 +348,17 @@ def _filter_non_condition_exception_flows(
             continue
         cond_span = span_by_id.get(condition_spans[0])
         condition_text = cond_span.text if cond_span else exc.condition_text
+        
+        # 检查是否为空标记（文本级别检查）
+        if _is_empty_condition(condition_text):
+            changed = True
+            continue
+        
+        # 检查是否为 placeholder span
+        if cond_span and cond_span.is_placeholder:
+            changed = True
+            continue
+        
         norm = _re.sub(r"[^\w\s]", "", condition_text.strip().lower())
         if norm in existing_norms:
             changed = True

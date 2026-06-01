@@ -290,6 +290,7 @@ class PipelineOrchestrator:
                         resolved_spans,
                         worker_flow_plan,
                         worker_plan,
+                        intermediate_results=intermediate,
                     )
                     intermediate["stage4_worker_flows"] = worker_flow_plan
             else:
@@ -301,6 +302,7 @@ class PipelineOrchestrator:
                         canonical_input.hard_facts.failure_modes,
                         resolved_spans,
                         flow_structure,
+                        intermediate_results=intermediate,
                     )
                     intermediate["stage4_flow"] = flow_structure
 
@@ -678,9 +680,12 @@ class PipelineOrchestrator:
         # post_norm_diags replaces the old compile_diagnostics from Stage 9.5.
         # stage7_diags carries unmapped_behavior_span and other LLM-stage
         # diagnostics that are not covered by the post-normalize IRS pass.
+        stage2_diags = intermediate.get(
+            "stage_local_diagnostics", {}
+        ).get("stage2", [])
         all_diagnostics = (
-            stage7_diags + post_norm_diags + conflict_diags + gate_diags
-            + provenance_diags + delegation_diags
+            stage2_diags + stage7_diags + post_norm_diags + conflict_diags
+            + gate_diags + provenance_diags + delegation_diags
         )
         # IRS consolidation only runs when the post-normalize checker is
         # disabled; otherwise Stage 4/7 IRS diagnostics stay as reports only.

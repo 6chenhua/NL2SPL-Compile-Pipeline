@@ -1019,7 +1019,7 @@ def test_d2_orchestrator_path_route_plus_bridge_no_duplicate(
         "Delegation policy:\nNone.\n"
     )
     canonical = StructuralNLAdapter().adapt(text)
-    # Verify hard facts exist (triggers bridge path in orchestrator)
+    # Adapter keeps compatibility facts for bridge fallback.
     assert len(canonical.hard_facts.failure_modes) >= 1
 
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1065,7 +1065,7 @@ def test_d2_orchestrator_path_route_plus_bridge_no_duplicate(
     result = orchestrator.run(text)
 
     stage4_flow = result.intermediate_results["stage4_flow"]
-    # Route + bridge must not duplicate
+    # Route materialization plus bridge fallback must not duplicate.
     timeframe_exceptions = [
         e for e in stage4_flow.exception_flows
         if "timeframe" in e.condition_text.lower()
@@ -1133,7 +1133,7 @@ def test_d8_bridge_fallback_skipped_when_route_exceptions_exist(
         "Delegation policy:\nNone.\n"
     )
     canonical = StructuralNLAdapter().adapt(text)
-    assert len(canonical.hard_facts.failure_modes) >= 1  # hard facts present
+    assert len(canonical.hard_facts.failure_modes) >= 1
 
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
@@ -1152,7 +1152,7 @@ def test_d8_bridge_fallback_skipped_when_route_exceptions_exist(
     # Route materialized exception
     assert len(flow.exception_flows) >= 1
 
-    # Bridge fallback would be skipped (orchestrator guard checks for zero exceptions)
+    # Bridge fallback sees adapter facts but must not duplicate route exceptions.
     from nl2spl.pipeline.fact_bridges import bridge_failure_modes
     bridged = bridge_failure_modes(canonical.hard_facts.failure_modes, spans, flow)
     assert len(bridged.exception_flows) == len(flow.exception_flows)

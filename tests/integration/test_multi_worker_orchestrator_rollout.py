@@ -50,7 +50,7 @@ def worker_plan_response() -> dict[str, object]:
                 "worker_name": "MainWorker",
                 "kind": "main",
                 "purpose": "Coordinate request.",
-                "owned_span_ids": ["s1", "s2"],
+                "owned_span_ids": ["s4"],
                 "input_contract": [field_request],
                 "output_contract": [field_evidence],
                 "depends_on": [],
@@ -64,7 +64,7 @@ def worker_plan_response() -> dict[str, object]:
                 "worker_name": "SourceWorker",
                 "kind": "child",
                 "purpose": "Gather approved source evidence.",
-                "owned_span_ids": ["s3"],
+                "owned_span_ids": ["s5"],
                 "input_contract": [field_request],
                 "output_contract": [field_evidence],
                 "depends_on": [],
@@ -101,21 +101,21 @@ def worker_plan_response() -> dict[str, object]:
                 "invoke_location_hint": {
                     "flow_kind": "main",
                     "flow_id": None,
-                    "after_span_id": "s2",
+                    "after_span_id": "s4",
                     "before_span_id": None,
                     "block_hint": "if",
                 },
                 "failure_policy": {
                     "policy_kind": "block_finalization",
                     "description": "Block finalization if source gathering fails.",
-                    "source_span_ids": ["s3"],
+                    "source_span_ids": ["s5"],
                 },
             }
         ],
         "candidates": [
             {
                 "candidate_id": "candidate_source",
-                "source_span_ids": ["s3"],
+                "source_span_ids": ["s5"],
                 "task_text": "Gather approved source evidence.",
                 "purpose": "Gather approved source evidence.",
                 "candidate_kind": "bounded_subtask",
@@ -147,9 +147,9 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
     if stage_name == "stage1_span_slicer":
         return {
             "spans": [
-                {"span_id": "s1", "text": "Prepare the request context."},
-                {"span_id": "s2", "text": "If sources are needed, invoke source gathering."},
-                {"span_id": "s3", "text": "Gather approved source evidence."},
+                {"span_id": "s4", "text": "Prepare the request context. If sources are needed"},
+                {"span_id": "s5", "text": "invoke source gathering"},
+                {"span_id": "s6", "text": "Gather approved source evidence in a child worker"},
             ]
         }
     if stage_name == "stage2_field_router":
@@ -160,9 +160,15 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
                 "rules": [],
                 "domain": [],
                 "integrations": [],
-                "behavior": ["s1", "s2", "s3"],
+                "behavior": ["s4", "s5", "s6"],
             },
             "ambiguity_updates": [],
+        }
+    if stage_name == "stage2_adapter_guided":
+        # Mock response for adapter-guided refinement
+        return {
+            "refined_annotations": [],
+            "diagnostics": [],
         }
     if stage_name == "stage3_ambiguity_resolver":
         return {
@@ -173,7 +179,7 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
                 "rules": [],
                 "domain": [],
                 "integrations": [],
-                "behavior": ["s1", "s2", "s3"],
+                "behavior": ["s4", "s5", "s6"],
             },
         }
     if stage_name == "stage3_5_worker_boundary_planner":
@@ -185,48 +191,42 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
     if stage_name == "stage4_flow_assembler":
         if '"worker_id": "source"' in user_prompt:
             return {
-                "main_flow_spans": ["s3"],
+                "main_flow_spans": ["s5"],
                 "alternative_flows": [],
                 "exception_flows": [],
             }
         if "WorkerPlanIR context" in user_prompt:
             return {
-                "main_flow_spans": ["s1", "s2"],
+                "main_flow_spans": ["s4"],
                 "alternative_flows": [],
                 "exception_flows": [],
             }
         return {
-            "main_flow_spans": ["s1", "s2", "s3"],
+            "main_flow_spans": ["s4", "s5", "s6"],
             "alternative_flows": [],
             "exception_flows": [],
             "delegation_candidates": [],
         }
     if stage_name == "stage5_block_assembler":
-        if '"span_id": "s3"' in user_prompt and '"span_id": "s1"' not in user_prompt:
+        if '"span_id": "s5"' in user_prompt and '"span_id": "s4"' not in user_prompt:
             return {
                 "main_flow_blocks": [
-                    {"block_id": "b_child", "block_type": "SEQUENTIAL", "spans": ["s3"]}
+                    {"block_id": "b_child", "block_type": "SEQUENTIAL", "spans": ["s5"]}
                 ],
                 "alternative_flow_blocks": {},
                 "exception_flow_blocks": {},
             }
-        if "s1" in user_prompt and "s3" not in user_prompt:
+        if "s4" in user_prompt and "s6" not in user_prompt:
             return {
                 "main_flow_blocks": [
-                    {"block_id": "b1", "block_type": "SEQUENTIAL", "spans": ["s1"]},
-                    {
-                        "block_id": "b2",
-                        "block_type": "IF",
-                        "condition_text": "sources are needed",
-                        "spans": ["s2"],
-                    },
+                    {"block_id": "b1", "block_type": "SEQUENTIAL", "spans": ["s4"]},
                 ],
                 "alternative_flow_blocks": {},
                 "exception_flow_blocks": {},
             }
         return {
             "main_flow_blocks": [
-                {"block_id": "b1", "block_type": "SEQUENTIAL", "spans": ["s1", "s2", "s3"]}
+                {"block_id": "b1", "block_type": "SEQUENTIAL", "spans": ["s4", "s5", "s6"]}
             ],
             "alternative_flow_blocks": {},
             "exception_flow_blocks": {},
@@ -254,13 +254,13 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
             "types": [],
         }
     if stage_name == "stage7_step_extractor":
-        if "Gather approved source evidence." in user_prompt:
+        if "worker_id: source" in user_prompt:
             return {
                 "steps": [
                     {
                         "step_id": "st1",
                         "text": "Produce evidence directly",
-                        "source_span_ids": ["s3"],
+                        "source_span_ids": ["s5"],
                         "command_type": "GENERAL_COMMAND",
                         "inputs": ["request"],
                         "outputs": ["evidence"],
@@ -275,7 +275,7 @@ def stage_response(stage_name: str, user_prompt: str) -> dict[str, object]:
                 {
                     "step_id": "st1",
                     "text": "Prepare request context",
-                    "source_span_ids": ["s1"],
+                    "source_span_ids": ["s4"],
                     "command_type": "GENERAL_COMMAND",
                     "inputs": ["request"],
                     "outputs": [],
@@ -300,7 +300,7 @@ def run_with_mocked_llm(tmp_path: Path, enable_worker_boundary_planner: bool):
     captured_calls: list[tuple[str, str]] = []
     client = MagicMock()
 
-    def call_json(stage_name: str, system_prompt: str, user_prompt: str):
+    def call_json(stage_name: str, system_prompt: str, user_prompt: str, **kwargs):
         captured_calls.append((stage_name, user_prompt))
         return stage_response(stage_name, user_prompt)
 
@@ -357,11 +357,11 @@ def test_orchestrator_feature_flag_on_runs_worker_aware_path(tmp_path: Path) -> 
     stage6_calls = [
         (name, prompt) for name, prompt in calls if name == "stage6_resource_extractor"
     ]
-    # Child worker prompt: has worker context and only s3 in behavior
+    # Child worker prompt: has worker context and only executable child span s5.
     child_prompts = [
         p for _, p in stage6_calls
-        if "Worker_source" in p and '"span_id": "s3"' in p
-        and '"span_id": "s1"' not in p
+        if "Worker_source" in p and '"span_id": "s5"' in p
+        and '"span_id": "s4"' not in p
     ]
     assert len(child_prompts) == 1, f"Expected one child stage6 prompt, got {len(child_prompts)}"
     child_prompt = child_prompts[0]
@@ -372,6 +372,12 @@ def test_orchestrator_feature_flag_on_runs_worker_aware_path(tmp_path: Path) -> 
         user_prompt for stage_name, user_prompt in calls if stage_name == "stage7_step_extractor"
     )
     behavior_section = behavior_prompt_section(stage7_prompt)
-    assert "Prepare the request context." in behavior_section
-    assert "If sources are needed, invoke source gathering." in behavior_section
-    assert "Gather approved source evidence." not in behavior_section
+    executable_behavior_section = behavior_section.split(
+        "Non-executable context only", 1
+    )[0]
+    assert "Prepare the request context. If sources are needed" in executable_behavior_section
+    assert "invoke source gathering" not in executable_behavior_section
+    assert (
+        "Gather approved source evidence in a child worker"
+        not in executable_behavior_section
+    )
