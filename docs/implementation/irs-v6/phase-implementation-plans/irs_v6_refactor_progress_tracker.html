@@ -212,6 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
+    const DATA_VERSION = 2; // R0+R1 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -312,14 +313,28 @@
     function render() {
       document.getElementById("phases").innerHTML = phases.map(p => phaseTemplate(...p)).join("");
       loadState();
-      // R0 预填充数据
-      if (!localStorage.getItem(STORAGE_KEY)) {
-        applyR0Data();
+      // 检查数据版本，如果版本不匹配则重新加载预填充数据
+      const stored = localStorage.getItem(STORAGE_KEY);
+      let needsUpdate = false;
+      if (!stored) {
+        needsUpdate = true;
+      } else {
+        try {
+          const data = JSON.parse(stored);
+          if (!data._version || data._version < DATA_VERSION) {
+            needsUpdate = true;
+          }
+        } catch (_) {
+          needsUpdate = true;
+        }
+      }
+      if (needsUpdate) {
+        applyR0R1Data();
       }
       refreshSummary();
     }
 
-    function applyR0Data() {
+    function applyR0R1Data() {
       const r0Data = {
         "R0.status": "approved",
         "R0.reviewDecision": "approved",
@@ -360,7 +375,8 @@
         "R1.check.7": true,
         "R1.check.8": true,
         "R1.check.9": true,
-        "R1.notes": "R1 阶段完成: 2026-06-01\n审核者确认: 类型契约、测试、全量回归均通过\n质量建议: 可用 typing.get_args() 进一步硬化 literal 枚举测试\n后续依赖: R2 基于这些类型建立 IRS v6 framework skeleton"
+        "R1.notes": "R1 阶段完成: 2026-06-01\n审核者确认: 类型契约、测试、全量回归均通过\n质量建议: 可用 typing.get_args() 进一步硬化 literal 枚举测试\n后续依赖: R2 基于这些类型建立 IRS v6 framework skeleton",
+        "_version": DATA_VERSION
       };
       applyState({...r0Data, ...r1Data});
       saveState();
@@ -386,7 +402,9 @@
     }
 
     function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState(), null, 2));
+      const state = collectState();
+      state._version = DATA_VERSION;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state, null, 2));
       refreshSummary();
     }
 
