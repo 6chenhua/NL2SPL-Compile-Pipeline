@@ -77,9 +77,11 @@ class WorkerScopedMixin:
         # 6. Normalize worker-local multi-output steps. SPL commands can only
         # declare one RESULT/RESPONSE variable, so multi-output steps must be
         # represented as a structured result plus unpack commands.
-        for steps in worker_step_plan.worker_steps.values():
+        for worker_id, steps in worker_step_plan.worker_steps.items():
             warnings.extend(
-                self._normalize_multi_output_steps(resources, symbol_table, steps)
+                self._normalize_multi_output_steps(
+                    resources, symbol_table, steps, worker_id, worker_plan
+                )
             )
 
         # 7. Required worker outputs must have producers in their own worker

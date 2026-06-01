@@ -482,9 +482,9 @@ def test_worker_scoped_normalizes_multi_output_handoff_step() -> None:
 
     assert errors == []
     main_steps = normalized_steps.worker_steps["worker_main"]
-    assert main_steps[0].outputs == ["out_one_structured"]
+    assert main_steps[0].outputs == ["h_multi_response_structured"]
     assert [step.outputs for step in main_steps[1:]] == [["out_one"], ["out_two"]]
-    assert any(t.type_name == "out_one_structured_type" for t in resources.types)
+    assert any(t.type_name == "h_multi_response_structured_type" for t in resources.types)
     assert any("Aggregated multi-output step st_handoff" in warning for warning in warnings)
 
 

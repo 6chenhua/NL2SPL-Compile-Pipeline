@@ -188,7 +188,7 @@ class ExecutableElementGate:
                         f"INVOKE_WORKER inputs {step.inputs} do not "
                         f"match handoff bindings {expected_inputs}"
                     )
-                if list(step.outputs) != expected_outputs:
+                if not self._handoff_outputs_match(step, expected_outputs):
                     return False, (
                         f"INVOKE_WORKER outputs {step.outputs} do not "
                         f"match handoff bindings {expected_outputs}"
@@ -223,11 +223,37 @@ class ExecutableElementGate:
         # 3. compiler_synthetic -- renderable only for unpack scaffolding
         if origin == "compiler_synthetic":
             if step.metadata.get("origin") == "compiler_unpack":
+                # Final renderability for compiler_unpack depends on the producer
+                # which is checked in _filter_steps Pass 2.
                 return True, None
             return False, "Compiler-synthetic step is not unpack scaffolding"
 
         # 4. assumed -> NOT renderable
         return False, "Step has no source evidence and is not handoff-backed"
+
+    def _handoff_outputs_match(
+        self,
+        step: StepIR,
+        expected_outputs: list[str],
+    ) -> bool:
+        if list(step.outputs) == expected_outputs:
+            return True
+
+        aggregation = step.metadata.get("structured_aggregation")
+        if not isinstance(aggregation, dict):
+            return False
+
+        # Must have exactly 1 output matching the structured result_name
+        result_name = aggregation.get("result_name")
+        if not result_name or len(step.outputs) != 1 or step.outputs[0] != result_name:
+            return False
+
+        # Must have type_name properly generated
+        if not aggregation.get("type_name"):
+            return False
+
+        original_outputs = aggregation.get("original_outputs") or []
+        return list(original_outputs) == expected_outputs
 
     @staticmethod
     def _source_backed_renderable(step: StepIR) -> tuple[bool, str | None]:
@@ -381,9 +407,16 @@ class ExecutableElementGate:
         renderable_infos: list[StepRenderInfo] = []
         blocked_infos: list[StepRenderInfo] = []
         diags: list[CompileDiagnostic] = []
+        
+        unpack_steps: list[StepIR] = []
 
+        # Pass 1: Filter non-unpack steps
         for step in steps:
             origin = self.classify_origin(step)
+            if origin == "compiler_synthetic" and step.metadata.get("origin") == "compiler_unpack":
+                unpack_steps.append(step)
+                continue
+
             ok, reason = self.is_renderable(
                 step, origin, handoff_index, child_worker_names,
                 worker_by_id,
@@ -398,9 +431,100 @@ class ExecutableElementGate:
                 renderable_infos.append(info)
             else:
                 blocked_infos.append(info)
-                # Diagnostic emission for blocked steps is now the
-                # responsibility of PostNormalizeIRSChecker.
-                # Gate only emits post-gate missing_handler.
+                
+        # Pass 2: Filter unpack steps based on producer renderability
+        renderable_step_ids = {info.step_id for info in renderable_infos}
+        renderable_step_by_id = {s.step_id: s for s in steps if s.step_id in renderable_step_ids}
+        
+        for step in unpack_steps:
+            origin = self.classify_origin(step)
+            source_step_id = step.metadata.get("structured_source_step_id")
+            structured_result = step.metadata.get("structured_result")
+            unpacked_output = step.metadata.get("unpacked_output")
+            
+            # Validate metadata presence
+            if not source_step_id:
+                ok = False
+                reason = "compiler_unpack missing structured_source_step_id"
+            elif not structured_result:
+                ok = False
+                reason = "compiler_unpack missing structured_result"
+            elif not unpacked_output:
+                ok = False
+                reason = "compiler_unpack missing unpacked_output"
+            # Validate producer is renderable
+            elif source_step_id not in renderable_step_ids:
+                ok = False
+                reason = "compiler_unpack source step is not renderable"
+            else:
+                # Validate strong binding to producer
+                producer = renderable_step_by_id.get(source_step_id)
+                if not producer:
+                    ok = False
+                    reason = f"compiler_unpack source step '{source_step_id}' not found"
+                # Verify structured_result is in producer outputs
+                elif structured_result not in producer.outputs:
+                    ok = False
+                    reason = (
+                        f"compiler_unpack structured_result '{structured_result}' "
+                        f"not in producer outputs {producer.outputs}"
+                    )
+                # Verify unpack inputs match structured_result
+                elif step.inputs != [structured_result]:
+                    ok = False
+                    reason = (
+                        f"compiler_unpack inputs {step.inputs} do not match "
+                        f"structured_result [{structured_result}]"
+                    )
+                # Verify unpacked_output matches step output
+                elif len(step.outputs) != 1 or step.outputs[0] != unpacked_output:
+                    ok = False
+                    reason = (
+                        f"compiler_unpack output {step.outputs} does not match "
+                        f"unpacked_output [{unpacked_output}]"
+                    )
+                # Verify unpacked_output is in producer's original_outputs
+                else:
+                    aggregation = producer.metadata.get("structured_aggregation")
+                    if not isinstance(aggregation, dict):
+                        ok = False
+                        reason = (
+                            f"compiler_unpack producer '{source_step_id}' "
+                            f"missing structured_aggregation metadata"
+                        )
+                    else:
+                        original_outputs = aggregation.get("original_outputs", [])
+                        if unpacked_output not in original_outputs:
+                            ok = False
+                            reason = (
+                                f"compiler_unpack output '{unpacked_output}' "
+                                f"not in producer original_outputs {original_outputs}"
+                            )
+                        else:
+                            ok = True
+                            reason = None
+
+            info = StepRenderInfo(
+                step_id=step.step_id,
+                origin=origin,
+                renderable=ok,
+                render_block_reason=reason if not ok else None,
+            )
+            if ok:
+                renderable_infos.append(info)
+            else:
+                blocked_infos.append(info)
+                diags.append(
+                    CompileDiagnostic(
+                        diagnostic_id=f"unpack_blocked_{step.step_id}",
+                        kind="missing_output_producer",
+                        severity="warning",
+                        message=f"Compiler unpack step '{step.step_id}' blocked: {reason}.",
+                        target_ref=f"step:{step.step_id}",
+                        blocks_rendering=True,
+                        blocks_completion=False,
+                    )
+                )
 
         return renderable_infos, blocked_infos, diags
 

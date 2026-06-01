@@ -185,6 +185,48 @@ class TestRenderability:
         assert ok is False
         assert "mode" in (reason or "")
 
+    def test_handoff_structured_outputs_match_rejects_missing_type_name(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR(
+            "st1", "Invoke", [], "INVOKE_WORKER",
+            handoff_id="h1", integration_ref="Child",
+            inputs=["req"], outputs=["result_structured"],
+            metadata={
+                "structured_aggregation": {
+                    "result_name": "result_structured",
+                    "original_outputs": ["out"],
+                    # type_name is missing
+                }
+            }
+        )
+        h = self._invoke_handoff()
+        ok, reason = gate.is_renderable(
+            step, "handoff_generated", {"h1": h},
+            {"Child"}, {"w_child": "Child"},
+        )
+        assert ok is False
+
+    def test_handoff_structured_outputs_match_rejects_mismatched_result_name(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR(
+            "st1", "Invoke", [], "INVOKE_WORKER",
+            handoff_id="h1", integration_ref="Child",
+            inputs=["req"], outputs=["wrong_result_name"],
+            metadata={
+                "structured_aggregation": {
+                    "result_name": "result_structured",
+                    "type_name": "result_structured_type",
+                    "original_outputs": ["out"],
+                }
+            }
+        )
+        h = self._invoke_handoff()
+        ok, reason = gate.is_renderable(
+            step, "handoff_generated", {"h1": h},
+            {"Child"}, {"w_child": "Child"},
+        )
+        assert ok is False
+
 
 class TestGateFiltering:
     """Integration-level tests for gate.apply()."""
@@ -253,15 +295,67 @@ class TestGateFiltering:
             main_flow=FlowRef(),
             steps=[
                 StepIR(
+                    "st1", "Do work", ["s1"], "GENERAL_COMMAND",
+                    outputs=["result_structured"],
+                    metadata={
+                        "structured_aggregation": {
+                            "result_name": "result_structured",
+                            "original_outputs": ["field1"],
+                            "type_name": "result_type",
+                        }
+                    },
+                ),
+                StepIR(
                     "st_unpack", "Extract field", [],
-                    "GENERAL_COMMAND", metadata={"origin": "compiler_unpack"},
+                    "GENERAL_COMMAND",
+                    inputs=["result_structured"],
+                    outputs=["field1"],
+                    metadata={
+                        "origin": "compiler_unpack",
+                        "structured_source_step_id": "st1",
+                        "structured_result": "result_structured",
+                        "unpacked_output": "field1",
+                    },
                 ),
             ],
         )
 
         filtered, infos, diags = gate.apply(worker)
-        assert len(filtered.steps) == 1
+        assert len(filtered.steps) == 2
         assert len(diags) == 0
+
+    def test_compiler_unpack_blocked_when_source_step_not_renderable(self) -> None:
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[
+                StepIR("st1", "Assumed step", [], "GENERAL_COMMAND"),  # not renderable
+                StepIR(
+                    "st_unpack", "Extract field", [],
+                    "GENERAL_COMMAND", metadata={
+                        "origin": "compiler_unpack",
+                        "structured_source_step_id": "st1",
+                        "structured_result": "result_structured",
+                        "unpacked_output": "field1",
+                    },
+                ),
+            ],
+        )
+
+        filtered, infos, diags = gate.apply(worker)
+        assert len(filtered.steps) == 0
+        
+        blocked_infos = [i for i in infos if not i.renderable]
+        assert len(blocked_infos) == 2
+        
+        unpack_info = next(i for i in blocked_infos if i.step_id == "st_unpack")
+        assert "source step is not renderable" in (unpack_info.render_block_reason or "")
+        
+        # Check diagnostic
+        unpack_diag = next(d for d in diags if d.diagnostic_id == "unpack_blocked_st_unpack")
+        assert unpack_diag.severity == "warning"
 
     def test_child_worker_steps_also_filtered(self) -> None:
         gate = ExecutableElementGate()

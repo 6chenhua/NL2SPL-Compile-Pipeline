@@ -75,6 +75,8 @@ class NormalizationMixin:
         resources: ResourceRegistryIR,
         symbol_table: SymbolTable,
         steps: list[StepIR],
+        worker_id: str | None = None,
+        worker_plan: WorkerPlanIR | None = None,
     ) -> list[str]:
         """Aggregate multi-output commands into one structured result variable."""
         warnings: list[str] = []
@@ -87,9 +89,27 @@ class NormalizationMixin:
                 continue
 
             original_outputs = list(step.outputs)
-            result_name = self._aggregate_result_name(step)
+            result_name = self._aggregate_result_name(step, worker_id)
             type_name = self._aggregate_type_name(result_name)
             definition = self._structured_type_definition(original_outputs, symbol_table)
+
+            step.metadata["origin"] = step.metadata.get("origin") or "source_backed"
+            step.metadata["structured_aggregation"] = {
+                "result_name": result_name,
+                "original_outputs": original_outputs,
+                "type_name": type_name,
+            }
+            if step.handoff_id and worker_plan:
+                handoff = next((h for h in worker_plan.handoffs if h.handoff_id == step.handoff_id), None)
+                if handoff:
+                    step.metadata["handoff_output_bindings"] = [
+                        {
+                            "child_output": binding.child_output,
+                            "parent_variable": binding.parent_variable,
+                            "required": binding.required,
+                        }
+                        for binding in handoff.output_bindings
+                    ]
 
             self._ensure_type(resources, type_name, definition)
             self._ensure_variable(
@@ -113,7 +133,12 @@ class NormalizationMixin:
                     outputs=[output_name],
                     flow_ref=step.flow_ref,
                     block_ref=step.block_ref,
-                    metadata={"origin": "compiler_unpack"},
+                    metadata={
+                        "origin": "compiler_unpack",
+                        "structured_source_step_id": step.step_id,
+                        "structured_result": result_name,
+                        "unpacked_output": output_name,
+                    },
                 )
                 normalized_steps.append(unpack_step)
                 symbol_table.add_producer(output_name, unpack_step_id)
@@ -126,9 +151,14 @@ class NormalizationMixin:
         steps[:] = normalized_steps
         return warnings
 
-    def _aggregate_result_name(self, step: StepIR) -> str:
+    def _aggregate_result_name(self, step: StepIR, worker_id: str | None = None) -> str:
         """Derive a structured result variable name from a step."""
-        base = step.outputs[0] if step.outputs else "result"
+        if step.handoff_id:
+            base = f"{step.handoff_id}_response"
+        elif worker_id:
+            base = f"{worker_id}_{step.step_id}_result"
+        else:
+            base = step.outputs[0] if step.outputs else "result"
         return f"{self._safe_name(base)}_structured"
 
     def _aggregate_type_name(self, result_name: str) -> str:
