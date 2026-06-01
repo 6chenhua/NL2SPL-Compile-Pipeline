@@ -10,7 +10,10 @@ This module is pure data — no prompt wiring and no pipeline behaviour changes.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
+
+from nl2spl.compiler.irs.frontier import CutlineReason, FrontierStatus
+from nl2spl.compiler.irs.graph import ConstructEdge
 
 ExistencePolicy = Literal[
     "source_signal_required",
@@ -93,7 +96,20 @@ class SlotSatisfaction:
 
 @dataclass
 class ConstructSatisfactionReport:
-    """Slot-level satisfaction report for one materialised construct."""
+    """Slot-level satisfaction report for one materialised construct.
+
+    IRS v6 extensions:
+        primary_parent_id: Main containment parent construct ID
+        child_construct_ids: Direct child construct IDs
+        related_edges: Non-tree relationships (produces, invokes, etc.)
+        construct_path: Hierarchical path for reporting
+        source_span_ids: Source spans supporting this construct
+        source_section_id: Source section ID
+        source_packet_id: Source packet ID
+        cutline_reason: Why recursive checking stopped
+        frontier_status: Traversal control for future recursive checking
+        metadata: Additional construct metadata
+    """
 
     construct_id: str
     construct_type: str
@@ -101,6 +117,17 @@ class ConstructSatisfactionReport:
     completeness: ConstructCompleteness
     renderable: bool
     diagnostics: list = field(default_factory=list)
+    # IRS v6 extensions - all have defaults for backward compatibility
+    primary_parent_id: str | None = None
+    child_construct_ids: list[str] = field(default_factory=list)
+    related_edges: list[ConstructEdge] = field(default_factory=list)
+    construct_path: tuple[str, ...] = ()
+    source_span_ids: list[str] = field(default_factory=list)
+    source_section_id: str | None = None
+    source_packet_id: str | None = None
+    cutline_reason: CutlineReason | None = None
+    frontier_status: FrontierStatus = "leaf"
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class SPLConstructRegistry:
