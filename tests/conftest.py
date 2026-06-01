@@ -74,6 +74,15 @@ def mock_client() -> MagicMock:
         "annotations": [],
         "split_recommendations": [],
         "diagnostics": [],
+        "priors": [
+            {"section_id": "sec_task_family", "suggested_field": "domain", "suggested_semantic_role": "task_family", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_inputs_for_each_run", "suggested_field": "resources", "suggested_semantic_role": "input_contract", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_required_outputs", "suggested_field": "resources", "suggested_semantic_role": "output_contract", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_reusable_process", "suggested_field": "behavior", "suggested_semantic_role": "process_step", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_policies", "suggested_field": "rules", "suggested_semantic_role": "policy", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_failure_handling", "suggested_field": "behavior", "suggested_semantic_role": "failure_mode", "strength": "strong", "evidence": "mock"},
+            {"section_id": "sec_delegation_policy", "suggested_field": "integrations", "suggested_semantic_role": "delegation_intent", "strength": "strong", "evidence": "mock"},
+        ],
     }
     client.call_text.return_value = "test response"
     return client

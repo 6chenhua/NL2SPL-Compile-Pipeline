@@ -146,9 +146,20 @@ class TestSectionContextRouting:
         span = SpanIR(
             span_id="s1",
             text="Some text",
-            source_section_id="sec_policies",  # canonical → "rules"
+            source_section_id="sec_policies",  # canonical -> "rules"
             section_context="Task Family",  # would be "domain" if used
         )
+        from nl2spl.adapters.section_semantic_mapper import RoutePrior
+        canonical_input.route_priors = [
+            RoutePrior(
+                section_id="sec_policies",
+                suggested_semantic_role="policies",
+                suggested_field="rules",
+                strength="strong",
+                evidence="mock",
+                source="llm"
+            )
+        ]
         field = FieldRouter._section_field(span, canonical_input)
         assert field == "rules"  # canonical wins, not section_context
 

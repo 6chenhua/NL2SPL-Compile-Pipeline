@@ -206,6 +206,35 @@ class RouteRefinementValidator:
                     f"for span '{ann.span_id}'"
                 )
 
+        # --- 4.5. Placeholder spans and empty markers cannot be executable roles ----------
+        if span is not None:
+            # Check placeholder flag
+            if getattr(span, "is_placeholder", False):
+                if ann.semantic_role in ("failure_mode", "constraint", "process_step"):
+                    return reject(
+                        f"Rejected: placeholder span '{ann.span_id}' "
+                        f"('{getattr(span, 'text', '')[:60]}') cannot be annotated as "
+                        f"{ann.semantic_role}"
+                    )
+            
+            # Check empty marker text (additional defense for LLM path)
+            span_text = getattr(span, "text", "")
+            if span_text and ann.semantic_role in ("failure_mode", "constraint", "process_step"):
+                import re as _re
+                candidate = span_text.strip()
+                candidate = _re.sub(r"^\s*[-*+]\s+", "", candidate)
+                candidate = _re.sub(r"^\s*\d+\.\s+", "", candidate)
+                if ":" in candidate or "：" in candidate:
+                    _label, candidate = _re.split(r"[:：]", candidate, maxsplit=1)
+                candidate = candidate.replace("**", "").replace("__", "")
+                normalized = _re.sub(r"[^\w\s]", "", candidate.lower()).strip()
+                empty_markers = {"none", "na", "n a", "not applicable", "nil", "empty"}
+                if normalized in empty_markers:
+                    return reject(
+                        f"Rejected: empty marker span '{ann.span_id}' "
+                        f"('{span_text[:60]}') cannot be annotated as {ann.semantic_role}"
+                    )
+
         # --- 5. Role-specific contract ----------------------------------
         contract = _ROLE_CONTRACT.get(ann.semantic_role or "")
         if contract:

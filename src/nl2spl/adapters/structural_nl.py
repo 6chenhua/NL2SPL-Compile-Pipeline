@@ -6,12 +6,12 @@ import re
 from collections import Counter
 from typing import Any, Literal
 
+from nl2spl.adapters.morphology import ShapeGrammar
 from nl2spl.adapters.base import InputAdapter
-from nl2spl.canonical import (
+from nl2spl.canonical.compile_input import (
     AdapterDetectionResult,
     AdapterWarning,
     CanonicalCompileInput,
-    CompileHint,
     CompileHints,
     DelegationIntentFact,
     EvidenceRef,
@@ -22,19 +22,6 @@ from nl2spl.canonical import (
     VariableFact,
 )
 from nl2spl.llm.prompts import load_prompt
-
-STRUCTURAL_NL_SECTIONS = {
-    "task family": "task_family",
-    "inputs for each run": "inputs_for_each_run",
-    "required outputs": "required_outputs",
-    "reusable process": "reusable_process",
-    "policies": "policies",
-    "failure handling": "failure_handling",
-    "delegation policy": "delegation_policy",
-}
-
-REQUIRED_SECTIONS = list(STRUCTURAL_NL_SECTIONS.values())
-CORE_SECTIONS = {"task_family", "inputs_for_each_run", "required_outputs"}
 
 VARIABLE_NAME_ALIASES = {
     "a user request": "user_request",
@@ -62,6 +49,47 @@ VARIABLE_NAME_ALIASES = {
 }
 
 
+def _is_empty_marker(text: str) -> bool:
+    """检查文本是否为空值标记（如 'None', 'N/A'）。
+    
+    用于识别用户用来表示"无内容"的占位符，避免将其当作有效的
+    failure condition、constraint 或 process step。
+    
+    Args:
+        text: 待检查的文本
+    
+    Returns:
+        True 如果文本是空值标记
+    
+    Examples:
+        >>> _is_empty_marker("None")
+        True
+        >>> _is_empty_marker("** None")
+        True
+        >>> _is_empty_marker("N/A")
+        True
+        >>> _is_empty_marker("Missing inputs")
+        False
+    """
+    candidate = text.strip()
+    candidate = re.sub(r"^\s*[-*+]\s+", "", candidate)
+    candidate = re.sub(r"^\s*\d+\.\s+", "", candidate)
+    if ":" in candidate or "：" in candidate:
+        _label, candidate = re.split(r"[:：]", candidate, maxsplit=1)
+    candidate = candidate.replace("**", "").replace("__", "")
+    normalized = re.sub(r"[^\w\s]", "", candidate.lower()).strip()
+    
+    empty_markers = {
+        "none",
+        "na",
+        "n a",
+        "not applicable",
+        "nil",
+        "empty",
+    }
+    return normalized in empty_markers
+
+
 class StructuralNLAdapter(InputAdapter):
     """Parse known structural NL section headings into canonical input.
 
@@ -79,21 +107,18 @@ class StructuralNLAdapter(InputAdapter):
     def detect(self, raw_text: str) -> AdapterDetectionResult:
         """Detect structural_nl by section evidence."""
         sections, unexpected = self._parse_sections(raw_text)
-        matched_titles = [section.canonical_title for section in sections]
+        matched_titles = [section.original_title for section in sections]
         counts = Counter(matched_titles)
         matched_unique = list(dict.fromkeys(matched_titles))
         duplicate_sections = sorted(title for title, count in counts.items() if count > 1)
         empty_sections = [
-            section.canonical_title for section in sections if not section.text.strip()
+            section.original_title for section in sections if not section.text.strip()
         ]
-        missing_sections = [
-            title for title in REQUIRED_SECTIONS if title not in set(matched_titles)
-        ]
-        has_non_empty_match = any(section.text.strip() for section in sections)
-        core_matches = CORE_SECTIONS.intersection(matched_titles)
-        matched = has_non_empty_match and (
-            len(matched_unique) >= 3 or len(core_matches) >= 2
-        )
+        missing_sections = []
+        
+        from nl2spl.adapters.morphology import StructuralShapeDetector
+        profile = StructuralShapeDetector.detect(raw_text)
+        matched = profile.is_highly_structured
 
         return AdapterDetectionResult(
             matched=matched,
@@ -115,202 +140,76 @@ class StructuralNLAdapter(InputAdapter):
         hard_facts = HardFacts()
         compile_hints = CompileHints()
         warnings = self._warnings_from_detection(detection)
-
+        
         for section in sections:
-            title = section.canonical_title
-            if title == "task_family":
-                semantic_packets.append(
-                    self._packet(
-                        "task_family",
-                        section,
-                        section.text,
-                        "hint",
-                        ["profile.persona", "profile.concepts", "worker.description"],
-                    )
-                )
-                compile_hints.profile_hints.append(
-                    CompileHint(
-                        source_section_id=section.section_id,
-                        text=section.text,
-                        target="profile.persona",
-                        evidence=[self._make_evidence(section)],
-                    )
-                )
-            elif title == "inputs_for_each_run":
-                inputs = self._extract_variables(section, source="input")
-                hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
-                for fact in inputs:
-                    packet = self._packet(
-                        "runtime_input",
-                        section,
-                        fact.description,
-                        "hard_fact",
-                        ["resource.variable", "worker.input"],
-                        fact.name,
-                        fact.required,
-                    )
-                    packet.metadata.update({
-                        "route_family": "resource_contract",
-                        "semantic_role": "input_contract",
-                        "executable": False,
-                    })
-                    semantic_packets.append(packet)
-                    fact.evidence = [
-                        EvidenceRef(
-                            source_section_id=section.section_id,
-                            source_packet_id=packet.packet_id,
-                            quoted_text=fact.description,
-                        )
-                    ]
-            elif title == "required_outputs":
-                outputs = self._extract_variables(section, source="output")
-                hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
-                for fact in outputs:
-                    packet = self._packet(
-                        "required_output",
-                        section,
-                        fact.description,
-                        "hard_fact",
-                        ["resource.variable", "worker.output"],
-                        fact.name,
-                        fact.required,
-                    )
-                    packet.metadata.update({
-                        "route_family": "resource_contract",
-                        "semantic_role": "output_contract",
-                        "executable": False,
-                    })
-                    semantic_packets.append(packet)
-                    fact.evidence = [
-                        EvidenceRef(
-                            source_section_id=section.section_id,
-                            source_packet_id=packet.packet_id,
-                            quoted_text=fact.description,
-                        )
-                    ]
-            elif title == "reusable_process":
-                semantic_packets.extend(self._sentence_packets("process_step", section))
-                for text in self._split_sentences(section.text):
-                    compile_hints.process_hints.append(
-                        CompileHint(
-                            source_section_id=section.section_id,
-                            text=text,
-                            suggested_flow="main",
-                            evidence=[self._make_evidence(section)],
-                        )
-                    )
-            elif title == "policies":
-                semantic_packets.extend(self._sentence_packets("policy", section))
-                for text in self._split_sentences(section.text):
-                    compile_hints.constraint_hints.append(
-                        CompileHint(
-                            source_section_id=section.section_id,
-                            text=text,
-                            suggested_kind=self._suggest_constraint_kind(text),
-                            evidence=[self._make_evidence(section)],
-                        )
-                    )
-            elif title == "failure_handling":
-                for item in self._split_list_items(section.text):
+            # Unconditionally output neutral structural packets
+            items = self._split_list_items(section.text)
+            has_lists = self._has_list_shape(section.text)
+
+            if has_lists:
+                for item in items:
                     clean = self._clean_item(item)
-                    if not clean:
-                        continue
-                    name = self._variable_name(clean)
-                    display_text = clean[:1].upper() + clean[1:]
-                    packet_id = f"p_failure_mode_{name}"
-                    semantic_packets.append(
-                        self._packet(
-                            "failure_mode",
+                    if clean:
+                        # 跳过空标记
+                        if _is_empty_marker(clean):
+                            continue
+                        
+                        packet = self._packet(
+                            "list_item",
                             section,
-                            display_text,
-                            "hard_fact",
-                            ["flow.exception.condition"],
-                            name,
-                            None,
+                            clean,
+                            "hint",
+                            [],
                         )
-                    )
-                    hard_facts.failure_modes.append(
-                        FailureModeFact(
-                            name=name,
-                            text=display_text,
-                            source_section_id=section.section_id,
-                            evidence=[
-                                EvidenceRef(
-                                    source_section_id=section.section_id,
-                                    source_packet_id=packet_id,
-                                    quoted_text=display_text,
-                                )
-                            ],
-                        )
-                    )
-                    compile_hints.flow_hints.append(
-                        CompileHint(
-                            source_section_id=section.section_id,
-                            text=display_text,
-                            target="EXCEPTION_FLOW",
-                            suggested_flow="exception",
-                            suggested_condition=display_text,
-                            evidence=[
-                                EvidenceRef(
-                                    source_section_id=section.section_id,
-                                    source_packet_id=packet_id,
-                                    quoted_text=display_text,
-                                )
-                            ],
-                            metadata={
-                                "route_family": "flow_relevant",
-                                "slot_target": "condition",
-                                "semantic_role": "failure_mode",
-                                "executable": False,
-                            },
-                        )
-                    )
-            elif title == "delegation_policy":
-                semantic_packets.extend(self._sentence_packets("delegation_rule", section))
+                        # Neutral structural unit: no executable commitment.
+                        # Stage 2 LLM/RoutePrior determines executability.
+                        packet.metadata.setdefault("executable", False)
+                        semantic_packets.append(packet)
+            else:
                 for text in self._split_sentences(section.text):
-                    name = self._variable_name(text)
-                    display_text = text[:1].upper() + text[1:]
-                    packet_id = f"p_delegation_rule_{name}"
-                    evidence = EvidenceRef(
-                        source_section_id=section.section_id,
-                        source_packet_id=packet_id,
-                        quoted_text=display_text,
-                    )
-                    hard_facts.delegation_intents.append(
-                        DelegationIntentFact(
-                            name=name,
-                            text=display_text,
-                            evidence=[evidence],
+                    if text.strip():
+                        # 跳过空标记
+                        if _is_empty_marker(text.strip()):
+                            continue
+                        
+                        packet = self._packet(
+                            "sentence",
+                            section,
+                            text,
+                            "hint",
+                            [],
                         )
-                    )
-                    compile_hints.delegation_hints.append(
-                        CompileHint(
-                            source_section_id=section.section_id,
-                            text=text,
-                            suggested_type="child_worker_candidate",
-                            evidence=[evidence],
-                            metadata={
-                                "route_family": "delegation_boundary",
-                                "semantic_role": "delegation_intent",
-                                "requires_contract": True,
-                                "executable": False,
-                            },
-                        )
-                    )
-                    compile_hints.constraint_hints.append(
-                        CompileHint(
-                            source_section_id=section.section_id,
-                            text=text,
-                            suggested_kind="delegation_boundary",
-                            evidence=[evidence],
-                            metadata={
-                                "route_family": "delegation_boundary",
-                                "semantic_role": "delegation_intent",
-                                "requires_contract": True,
-                                "executable": False,
-                            },
-                        )
-                    )
+                        # Neutral structural unit: no executable commitment.
+                        packet.metadata.setdefault("executable", False)
+                        semantic_packets.append(packet)
+
+            # Legacy compatibility path for exact-schema inputs and outputs
+            title = section.canonical_title
+            if title in ("inputs for each run", "inputs_for_each_run"):
+                inputs = self._extract_variables(section, source="input")
+                for fact in inputs:
+                    fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
+                    # No construct_target generated here.
+                hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
+            elif title in ("required outputs", "required_outputs"):
+                outputs = self._extract_variables(section, source="output")
+                for fact in outputs:
+                    fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
+                    # No construct_target generated here.
+                hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
+            elif title in ("failure handling", "anticipated failures", "blocking failures"):
+                # Extract failure modes for bridge fallback
+                failure_modes = self._extract_failure_modes(section)
+                hard_facts.failure_modes.extend(failure_modes)
+            elif title in ("delegation policy", "delegable work", "non-delegable work"):
+                # Extract delegation intents for bridge fallback
+                delegation_intents = self._extract_delegation_intents(section)
+                hard_facts.delegation_intents.extend(delegation_intents)
+
+        from nl2spl.adapters.section_semantic_mapper import SectionSemanticMapper
+        mapper = SectionSemanticMapper(self._llm_client)
+        route_priors, mapper_warnings = mapper.map_sections(sections, semantic_packets)
+        warnings.extend(mapper_warnings)
 
         # Optional LLM enrichment (Phase 7)
         if self._llm_client is not None:
@@ -341,6 +240,7 @@ class StructuralNLAdapter(InputAdapter):
             compile_hints=compile_hints,
             warnings=warnings,
             detection=detection,
+            route_priors=route_priors,
         )
 
     def _enrich_with_llm(
@@ -390,33 +290,57 @@ class StructuralNLAdapter(InputAdapter):
 
     def _parse_sections(self, raw_text: str) -> tuple[list[RawSection], list[str]]:
         lines = raw_text.splitlines(keepends=True)
-        headings: list[tuple[int, int, int, str, str]] = []
+        headings: list[tuple[int, int, int, str, str, str]] = []
         unexpected: list[str] = []
         offset = 0
+        
         for index, line in enumerate(lines):
             stripped = line.strip()
-            normalized = self.normalize_heading(stripped)
             line_start = offset
             line_end = offset + len(line)
-            if normalized in STRUCTURAL_NL_SECTIONS and self._looks_like_heading(stripped):
+            inline_text = ""
+            previous_nonempty = next(
+                (candidate.strip() for candidate in reversed(lines[:index]) if candidate.strip()),
+                "",
+            )
+            if self._looks_like_heading(stripped):
+                original_title = stripped.lstrip("#").strip().rstrip(":：").strip()
+                canonical_title = self.normalize_heading(stripped)
+            elif (
+                ShapeGrammar.KEY_VALUE.match(stripped)
+                and not self._looks_like_heading(previous_nonempty)
+            ):
+                title, inline_text = re.split(r"[:：]", stripped, maxsplit=1)
+                original_title = title.strip()
+                canonical_title = self.normalize_heading(f"{original_title}:")
+                # 清理 inline_text：移除 bold 标记（** 或 __）
+                inline_text = inline_text.strip()
+                # 移除开头的 bold 标记，如 "**Anticipated Failures:** ..." 中的 "**"
+                inline_text = re.sub(r'^\*\*\s*', '', inline_text)
+                inline_text = re.sub(r'^__\s*', '', inline_text)
+            else:
+                offset = line_end
+                continue
+
+            if canonical_title:
                 headings.append(
                     (
                         index,
                         line_start,
                         line_end,
-                        stripped.rstrip(":：").strip(),
-                        STRUCTURAL_NL_SECTIONS[normalized],
+                        original_title,
+                        canonical_title,
+                        inline_text,
                     )
                 )
-            elif self._is_unexpected_heading(index, lines, stripped, normalized):
-                unexpected.append(stripped.rstrip(":：").strip())
             offset = line_end
 
         sections: list[RawSection] = []
         for order, heading in enumerate(headings):
-            _index, _line_start, line_end, original_title, canonical_title = heading
+            _index, _line_start, line_end, original_title, canonical_title, inline_text = heading
             next_start = headings[order + 1][1] if order + 1 < len(headings) else len(raw_text)
-            text = raw_text[line_end:next_start].strip()
+            following_text = raw_text[line_end:next_start].strip()
+            text = "\n".join(part for part in [inline_text, following_text] if part).strip()
             section_id = self._section_id(canonical_title, order, headings)
             sections.append(
                 RawSection(
@@ -434,12 +358,12 @@ class StructuralNLAdapter(InputAdapter):
     @staticmethod
     def normalize_heading(line: str) -> str:
         """Normalize a potential heading."""
-        line = line.strip().rstrip(":：").lower()
+        line = line.strip().lstrip("#").strip().rstrip(":：").lower()
         return " ".join(line.split())
 
     @staticmethod
     def _looks_like_heading(line: str) -> bool:
-        return line.endswith(":") or line.endswith("：")
+        return ShapeGrammar.is_heading(line)
 
     def _is_unexpected_heading(
         self,
@@ -448,28 +372,22 @@ class StructuralNLAdapter(InputAdapter):
         stripped: str,
         normalized: str,
     ) -> bool:
-        if not stripped or not self._looks_like_heading(stripped):
-            return False
-        if normalized in STRUCTURAL_NL_SECTIONS:
-            return False
-        for later_line in lines[index + 1 :]:
-            if later_line.strip():
-                return True
         return False
 
     @staticmethod
     def _section_id(
         canonical_title: str,
         order: int,
-        headings: list[tuple[int, int, int, str, str]],
+        headings: list[tuple[int, int, int, str, str, str]],
     ) -> str:
+        safe_title = canonical_title.replace(" ", "_")
         same_before = sum(1 for heading in headings[:order] if heading[4] == canonical_title)
         if same_before:
-            return f"sec_{canonical_title}_{same_before + 1}"
+            return f"sec_{safe_title}_{same_before + 1}"
         same_total = sum(1 for heading in headings if heading[4] == canonical_title)
         if same_total > 1:
-            return f"sec_{canonical_title}_1"
-        return f"sec_{canonical_title}"
+            return f"sec_{safe_title}_1"
+        return f"sec_{safe_title}"
 
     def _warnings_from_detection(
         self, detection: AdapterDetectionResult
@@ -544,10 +462,11 @@ class StructuralNLAdapter(InputAdapter):
         return list(merged.values())
 
     def _extract_failure_modes(self, section: RawSection) -> list[FailureModeFact]:
+        """Extract failure modes from a section, filtering empty markers."""
         modes = []
         for item in self._split_list_items(section.text):
             clean = self._clean_item(item)
-            if clean:
+            if clean and not _is_empty_marker(clean):  # 过滤空标记
                 modes.append(
                     FailureModeFact(
                         name=self._variable_name(clean),
@@ -558,16 +477,22 @@ class StructuralNLAdapter(InputAdapter):
                 )
         return modes
 
-    def _sentence_packets(self, packet_type: str, section: RawSection) -> list[SemanticPacket]:
-        targets = {
-            "process_step": ["flow.main", "step.command"],
-            "policy": ["constraint.requirement"],
-            "delegation_rule": ["constraint.delegation_boundary", "step.invoke_worker"],
-        }.get(packet_type, [])
-        return [
-            self._packet(packet_type, section, text, "hint", targets)
-            for text in self._split_sentences(section.text)
-        ]
+    def _extract_delegation_intents(self, section: RawSection) -> list[DelegationIntentFact]:
+        """Extract delegation intents from a section."""
+        intents = []
+        for item in self._split_list_items(section.text):
+            clean = self._clean_item(item)
+            if clean and not _is_empty_marker(clean):
+                intents.append(
+                    DelegationIntentFact(
+                        name=self._variable_name(clean),
+                        text=clean[:1].upper() + clean[1:],
+                        evidence=[self._make_evidence(section)],
+                    )
+                )
+        return intents
+
+
 
     @staticmethod
     def _packet(
@@ -609,10 +534,72 @@ class StructuralNLAdapter(InputAdapter):
 
     @staticmethod
     def _split_list_items(text: str) -> list[str]:
+        """拆分列表项（markdown bullets、有序列表或逗号分隔）。
+        
+        策略：
+        1. 清理文本中的 bold 标记
+        2. 优先尝试 markdown bullet 拆分 (-, *, +)
+        3. 尝试有序列表拆分 (1. 2. 3.)
+        4. 如果没有 bullets，回退到逗号拆分
+        5. Header 行（如 "**Anticipated Failures:**"）不包含在结果中
+        
+        Args:
+            text: 可能包含 markdown bullets、有序列表或逗号分隔列表的文本
+        
+        Returns:
+            拆分后的 item 文本列表（不包含 header）
+        """
+        # 清理 bold 标记（** 或 __）和 heading 标记
+        # 移除类似 "**Failures:**" 这样的 bold heading
+        text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)  # **Heading:** 格式
+        text = re.sub(r'__[^_]+:__\s*', '', text)      # __Heading:__ 格式
+        
+        # 优先尝试 markdown bullet 拆分（只匹配顶层，不匹配缩进的）
+        lines = text.split('\n')
+        bullet_pattern = re.compile(r'^[-*+]\s+(.+)$')  # 不匹配开头有空格的
+        
+        markdown_items = []
+        for line in lines:
+            match = bullet_pattern.match(line)
+            if match:
+                markdown_items.append(match.group(1).strip())
+        
+        # 如果找到 markdown bullets，返回 items（不包含 header）
+        if markdown_items:
+            return markdown_items
+        
+        # 尝试有序列表拆分 (1. 2. 3.)
+        ordered_pattern = re.compile(r'^\d+\.\s+(.+)$')  # 不匹配开头有空格的
+        
+        ordered_items = []
+        for line in lines:
+            match = ordered_pattern.match(line)
+            if match:
+                ordered_items.append(match.group(1).strip())
+        
+        # 如果找到有序列表，返回 items
+        if ordered_items:
+            return ordered_items
+        
+        # 回退到逗号拆分（现有逻辑）
         normalized = text.strip().rstrip(".")
         normalized = re.sub(r",\s+and\s+", ", ", normalized, flags=re.IGNORECASE)  # "x, and y" → "x, y"
         normalized = re.sub(r"\s+and\s+a\s+", ", a ", normalized, flags=re.IGNORECASE)  # "x and a y" → "x, a y"
         return [item.strip() for item in normalized.split(",") if item.strip()]
+
+    @staticmethod
+    def _has_list_shape(text: str) -> bool:
+        stripped = text.strip()
+        if not stripped:
+            return False
+        if any(
+            re.match(r"^(\s*[-*]\s+|\s*\d+\.\s+)", line)
+            for line in stripped.splitlines()
+        ):
+            return True
+        normalized = re.sub(r",\s+and\s+", ", ", stripped, flags=re.IGNORECASE)
+        normalized = re.sub(r"\s+and\s+a\s+", ", a ", normalized, flags=re.IGNORECASE)
+        return "," in normalized
 
     @staticmethod
     def _split_sentences(text: str) -> list[str]:
@@ -626,6 +613,7 @@ class StructuralNLAdapter(InputAdapter):
     def _clean_item(text: str) -> str:
         text = text.strip().rstrip(".")
         text = re.sub(r"^(and|or)\s+", "", text, flags=re.IGNORECASE)
+        text = text.replace("**", "").replace("__", "")
         return text.strip()
 
     @staticmethod
@@ -659,4 +647,3 @@ class StructuralNLAdapter(InputAdapter):
         if "evidence" in lowered:
             return "evidence"
         return "requirement"
-

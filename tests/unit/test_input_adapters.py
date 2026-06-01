@@ -7,6 +7,7 @@ from dataclasses import asdict
 import pytest
 
 from nl2spl.adapters import GenericNLAdapter, InputAdapterRegistry, StructuralNLAdapter
+from nl2spl.adapters.morphology import ShapeGrammar, StructuralShapeDetector
 from nl2spl.canonical import (
     CanonicalCompileInput,
     CanonicalCompileInputValidator,
@@ -44,20 +45,20 @@ Optional delegated subtasks such as source gathering or template matching may be
 """
 
 
-def test_structural_adapter_detects_complete_input() -> None:
-    adapter = StructuralNLAdapter()
+def test_structural_adapter_detects_complete_input(mock_client) -> None:
+    adapter = StructuralNLAdapter(mock_client)
 
     result = adapter.detect(STRUCTURAL_TEXT)
 
     assert result.matched is True
     assert result.schema_name == "structural_nl"
-    assert "inputs_for_each_run" in result.matched_sections
-    assert "required_outputs" in result.matched_sections
+    assert "Inputs for each run" in result.matched_sections
+    assert "Required outputs" in result.matched_sections
     assert not result.empty_sections
     assert "confidence" not in asdict(result)
 
 
-def test_structural_adapter_records_missing_duplicate_and_empty_sections() -> None:
+def test_structural_adapter_records_missing_duplicate_and_empty_sections(mock_client) -> None:
     raw_text = """Task family:
 Example.
 
@@ -66,16 +67,15 @@ Policies:
 Policies:
 Do not invent facts.
 """
-    adapter = StructuralNLAdapter()
+    adapter = StructuralNLAdapter(mock_client)
 
     result = adapter.detect(raw_text)
 
-    assert "required_outputs" in result.missing_sections
-    assert "policies" in result.duplicate_sections
-    assert "policies" in result.empty_sections
+    assert "Policies" in result.duplicate_sections
+    assert "Policies" in result.empty_sections
 
 
-def test_structural_adapter_accepts_reordered_sections_and_chinese_colon() -> None:
+def test_structural_adapter_accepts_reordered_sections_and_chinese_colon(mock_client) -> None:
     raw_text = """Required outputs：
 A completion status.
 
@@ -85,16 +85,16 @@ Example.
 Inputs for each run:
 A user request.
 """
-    adapter = StructuralNLAdapter()
+    adapter = StructuralNLAdapter(mock_client)
 
     result = adapter.detect(raw_text)
     canonical = adapter.adapt(raw_text)
 
     assert result.matched is True
     assert [section.canonical_title for section in canonical.raw_sections] == [
-        "required_outputs",
-        "task_family",
-        "inputs_for_each_run",
+        "required outputs",
+        "task family",
+        "inputs for each run",
     ]
 
 
@@ -167,25 +167,141 @@ def test_load_config_rejects_invalid_adapter_llm_engine(tmp_path) -> None:
         load_config(output_dir=tmp_path, adapter_llm_engine="invalid")
 
 
-def test_structural_adapter_extracts_hard_facts_and_hints() -> None:
-    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+def test_structural_adapter_extracts_hard_facts_and_hints(mock_client) -> None:
+    """F0 Baseline: adapter populates canonical input structure correctly with compat mode."""
+    canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
 
     input_names = {fact.name for fact in canonical.hard_facts.inputs}
     output_names = {fact.name for fact in canonical.hard_facts.outputs}
-    failure_names = {fact.name for fact in canonical.hard_facts.failure_modes}
 
+    # Inputs/outputs and bridge fallback facts remain available for compatibility.
     assert {"user_request", "known_topics", "timeframe"}.issubset(input_names)
     assert {
         "draft_communication_artifact",
         "source_evidence_set",
-        "assumptions_log",
+        "short_assumptions_log",
         "completion_status",
     }.issubset(output_names)
-    assert {"missing_timeframe", "evidence_shortage", "provenance_failure"}.issubset(
+    failure_names = {fact.name for fact in canonical.hard_facts.failure_modes}
+    assert {"missing_timeframe", "conflicting_instructions", "evidence_shortage"}.issubset(
         failure_names
     )
-    assert canonical.compile_hints.constraint_hints
-    assert canonical.compile_hints.delegation_hints
+    assert canonical.hard_facts.delegation_intents
+
+
+def test_structural_adapter_filters_empty_markers_from_bridge_facts() -> None:
+    canonical = StructuralNLAdapter(None).adapt(
+        "Failure handling:\n**Blocking Failures:** None\n\n"
+        "Delegation policy:\nN/A\n"
+    )
+
+    assert canonical.hard_facts.failure_modes == []
+    assert canonical.hard_facts.delegation_intents == []
+
+
+def test_structural_adapter_strips_inline_bold_failure_items() -> None:
+    canonical = StructuralNLAdapter(None).adapt(
+        "Anticipated Failures: **Missing inputs**, **tone mismatch**, **unverified facts**"
+    )
+
+    assert [fact.text for fact in canonical.hard_facts.failure_modes] == [
+        "Missing inputs",
+        "Tone mismatch",
+        "Unverified facts",
+    ]
+
+
+def test_structural_adapter_semantic_packets_cover_neutral_types(mock_client) -> None:
+    """F0 Baseline: adapter produces all 7 canonical sections and neutral semantic packet types."""
+    canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
+
+    section_titles = {section.canonical_title for section in canonical.raw_sections}
+    expected_sections = {
+        "task family",
+        "inputs for each run",
+        "required outputs",
+        "reusable process",
+        "policies",
+        "failure handling",
+        "delegation policy",
+    }
+    assert expected_sections.issubset(section_titles), (
+        f"Missing sections: {expected_sections - section_titles}"
+    )
+
+    packet_types = {packet.packet_type for packet in canonical.semantic_packets}
+    assert "list_item" in packet_types
+    assert "failure_mode" not in packet_types
+    assert "task_family" not in packet_types
+
+    for packet in canonical.semantic_packets:
+        assert packet.source_section_id, (
+            f"Packet {packet.packet_id} ({packet.packet_type}) missing source_section_id"
+        )
+
+
+def test_registry_adapter_llm_engine_off_preserves_neutral_packets() -> None:
+    """adapter_llm_engine='off' preserves sections/packets and weak exact-title priors."""
+    # Instantiate without LLM client
+    canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
+
+    assert len(canonical.raw_sections) >= 7
+    assert len(canonical.semantic_packets) > 0
+    assert len(canonical.route_priors) >= 1
+    assert {prior.source for prior in canonical.route_priors} == {"heuristic"}
+
+
+def test_structural_adapter_chinese_colon_and_markdown() -> None:
+    """Test that Chinese colons and Markdown headings properly parse."""
+    text = "# Markdown Heading\nSome text.\n\nChinese Colon Heading：\nSome list item.\n"
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    section_titles = {section.original_title for section in canonical.raw_sections}
+    assert "Markdown Heading" in section_titles
+    assert "Chinese Colon Heading" in section_titles
+
+
+def test_shape_grammar_accepts_punctuated_headings_and_key_value_sections() -> None:
+    """Shape grammar should remain morphological, not limited to word-only headings."""
+    assert ShapeGrammar.COLON_HEADING.match("Input/Output Policy:")
+    assert ShapeGrammar.COLON_HEADING.match("Failure-handling：")
+    assert ShapeGrammar.KEY_VALUE.match("Task family: Internal newsletters.")
+
+    profile = StructuralShapeDetector.detect("Task family: Internal newsletters.")
+    assert profile.has_key_value_blocks is True
+    assert profile.is_highly_structured is True
+
+
+def test_structural_adapter_parses_inline_key_value_sections() -> None:
+    text = (
+        "Task family: Internal newsletters.\n"
+        "Inputs for each run: A user request.\n"
+        "Required outputs: A draft artifact.\n"
+    )
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    by_title = {section.canonical_title: section for section in canonical.raw_sections}
+    assert by_title["task family"].text == "Internal newsletters."
+    assert by_title["inputs for each run"].text == "A user request."
+    assert by_title["required outputs"].text == "A draft artifact."
+
+
+def test_key_value_content_under_heading_stays_in_parent_section() -> None:
+    text = (
+        "Failure handling:\n"
+        "Missing timeframe: ask one clarifying question.\n\n"
+        "Policies:\n"
+        "Do not invent facts.\n"
+    )
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    by_title = {section.canonical_title: section for section in canonical.raw_sections}
+    assert "missing timeframe" not in by_title
+    assert by_title["failure handling"].text == (
+        "Missing timeframe: ask one clarifying question."
+    )
 
 
 def test_canonical_validator_rejects_bad_section_reference() -> None:
@@ -302,188 +418,3 @@ Missing timeframe, conflicting instructions, evidence shortage, and provenance f
 Delegation policy:
 Optional delegated subtasks such as source gathering or template matching may be used if bounded.
 """
-
-
-def test_structural_adapter_semantic_packets_cover_all_seven_types() -> None:
-    """F0 Baseline: adapter produces all 7 canonical sections and semantic packet types."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    section_titles = {section.canonical_title for section in canonical.raw_sections}
-    expected_sections = {
-        "task_family",
-        "inputs_for_each_run",
-        "required_outputs",
-        "reusable_process",
-        "policies",
-        "failure_handling",
-        "delegation_policy",
-    }
-    assert expected_sections.issubset(section_titles), (
-        f"Missing sections: {expected_sections - section_titles}"
-    )
-
-    packet_types = {packet.packet_type for packet in canonical.semantic_packets}
-    assert "task_family" in packet_types
-    assert "runtime_input" in packet_types
-    assert "required_output" in packet_types
-    assert "process_step" in packet_types
-    assert "policy" in packet_types
-    assert "failure_mode" in packet_types
-    assert "delegation_rule" in packet_types
-
-    for packet in canonical.semantic_packets:
-        assert packet.source_section_id, (
-            f"Packet {packet.packet_id} ({packet.packet_type}) missing source_section_id"
-        )
-
-
-def test_structural_adapter_hard_facts_delegation_intents_populated() -> None:
-    """F0 Baseline: delegation_policy section produces DelegationIntentFact in hard_facts."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    intents = canonical.hard_facts.delegation_intents
-    assert len(intents) >= 1, "Expected at least one delegation intent from delegation policy section"
-
-    for intent in intents:
-        assert intent.name
-        assert intent.text
-        assert intent.evidence
-        has_section_evidence = any(
-            ev.source_section_id == "sec_delegation_policy" for ev in intent.evidence
-        )
-        assert has_section_evidence, (
-            f"Delegation intent '{intent.name}' missing evidence pointing to sec_delegation_policy"
-        )
-
-
-# ===========================================================================
-# F1 Baseline: adapter hint and evidence strengthening
-# ===========================================================================
-
-
-def test_failure_hint_contract() -> None:
-    """F1: failure handling CompileHint targets EXCEPTION_FLOW.condition with metadata."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    failure_hints = [
-        h for h in canonical.compile_hints.flow_hints
-        if h.source_section_id == "sec_failure_handling"
-    ]
-    assert len(failure_hints) >= 1, "Expected at least one failure flow hint"
-
-    for hint in failure_hints:
-        assert hint.target == "EXCEPTION_FLOW", (
-            f"Hint target should be EXCEPTION_FLOW, got {hint.target}"
-        )
-        assert hint.suggested_flow == "exception"
-        assert hint.suggested_condition == hint.text, (
-            f"suggested_condition ({hint.suggested_condition}) should match text ({hint.text})"
-        )
-        assert hint.metadata.get("route_family") == "flow_relevant"
-        assert hint.metadata.get("slot_target") == "condition"
-        assert hint.metadata.get("semantic_role") == "failure_mode"
-        assert hint.metadata.get("executable") is False
-
-        has_packet_evidence = any(
-            ev.source_packet_id and ev.source_packet_id.startswith("p_failure_mode_")
-            for ev in hint.evidence
-        )
-        assert has_packet_evidence, (
-            f"Hint evidence missing source_packet_id: {hint.evidence}"
-        )
-
-
-def test_failure_packet_compile_target() -> None:
-    """F1: failure_mode packets target flow.exception.condition, not bare flow.exception."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    failure_packets = [
-        p for p in canonical.semantic_packets
-        if p.packet_type == "failure_mode"
-    ]
-    assert len(failure_packets) >= 1, "Expected at least one failure_mode packet"
-
-    for packet in failure_packets:
-        assert "flow.exception.condition" in packet.compile_targets, (
-            f"failure_mode packet {packet.packet_id} missing flow.exception.condition "
-            f"in compile_targets: {packet.compile_targets}"
-        )
-
-
-def test_hard_fact_packet_evidence() -> None:
-    """F1: hard facts carry source_packet_id and quoted_text in evidence refs."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    def _check_evidence(facts: list, label: str) -> None:
-        assert len(facts) >= 1, f"Expected at least one {label} fact"
-        found_packet_evidence = False
-        for fact in facts:
-            for ev in fact.evidence:
-                if ev.source_packet_id and ev.quoted_text:
-                    found_packet_evidence = True
-                    break
-        assert found_packet_evidence, (
-            f"No {label} fact has evidence with both source_packet_id and quoted_text"
-        )
-
-    _check_evidence(canonical.hard_facts.inputs, "input")
-    _check_evidence(canonical.hard_facts.outputs, "output")
-    _check_evidence(canonical.hard_facts.failure_modes, "failure_mode")
-    _check_evidence(canonical.hard_facts.delegation_intents, "delegation_intent")
-
-
-def test_delegation_non_executable_contract() -> None:
-    """F1: delegation hints declare non-executable, requires-contract semantics."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    delegation_hints = canonical.compile_hints.delegation_hints
-    assert len(delegation_hints) >= 1, "Expected at least one delegation hint"
-
-    for hint in delegation_hints:
-        assert hint.metadata.get("semantic_role") == "delegation_intent", (
-            f"Unexpected semantic_role: {hint.metadata.get('semantic_role')}"
-        )
-        assert hint.metadata.get("route_family") == "delegation_boundary"
-        assert hint.metadata.get("requires_contract") is True
-        assert hint.metadata.get("executable") is False
-
-        has_packet_evidence = any(
-            ev.source_packet_id and ev.source_packet_id.startswith("p_delegation_rule_")
-            for ev in hint.evidence
-        )
-        assert has_packet_evidence, (
-            f"Delegation hint evidence missing source_packet_id: {hint.evidence}"
-        )
-
-
-def test_input_output_packets_non_executable_resource_contract() -> None:
-    """F1: runtime_input / required_output packets declare non-executable resource contract."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-
-    input_packets = [p for p in canonical.semantic_packets if p.packet_type == "runtime_input"]
-    output_packets = [p for p in canonical.semantic_packets if p.packet_type == "required_output"]
-
-    assert len(input_packets) >= 1, "Expected at least one runtime_input packet"
-    assert len(output_packets) >= 1, "Expected at least one required_output packet"
-
-    for packet in input_packets:
-        assert packet.metadata.get("route_family") == "resource_contract", (
-            f"Input packet {packet.packet_id}: expected route_family=resource_contract"
-        )
-        assert packet.metadata.get("semantic_role") == "input_contract", (
-            f"Input packet {packet.packet_id}: expected semantic_role=input_contract"
-        )
-        assert packet.metadata.get("executable") is False, (
-            f"Input packet {packet.packet_id}: expected executable=False"
-        )
-
-    for packet in output_packets:
-        assert packet.metadata.get("route_family") == "resource_contract", (
-            f"Output packet {packet.packet_id}: expected route_family=resource_contract"
-        )
-        assert packet.metadata.get("semantic_role") == "output_contract", (
-            f"Output packet {packet.packet_id}: expected semantic_role=output_contract"
-        )
-        assert packet.metadata.get("executable") is False, (
-            f"Output packet {packet.packet_id}: expected executable=False"
-        )

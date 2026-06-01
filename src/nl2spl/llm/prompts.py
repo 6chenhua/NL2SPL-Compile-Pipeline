@@ -6,6 +6,7 @@ PROMPTS_DIR = Path(__file__).parent.parent.parent.parent / "prompts"
 
 # Mapping of stage names to prompt file paths
 STAGE_PROMPT_FILES = {
+    "stage0_section_mapper": PROMPTS_DIR / "stage0_section_mapper.txt",
     "stage1": PROMPTS_DIR / "stage1_system.txt",
     "stage2": PROMPTS_DIR / "stage2_system.txt",
     "stage3": PROMPTS_DIR / "stage3_system.txt",

@@ -22,7 +22,7 @@ Read the request.
 class _FakeLLM:
     def __init__(self, response: dict) -> None:
         self.response = response
-        self.calls: list[dict[str, str]] = []
+        self.calls: list[dict] = []
 
     def call_json(
         self,
@@ -36,11 +36,27 @@ class _FakeLLM:
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
         })
+        if stage_name == "section_semantic_mapper":
+            return {
+                "priors": [
+                    {"section_id": "sec_inputs_for_each_run", "suggested_field": "resources", "suggested_semantic_role": "input_contract", "strength": "strong", "evidence": "x"},
+                    {"section_id": "sec_required_outputs", "suggested_field": "resources", "suggested_semantic_role": "output_contract", "strength": "strong", "evidence": "x"},
+                    {"section_id": "sec_reusable_process", "suggested_field": "behavior", "suggested_semantic_role": "process_step", "strength": "strong", "evidence": "x"},
+                ]
+            }
         return dict(self.response)
 
 
 class _FailingLLM:
-    def call_json(self, **_kwargs: object) -> dict:
+    def call_json(self, stage_name: str = "", **_kwargs: object) -> dict:
+        if stage_name == "section_semantic_mapper":
+            return {
+                "priors": [
+                    {"section_id": "sec_inputs_for_each_run", "suggested_field": "resources", "suggested_semantic_role": "input_contract", "strength": "strong", "evidence": "x"},
+                    {"section_id": "sec_required_outputs", "suggested_field": "resources", "suggested_semantic_role": "output_contract", "strength": "strong", "evidence": "x"},
+                    {"section_id": "sec_reusable_process", "suggested_field": "behavior", "suggested_semantic_role": "process_step", "strength": "strong", "evidence": "x"},
+                ]
+            }
         raise RuntimeError("unavailable")
 
 

@@ -166,6 +166,7 @@ class CanonicalCompileInput:
     compile_hints: CompileHints = field(default_factory=CompileHints)
     warnings: list[AdapterWarning] = field(default_factory=list)
     detection: AdapterDetectionResult | None = None
+    route_priors: list[Any] = field(default_factory=list)  # list[RoutePrior]
 
 
 class CanonicalCompileInputValidator:

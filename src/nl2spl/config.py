@@ -110,6 +110,11 @@ class PipelineConfig:
     # validator acts as the safety boundary for LLM output.
     enable_adapter_guided_fieldroute_llm: bool = True
 
+    # Compatibility/debug fallback for adapter-guided FieldRoute refinement.
+    # Default False: if Stage 2 cannot call/parse the adapter-guided LLM,
+    # fail fast instead of silently compiling from weak deterministic priors.
+    allow_adapter_guided_fieldroute_fallback: bool = False
+
     # Adapter LLM engine: off | generic_only | structural_enrich | all
     adapter_llm_engine: str = "off"
 

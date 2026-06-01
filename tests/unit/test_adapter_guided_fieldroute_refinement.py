@@ -29,6 +29,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.adapters import StructuralNLAdapter
+from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
@@ -180,8 +181,12 @@ def _adapt_slice_route(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ):
-    """Run the structural NL pipeline through Stage 2 and return results."""
-    canonical = StructuralNLAdapter().adapt(text)
+    """Run the structural NL pipeline through Stage 2 and return results.
+
+    The adapter runs without mapper LLM here so exact-title compatibility
+    priors are deterministic. Stage 2 LLM refinement still uses mock_client.
+    """
+    canonical = StructuralNLAdapter(None).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     router = FieldRouter(pipeline_config, mock_client)
     routes, ambiguity_updates = router.execute((spans, canonical))
@@ -219,7 +224,8 @@ class TestCurrentFailureHandlingMixed:
             assert ann.executable is False
             assert ann.source_section_id == "sec_failure_handling"
             assert ann.source_packet_id
-            assert ann.source_packet_id.startswith("p_failure_mode_")
+            # New architecture: packets are neutral list_items; ID reflects content
+            assert "failure" in ann.source_packet_id or "timeframe" in ann.source_packet_id
 
         # Defect: no handler annotation exists
         handler_anns = [
@@ -246,7 +252,7 @@ def test_target_failure_handling_splits_condition_and_handler(
     """TARGET: mixed failure handling → condition + handler are separated."""
     pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-    canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
     assert failure_span is not None
@@ -311,7 +317,8 @@ def test_failure_handling_condition_only_no_fabricated_handler(
         assert ann.executable is False
         assert ann.source_section_id == "sec_failure_handling"
         assert ann.source_packet_id
-        assert ann.source_packet_id.startswith("p_failure_mode_")
+        # New architecture: neutral list_item packets; ID reflects content not role
+        assert ann.source_section_id == "sec_failure_handling"
 
     handler_roles = {
         "exception_handler_action",
@@ -333,7 +340,7 @@ def test_failure_handling_condition_only_no_fabricated_handler(
         assert "ask" not in span.text.lower()
 
     for ann in failure_anns:
-        assert ann.span_id in routes.rules
+        assert ann.span_id in routes.behavior
 
 
 # ===========================================================================
@@ -1102,35 +1109,77 @@ class TestFieldRouteLLMRefinement:
         assert "Missing timeframe" in user_prompt
         assert "ask one clarifying question" in user_prompt
 
-    def test_llm_failure_falls_back_to_deterministic_priors(
+    def test_llm_failure_raises_when_fallback_disabled(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """LLM failure → fallback to deterministic priors, no crash."""
         from unittest.mock import patch
 
         pipeline_config.enable_adapter_guided_fieldroute_llm = True
-        mock_client.call_json.side_effect = Exception("API timeout")
-
+        pipeline_config.allow_adapter_guided_fieldroute_fallback = False
         canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        mock_client.call_json.side_effect = Exception("API timeout")
+        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        router = FieldRouter(pipeline_config, mock_client)
+
+        with patch.object(router, "save_checkpoint") as mock_save:
+            with pytest.raises(StageError) as exc_info:
+                router.execute((spans, canonical))
+
+        err = exc_info.value
+        assert err.stage == "stage2_field_router"
+        assert "stage2_adapter_guided" in str(err)
+        assert "Exception" in str(err)
+        assert "API timeout" in str(err)
+        assert "fallback disabled" in str(err)
+        assert err.details["llm_stage_name"] == "stage2_adapter_guided"
+        assert err.details["exception_type"] == "Exception"
+        assert err.details["exception_message"] == "API timeout"
+        assert err.details["fallback_allowed"] is False
+        assert err.details["source_schema"] == "structural_nl"
+        assert err.details["spans_count"] == len(spans)
+
+        mock_save.assert_called_once()
+        checkpoint = mock_save.call_args[0][0]
+        assert "routes" not in checkpoint
+        assert checkpoint["llm_refinement"]["used"] is False
+        assert checkpoint["llm_refinement"]["error_type"] == "Exception"
+        assert checkpoint["llm_refinement"]["error_message"] == "API timeout"
+        assert checkpoint["llm_refinement"]["fallback_allowed"] is False
+
+    def test_llm_failure_falls_back_only_when_explicitly_allowed(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Explicit compatibility mode: LLM call failure falls back with reason."""
+        from unittest.mock import patch
+
+        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        pipeline_config.allow_adapter_guided_fieldroute_fallback = True
+        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        mock_client.call_json.side_effect = Exception("API timeout")
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
 
         with patch.object(router, "save_checkpoint") as mock_save:
             routes, ambiguity_updates = router.execute((spans, canonical))
 
-        # Deterministic priors survive
         assert len(routes.annotations) >= 1
         failure_anns = routes.get_annotations_by_role("failure_mode")
         assert len(failure_anns) >= 1
+        assert ambiguity_updates == []
 
-        # Checkpoint records the failure
         mock_save.assert_called_once()
         checkpoint = mock_save.call_args[0][0]
         llm_rf = checkpoint["llm_refinement"]
         assert llm_rf["used"] is False
         assert any(
-            "fell back" in d.lower() for d in llm_rf["route_diagnostics"]
+            "api timeout" in d.lower() and "fell back" in d.lower()
+            for d in llm_rf["route_diagnostics"]
         ), f"Expected fallback diagnostic, got: {llm_rf['route_diagnostics']}"
+        assert routes.structured_route_diagnostics
+        assert routes.structured_route_diagnostics[0]["kind"] == (
+            "route_refinement_fallback"
+        )
 
     def test_valid_llm_output_merged_with_correct_semantics(
         self, pipeline_config: MagicMock, mock_client: MagicMock

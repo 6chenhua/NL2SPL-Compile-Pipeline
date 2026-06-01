@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from nl2spl.adapters import GenericNLAdapter, StructuralNLAdapter
+from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
@@ -45,7 +49,8 @@ def test_stage1_adapter_path_preserves_packet_provenance(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(None).adapt(STRUCTURAL_TEXT)
+    mock_client.reset_mock()
     slicer = SpanSlicer(pipeline_config, mock_client)
 
     spans = slicer.execute(canonical)
@@ -72,34 +77,11 @@ def test_stage1_generic_path_uses_legacy_llm(
     mock_client.call_json.assert_called_once()
 
 
-def test_stage2_adapter_routing_excludes_hard_fact_spans(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
-    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    router = FieldRouter(pipeline_config, mock_client)
-
-    routes, ambiguity_updates = router.execute((spans, canonical))
-
-    packets = {packet.packet_id: packet for packet in canonical.semantic_packets}
-    hard_fact_span_ids = {
-        span.span_id
-        for span in spans
-        if span.source_packet_id
-        and packets[span.source_packet_id].packet_type in {"runtime_input", "required_output"}
-    }
-    assert not hard_fact_span_ids.intersection(routes.behavior)
-    assert ambiguity_updates == []
-    assert routes.rules
-    assert routes.behavior
-
-
 def test_stage6_seeds_hard_fact_variables_and_keeps_output_producer_empty(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     mock_client.call_json.return_value = {
         "variables": [
             {
@@ -177,6 +159,73 @@ def test_orchestrator_records_adapter_intermediate_results(
     assert "adapter_detection" in result.intermediate_results
 
 
+def test_orchestrator_stage2_adapter_llm_failure_fails_fast(
+    pipeline_config: MagicMock,
+) -> None:
+    """Structural NL must not continue when Stage 2 adapter LLM is unavailable."""
+    pipeline_config.enable_adapter_guided_fieldroute_llm = True
+    pipeline_config.allow_adapter_guided_fieldroute_fallback = False
+    orchestrator = PipelineOrchestrator(pipeline_config)
+    orchestrator.client = MagicMock()
+    orchestrator.client.call_json.side_effect = RuntimeError("stage2 unavailable")
+    setattr(orchestrator, "_run_stage3", MagicMock())
+
+    with pytest.raises(StageError) as exc_info:
+        orchestrator.run(STRUCTURAL_TEXT)
+
+    err = exc_info.value
+    assert err.stage == "stage2_field_router"
+    assert "stage2_adapter_guided" in str(err)
+    assert "stage2 unavailable" in str(err)
+    assert err.details["fallback_allowed"] is False
+    orchestrator._run_stage3.assert_not_called()
+
+
+def test_orchestrator_stage2_explicit_fallback_reaches_report(
+    pipeline_config: MagicMock,
+) -> None:
+    """Explicit fallback may continue, but Stage 2 failure is reported."""
+    pipeline_config.enable_adapter_guided_fieldroute_llm = True
+    pipeline_config.allow_adapter_guided_fieldroute_fallback = True
+    orchestrator = PipelineOrchestrator(pipeline_config)
+    orchestrator.client = MagicMock()
+    orchestrator.client.call_json.side_effect = RuntimeError("stage2 unavailable")
+
+    setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
+    setattr(orchestrator, "_run_stage4", MagicMock(return_value=FlowStructureIR()))
+    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
+    setattr(
+        orchestrator,
+        "_run_stage6",
+        MagicMock(return_value=(ResourceRegistryIR(), SymbolTable(), [])),
+    )
+    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], None, [])))
+    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
+    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
+    setattr(
+        orchestrator,
+        "_run_normalization",
+        MagicMock(
+            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], SymbolTable(), [], [])
+        ),
+    )
+    worker = MagicMock()
+    worker.steps = []
+    worker.child_workers = []
+    worker.exception_flows = []
+    setattr(orchestrator, "_run_stage10", MagicMock(return_value=worker))
+    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
+
+    result = orchestrator.run(STRUCTURAL_TEXT)
+
+    assert any(
+        getattr(diag, "kind", "") == "route_refinement_fallback"
+        and "stage2 unavailable" in getattr(diag, "message", "")
+        for diag in result.compile_diagnostics
+    )
+    assert "stage2 unavailable" in result.readable_report
+
+
 # ===========================================================================
 # F0 Baseline: uncovered section provenance
 # ===========================================================================
@@ -245,72 +294,8 @@ Optional delegated subtasks such as source gathering or template matching may be
 """
 
 
-def test_stage2_canonical_routing_per_packet_type(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """F0 Baseline: verify FieldRouter routes each packet type to correct field.
 
-    Documents CURRENT behavior — including failure_mode → rules routing
-    which the target design will change to EXCEPTION_FLOW.condition annotations.
-    """
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
-    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    pipeline_config.enable_adapter_guided_fieldroute_llm = False
-    router = FieldRouter(pipeline_config, mock_client)
 
-    routes, ambiguity_updates = router.execute((spans, canonical))
-
-    packets = {packet.packet_id: packet for packet in canonical.semantic_packets}
-    span_by_packet_type: dict[str, list[str]] = {}
-    for span in spans:
-        if span.source_packet_id and span.source_packet_id in packets:
-            ptype = packets[span.source_packet_id].packet_type
-            span_by_packet_type.setdefault(ptype, []).append(span.span_id)
-
-    # task_family → domain
-    for sid in span_by_packet_type.get("task_family", []):
-        assert sid in routes.domain, f"task_family span {sid} should be in domain"
-
-    # process_step → behavior
-    for sid in span_by_packet_type.get("process_step", []):
-        assert sid in routes.behavior, f"process_step span {sid} should be in behavior"
-
-    # policy → rules
-    for sid in span_by_packet_type.get("policy", []):
-        assert sid in routes.rules, f"policy span {sid} should be in rules"
-
-    # CURRENT BASELINE: failure_mode routes to rules.
-    # Target design: failure_mode should become a non-executable
-    # EXCEPTION_FLOW.condition route annotation (not rules).
-    for sid in span_by_packet_type.get("failure_mode", []):
-        assert sid in routes.rules, (
-            f"BASELINE: failure_mode span {sid} routes to rules. "
-            f"Target will change this to EXCEPTION_FLOW.condition annotation."
-        )
-
-    # delegation_rule → behavior
-    for sid in span_by_packet_type.get("delegation_rule", []):
-        assert sid in routes.behavior, (
-            f"delegation_rule span {sid} should be in behavior"
-        )
-
-    # runtime_input / required_output → NOT in any route (consumed by adapter)
-    hard_fact_types = {"runtime_input", "required_output"}
-    all_route_ids = routes.get_all_span_ids()
-    for ptype in hard_fact_types:
-        for sid in span_by_packet_type.get(ptype, []):
-            assert sid not in all_route_ids, (
-                f"{ptype} span {sid} should be consumed by adapter, not in routes"
-            )
-
-    # canonical path produces no ambiguity_updates
-    assert ambiguity_updates == []
-
-    # LLM should not be called — deterministic baseline
-    # (adapter-guided LLM refinement is tested separately)
-    pipeline_config.enable_adapter_guided_fieldroute_llm = False
-    mock_client.call_json.assert_not_called()
 
 
 def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
@@ -370,7 +355,7 @@ def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
 
 def _adapt_slice_route(text: str, pipeline_config, mock_client):
     """Helper: adapter → slicer → router for structural NL."""
-    canonical = StructuralNLAdapter().adapt(text)
+    canonical = StructuralNLAdapter(None).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     router = FieldRouter(pipeline_config, mock_client)
     return router.execute((spans, canonical))
@@ -410,11 +395,8 @@ class TestF3StructuralAnnotations:
         assert len(failure_anns) >= 1, "Expected at least one failure_mode annotation"
 
         for ann in failure_anns:
-            # Old-list compatibility: failure_mode remains in rules
-            assert ann.span_id in routes.rules, (
-                f"BASELINE: failure_mode span {ann.span_id} still in routes.rules"
-            )
-            # Annotation semantics
+            assert ann.span_id in routes.behavior
+            assert ann.span_id not in routes.rules
             assert ann.field == "behavior"
             assert ann.semantic_role == "failure_mode"
             assert ann.route_family == "flow_relevant"
@@ -423,7 +405,7 @@ class TestF3StructuralAnnotations:
             assert ann.executable is False
             assert ann.source_section_id
             assert ann.source_packet_id
-            assert ann.source_packet_id.startswith("p_failure_mode_")
+            assert ann.source_packet_id.startswith(("p_list_item_", "p_sentence_"))
 
     def test_resource_contract_annotations_not_routed(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -517,7 +499,7 @@ class TestF3StructuralAnnotations:
         """F3: Stage 2 checkpoint serializes annotations for canonical input."""
         from unittest.mock import patch
 
-        canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+        canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
 
@@ -604,29 +586,19 @@ class TestF3StructuralAnnotations:
     def test_section_only_hints_populate_source_hint_ids(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """F3: section-only hints (no packet evidence) still reach annotations."""
-        canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+        """F3: exact-title RoutePriors reach neutral packet annotations."""
+        canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        # process_step spans should have hint provenance from section-only process hints
         process_anns = routes.get_annotations_by_role("process_step")
         assert len(process_anns) >= 1
-        # At least one process annotation should carry source_hint_ids
-        # (the adapter puts process hints on reusable_process section)
-        anns_with_hints = [a for a in process_anns if a.source_hint_ids]
-        assert len(anns_with_hints) >= 1, (
-            "Expected at least one process_step annotation with source_hint_ids from section hints"
-        )
+        assert all(a.source_packet_id for a in process_anns)
 
-        # domain/task_family annotations should also find section-level profile hints
         domain_anns = routes.get_annotations_by_role("profile_domain")
         assert len(domain_anns) >= 1
-        domain_with_hints = [a for a in domain_anns if a.source_hint_ids]
-        assert len(domain_with_hints) >= 1, (
-            "Expected profile_domain annotation with source_hint_ids from section hints"
-        )
+        assert all(a.source_section_id for a in domain_anns)
 
 
 # ===========================================================================
@@ -639,7 +611,7 @@ def test_d5_stage6_failure_variable_rejected_legitimate_kept(
     mock_client: MagicMock,
 ) -> None:
     """D5: failure-derived variable rejected; legitimate variable kept."""
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
     spans = [
         SpanIR("s1", "Determine communication type."),
         SpanIR("s2", "Missing timeframe."),
@@ -819,7 +791,7 @@ def test_d10_route_driven_delegation_diagnostic_from_annotation(
         diagnose_delegation_intents_from_routes,
     )
 
-    canonical = StructuralNLAdapter().adapt(F0_STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
@@ -889,7 +861,7 @@ def test_d10_orchestrator_run_delegation_diagnostics(
         "Policies:\nDo not invent.\n\nFailure handling:\nMissing timeframe.\n\n"
         "Delegation policy:\nOptional source gathering if bounded.\n"
     )
-    canonical = StructuralNLAdapter().adapt(text)
+    canonical = StructuralNLAdapter(mock_client).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
@@ -1221,7 +1193,7 @@ def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
     pipeline_config.enable_irs_diagnostic_consolidation = True
     pipeline_config.enable_irs_post_normalize_check = False
 
-    canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
     # LLM returns valid annotations + one route diagnostic

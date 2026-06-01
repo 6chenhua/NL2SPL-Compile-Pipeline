@@ -58,6 +58,54 @@ _ANNOTATION_SEMANTICS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Unified contract table: RoutePrior.suggested_semantic_role → RouteAnnotation fields.
+# All RoutePrior→RouteAnnotation mapping MUST go through this table.
+# Do NOT scatter these decisions in if/else branches elsewhere.
+ROUTE_PRIOR_ROLE_CONTRACTS: dict[str, dict[str, Any]] = {
+    "failure_mode": {
+        "field": "behavior",
+        "semantic_role": "failure_mode",
+        "route_family": "flow_relevant",
+        "construct_target": "EXCEPTION_FLOW",
+        "slot_target": "condition",
+        "executable": False,
+    },
+    "delegation_intent": {
+        "field": "behavior",
+        "semantic_role": "delegation_intent",
+        "route_family": "delegation_boundary",
+        "executable": False,
+    },
+    "input_contract": {
+        "field": "resources",
+        "semantic_role": "input_contract",
+        "route_family": "resource_contract",
+        "executable": False,
+    },
+    "output_contract": {
+        "field": "resources",
+        "semantic_role": "output_contract",
+        "route_family": "resource_contract",
+        "executable": False,
+    },
+    "process_step": {
+        "field": "behavior",
+        "semantic_role": "process_step",
+        "route_family": "flow_relevant",
+        "executable": True,
+    },
+    "policy": {
+        "field": "rules",
+        "semantic_role": "constraint",
+        "executable": False,
+    },
+    "task_family": {
+        "field": "domain",
+        "semantic_role": "profile_domain",
+        "executable": False,
+    },
+}
+
 # Exact mapping from section_context (lowercase) to semantic field.
 # Aligned with _ORGANIZATIONAL_TITLES in stage1_span_slicer.py.
 # ⚠️ SYNC CONSTRAINT: Any change here must also update
@@ -237,20 +285,29 @@ Output valid JSON:"""
         split_recommendations: list[dict[str, Any]] = []
 
         if self._llm_refinement_enabled():
-            llm_result = self._call_adapter_guided_llm(spans, canonical_input, priors)
-            if llm_result is not None:
+            try:
+                llm_result = self._call_adapter_guided_llm(
+                    spans, canonical_input, priors,
+                )
                 priors, route_diagnostics, split_recommendations = (
                     self._merge_llm_refinement(priors, llm_result, spans, canonical_input)
                 )
                 llm_refinement_used = True
-            else:
+            except StageError as exc:
+                if not self._adapter_guided_fallback_allowed():
+                    self._save_adapter_guided_failure_checkpoint(exc)
+                    raise
                 route_diagnostics.append(
-                    "adapter_guided_refinement_failed: LLM call failed; "
-                    "fell back to deterministic priors."
+                    "adapter_guided_refinement_failed: "
+                    f"{exc.details.get('exception_type', type(exc).__name__)}: "
+                    f"{exc.details.get('exception_message', str(exc))}; "
+                    "fell back to deterministic priors because "
+                    "allow_adapter_guided_fieldroute_fallback=True."
                 )
 
         # 4. Attach annotations and route diagnostics
         routes.annotations = priors
+        self._sync_legacy_routes_from_annotations(routes)
         routes.route_diagnostics = route_diagnostics
         routes.structured_route_diagnostics = _build_structured_diagnostics(
             route_diagnostics, llm_refinement_used, split_recommendations,
@@ -313,34 +370,149 @@ Output valid JSON:"""
         spans: list[SpanIR],
         canonical_input: CanonicalCompileInput,
     ) -> list[RouteAnnotation]:
-        """Build deterministic RouteAnnotations from packet_type + section mapping."""
+        """Build deterministic RouteAnnotations from RoutePriors + packet provenance.
+
+        Priority chain per span:
+          1. packet_id prior: precise match → apply contract directly
+          2. span_hint_id prior: precise match → apply contract directly
+          3. section-level prior (section_id-only):
+             - Single-packet section: apply prior to that packet
+             - Multi-packet section: generate weak section-context annotation only
+          4. Legacy packet_type semantics for non-neutral packets
+          5. Fallback: neutral non-executable behavior context
+        """
         packets = {pkt.packet_id: pkt for pkt in canonical_input.semantic_packets}
         hint_indexes = self._build_hint_indexes(canonical_input.compile_hints)
+        route_priors = getattr(canonical_input, "route_priors", []) or []
+
+        # Build prior indexes for fast lookup
+        priors_by_packet_id: dict[str, list[Any]] = {}
+        priors_by_span_hint_id: dict[str, list[Any]] = {}
+        priors_by_section_id: dict[str, list[Any]] = {}
+        for prior in route_priors:
+            if getattr(prior, "packet_id", None):
+                priors_by_packet_id.setdefault(prior.packet_id, []).append(prior)
+            elif getattr(prior, "span_hint_id", None):
+                priors_by_span_hint_id.setdefault(prior.span_hint_id, []).append(prior)
+            else:
+                priors_by_section_id.setdefault(prior.section_id, []).append(prior)
+
+        # Count packets per section for single-packet section detection
+        packets_per_section: dict[str, list[str]] = {}
+        for pkt in canonical_input.semantic_packets:
+            packets_per_section.setdefault(pkt.source_section_id, []).append(pkt.packet_id)
+
         annotations: list[RouteAnnotation] = []
 
         for span in spans:
+            # 跳过 placeholder spans
+            if span.is_placeholder:
+                continue
+            
             packet = packets.get(span.source_packet_id or "")
+
+            # --- Case 1: no backing packet (section-only placeholder span) ---
             if packet is None:
-                # Section-only span — derive field from section title
                 field = self._section_field(span, canonical_input)
                 annotations.append(RouteAnnotation(
                     span_id=span.span_id,
                     field=field,
+                    executable=False,
                     source_section_id=span.source_section_id,
                 ))
                 continue
 
+            # --- Case 2: legacy hard-fact packets (runtime_input, required_output) ---
             if packet.packet_type in {"runtime_input", "required_output"}:
                 annotations.append(
                     self._build_packet_annotation(span, packet, hint_indexes)
                 )
                 continue
 
-            annotations.append(
-                self._build_packet_annotation(span, packet, hint_indexes)
-            )
+            # --- Case 3: look for applicable RoutePriors ---
+            matched_priors: list[Any] = []
+
+            # Priority 1: exact packet_id prior
+            if span.source_packet_id and span.source_packet_id in priors_by_packet_id:
+                matched_priors = priors_by_packet_id[span.source_packet_id]
+
+            # Priority 2: span_hint_id prior
+            elif span.span_id in priors_by_span_hint_id:
+                matched_priors = priors_by_span_hint_id[span.span_id]
+
+            # Priority 3: section-level prior. Apply broadly only for
+            # exact-title compatibility priors; LLM section-only priors remain
+            # weak context in multi-packet sections.
+            elif span.source_section_id and span.source_section_id in priors_by_section_id:
+                section_packets = packets_per_section.get(span.source_section_id, [])
+                section_priors = priors_by_section_id[span.source_section_id]
+                if len(section_packets) == 1 or any(
+                    getattr(prior, "source", None) == "heuristic"
+                    for prior in section_priors
+                ):
+                    matched_priors = section_priors
+                else:
+                    # Multi-packet section: generate weak section-context annotation only
+                    # Do not assign a role — leave semantic resolution to LLM refinement
+                    field = self._section_field(span, canonical_input)
+                    annotations.append(RouteAnnotation(
+                        span_id=span.span_id,
+                        field=field,
+                        executable=False,
+                        source_section_id=span.source_section_id,
+                        source_packet_id=span.source_packet_id,
+                        metadata={"prior_resolution": "weak_section_context"},
+                    ))
+                    continue
+
+            if matched_priors:
+                # Build one annotation per matched prior (multi-label support)
+                for i, prior in enumerate(matched_priors):
+                    role = prior.suggested_semantic_role
+                    contract = ROUTE_PRIOR_ROLE_CONTRACTS.get(role, {})
+                    ann = RouteAnnotation(
+                        span_id=span.span_id,
+                        field=contract.get("field", prior.suggested_field or "behavior"),
+                        semantic_role=contract.get("semantic_role", role),
+                        route_family=contract.get("route_family"),
+                        construct_target=contract.get("construct_target"),
+                        slot_target=contract.get("slot_target"),
+                        executable=contract.get("executable", False),
+                        primary=(i == 0),
+                        source_section_id=span.source_section_id,
+                        source_packet_id=span.source_packet_id,
+                    )
+                    self._enrich_from_hints(
+                        ann,
+                        span.source_packet_id or "",
+                        span.source_section_id or "",
+                        hint_indexes,
+                    )
+                    annotations.append(ann)
+                continue
+
+            # --- Case 4: legacy packet_type semantics (non-neutral packets) ---
+            if packet.packet_type in _ANNOTATION_SEMANTICS:
+                annotations.append(
+                    self._build_packet_annotation(span, packet, hint_indexes)
+                )
+                continue
+
+            # --- Case 5: neutral packet with no matching prior ---
+            # Default to non-executable behavior context. Stage 2 LLM refinement
+            # is the authoritative path for assigning semantic roles to these.
+            field = self._section_field(span, canonical_input)
+            annotations.append(RouteAnnotation(
+                span_id=span.span_id,
+                field=field,
+                executable=False,
+                source_section_id=span.source_section_id,
+                source_packet_id=span.source_packet_id,
+                metadata={"prior_resolution": "no_prior_neutral_context"},
+            ))
 
         return annotations
+
 
     @staticmethod
     def _section_field(
@@ -354,16 +526,11 @@ Output valid JSON:"""
         Priority 2b: section_context keyword fallback (low confidence)
         Priority 3: default "behavior"
         """
-        # Priority 1: canonical structured ID
-        if span.source_section_id:
-            sections = {s.section_id: s for s in canonical_input.raw_sections}
-            section = sections.get(span.source_section_id)
-            if section is not None:
-                if section.canonical_title == "task_family":
-                    return "domain"
-                if section.canonical_title in {"policies", "failure_handling"}:
-                    return "rules"
-                return "behavior"
+        # Priority 1: canonical route_priors
+        if span.source_section_id and hasattr(canonical_input, "route_priors"):
+            for prior in canonical_input.route_priors:
+                if prior.section_id == span.source_section_id:
+                    return prior.suggested_field
 
         # Shortcut: placeholder spans → route by section_context directly
         if span.is_placeholder and span.section_context:
@@ -397,13 +564,24 @@ Output valid JSON:"""
         """Check whether adapter-guided LLM refinement is enabled."""
         return bool(getattr(self.config, "enable_adapter_guided_fieldroute_llm", False))
 
+    def _adapter_guided_fallback_allowed(self) -> bool:
+        """Return whether Stage 2 may continue after adapter LLM failure."""
+        return bool(
+            getattr(self.config, "allow_adapter_guided_fieldroute_fallback", False)
+        )
+
     def _call_adapter_guided_llm(
         self,
         spans: list[SpanIR],
         canonical_input: CanonicalCompileInput,
         priors: list[RouteAnnotation],
-    ) -> RouteRefinementResult | None:
-        """Call the adapter-guided LLM and return parsed result, or None on failure."""
+    ) -> RouteRefinementResult:
+        """Call the adapter-guided LLM and return parsed result.
+
+        Call or parse failures are hard errors by default.  The caller may
+        explicitly convert this to a compatibility fallback only when
+        ``allow_adapter_guided_fieldroute_fallback`` is enabled.
+        """
         try:
             system_prompt = load_prompt("stage2_adapter_guided")
             user_prompt = build_adapter_guided_user_prompt(
@@ -417,11 +595,49 @@ Output valid JSON:"""
             )
             return parse_refinement_result(result_dict)
         except Exception as exc:
-            self.logger.warning(
-                "Adapter-guided LLM refinement failed: %s. Falling back to "
-                "deterministic priors.", exc,
+            fallback_allowed = self._adapter_guided_fallback_allowed()
+            fallback_note = (
+                "fallback enabled by allow_adapter_guided_fieldroute_fallback=True"
+                if fallback_allowed
+                else "fallback disabled"
             )
-            return None
+            message = (
+                "stage2_adapter_guided LLM refinement failed with "
+                f"{type(exc).__name__}: {exc}; {fallback_note}."
+            )
+            self.logger.warning(message)
+            raise StageError(
+                message=message,
+                stage=self.name,
+                details={
+                    "llm_stage_name": "stage2_adapter_guided",
+                    "exception_type": type(exc).__name__,
+                    "exception_message": str(exc),
+                    "fallback_allowed": fallback_allowed,
+                    "source_schema": canonical_input.source_schema,
+                    "spans_count": len(spans),
+                },
+            ) from exc
+
+    def _save_adapter_guided_failure_checkpoint(self, exc: StageError) -> None:
+        """Persist a failure-only checkpoint before fail-fast propagation."""
+        details = dict(exc.details)
+        self.save_checkpoint({
+            "failure": {
+                "stage": self.name,
+                "message": str(exc),
+                "details": details,
+            },
+            "llm_refinement": {
+                "used": False,
+                "llm_stage_name": details.get(
+                    "llm_stage_name", "stage2_adapter_guided"
+                ),
+                "error_type": details.get("exception_type"),
+                "error_message": details.get("exception_message"),
+                "fallback_allowed": details.get("fallback_allowed", False),
+            },
+        })
 
     def _merge_llm_refinement(
         self,
@@ -614,11 +830,40 @@ Output valid JSON:"""
         elif packet_type == "policy":
             routes.rules.append(span.span_id)
         elif packet_type == "failure_mode":
-            routes.rules.append(span.span_id)
+            routes.behavior.append(span.span_id)
         elif packet_type == "delegation_rule":
             routes.behavior.append(span.span_id)
+        elif packet_type in {"list_item", "sentence", "section_block"}:
+            return
         else:
             routes.behavior.append(span.span_id)
+
+    @staticmethod
+    def _sync_legacy_routes_from_annotations(routes: FieldRouteIR) -> None:
+        """Align legacy route lists with authoritative annotations.
+
+        Resource contracts are intentionally excluded from legacy route lists;
+        they are consumed by resource extraction through annotations/hard facts.
+        Neutral context annotations without a semantic role are also excluded
+        so they cannot become executable behavior candidates.
+        """
+        routes.identity = []
+        routes.audience = []
+        routes.rules = []
+        routes.domain = []
+        routes.integrations = []
+        routes.behavior = []
+
+        for ann in routes.annotations:
+            if not ann.semantic_role:
+                continue
+            if ann.semantic_role in {"input_contract", "output_contract"}:
+                continue
+            if ann.field == "resources":
+                continue
+            target = getattr(routes, ann.field, None)
+            if isinstance(target, list) and ann.span_id not in target:
+                target.append(ann.span_id)
 
     def _route_section_span(
         self,
@@ -631,10 +876,13 @@ Output valid JSON:"""
         if section is None:
             routes.behavior.append(span.span_id)
             return
-        if section.canonical_title == "task_family":
+        section_title = section.canonical_title.replace("_", " ")
+        if section_title == "task family":
             routes.domain.append(span.span_id)
-        elif section.canonical_title in {"policies", "failure_handling"}:
+        elif section_title == "policies":
             routes.rules.append(span.span_id)
+        elif section_title == "failure handling":
+            routes.behavior.append(span.span_id)
         else:
             routes.behavior.append(span.span_id)
 
