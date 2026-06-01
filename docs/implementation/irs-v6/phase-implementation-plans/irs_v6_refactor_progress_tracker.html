@@ -341,7 +341,28 @@
         "R0.check.9": true,
         "R0.notes": "R0 阶段完成: 2026-06-01\n审核者确认: 按真实代码核验通过\n后续依赖: R4 需要实现 check_worker_plan_irs"
       };
-      applyState(r0Data);
+      const r1Data = {
+        "R1.status": "approved",
+        "R1.reviewDecision": "approved",
+        "R1.changedFiles": "新增类型文件:\n- src/nl2spl/compiler/irs/__init__.py\n- src/nl2spl/compiler/irs/graph.py (ConstructEdge, ConstructGraph, ConstructEdgeType)\n- src/nl2spl/compiler/irs/frontier.py (FrontierStatus, CutlineReason)\n\n修改生产代码:\n- src/nl2spl/compiler/construct_registry.py (扩展 ConstructSatisfactionReport)\n\n新增测试文件:\n- tests/unit/test_irs_v6_r1_report_schema.py (16 个测试)\n\nPrompt 修改:\n- 无",
+        "R1.tests": "R1 Schema 测试:\npython -m pytest tests/unit/test_irs_v6_r1_report_schema.py -v\n结果: 16 passed in 0.16s\n\nR0+R1 回归:\npython -m pytest tests/unit/test_irs_v6_r0_baseline.py -q\n结果: 23 passed, 1 xfailed in 0.25s\n\n全量单元测试:\npython -m pytest tests/unit/ -q --basetemp=.pytest-tmp2\n结果: 1479 passed, 1 xfailed in 25.81s\n\n测试计数: 1463 → 1479 (+16)",
+        "R1.evidence": "✅ ConstructEdge / ConstructGraph 基础类型: 5 个测试\n✅ FrontierStatus / CutlineReason 类型: 2 个测试\n✅ ConstructSatisfactionReport 兼容扩展: 6 个测试（含类型契约验证）\n✅ 现有 checker 兼容性: 4 个测试\n✅ 类型契约使用 typing.get_type_hints() 验证\n✅ related_edges: list[ConstructEdge]\n✅ cutline_reason: CutlineReason | None\n✅ frontier_status: FrontierStatus\n✅ 所有 v6 字段有默认值\n✅ 无 orchestrator/checker/prompt 修改",
+        "R1.risks": "无",
+        "R1.llmRuleDecision": "无新增 LLM/rule-based 语义判断逻辑。只做 schema/type foundation。",
+        "R1.reviewFindings": "初次提交发现 1 个问题，已修复:\nP1: Schema 契约未真正落到类型字段 - 已修复，使用真实 v6 类型注解\nP2: .vscode/ 目录说明 - 保留本地，不纳入提交\n\n修复后复审通过。",
+        "R1.check.0": true,
+        "R1.check.1": true,
+        "R1.check.2": true,
+        "R1.check.3": true,
+        "R1.check.4": true,
+        "R1.check.5": true,
+        "R1.check.6": true,
+        "R1.check.7": true,
+        "R1.check.8": true,
+        "R1.check.9": true,
+        "R1.notes": "R1 阶段完成: 2026-06-01\n审核者确认: 类型契约、测试、全量回归均通过\n质量建议: 可用 typing.get_args() 进一步硬化 literal 枚举测试\n后续依赖: R2 基于这些类型建立 IRS v6 framework skeleton"
+      };
+      applyState({...r0Data, ...r1Data});
       saveState();
     }
 
