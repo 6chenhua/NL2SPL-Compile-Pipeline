@@ -262,9 +262,25 @@ class TestStage95Checklist:
         assert "invocation_point" in self.text
         assert "result_handoff" in self.text
 
-    def test_worker_candidate_has_promotion_slots(self):
-        assert "promotion_input_contract" in self.text
-        assert "promotion_output_contract" in self.text
+    def test_worker_candidate_has_identification_slots(self):
+        """WORKER_CANDIDATE has slots for identifying the candidate boundary"""
+        assert "responsibility" in self.text
+        assert "delegation_signal" in self.text
+        assert "source_evidence" in self.text
+
+    def test_worker_promotion_exists_in_registry(self):
+        """WORKER_PROMOTION construct exists in registry with promotion slots"""
+        # WORKER_PROMOTION is an analysis construct, not used in stage prompts
+        # but it should exist in the registry
+        registry = SPLConstructRegistry.default()
+        assert registry.has("WORKER_PROMOTION")
+        
+        irs = registry.get("WORKER_PROMOTION")
+        slot_names = [s.slot_name for s in irs.slots]
+        assert "promotion_input_contract" in slot_names
+        assert "promotion_output_contract" in slot_names
+        assert "promotion_invocation_point" in slot_names
+        assert "promotion_result_handoff" in slot_names
 
 
 # ---------------------------------------------------------------------------

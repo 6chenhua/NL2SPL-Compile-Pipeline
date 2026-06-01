@@ -26,6 +26,8 @@ class TestDefaultRegistry:
             "INVOKE_WORKER",
             "CHILD_WORKER",
             "WORKER_CANDIDATE",
+            "WORKER_PROMOTION",
+            "WORKER_HANDOFF",
         }
         assert set(registry.list_constructs()) == expected
 

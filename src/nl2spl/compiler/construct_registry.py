@@ -481,9 +481,10 @@ class SPLConstructRegistry:
             partial_rendering_allowed=False,
             no_demand_behavior="do_not_generate",
             description=(
-                "A delegation mention that may warrant a child worker but lacks "
-                "the full promotion criteria (contract, invocation point, handoff). "
-                "Stays as a report / provenance trace; not rendered as SPL."
+                "A delegation mention identified as a candidate task boundary. "
+                "Represents that a candidate boundary exists, not whether it can "
+                "be promoted to a child worker. Stays as a report / provenance trace; "
+                "not rendered as SPL."
             ),
             slots=[
                 SlotSpec(
@@ -493,29 +494,139 @@ class SPLConstructRegistry:
                     evidence_kinds=["subtask_purpose", "delegation_mention"],
                 ),
                 SlotSpec(
+                    slot_name="delegation_signal",
+                    required_for_complete=True,
+                    evidence_kinds=["delegation_signal", "candidate_kind"],
+                ),
+                SlotSpec(
+                    slot_name="source_evidence",
+                    required_for_complete=True,
+                    evidence_kinds=["source_span", "candidate_source"],
+                ),
+            ],
+        ))
+
+        # -- WORKER_PROMOTION ------------------------------------------------
+        registry.register(ConstructIRS(
+            construct_type="WORKER_PROMOTION",
+            existence_policy="source_signal_required",
+            source_signals=[
+                "delegation",
+                "subtask",
+                "explicit_delegation",
+            ],
+            partial_rendering_allowed=False,
+            no_demand_behavior="do_not_generate",
+            description=(
+                "Promotion readiness assessment for a worker candidate. "
+                "Expresses whether a candidate has the necessary conditions "
+                "(contract, invocation point, handoff) to be promoted to a child worker. "
+                "This is an analysis construct, not a renderable SPL construct."
+            ),
+            slots=[
+                SlotSpec(
                     slot_name="promotion_input_contract",
                     required_for_complete=True,
                     renderable_without=True,
-                    evidence_kinds=["input_contract"],
+                    evidence_kinds=["input_contract", "possible_inputs"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
-                        "Emit type_or_contract_ambiguity only when source implies "
-                        "executable delegation but the contract is incomplete."
+                        "Satisfied when possible_inputs is non-empty and risks "
+                        "does not contain no_clear_input_contract."
                     ),
                 ),
                 SlotSpec(
                     slot_name="promotion_output_contract",
                     required_for_complete=True,
                     renderable_without=True,
-                    evidence_kinds=["output_contract", "returned_result"],
+                    evidence_kinds=["output_contract", "possible_outputs"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "Satisfied when possible_outputs is non-empty and risks "
+                        "does not contain no_clear_output_contract."
+                    ),
                 ),
                 SlotSpec(
                     slot_name="promotion_invocation_point",
                     required_for_complete=True,
                     renderable_without=True,
-                    evidence_kinds=["condition", "handoff_point"],
+                    evidence_kinds=["invocation_point", "handoff_point"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "Satisfied when risks does not contain no_parent_invocation_point "
+                        "and there is evidence of where to invoke the worker."
+                    ),
+                ),
+                SlotSpec(
+                    slot_name="promotion_result_handoff",
+                    required_for_complete=True,
+                    renderable_without=True,
+                    evidence_kinds=["result_handoff", "output_binding"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "Satisfied when risks does not contain unclear_result_handoff "
+                        "and there is a matching handoff with output_bindings."
+                    ),
+                ),
+            ],
+        ))
+
+        # -- WORKER_HANDOFF --------------------------------------------------
+        registry.register(ConstructIRS(
+            construct_type="WORKER_HANDOFF",
+            existence_policy="source_signal_required",
+            source_signals=[
+                "worker_handoff",
+                "worker_invocation",
+                "api_call",
+            ],
+            partial_rendering_allowed=False,
+            no_demand_behavior="do_not_generate",
+            description=(
+                "A materialized worker handoff representing data flow and invocation "
+                "between workers or from worker to API. Expresses whether the handoff "
+                "has complete contract bindings."
+            ),
+            slots=[
+                SlotSpec(
+                    slot_name="from_worker",
+                    required_for_complete=True,
+                    evidence_kinds=["from_worker"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="target",
+                    required_for_complete=True,
+                    evidence_kinds=["to_worker", "api_ref"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "For mode='invoke', uses to_worker. "
+                        "For mode='api_call', uses api_ref."
+                    ),
+                ),
+                SlotSpec(
+                    slot_name="input_bindings",
+                    required_for_complete=True,
+                    evidence_kinds=["input_binding"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="output_bindings",
+                    required_for_complete=True,
+                    evidence_kinds=["output_binding"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="invocation_site",
+                    required_for_complete=True,
+                    evidence_kinds=["invoke_location_hint"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "Uses invoke_location_hint structured fields: "
+                        "after_span_id, before_span_id, block_hint (non-unknown), "
+                        "or handoff-level condition_text. "
+                        "Does NOT use ordering (required Literal) as evidence."
+                    ),
                 ),
             ],
         ))

@@ -780,19 +780,16 @@ class TestR0WorkerDelegationPromotionGap:
         assert plan.candidates[0].candidate_kind == "explicit_delegation"
         assert "no_clear_input_contract" in plan.candidates[0].risks
 
-    @pytest.mark.xfail(
-        reason="R4 will add WORKER_PROMOTION reports for incomplete delegation.",
-        strict=True,
-    )
     def test_target_worker_promotion_report_for_incomplete_delegation(self):
-        """目标行为：incomplete delegation 应产生 WORKER_PROMOTION blocked report"""
-        # 这是目标行为测试，当前会失败
-        # R4 实现后应移除 xfail 或升级为正式验收测试
-
-        # 假设未来有 check_worker_plan_irs 函数
-        # from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.irs_checker import (
-        #     check_worker_plan_irs,
-        # )
+        """R4 验收：incomplete delegation 应产生 WORKER_PROMOTION blocked report"""
+        from nl2spl.compiler.construct_registry import SPLConstructRegistry
+        from nl2spl.compiler.irs.checkers.worker_delegation import (
+            WorkerDelegationIRSChecker,
+        )
+        from nl2spl.compiler.irs.context import IRSCheckContext
+        from nl2spl.compiler.irs.projector import DiagnosticProjector
+        from nl2spl.compiler.irs.registry import IRSCheckerRegistry
+        from nl2spl.compiler.irs.runner import IRSRunner
 
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
@@ -829,14 +826,37 @@ class TestR0WorkerDelegationPromotionGap:
             handoffs=[],
         )
 
-        # 目标：应该有 WORKER_PROMOTION report
-        # reports, diagnostics = check_worker_plan_irs(plan)
-        # promotion_reports = [r for r in reports if r.construct_type == "WORKER_PROMOTION"]
-        # assert len(promotion_reports) > 0
-        # assert promotion_reports[0].completeness == "blocked"
+        # Setup runner with R4 checker
+        checker_registry = IRSCheckerRegistry()
+        checker = WorkerDelegationIRSChecker()
+        checker_registry.register(checker)
 
-        # 当前这个函数不存在，所以测试会失败
-        pytest.fail("check_worker_plan_irs not implemented yet (expected in R4)")
+        construct_registry = SPLConstructRegistry.default()
+        projector = DiagnosticProjector()
+
+        runner = IRSRunner(
+            registry=checker_registry,
+            construct_registry=construct_registry,
+            projector=projector,
+        )
+
+        context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        result = runner.run_stage("stage3_5", context)
+
+        # Verify WORKER_PROMOTION report exists and is blocked
+        promotion_reports = [
+            r for r in result.reports if r.construct_type == "WORKER_PROMOTION"
+        ]
+        assert len(promotion_reports) > 0
+        assert promotion_reports[0].completeness == "partial"
+        assert promotion_reports[0].metadata["promotion_status"] == "blocked"
+        assert "promotion_input_contract" in promotion_reports[0].metadata["promotion_missing_slots"]
+        assert "promotion_output_contract" in promotion_reports[0].metadata["promotion_missing_slots"]
+
+        # Verify diagnostics are generated
+        assert len(result.diagnostics) > 0
+        for diagnostic in result.diagnostics:
+            assert diagnostic.kind == "type_or_contract_ambiguity"
 
 
 # ===========================================================================
