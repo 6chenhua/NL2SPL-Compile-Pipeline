@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 4; // R0+R1+R2+R3 data version
+    const DATA_VERSION = 5; // R0+R1+R2+R3+R4 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -329,12 +329,12 @@
         }
       }
       if (needsUpdate) {
-        applyR0R1R2R3Data();
+        applyR0R1R2R3R4Data();
       }
       refreshSummary();
     }
 
-    function applyR0R1R2R3Data() {
+    function applyR0R1R2R3R4Data() {
       const r0Data = {
         "R0.status": "approved",
         "R0.reviewDecision": "approved",
@@ -420,7 +420,28 @@
         "R3.check.9": true,
         "R3.notes": "R3 阶段完成: 2026-06-01\n审核者确认: DiagnosticProjector 完整实现，missing_slot 结构化，source_span_ids 不可变\n关键设计: deterministic ID (SHA1), projector 内部 dedup, 只投影已标注 diagnostic_kind\n后续依赖: R4 Worker/Delegation Checker 基于 R3 projector 生成 diagnostics"
       };
-      applyState({...r0Data, ...r1Data, ...r2Data, ...r3Data});
+      const r4Data = {
+        "R4.status": "approved",
+        "R4.reviewDecision": "approved",
+        "R4.changedFiles": "新增生产代码:\n- src/nl2spl/compiler/irs/checkers/__init__.py\n- src/nl2spl/compiler/irs/checkers/worker_delegation.py (WorkerDelegationIRSChecker)\n\n修改生产代码:\n- src/nl2spl/compiler/construct_registry.py (新增 WORKER_PROMOTION, WORKER_HANDOFF specs)\n\n新增测试文件:\n- tests/unit/compiler/irs/test_r4_worker_delegation_checker.py (35 个测试)\n\n修改测试文件:\n- tests/unit/test_irs_v6_r0_baseline.py (R4 target xfail 转为 passing)\n- tests/unit/test_construct_registry.py (更新 spec 计数)\n- tests/unit/test_irs_prompt_builder.py (更新 spec 计数)\n\nPrompt 修改:\n- 无",
+        "R4.tests": "R4 Worker/Delegation Checker 测试:\npython -m pytest tests/unit/compiler/irs/test_r4_worker_delegation_checker.py -q\n结果: 35 passed in 0.18s\n\nR0-R4 定向回归:\npython -m pytest tests/unit/test_irs_v6_r0_baseline.py tests/unit/test_irs_v6_r1_report_schema.py tests/unit/compiler/irs/test_r2_framework_skeleton.py tests/unit/compiler/irs/test_r3_diagnostic_projector.py tests/unit/compiler/irs/test_r4_worker_delegation_checker.py -q\n结果: 131 passed in 0.31s\n\n全量单元测试:\npython -m pytest tests/unit/ -q --basetemp=.pytest-tmp-r4-final-review\n结果: 1572 passed, 1 xfailed\n\n测试计数: 1535 → 1572 (+37)",
+        "R4.evidence": "✅ WorkerDelegationIRSChecker 实现完整\n✅ 只消费结构化 IR 字段，不调用 LLM，不解析 raw NL\n✅ WORKER_CANDIDATE: 从 worker_plan.candidates 提取\n✅ WORKER_PROMOTION: 检查 promotion readiness (decision/handoff/output_bindings)\n✅ WORKER_HANDOFF: 检查 handoff target/mode/bindings\n✅ _matching_handoffs_for_candidate() 结构化匹配 handoff 到 candidate\n✅ _handoff_has_valid_target() 验证 target 存在\n✅ 过滤非 worker candidates: 只处理 explicit_delegation, bounded_subtask 等\n✅ Graph edges 只在 target valid 时生成\n✅ construct_path 使用 tuple 格式\n✅ Report 继承完整 provenance (ir_ref, source_span_ids, construct_path)\n✅ Registry 文档修正 invocation_site 不使用 ordering\n✅ R0 baseline test 中 R4 target 从 xfail 转为 passing\n✅ 无 orchestrator 接入\n✅ 无旧 checker 迁移",
+        "R4.risks": "无",
+        "R4.llmRuleDecision": "无新增 LLM/rule-based 语义判断逻辑。只消费结构化 IR 字段 (candidate_kind, decision_kind, handoff.mode, handoff.to_worker, invoke_location_hint)。",
+        "R4.reviewFindings": "经过多轮审核修复的关键问题:\n\n第一轮审核 (P1-1, P1-2, P1-3):\nP1-1: WORKER_PROMOTION 误判 ready - 修复为要求真实 handoff/decision/invocation evidence\nP1-2: WORKER_HANDOFF.target 不校验目标 worker 存在 - 修复为验证 to_worker 存在于 worker_plan.workers\nP1-3: invocation_site 把 ordering 当证据 - 修复为只用 invoke_location_hint 结构化字段\n\n第二轮审核 (P1, P1, P2, P2, P2, P3):\nP1: WORKER_PROMOTION handoff 证据未绑定到当前 candidate - 修复为实现 _matching_handoffs_for_candidate()\nP1: construct_path 写成字符串 - 修复为 tuple 格式\nP2: Report 层没有完整继承 path/provenance - 修复为从 instance 继承 construct_path/source_span_ids\nP2: Handoff report 丢失 source spans - 修复为使用 handoff instance/source spans\nP2: 非 worker candidate 被当作 worker promotion candidate - 修复为过滤非 worker/delegation candidates\nP3: Registry 文档仍说 invocation_site 使用 ordering - 修复为删除 ordering 说明\n\n第三轮审核 (P1, P2, P2):\nP1: Promotion readiness 不要求 handoff target worker 真实存在 - 修复为新增 _handoff_has_valid_target()\nP2: WORKER_HANDOFF 为不存在 child worker 生成 graph edge - 修复为只在 target slot satisfied 时添加 edge\nP2: 非 worker candidate 仍会被当作 worker promotion candidate - 修复为过滤 candidate_kind\n\n最终审核通过。",
+        "R4.check.0": true,
+        "R4.check.1": true,
+        "R4.check.2": true,
+        "R4.check.3": true,
+        "R4.check.4": true,
+        "R4.check.5": true,
+        "R4.check.6": true,
+        "R4.check.7": true,
+        "R4.check.8": true,
+        "R4.check.9": true,
+        "R4.notes": "R4 阶段完成: 2026-06-01\n审核者确认: 按真实代码逐项核验通过\n关键设计: 结构化匹配 handoff 到 candidate，验证 target 存在，过滤非 worker candidates\n核心修复: _matching_handoffs_for_candidate(), _handoff_has_valid_target(), construct_path tuple, report provenance 继承\n后续依赖: R5 基于 R4 checker 接入 orchestrator"
+      };
+      applyState({...r0Data, ...r1Data, ...r2Data, ...r3Data, ...r4Data});
       saveState();
     }
 
