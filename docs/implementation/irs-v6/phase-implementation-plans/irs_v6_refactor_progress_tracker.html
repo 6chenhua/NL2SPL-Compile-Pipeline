@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IRS v6 重构进度跟踪</title>
+  <style>
+    :root {
+      --bg: #f7f7f4;
+      --panel: #ffffff;
+      --text: #1f2933;
+      --muted: #64748b;
+      --line: #d8dee4;
+      --accent: #2563eb;
+      --ok: #15803d;
+      --warn: #b45309;
+      --bad: #b91c1c;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+    .toolbar,
+    .summary,
+    .phase {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button,
+    label.import-label {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    input[type="file"] { display: none; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fbfbfa;
+    }
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .metric .value {
+      font-weight: 600;
+      font-size: 18px;
+    }
+    .phase h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .badge.done { background: #dcfce7; color: var(--ok); }
+    .badge.review { background: #fef3c7; color: var(--warn); }
+    .badge.blocked { background: #fee2e2; color: var(--bad); }
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field.full { grid-column: 1 / -1; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 14px;
+      margin-top: 8px;
+    }
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .check input {
+      width: auto;
+      margin-top: 2px;
+    }
+    .review-note {
+      border-left: 4px solid var(--accent);
+      background: #eff6ff;
+      padding: 10px 12px;
+      color: #1e3a8a;
+      margin-bottom: 16px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    @media (max-width: 900px) {
+      .grid,
+      .fields,
+      .checklist {
+        grid-template-columns: 1fr;
+      }
+      header {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IRS v6 重构进度跟踪</h1>
+    <div class="subtitle">用于记录 R0-R9 的实施证据、测试结果、审核结论和 LLM/rule-based 决策。</div>
+  </header>
+  <main>
+    <section class="toolbar">
+      <button class="primary" type="button" onclick="saveState()">保存到浏览器</button>
+      <button type="button" onclick="exportJson()">导出 JSON</button>
+      <label class="import-label" for="importFile">导入 JSON</label>
+      <input id="importFile" type="file" accept="application/json" onchange="importJson(event)" />
+      <button type="button" onclick="resetState()">清空本页数据</button>
+    </section>
+
+    <section class="summary">
+      <div class="review-note">
+        审核要求：不能只看实施报告。每个阶段必须对照真实代码、真实 diff、真实测试逐条核验。若发现问题，审核结论必须包含核心修复方向。
+      </div>
+      <div class="grid">
+        <div class="metric"><div class="label">总阶段数</div><div class="value" id="totalCount">10</div></div>
+        <div class="metric"><div class="label">已完成</div><div class="value" id="doneCount">0</div></div>
+        <div class="metric"><div class="label">审核中</div><div class="value" id="reviewCount">0</div></div>
+        <div class="metric"><div class="label">阻塞</div><div class="value" id="blockedCount">0</div></div>
+      </div>
+    </section>
+
+    <div id="phases"></div>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "irs-v6-refactor-progress-v1";
+    const phases = [
+      ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
+      ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
+      ["R2", "IRS v6 Framework Skeleton", "新增 compiler/irs 基础接口，不接 orchestrator。"],
+      ["R3", "DiagnosticProjector", "建立 report/slot 到 CompileDiagnostic 的统一投影链路。"],
+      ["R4", "Worker/Delegation Checker", "实现首个 v6-style checker，解释 promotion blocked。"],
+      ["R5", "Runner Orchestrator Integration", "通过 runner 写入 intermediate/report。"],
+      ["R6", "Stage4/Stage7 Compatibility Migration", "旧 checker 包装为 v6 checker。"],
+      ["R7", "Post-normalize Cleanup", "收敛 final construct-level diagnostic authority。"],
+      ["R8", "Graph-ready Hardening", "生成 edge/path/frontier snapshot，不做递归 traversal。"],
+      ["R9", "Final Audit", "清理文档、测试矩阵、feature flag 与最终审计。"]
+    ];
+
+    const checklist = [
+      "实际修改文件符合阶段允许范围",
+      "验收测试真实覆盖阶段目标",
+      "无 skip / 弱断言掩盖问题",
+      "xfail 仅用于 target-future 且 strict=True",
+      "未越权修改非本阶段生产行为",
+      "未滥用 rule-based 语义判断",
+      "LLM/rule-based 选择已记录并获确认",
+      "阶段测试命令已执行",
+      "全量测试或约定范围测试已通过",
+      "审核问题给出核心修复方向"
+    ];
+
+    function phaseTemplate(code, title, goal) {
+      const checks = checklist.map((text, idx) => `
+        <label class="check">
+          <input type="checkbox" data-key="${code}.check.${idx}">
+          <span>${text}</span>
+        </label>
+      `).join("");
+      return `
+        <section class="phase" data-phase="${code}">
+          <h2><span>${code} ${title}</span><span class="badge" id="${code}.badge">todo</span></h2>
+          <div class="fields">
+            <div class="field">
+              <label>状态</label>
+              <select data-key="${code}.status" onchange="refreshSummary()">
+                <option value="todo">todo</option>
+                <option value="in_progress">in_progress</option>
+                <option value="review">review</option>
+                <option value="approved">approved</option>
+                <option value="blocked">blocked</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>审核结论</label>
+              <select data-key="${code}.reviewDecision" onchange="refreshSummary()">
+                <option value="">未审核</option>
+                <option value="approved">approved</option>
+                <option value="needs_fix">needs_fix</option>
+                <option value="rejected">rejected</option>
+              </select>
+            </div>
+            <div class="field full">
+              <label>阶段目标</label>
+              <textarea data-key="${code}.goal">${goal}</textarea>
+            </div>
+            <div class="field">
+              <label>修改文件列表</label>
+              <textarea data-key="${code}.changedFiles" placeholder="列出新增/修改文件，区分生产代码、测试、文档。"></textarea>
+            </div>
+            <div class="field">
+              <label>测试命令与结果</label>
+              <textarea data-key="${code}.tests" placeholder="pytest ... # passed / failed / xfailed"></textarea>
+            </div>
+            <div class="field">
+              <label>验收证据</label>
+              <textarea data-key="${code}.evidence" placeholder="逐条记录满足验收标准的证据。"></textarea>
+            </div>
+            <div class="field">
+              <label>已知失败 / 风险</label>
+              <textarea data-key="${code}.risks" placeholder="记录失败测试、风险、未决问题。"></textarea>
+            </div>
+            <div class="field">
+              <label>LLM / rule-based 决策记录</label>
+              <textarea data-key="${code}.llmRuleDecision" placeholder="如涉及语义判断，记录选择、原因、用户确认情况。R0 应为无。"></textarea>
+            </div>
+            <div class="field">
+              <label>审核发现与核心修复方向</label>
+              <textarea data-key="${code}.reviewFindings" placeholder="审核者填写：问题、严重级别、代码位置、核心解决思路。"></textarea>
+            </div>
+            <div class="field full">
+              <label>审核清单</label>
+              <div class="checklist">${checks}</div>
+            </div>
+            <div class="field full">
+              <label>备注</label>
+              <textarea data-key="${code}.notes" placeholder="其他需要记录的信息。"></textarea>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function render() {
+      document.getElementById("phases").innerHTML = phases.map(p => phaseTemplate(...p)).join("");
+      loadState();
+      // R0 预填充数据
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        applyR0Data();
+      }
+      refreshSummary();
+    }
+
+    function applyR0Data() {
+      const r0Data = {
+        "R0.status": "approved",
+        "R0.reviewDecision": "approved",
+        "R0.changedFiles": "新增测试文件:\n- tests/unit/test_irs_v6_r0_baseline.py (24 个测试)\n\n生产代码修改:\n- 无\n\nPrompt 修改:\n- 无",
+        "R0.tests": "R0 Baseline 测试:\npython -m pytest tests/unit/test_irs_v6_r0_baseline.py -v\n结果: 23 passed, 1 xfailed in 0.27s\n\n全量单元测试:\npython -m pytest tests/unit/ -q --basetemp=.pytest-tmp\n结果: 1463 passed, 1 xfailed in 24.10s\n\n测试计数: 1440 → 1464 (+24)",
+        "R0.evidence": "✅ Stage 4 EXCEPTION_FLOW IRS: 6 个测试\n✅ Stage 7 Step IRS: 7 个测试\n✅ Post-normalize IRS: 6 个测试（3 个直接调用 PostNormalizeIRSChecker.check()）\n✅ Stage 3.5 IRS Checklist: 3 个测试\n✅ Worker/Delegation Promotion Gap: 2 个测试（使用真实 CandidateTaskUnitIR）\n✅ xfail: 1 个，strict=True\n✅ 无 skip\n✅ 无空测试\n✅ 无生产代码改动",
+        "R0.risks": "无",
+        "R0.llmRuleDecision": "无新增 LLM/rule-based 语义判断逻辑。所有测试使用人工构造的 IR fixture。",
+        "R0.reviewFindings": "初次提交发现 4 个问题，已全部修复:\nP1-1: Post-normalize IRS baseline 未测试 PostNormalizeIRSChecker - 已修复\nP1-2: 3 个 metadata 测试是空测试 - 已删除\nP2-1: Worker/Delegation promotion gap baseline 太弱 - 已修复\nP2-2: 报告未区分文档变更与测试变更 - 已说明\n\n修复后重新审核通过。",
+        "R0.check.0": true,
+        "R0.check.1": true,
+        "R0.check.2": true,
+        "R0.check.3": true,
+        "R0.check.4": true,
+        "R0.check.5": true,
+        "R0.check.6": true,
+        "R0.check.7": true,
+        "R0.check.8": true,
+        "R0.check.9": true,
+        "R0.notes": "R0 阶段完成: 2026-06-01\n审核者确认: 按真实代码核验通过\n后续依赖: R4 需要实现 check_worker_plan_irs"
+      };
+      applyState(r0Data);
+      saveState();
+    }
+
+    function collectState() {
+      const state = {};
+      document.querySelectorAll("[data-key]").forEach(el => {
+        const key = el.getAttribute("data-key");
+        state[key] = el.type === "checkbox" ? el.checked : el.value;
+      });
+      return state;
+    }
+
+    function applyState(state) {
+      document.querySelectorAll("[data-key]").forEach(el => {
+        const key = el.getAttribute("data-key");
+        if (!(key in state)) return;
+        if (el.type === "checkbox") el.checked = Boolean(state[key]);
+        else el.value = state[key];
+      });
+      refreshSummary();
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState(), null, 2));
+      refreshSummary();
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try { applyState(JSON.parse(raw)); } catch (_) {}
+    }
+
+    function resetState() {
+      if (!confirm("确认清空本页已填写数据？")) return;
+      localStorage.removeItem(STORAGE_KEY);
+      document.querySelectorAll("[data-key]").forEach(el => {
+        if (el.type === "checkbox") el.checked = false;
+        else if (el.tagName === "SELECT") el.selectedIndex = 0;
+        else if (!el.getAttribute("data-key").endsWith(".goal")) el.value = "";
+      });
+      refreshSummary();
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(collectState(), null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "irs_v6_refactor_progress.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importJson(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          applyState(JSON.parse(reader.result));
+          saveState();
+        } catch (err) {
+          alert("JSON 导入失败: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function refreshSummary() {
+      const statuses = phases.map(([code]) => {
+        const el = document.querySelector(`[data-key="${code}.status"]`);
+        return el ? el.value : "todo";
+      });
+      document.getElementById("doneCount").textContent = statuses.filter(s => s === "approved").length;
+      document.getElementById("reviewCount").textContent = statuses.filter(s => s === "review").length;
+      document.getElementById("blockedCount").textContent = statuses.filter(s => s === "blocked").length;
+      phases.forEach(([code]) => {
+        const statusEl = document.querySelector(`[data-key="${code}.status"]`);
+        const badge = document.getElementById(`${code}.badge`);
+        const status = statusEl ? statusEl.value : "todo";
+        badge.textContent = status;
+        badge.className = "badge";
+        if (status === "approved") badge.classList.add("done");
+        if (status === "review") badge.classList.add("review");
+        if (status === "blocked") badge.classList.add("blocked");
+      });
+    }
+
+    document.addEventListener("input", event => {
+      if (event.target && event.target.hasAttribute("data-key")) {
+        refreshSummary();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
+
