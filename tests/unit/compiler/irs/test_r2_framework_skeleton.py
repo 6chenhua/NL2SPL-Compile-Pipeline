@@ -492,11 +492,11 @@ class TestR2DiagnosticProjectorSkeleton:
         assert result.warnings == []
     
     def test_projector_non_empty_reports_still_does_not_emit_diagnostics_in_r2(self):
-        """Verify R2 projector skeleton does not generate diagnostics."""
+        """Verify R3 projector warns about unknown diagnostic kinds."""
         projector = DiagnosticProjector()
         context = IRSCheckContext(stage_name="stage4")
         
-        # Create reports with diagnostic slots
+        # Create reports with unknown diagnostic kind
         reports = [
             ConstructSatisfactionReport(
                 construct_id="step_1",
@@ -515,9 +515,11 @@ class TestR2DiagnosticProjectorSkeleton:
         
         result = projector.project(reports, context)
         
-        # R2 skeleton does not implement projection
+        # R3 projector warns about unknown diagnostic kinds
         assert result.diagnostics == []
-        assert result.warnings == []
+        assert len(result.warnings) == 1
+        assert "Unknown diagnostic kind" in result.warnings[0]
+        assert "missing_required_slot" in result.warnings[0]
     
     def test_projector_does_not_mutate_reports(self):
         """Verify projector does not modify input reports."""

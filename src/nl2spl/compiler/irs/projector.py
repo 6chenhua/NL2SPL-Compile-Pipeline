@@ -1,14 +1,22 @@
 """IRS v6 Diagnostic Projector — project ConstructSatisfactionReport to CompileDiagnostic.
 
-R2 provides only a skeleton. Full projection semantics (slot -> diagnostic mapping,
-severity rules, deduplication) belong to R3.
+R2 provides only a skeleton. R3 implements full projection semantics:
+- Slot diagnostic_kind -> CompileDiagnostic mapping
+- DiagnosticRegistry integration for severity/blocks_completion
+- Deterministic diagnostic_id generation
+- Deduplication within projection
+- Unknown/disabled diagnostic kind handling
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 
+from nl2spl.compiler.compile_result import MissingSlot
 from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
+from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
@@ -29,24 +37,31 @@ class DiagnosticProjectionResult:
 class DiagnosticProjector:
     """Projects ConstructSatisfactionReport to CompileDiagnostic.
     
-    R2 skeleton behavior:
-        - Can be instantiated and called
-        - Empty reports return empty diagnostics
-        - Non-empty reports do NOT generate diagnostics in R2
-        - Does not modify input reports
-    
-    R3 will implement:
-        - Slot diagnostic_kind -> CompileDiagnostic.kind mapping
-        - Severity rules based on completeness/renderable
-        - Source span propagation
-        - Deduplication across reports
-        - Construct path formatting for messages
+    R3 implementation:
+        - Reads slot.diagnostic_kind from reports
+        - Uses DiagnosticRegistry for severity/blocks_completion
+        - Generates deterministic diagnostic_id
+        - Deduplicates within projection
+        - Handles unknown/disabled diagnostic kinds with warnings
     
     Design notes:
         - Projector is stateless, can be reused across runs
         - Context provides additional info for diagnostic formatting
         - Warnings capture projection issues without failing the run
+        - Does not infer diagnostic_kind from slot status or report completeness
     """
+    
+    def __init__(
+        self,
+        diagnostic_registry: DiagnosticRegistry | None = None,
+    ) -> None:
+        """Initialize projector with diagnostic registry.
+        
+        Args:
+            diagnostic_registry: Registry for diagnostic specs. Defaults to
+                DiagnosticRegistry.default() if not provided.
+        """
+        self._diagnostic_registry = diagnostic_registry or DiagnosticRegistry.default()
     
     def project(
         self,
@@ -63,10 +78,144 @@ class DiagnosticProjector:
             Projection result with diagnostics and warnings
         
         Notes:
-            - R2 skeleton returns empty diagnostics
-            - Does not modify reports
-            - R3 will implement full projection semantics
+            - Only projects slots with diagnostic_kind set
+            - Does not infer diagnostics from missing status or completeness
+            - Deduplicates diagnostics within this projection
         """
-        # R2 skeleton: safe empty projection
-        # R3 will implement slot -> diagnostic mapping
-        return DiagnosticProjectionResult()
+        diagnostics: list[CompileDiagnostic] = []
+        warnings: list[str] = []
+        seen_keys: set[tuple] = set()
+        
+        for report in reports:
+            for slot in report.slots:
+                if not slot.diagnostic_kind:
+                    continue
+                
+                kind = slot.diagnostic_kind
+                
+                # Check if diagnostic kind is known
+                if not self._diagnostic_registry.has(kind):
+                    warnings.append(
+                        f"Unknown diagnostic kind '{kind}' for construct={report.construct_id}, "
+                        f"slot={slot.slot_name}. Skipping."
+                    )
+                    continue
+                
+                spec = self._diagnostic_registry.get(kind)
+                
+                # Check if diagnostic kind is enabled
+                if not spec.enabled:
+                    warnings.append(
+                        f"Disabled diagnostic kind '{kind}' for construct={report.construct_id}, "
+                        f"slot={slot.slot_name}. Skipping."
+                    )
+                    continue
+                
+                # Determine source spans (slot takes priority over report)
+                # Copy to avoid sharing mutable list with input reports
+                source_span_ids = list(slot.source_span_ids or report.source_span_ids)
+                
+                # Build dedup key
+                dedup_key = (
+                    kind,
+                    report.construct_id,
+                    slot.slot_name,
+                    tuple(sorted(source_span_ids)),
+                )
+                
+                if dedup_key in seen_keys:
+                    continue
+                seen_keys.add(dedup_key)
+                
+                # Generate deterministic diagnostic_id
+                diagnostic_id = self._generate_diagnostic_id(
+                    kind,
+                    report.construct_id,
+                    slot.slot_name,
+                    source_span_ids,
+                )
+                
+                # Build message
+                message = self._build_message(
+                    spec.description,
+                    slot.explanation,
+                    report.construct_id,
+                    slot.slot_name,
+                )
+                
+                # Build missing_slot for structured diagnostic
+                missing_slot = MissingSlot(
+                    slot_name=slot.slot_name,
+                    required_for="complete",
+                    reason=slot.explanation or spec.description,
+                    source_span_ids=source_span_ids,
+                )
+                
+                # Create diagnostic
+                diagnostic = CompileDiagnostic(
+                    diagnostic_id=diagnostic_id,
+                    kind=kind,
+                    severity=spec.default_severity,
+                    message=message,
+                    target_ref=report.construct_id,
+                    source_span_ids=source_span_ids,
+                    missing_slot=missing_slot,
+                    blocks_rendering=not report.renderable,
+                    blocks_completion=spec.blocks_completion,
+                )
+                
+                diagnostics.append(diagnostic)
+        
+        return DiagnosticProjectionResult(
+            diagnostics=diagnostics,
+            warnings=warnings,
+        )
+    
+    def _generate_diagnostic_id(
+        self,
+        kind: str,
+        construct_id: str,
+        slot_name: str,
+        source_span_ids: list[str],
+    ) -> str:
+        """Generate deterministic diagnostic ID.
+        
+        Args:
+            kind: Diagnostic kind
+            construct_id: Construct identifier
+            slot_name: Slot name
+            source_span_ids: Source span IDs
+        
+        Returns:
+            Deterministic diagnostic ID with 'irs_' prefix
+        """
+        key = {
+            "kind": kind,
+            "construct_id": construct_id,
+            "slot_name": slot_name,
+            "source_span_ids": sorted(source_span_ids),
+        }
+        key_str = json.dumps(key, sort_keys=True)
+        digest = hashlib.sha1(key_str.encode()).hexdigest()[:12]
+        return f"irs_{digest}"
+    
+    def _build_message(
+        self,
+        spec_description: str,
+        slot_explanation: str | None,
+        construct_id: str,
+        slot_name: str,
+    ) -> str:
+        """Build diagnostic message.
+        
+        Args:
+            spec_description: Default description from diagnostic spec
+            slot_explanation: Optional slot-specific explanation
+            construct_id: Construct identifier
+            slot_name: Slot name
+        
+        Returns:
+            Formatted diagnostic message
+        """
+        base_message = slot_explanation if slot_explanation else spec_description
+        return f"{base_message} [construct={construct_id}, slot={slot_name}]"
