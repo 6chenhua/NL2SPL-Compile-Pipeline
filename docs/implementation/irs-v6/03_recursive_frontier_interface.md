@@ -2,7 +2,7 @@
 
 ## 目标
 
-未来 IRS 需要从平铺检查演进为构件层级检查。例如：
+未来 IRS 需要从平铺检查演进为 construct 层级检查。例如：
 
 ```text
 EXCEPTION_FLOW
@@ -42,6 +42,7 @@ EXCEPTION_FLOW
   handler_action = missing
   completeness = partial
   renderable = true
+  frontier_status = cutline_partial
   cutline_reason = missing_handler_action
 ```
 
@@ -87,13 +88,14 @@ REQUEST_INPUT
 class ConstructNode:
     construct_id: str
     construct_type: str
-    parent_id: str | None
+    primary_parent_id: str | None
     child_ids: list[str]
     construct_path: tuple[str, ...]
     ir_ref: object
     source_span_ids: list[str]
     materialized: bool
     source_demanded: bool
+    candidate_only: bool
     metadata: dict[str, Any]
 ```
 
@@ -103,17 +105,42 @@ class ConstructNode:
 Step -> output variable -> required output
 Handoff -> child worker
 ExceptionFlow -> handler step via flow_ref
+Policy -> affected construct
 ```
 
 因此未来实现应以 graph traversal 为主，不应假设严格树结构。
+
+非树关系必须通过 edge 表达：
+
+```python
+@dataclass
+class ConstructEdge:
+    from_id: str
+    to_id: str
+    edge_type: Literal[
+        "contains",
+        "produces",
+        "consumes",
+        "invokes",
+        "handoff_to",
+        "handles",
+        "applies_to",
+        "derived_from",
+    ]
+    source_span_ids: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+```
+
+`primary_parent_id` 只服务默认路径展示和局部 containment；递归 evaluator 不应只依赖该字段。
 
 ## Frontier report 字段
 
 `ConstructSatisfactionReport` 建议扩展以下字段：
 
 ```python
-parent_construct_id: str | None = None
+primary_parent_id: str | None = None
 child_construct_ids: list[str] = field(default_factory=list)
+related_edges: list[ConstructEdge] = field(default_factory=list)
 construct_path: tuple[str, ...] = ()
 source_span_ids: list[str] = field(default_factory=list)
 cutline_reason: str | None = None
@@ -129,8 +156,9 @@ frontier_status: Literal[
 
 | 字段 | 作用 |
 | --- | --- |
-| `parent_construct_id` | 支持向上解释当前 construct 属于谁 |
-| `child_construct_ids` | 支持向下遍历 |
+| `primary_parent_id` | 支持默认向上解释当前 construct 的主包含父节点 |
+| `child_construct_ids` | 支持默认向下遍历 containment child |
+| `related_edges` | 支持 DAG cross-reference，例如 produces/invokes/handles |
 | `construct_path` | 稳定报告路径，便于递归和 debug |
 | `source_span_ids` | 支持 provenance 和 anti-fabrication |
 | `cutline_reason` | 解释为什么停止下钻 |
@@ -176,11 +204,21 @@ class RecursiveIRSEvaluator:
 
 ### 1. 新增 report 字段
 
-先让新增 checker 输出 parent/path/cutline 信息。现有 checker 可后续迁移。
+先让新增 checker 输出 primary parent / edge / path / cutline 信息。现有 checker 可后续迁移。
 
 ### 2. 新增 ConstructInstance
 
 每个 stage checker 先抽取 `ConstructInstance`，不要直接在 checker 中到处解析 IR。
+
+`ConstructInstance` 必须从一开始就包含：
+
+```text
+materialized
+source_demanded
+candidate_only
+```
+
+这是 frontier checking 的前提。
 
 ### 3. 新增 IRSCheckContext
 
@@ -196,10 +234,12 @@ class RecursiveIRSEvaluator:
 2. 不改变 renderer。
 3. 不把 Stage 4/7 现有 checker 全量重写。
 4. 不要求所有现有 reports 立即补齐 parent/path。
+5. 不把 DAG 关系压缩成单一 parent。
 
 ## 验收标准
 
-1. 新增 Worker IRS checker 输出的 report 带 `parent_construct_id`、`construct_path`、`frontier_status` 或兼容 metadata。
+1. 新增 Worker IRS checker 输出的 report 带 `primary_parent_id`、`construct_path`、`frontier_status` 或兼容 metadata。
 2. 对 missing child evidence 的场景产生 cutline，而不是继续制造 child missing diagnostics。
 3. 对 source-backed child evidence 的场景能表达 child construct relation，即使暂不递归执行。
 4. 文档和测试明确区分 stage-local checking 与 future recursive checking。
+5. 需要表达多重关系时使用 `ConstructEdge`，不强行复用 single parent。

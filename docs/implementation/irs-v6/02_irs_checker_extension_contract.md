@@ -12,6 +12,7 @@
 
 ```text
 WORKER_CANDIDATE
+WORKER_PROMOTION
 CHILD_WORKER
 WORKER_HANDOFF
 BLOCK
@@ -38,13 +39,16 @@ checker 必须先把 stage IR 转成标准 construct instance。
 
 ```text
 WorkerPlanIR.candidates[]
--> ConstructInstance(type=WORKER_CANDIDATE)
+-> ConstructInstance(type=WORKER_CANDIDATE, source_demanded=True, candidate_only=True)
+
+WorkerPlanIR.candidates[]
+-> ConstructInstance(type=WORKER_PROMOTION, source_demanded=True, candidate_only=True)
 
 WorkerPlanIR.workers[kind=child]
--> ConstructInstance(type=CHILD_WORKER)
+-> ConstructInstance(type=CHILD_WORKER, materialized=True)
 
 WorkerHandoffIR
--> ConstructInstance(type=WORKER_HANDOFF)
+-> ConstructInstance(type=WORKER_HANDOFF, materialized=True)
 ```
 
 提取实例时必须保留：
@@ -52,10 +56,13 @@ WorkerHandoffIR
 ```text
 construct_id
 construct_type
-parent_construct_id
+primary_parent_id
 construct_path
 source_span_ids
 ir_ref
+materialized
+source_demanded
+candidate_only
 metadata
 ```
 
@@ -67,30 +74,60 @@ checker 只能判断当前 construct 的 slot，不应在这里生成不存在�
 
 ```text
 WORKER_CANDIDATE.responsibility
-WORKER_CANDIDATE.promotion_input_contract
-WORKER_CANDIDATE.promotion_output_contract
-WORKER_CANDIDATE.promotion_invocation_point
+WORKER_CANDIDATE.delegation_signal
+WORKER_PROMOTION.promotion_input_contract
+WORKER_PROMOTION.promotion_output_contract
+WORKER_PROMOTION.promotion_invocation_point
+WORKER_PROMOTION.promotion_result_handoff
 ```
 
 ### Step 4：生成 ConstructSatisfactionReport
 
 report 必须能被后续 consolidation、feedback report 和未来递归 checker 使用。
 
-建议扩展字段：
+正式 schema 应优先采用显式字段，并提供默认值以兼容 v5 测试：
 
 ```python
-parent_construct_id: str | None
-child_construct_ids: list[str]
-construct_path: tuple[str, ...]
-cutline_reason: str | None
-source_span_ids: list[str]
+@dataclass
+class ConstructSatisfactionReport:
+    construct_id: str
+    construct_type: str
+    slots: list[SlotSatisfaction]
+    completeness: ConstructCompleteness
+    renderable: bool
+    diagnostics: list = field(default_factory=list)
+
+    primary_parent_id: str | None = None
+    child_construct_ids: list[str] = field(default_factory=list)
+    related_edges: list[ConstructEdge] = field(default_factory=list)
+    construct_path: tuple[str, ...] = ()
+    source_span_ids: list[str] = field(default_factory=list)
+    cutline_reason: str | None = None
+    frontier_status: Literal[
+        "continue",
+        "cutline_partial",
+        "cutline_blocked",
+        "leaf",
+    ] = "leaf"
+    metadata: dict[str, Any] = field(default_factory=dict)
 ```
 
-如果暂时不能修改 dataclass，可先放入 `diagnostics` 或兼容 metadata，但正式实现应扩展 schema。
+如果短期不能修改 dataclass，可先放入 metadata，但正式实现应扩展 schema。
 
-### Step 5：生成 CompileDiagnostic
+### Step 5：投影 CompileDiagnostic
 
-IRS checker 生成的 diagnostic 必须：
+推荐流程：
+
+```text
+IRSChecker
+  -> ConstructSatisfactionReport / SlotSatisfaction
+  -> DiagnosticProjector
+  -> CompileDiagnostic
+```
+
+checker 不应各自拼装完整 diagnostic message。
+
+如果 MVP 阶段 checker 暂时直接返回 diagnostics，也必须符合下面要求，并在后续迁移到 projector：
 
 1. 使用已注册 diagnostic kind。
 2. 设置稳定 `target_ref`。
@@ -129,6 +166,8 @@ class IRSChecker(Protocol):
         ...
 ```
 
+`diagnostics_for_report()` 是兼容方法。新 checker 应优先依赖 `DiagnosticProjector`。
+
 ## Runner 接口草案
 
 ```python
@@ -137,6 +176,7 @@ class IRSRunner:
         self,
         construct_registry: SPLConstructRegistry,
         checker_registry: IRSCheckerRegistry,
+        diagnostic_projector: DiagnosticProjector,
     ) -> None:
         ...
 
@@ -157,9 +197,19 @@ IRS checker 不得：
 2. 生成新的 SPL construct。
 3. 修改输入 IR。
 4. 补全缺失 slot。
-5. 为缺失 child evidence 继续制造 child construct report。
+5. 为缺失 child evidence 制造 child construct report。
+6. 把 candidate-only construct 当成可渲染 SPL construct。
 
 checker 只负责裁决已经 materialized 或 source-demanded 的 construct。
+
+## ConstructInstance 状态语义
+
+| 状态 | 行为 |
+| --- | --- |
+| `materialized=True` | 检查 materialized construct 的 IRS |
+| `source_demanded=True, candidate_only=True` | 生成 report-only satisfaction，不渲染 SPL construct |
+| `materialized=False, source_demanded=False` | 不应创建 instance，也不应产生 diagnostic |
+| `candidate_only=True` | 不得被 renderer 或 gate 当成可执行 construct |
 
 ## 和 Validator / Gate 的边界
 
@@ -170,6 +220,10 @@ checker 只负责裁决已经 materialized 或 source-demanded 的 construct。
 IRS checker 检查信息需求满足度，例如 child worker 是否有足够 source-backed contract 可以被 materialized。
 
 二者可以共享辅助函数，但职责不同。
+
+### DiagnosticProjector
+
+`DiagnosticProjector` 负责把 report 中的 missing slot、diagnostic kind、source evidence 统一转成 `CompileDiagnostic`。checker 不应该复制 message/severity/dedup 逻辑。
 
 ### Gate
 
@@ -195,6 +249,8 @@ ProducerIndex 是 output producer 的最终权威。
 6. diagnostics 可进入 readable report / feedback report。
 7. checker 没有 prompt-only 逻辑。
 8. 对无 source demand 的 construct 不产生噪声诊断。
+9. candidate-only construct 不得被误判为 renderable SPL construct。
+10. diagnostics 由统一 projector 或兼容投影层产生。
 
 ## 推荐测试类型
 
