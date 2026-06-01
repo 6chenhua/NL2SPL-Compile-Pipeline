@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 3; // R0+R1+R2 data version
+    const DATA_VERSION = 4; // R0+R1+R2+R3 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -329,12 +329,12 @@
         }
       }
       if (needsUpdate) {
-        applyR0R1R2Data();
+        applyR0R1R2R3Data();
       }
       refreshSummary();
     }
 
-    function applyR0R1R2Data() {
+    function applyR0R1R2R3Data() {
       const r0Data = {
         "R0.status": "approved",
         "R0.reviewDecision": "approved",
@@ -399,7 +399,28 @@
         "R2.check.9": true,
         "R2.notes": "R2 阶段完成: 2026-06-01\n审核者确认: 类型契约、循环导入、测试、全量回归均通过\n关键技术: lazy __getattr__ 避免 eager import 循环依赖\n后续依赖: R3 基于 DiagnosticProjector skeleton 实现完整投影链路"
       };
-      applyState({...r0Data, ...r1Data, ...r2Data});
+      const r3Data = {
+        "R3.status": "approved",
+        "R3.reviewDecision": "approved",
+        "R3.changedFiles": "修改生产代码:\n- src/nl2spl/compiler/irs/projector.py (完整实现 DiagnosticProjector)\n\n修改测试代码:\n- tests/unit/compiler/irs/test_r3_diagnostic_projector.py (26 个新测试)\n- tests/unit/compiler/irs/test_r2_framework_skeleton.py (更新 1 个测试)\n\nPrompt 修改:\n- 无",
+        "R3.tests": "R3 DiagnosticProjector 测试:\npython -m pytest tests/unit/compiler/irs/test_r3_diagnostic_projector.py -v\n结果: 26 passed in 0.14s\n\nR0+R1+R2+R3 回归:\npython -m pytest tests/unit/test_irs_v6_r0_baseline.py tests/unit/test_irs_v6_r1_report_schema.py tests/unit/compiler/irs/test_r2_framework_skeleton.py tests/unit/compiler/irs/test_r3_diagnostic_projector.py -q\n结果: 95 passed, 1 xfailed in 0.27s\n\n全量单元测试:\npython -m pytest tests/unit/ -q --basetemp=.pytest-tmp-r3-final-review\n结果: 1535 passed, 1 xfailed\n\n测试计数: 1509 → 1535 (+26)",
+        "R3.evidence": "✅ DiagnosticProjector 从 slot.diagnostic_kind 生成 CompileDiagnostic\n✅ 使用 DiagnosticRegistry 获取 severity/blocks_completion\n✅ Deterministic diagnostic_id (SHA1 hash)\n✅ Deduplication 基于 (kind, construct_id, slot_name, sorted(source_span_ids))\n✅ Unknown/disabled diagnostic kind 产生 warning 并跳过\n✅ Source evidence fallback: slot -> report\n✅ blocks_rendering 来自 report.renderable\n✅ Message 生成: 优先 slot.explanation，否则 spec.description\n✅ P1 修复: 填充 missing_slot 结构 (slot_name, required_for, reason, source_span_ids)\n✅ P2 修复: 复制 source_span_ids，避免共享可变 list\n✅ Runner + DiagnosticProjector 集成测试通过\n✅ 无 orchestrator 接入\n✅ 无旧 checker 迁移\n✅ 无 LLM/rule-based 语义判断",
+        "R3.risks": "无",
+        "R3.llmRuleDecision": "无新增 LLM/rule-based 语义判断逻辑。只投影 checker 已标注的 diagnostic_kind。",
+        "R3.reviewFindings": "初次提交发现 2 个问题，已全部修复:\nP1: missing_slot 没有被投影 - 已修复，创建 MissingSlot 并填充结构化字段\nP2: source_span_ids 共享可变 list - 已修复，使用 list() 复制\n\n修复验证:\n- missing_slot 包含 slot_name/required_for/reason/source_span_ids\n- 不同 slot 有不同 missing_slot.slot_name，不会被 orchestrator consolidation 误合并\n- 修改原 slot/report spans 不影响 diagnostic\n- 新增 4 个测试验证 P1/P2 修复\n\n复审通过。",
+        "R3.check.0": true,
+        "R3.check.1": true,
+        "R3.check.2": true,
+        "R3.check.3": true,
+        "R3.check.4": true,
+        "R3.check.5": true,
+        "R3.check.6": true,
+        "R3.check.7": true,
+        "R3.check.8": true,
+        "R3.check.9": true,
+        "R3.notes": "R3 阶段完成: 2026-06-01\n审核者确认: DiagnosticProjector 完整实现，missing_slot 结构化，source_span_ids 不可变\n关键设计: deterministic ID (SHA1), projector 内部 dedup, 只投影已标注 diagnostic_kind\n后续依赖: R4 Worker/Delegation Checker 基于 R3 projector 生成 diagnostics"
+      };
+      applyState({...r0Data, ...r1Data, ...r2Data, ...r3Data});
       saveState();
     }
 
