@@ -31,6 +31,7 @@ ConstructGraph / ConstructEdge = 未来递归预留层
 | [02_irs_checker_extension_contract.md](02_irs_checker_extension_contract.md) | 新增 IRS checker 的接口、schema、diagnostic 投影契约 |
 | [03_recursive_frontier_interface.md](03_recursive_frontier_interface.md) | 为未来递归 IRS 检查预留的 construct graph / frontier / cutline 接口 |
 | [04_worker_delegation_irs_task.md](04_worker_delegation_irs_task.md) | Issue 3 的 Worker / Delegation IRS 实践任务与验收标准 |
+| [05_design_patterns_and_se_principles.md](05_design_patterns_and_se_principles.md) | IRS v6 使用的 SE / compiler architecture 设计模式说明 |
 
 ## 2026-05-31 设计收紧
 
@@ -49,3 +50,10 @@ ConstructGraph / ConstructEdge = 未来递归预留层
 本阶段不一次性补齐所有 SPL construct 的 IRS。
 
 本阶段不放宽 child worker materialization 标准；缺少 input/output/invocation/handoff contract 的 delegation intent 仍不得生成 child worker。
+
+## 2026-06-01 重构迁移补充文档
+
+| 文档 | 作用 |
+| --- | --- |
+| [06_irs_v6_refactor_design.md](06_irs_v6_refactor_design.md) | 从当前 IRS v5/v5.5 代码迁移到 v6 目标架构的重构设计，说明目标模式、组件边界、兼容策略与非目标 |
+| [07_irs_v6_refactor_tasks.md](07_irs_v6_refactor_tasks.md) | IRS v6 重构的分阶段工程任务、可修改文件、验收标准、测试矩阵与回滚策略 |
