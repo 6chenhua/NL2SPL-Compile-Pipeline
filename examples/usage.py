@@ -21,40 +21,77 @@ def main() -> None:
 
     # Sample input
     raw_text = """
-Task family:
-Internal newsletters, announcements, update digests, executive briefs, and related
-internal-comms artifacts.
+# Structural Requirement: Internal Communications Drafting
 
-Inputs for each run:
-A user request, optional known topics, optional timeframe, available connectors or
-source repositories, and optional format preferences.
+## Task Family
 
-Required outputs:
-A draft communication artifact, a source/evidence set, a short assumptions log for any
-unresolved items, and a completion status.
+**Name:** internal communications drafting  
+**Scope:** Includes routine newsletters, announcements, update digests, and executive briefs; excludes crisis memos requiring legal review.  
+**Examples:** Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts.
 
-Reusable process:
-First determine what kind of communication is requested. Then identify which required
-fields are still missing. Ask only the highest-value clarifying questions needed to move
-forward. If sources are needed and available, retrieve them using approved source
-recipes. Maintain provenance for externally sourced facts. When enough required
-information is available, produce a draft. If the user asks for revision, revise while re
-checking constraints. Do not finalize if required slots remain missing unless the draft is
-explicitly marked as assumption-bearing and the user confirms.
+## Inputs for Each Run
 
-Policies:
-Do not invent links or unseen facts. Require evidence for sourced claims. Limit questions
-per turn. Prefer tool evidence over unnecessary user questioning. Deny finalization if
-critical slots are missing or provenance fails.
+**Required:**
+- topic
+- audience
+- tone
+- key facts
 
-Failure handling:
-Missing timeframe, conflicting instructions, insufficient source access, evidence
-shortage, user refusal to answer, and provenance failure.
+**Optional:** None
 
-Delegation policy:
-Optional delegated subtasks such as source gathering or template matching may be
-used if bounded and the returned evidence is normalized into approved evidence
-carriers.
+## Required Outputs
+
+- polished draft
+- revision history
+- assumptions log
+- evidence trail
+- readiness status
+
+## Reusable Process
+
+1. Receive and parse request (topic, audience, tone, key facts)
+2. Scope and ask clarifying questions for missing inputs
+3. Gather allowed evidence from approved internal sources
+4. Draft using organization-approved templates and brand tone
+5. Review for confidentiality, citations, no invented data, approvals
+6. Iterate with user on specific sections (max two rounds)
+7. Finalize with revision history, assumptions log, evidence trail, readiness status
+8. Deliver polished draft and artifacts
+
+## Policies
+
+**Hard Rules:**
+- No external data
+- Cite all sources
+- Avoid legal/financial language
+- Preserve brand tone and confidentiality
+- Require approvals for sensitive topics
+
+**Soft Rules:** None
+
+## Failure Handling
+
+**Anticipated Failures:**
+- Missing inputs
+- Tone mismatch
+- Unverified facts
+- Source unavailability
+- Policy conflict
+
+**Blocking Failures:** None
+
+## Delegation Policy
+
+**Delegable Work:**
+- Drafting
+- Fact-checking
+- Formatting
+- Revision history
+
+**Non‑Delegable Work:**
+- Approvals
+- Sensitivity checks
+- Final sign‑off
 """
 
     # Load configuration
@@ -62,8 +99,8 @@ carriers.
         llm=llm_config,
         log_level="INFO",
         save_intermediate=True,
-        output_dir=Path("output"),
-        run_name="internal-comms-2",
+        output_dir=Path(__file__).parent / "output",
+        run_name="internal-comms-3",
         enable_worker_boundary_planner=True,
         enable_worker_boundary_planner_split=True,
         # --- v5 IRS flags (non-disruptive post-hoc checks) ---
