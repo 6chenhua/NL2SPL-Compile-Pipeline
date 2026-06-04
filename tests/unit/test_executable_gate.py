@@ -810,3 +810,93 @@ class TestGateApplyWithGuards:
         assert "st_invoke" in blocked
         assert "st_api" in blocked
 
+
+# ===========================================================================
+# R7.5: Gate boundary tests — lock diagnostic authority
+# ===========================================================================
+
+
+class TestR7GateBoundary:
+    """R7.5: Verify Gate does not emit PostNormalizeIRSChecker diagnostics."""
+
+    def test_gate_does_not_emit_assumed_command_not_renderable(self) -> None:
+        """Gate filters assumed steps but does NOT emit assumed_command_not_renderable."""
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
+                StepIR("st_assumed", "Assumed step", [], "GENERAL_COMMAND"),
+            ],
+        )
+        filtered, infos, diags = gate.apply(worker)
+
+        # Assumed step was filtered
+        assert not any(s.step_id == "st_assumed" for s in filtered.steps)
+
+        # Gate does NOT emit assumed_command_not_renderable
+        acr = [d for d in diags if d.kind == "assumed_command_not_renderable"]
+        assert len(acr) == 0
+
+    def test_gate_does_not_emit_type_or_contract_ambiguity(self) -> None:
+        """Gate filters INVOKE_WORKER without target but does NOT emit type_or_contract_ambiguity."""
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
+                StepIR(
+                    "st_invoke", "Invoke worker", [], "INVOKE_WORKER",
+                    integration_ref=None, handoff_id=None,
+                ),
+            ],
+        )
+        filtered, infos, diags = gate.apply(worker)
+
+        # Invoke step was filtered
+        assert not any(s.step_id == "st_invoke" for s in filtered.steps)
+
+        # Gate does NOT emit type_or_contract_ambiguity
+        toca = [d for d in diags if d.kind == "type_or_contract_ambiguity"]
+        assert len(toca) == 0
+
+    def test_gate_missing_handler_only_for_filtered_handlers(self) -> None:
+        """Gate emits missing_handler only when a handler was filtered, not when none existed."""
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_filtered",
+                    condition_text="Handle failures.",
+                    blocks=[],
+                ),
+                ExceptionFlowRef(
+                    flow_id="exc_never",
+                    condition_text="Missing timeframe.",
+                    blocks=[],
+                ),
+            ],
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
+                StepIR(
+                    "st_handler", "Handle failures", [], "GENERAL_COMMAND",
+                    flow_ref="exc_filtered",
+                ),
+                # No step for exc_never → handler never existed
+            ],
+        )
+        _, _, diags = gate.apply(worker)
+
+        mh = [d for d in diags if d.kind == "missing_handler"]
+        # Only exc_filtered (handler was filtered) should produce missing_handler
+        # exc_never (handler never existed) should NOT
+        assert len(mh) == 1
+        assert "exc_filtered" in mh[0].target_ref
+

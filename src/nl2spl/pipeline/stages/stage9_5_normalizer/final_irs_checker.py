@@ -12,6 +12,7 @@ Gate is the downstream consumer — it only emits post-gate missing_handler.
 
 from __future__ import annotations
 
+from nl2spl.compiler.compile_result import MissingSlot
 from nl2spl.compiler.producer_index import ProducerIndex
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
@@ -200,6 +201,15 @@ class PostNormalizeIRSChecker:
                     ),
                     target_ref=target_ref,
                     source_span_ids=list(finding_spans),
+                    missing_slot=self._make_missing_slot(
+                        slot_name="handler_step",
+                        required_for=exc_flow.flow_id,
+                        reason=(
+                            f"Exception flow '{exc_flow.flow_id}' has "
+                            f"condition but no handler step."
+                        ),
+                        source_span_ids=list(finding_spans),
+                    ),
                     suggested_resolution=(
                         f"Add a handler step for "
                         f"'{exc_flow.condition_text}', or mark this "
@@ -254,6 +264,14 @@ class PostNormalizeIRSChecker:
                         ),
                         target_ref=f"variable:{variable.name}",
                         source_span_ids=[],
+                        missing_slot=self._make_missing_slot(
+                            slot_name=variable.name,
+                            required_for="complete",
+                            reason=(
+                                f"Required output '{variable.name}' has "
+                                f"no renderable producer step."
+                            ),
+                        ),
                         suggested_resolution=(
                             f"Add a step that produces '{variable.name}'. "
                             f"If the source requirement does not specify how "
@@ -343,6 +361,14 @@ class PostNormalizeIRSChecker:
                         ),
                         target_ref=target_ref,
                         source_span_ids=[],
+                        missing_slot=self._make_missing_slot(
+                            slot_name=output,
+                            required_for="complete",
+                            reason=(
+                                f"Required output '{output}' has "
+                                f"no renderable producer step."
+                            ),
+                        ),
                         suggested_resolution=(
                             f"Add a step that produces '{output}', "
                             f"e.g. '{suggestion}'. If the source "
@@ -377,11 +403,13 @@ class PostNormalizeIRSChecker:
         for step in all_steps:
             kind = ""
             detail = ""
+            slot_name = ""
             blocks_render = False
 
             if step.command_type == "CALL_API" and not step.integration_ref:
                 kind = "type_or_contract_ambiguity"
                 detail = "CALL_API step has no integration_ref (API name)"
+                slot_name = "api_name"
                 blocks_render = True
             elif step.command_type == "CALL_API" and step.integration_ref:
                 if not self._call_api_is_declared(
@@ -392,6 +420,7 @@ class PostNormalizeIRSChecker:
                         f"CALL_API references undeclared API "
                         f"'{step.integration_ref}'"
                     )
+                    slot_name = "api_name"
                     blocks_render = True
             elif (
                 step.command_type == "INVOKE_WORKER"
@@ -399,6 +428,7 @@ class PostNormalizeIRSChecker:
             ):
                 kind = "type_or_contract_ambiguity"
                 detail = "INVOKE_WORKER step has no concrete worker target"
+                slot_name = "target_worker"
                 blocks_render = True
             elif (
                 step.command_type == "INVOKE_WORKER"
@@ -410,6 +440,7 @@ class PostNormalizeIRSChecker:
                     f"INVOKE_WORKER step targets '{step.integration_ref}' "
                     f"but has no handoff_id — not linked to an accepted handoff"
                 )
+                slot_name = "handoff_id"
                 blocks_render = True
             elif (
                 step.command_type == "REQUEST_INPUT"
@@ -420,6 +451,7 @@ class PostNormalizeIRSChecker:
                     "REQUEST_INPUT step has no source-span evidence -- "
                     "may be an assumed interaction"
                 )
+                slot_name = "value_target"
                 blocks_render = False
 
             if kind:
@@ -434,6 +466,12 @@ class PostNormalizeIRSChecker:
                         ),
                         target_ref=f"step:{step.step_id}",
                         source_span_ids=list(step.source_span_ids),
+                        missing_slot=self._make_missing_slot(
+                            slot_name=slot_name,
+                            required_for=step.step_id,
+                            reason=detail,
+                            source_span_ids=list(step.source_span_ids),
+                        ),
                         blocks_rendering=blocks_render,
                         blocks_completion=True,
                     )
@@ -458,6 +496,18 @@ class PostNormalizeIRSChecker:
                         if wid else f"step:{finding['step_id']}"
                     ),
                     source_span_ids=list(finding.get("source_span_ids", [])),
+                    missing_slot=self._make_missing_slot(
+                        slot_name="handler_step",
+                        required_for=finding["flow_id"],
+                        reason=(
+                            f"Step is a condition restatement, not a "
+                            f"handler action for flow "
+                            f"'{finding['flow_id']}'."
+                        ),
+                        source_span_ids=list(
+                            finding.get("source_span_ids", [])
+                        ),
+                    ),
                     blocks_rendering=True,
                     blocks_completion=True,
                 )
@@ -501,6 +551,14 @@ class PostNormalizeIRSChecker:
                     ),
                     target_ref=f"step:{step.step_id}",
                     source_span_ids=[],
+                    missing_slot=self._make_missing_slot(
+                        slot_name="source_evidence",
+                        required_for=step.step_id,
+                        reason=(
+                            f"Step '{step.step_id}' has no "
+                            f"source-span evidence."
+                        ),
+                    ),
                     suggested_resolution=(
                         "Provide a source span that describes this "
                         "behavior, or remove the step if the behavior "
@@ -514,6 +572,21 @@ class PostNormalizeIRSChecker:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_missing_slot(
+        slot_name: str,
+        required_for: str,
+        reason: str,
+        source_span_ids: list[str] | None = None,
+    ) -> MissingSlot:
+        """Build a MissingSlot for a diagnostic."""
+        return MissingSlot(
+            slot_name=slot_name,
+            required_for=required_for,
+            reason=reason,
+            source_span_ids=source_span_ids or [],
+        )
 
     @staticmethod
     def _merge_resources(

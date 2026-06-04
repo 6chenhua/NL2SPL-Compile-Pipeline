@@ -700,3 +700,161 @@ class TestMultipleDiagnosticKinds:
         )
         toca = [d for d in diags if d.kind == "type_or_contract_ambiguity"]
         assert len(toca) == 0
+
+
+# ------------------------------------------------------------------
+# R7.3: missing_slot / target_ref / source_span_ids shape tests
+# ------------------------------------------------------------------
+
+
+class TestDiagnosticShapeHardening:
+    """R7.3: Verify missing_slot is populated for all diagnostic kinds."""
+
+    def test_missing_handler_has_missing_slot(self) -> None:
+        """missing_handler diagnostic has populated missing_slot."""
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            exception_flows=[
+                ExceptionFlowRef(flow_id="exc_1", condition_text="Fail."),
+            ],
+            steps=[StepIR("st1", "Work", ["s1"], "GENERAL_COMMAND")],
+        )
+        diags = checker.check(worker)
+        mh = [d for d in diags if d.kind == "missing_handler"]
+        assert len(mh) == 1
+        assert mh[0].missing_slot is not None
+        assert mh[0].missing_slot.slot_name == "handler_step"
+        assert mh[0].missing_slot.required_for == "exc_1"
+        assert mh[0].target_ref == "exception_flow:exc_1"
+
+    def test_missing_output_producer_has_missing_slot(self) -> None:
+        """missing_output_producer diagnostic has populated missing_slot."""
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            steps=[StepIR("st1", "Work", ["s1"], "GENERAL_COMMAND")],
+        )
+        worker_plan = WorkerPlanIR(
+            main_worker_id="main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="main",
+                    worker_name="main",
+                    kind="main",
+                    purpose="Main",
+                    owned_span_ids=["s1"],
+                    output_contract=[
+                        ContractFieldIR("draft", "text", True, "Draft", "output"),
+                    ],
+                    input_contract=[],
+                    boundary_kind="main_worker",
+                ),
+            ],
+            handoffs=[],
+        )
+        symbol_table = SymbolTable()
+        symbol_table.declare("draft", "text", "output", "Draft")
+
+        diags = checker.check(
+            worker, worker_plan=worker_plan, symbol_table=symbol_table,
+            resources=ResourceRegistryIR(),
+        )
+        mop = [d for d in diags if d.kind == "missing_output_producer"]
+        assert len(mop) == 1
+        assert mop[0].missing_slot is not None
+        assert mop[0].missing_slot.slot_name == "draft"
+        assert mop[0].target_ref is not None
+
+    def test_type_contract_ambiguity_has_missing_slot(self) -> None:
+        """type_or_contract_ambiguity diagnostic has populated missing_slot."""
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            steps=[
+                StepIR("st1", "Call API", ["s1"], "CALL_API"),
+            ],
+        )
+        diags = checker.check(worker)
+        toca = [d for d in diags if d.kind == "type_or_contract_ambiguity"]
+        assert len(toca) == 1
+        assert toca[0].missing_slot is not None
+        assert toca[0].missing_slot.slot_name == "api_name"
+        assert toca[0].target_ref == "step:st1"
+        assert toca[0].source_span_ids == ["s1"]
+
+    def test_assumed_command_has_missing_slot(self) -> None:
+        """assumed_command_not_renderable diagnostic has populated missing_slot."""
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            steps=[StepIR("st1", "Do thing", [], "GENERAL_COMMAND")],
+        )
+        diags = checker.check(worker)
+        ac = [d for d in diags if d.kind == "assumed_command_not_renderable"]
+        assert len(ac) == 1
+        assert ac[0].missing_slot is not None
+        assert ac[0].missing_slot.slot_name == "source_evidence"
+        assert ac[0].missing_slot.required_for == "st1"
+        assert ac[0].target_ref == "step:st1"
+        # source_span_ids is empty by design (the diagnostic fires because
+        # the step has no source spans)
+        assert ac[0].source_span_ids == []
+
+
+# ------------------------------------------------------------------
+# R7.6: Projector bridge spike
+# ------------------------------------------------------------------
+
+
+class TestProjectorBridgeSpike:
+    """R7.6: Verify DiagnosticProjector can produce equivalent diagnostics
+    from ConstructSatisfactionReport for PostNormalizeIRSChecker kinds.
+
+    This is a proof-of-concept. PostNormalizeIRSChecker still directly
+    creates CompileDiagnostic in production. The bridge shows that the
+    projector COULD be used for future unification.
+    """
+
+    def test_projector_bridge_assumed_command(self) -> None:
+        """Projector produces same diagnostic kind as PostNormalizeIRSChecker."""
+        from nl2spl.compiler.construct_registry import (
+            ConstructSatisfactionReport,
+            SlotSatisfaction,
+        )
+        from nl2spl.compiler.irs.context import IRSCheckContext
+        from nl2spl.compiler.irs.projector import DiagnosticProjector
+
+        # Build a report that mirrors what PostNormalizeIRSChecker would produce
+        report = ConstructSatisfactionReport(
+            construct_id="step:st1",
+            construct_type="GENERAL_COMMAND",
+            slots=[
+                SlotSatisfaction(
+                    slot_name="action_text",
+                    status="satisfied",
+                    source_span_ids=[],
+                ),
+                SlotSatisfaction(
+                    slot_name="source_evidence",
+                    status="missing",
+                    diagnostic_kind="assumed_command_not_renderable",
+                    explanation="Step has no source-span evidence.",
+                ),
+                SlotSatisfaction(
+                    slot_name="result_variable",
+                    status="not_applicable",
+                ),
+            ],
+            completeness="partial",
+            renderable=False,
+            frontier_status="leaf",
+        )
+
+        projector = DiagnosticProjector()
+        context = IRSCheckContext(stage_name="post_normalize")
+        result = projector.project([report], context)
+
+        assert len(result.diagnostics) == 1
+        d = result.diagnostics[0]
+        assert d.kind == "assumed_command_not_renderable"
+        assert d.target_ref == "step:st1"
+        assert d.blocks_rendering is True
+        assert d.missing_slot is not None
+        assert d.missing_slot.slot_name == "source_evidence"

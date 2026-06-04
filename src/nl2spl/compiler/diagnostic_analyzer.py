@@ -1,7 +1,15 @@
-"""DiagnosticAnalyzer — centralized, pure compiler diagnostic rules.
+"""DiagnosticAnalyzer — legacy fixture-testable diagnostic rules.
 
 Produces structured CompileDiagnostic records from post-compilation IR data.
 Does NOT call the LLM and has no side effects — it is fully fixture-testable.
+
+.. deprecated::
+    DiagnosticAnalyzer is **not** in the production orchestrator path.
+    Production construct-level diagnostics are handled by
+    ``PostNormalizeIRSChecker`` (in
+    ``pipeline/stages/stage9_5_normalizer/final_irs_checker.py``).
+    DiagnosticAnalyzer is retained as a fixture-testable reference
+    implementation and legacy compatibility utility.
 
 The five diagnostic kinds (all covered by DiagnosticKind):
 1. unmapped_behavior_span   — Stage 7 spans not mapped to a step
@@ -43,10 +51,16 @@ class AnalyzeInput:
 
 
 class DiagnosticAnalyzer:
-    """Centralized compiler diagnostic rules.
+    """Legacy fixture-testable diagnostic rules (not in production path).
 
     Pure, fixture-testable analysis.  Takes post-compilation IR data and
     produces structured CompileDiagnostic records for all five MVP kinds.
+
+    .. note::
+        This class is **not** called by the production orchestrator.
+        Production construct-level diagnostics are the responsibility of
+        ``PostNormalizeIRSChecker``.  DiagnosticAnalyzer is retained for
+        fixture testing and legacy compatibility.
 
     The analyzer observes the **no demand, no structure** principle: it
     only checks structures the source actually expressed.  An exception

@@ -529,3 +529,118 @@ def test_d7_route_derived_missing_handler_exactly_once(tmp_path: Path) -> None:
     assert result[0].kind == "missing_handler"
     assert result[0].target_ref == "exception_flow:exc_adapter_00"
     assert result[0].source_span_ids == ["s_fail"]
+
+
+# ===========================================================================
+# R7.4: Consolidation behavior tests
+# ===========================================================================
+
+
+class TestR7ConsolidationBehavior:
+    """R7.4: Lock consolidation behavior for gate + post-normalize overlap."""
+
+    def test_post_normalize_on_stage_local_not_merged(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """post-normalize ON → stage-local diags NOT merged into compile_diagnostics.
+
+        When enable_irs_post_normalize_check=True, consolidation is skipped.
+        Stage4/7 stage-local diagnostics must not leak into the final result.
+        """
+        orch = _make_orchestrator(
+            tmp_path,
+            consolidation_enabled=False,
+        )
+        # Simulate post-normalize diags as "existing"
+        existing = [
+            _diag("pn_1", "type_or_contract_ambiguity",
+                  target_ref="step:st1", source_span_ids=["s1"]),
+        ]
+        # Stage-local diags from stage4 IRS
+        intermediate = {
+            "stage_local_diagnostics": {
+                "stage4": [
+                    _diag("s4_1", "type_or_contract_ambiguity",
+                          target_ref="step:st1", source_span_ids=["s1"]),
+                ],
+            },
+        }
+        # With consolidation OFF (post-normalize ON), stage-local not merged
+        result = orch._consolidate_compile_diagnostics(existing, intermediate)
+        # Only the existing (post-normalize) diag should remain
+        assert len(result) == 1
+        assert result[0].diagnostic_id == "pn_1"
+
+    def test_gate_and_post_norm_missing_handler_same_dedup_key(
+        self,
+    ) -> None:
+        """Gate missing_handler and post-normalize missing_handler produce same dedup key.
+
+        When both produce diagnostics for the same exception flow,
+        _dedup_key should be identical, enabling dedup if consolidation runs.
+        """
+        gate_diag = _diag(
+            "gate_1", "missing_handler",
+            target_ref="exception_flow:exc_1",
+            source_span_ids=["s1"],
+        )
+        post_norm_diag = _diag(
+            "pn_1", "missing_handler",
+            target_ref="exception_flow:exc_1",
+            source_span_ids=["s1"],
+        )
+        key_gate = _dedup_key(gate_diag)
+        key_pn = _dedup_key(post_norm_diag)
+        assert key_gate == key_pn
+
+    def test_different_exception_flows_not_deduped(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Different exception flows produce different dedup keys."""
+        orch = _make_orchestrator(tmp_path)
+        existing = [
+            _diag("d1", "missing_handler",
+                  target_ref="exception_flow:exc_1",
+                  source_span_ids=["s1"]),
+        ]
+        intermediate = {
+            "stage_local_diagnostics": {
+                "final_check": [
+                    _diag("d2", "missing_handler",
+                          target_ref="exception_flow:exc_2",
+                          source_span_ids=["s1"]),
+                ],
+            },
+        }
+        result = orch._consolidate_compile_diagnostics(existing, intermediate)
+        mh = [d for d in result if d.kind == "missing_handler"]
+        assert len(mh) == 2
+
+    def test_consolidation_merges_stage_local_when_post_normalize_off(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """post-normalize OFF + consolidation ON → stage-local diags merged."""
+        orch = _make_orchestrator(tmp_path, consolidation_enabled=True)
+        existing = [
+            _diag("existing_1", "missing_handler",
+                  target_ref="exception_flow:exc_1",
+                  source_span_ids=["s1"]),
+        ]
+        intermediate = {
+            "stage_local_diagnostics": {
+                "stage4": [
+                    _diag("s4_1", "type_or_contract_ambiguity",
+                          target_ref="step:st1",
+                          source_span_ids=["s2"]),
+                ],
+            },
+        }
+        result = orch._consolidate_compile_diagnostics(existing, intermediate)
+        # Both should be present (different kind/target)
+        assert len(result) == 2
+        kinds = {d.kind for d in result}
+        assert "missing_handler" in kinds
+        assert "type_or_contract_ambiguity" in kinds
