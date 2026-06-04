@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 7; // R0+R1+R2+R3+R4+R5+R6 data version
+    const DATA_VERSION = 8; // R0+R1+R2+R3+R4+R5+R6+R7 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -333,6 +333,7 @@
       }
       applyR5IncrementalData();
       applyR6IncrementalData();
+      applyR7IncrementalData();
       refreshSummary();
     }
 
@@ -511,6 +512,39 @@
         "R6.notes": "R6 completed: 2026-06-04\nReviewer confirmed: 3 rounds of review, all issues fixed\nKey design: v6 checkers replace old inline diagnostic creation,\n  DiagnosticProjector统一生成, registry validation prevents silent failure\nNext: R7 Post-normalize Cleanup"
       };
       applyState(r6Data);
+      saveState();
+    }
+
+    // R7 data is applied separately so it can be updated independently
+    function applyR7IncrementalData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        if (data["R7.status"] === "approved") return;
+      } catch (_) { return; }
+      const r7Data = {
+        "R7.status": "approved",
+        "R7.reviewDecision": "approved",
+        "R7.changedFiles": "Modified production files:\n- src/nl2spl/compiler/diagnostic_analyzer.py (docstring: legacy utility)\n- src/nl2spl/pipeline/stages/stage9_5_normalizer/final_irs_checker.py (missing_slot填充)\n\nNew test files:\n- tests/unit/test_r7_authority_baseline.py (9 tests)\n\nModified test files:\n- tests/unit/pipeline/stages/test_final_irs_checker.py (+5 tests)\n- tests/unit/test_diagnostic_consolidation.py (+4 tests)\n- tests/unit/test_executable_gate.py (+3 tests)\n\nPrompt modifications:\n- None",
+        "R7.tests": "R7 authority baseline:\npython -m pytest tests/unit/test_r7_authority_baseline.py -q\nResult: 9 passed\n\nR7 shape hardening:\npython -m pytest tests/unit/pipeline/stages/test_final_irs_checker.py -q\nResult: 31 passed\n\nR7 consolidation:\npython -m pytest tests/unit/test_diagnostic_consolidation.py -q\nResult: 30 passed\n\nR7 gate boundary:\npython -m pytest tests/unit/test_executable_gate.py -q\nResult: 42 passed\n\nFull unit tests:\npython -m pytest --tb=short -q\nResult: 1801 passed, 4 skipped",
+        "R7.evidence": "R7.1 Authority Baseline Audit:\n- Gate does NOT emit missing_handler for never-had-handler\n- DiagnosticAnalyzer not imported by orchestrator\n- PostNormalizeIRSChecker produces missing_handler + assumed_command\n- Exactly-once dedup for all 4 diagnostic kinds\n\nR7.2 DiagnosticAnalyzer Legacy Boundary:\n- Docstring updated: deprecated, not in production path\n- PostNormalizeIRSChecker is production authority\n\nR7.3 PostNormalizeIRSChecker Shape Hardening:\n- missing_slot filled for all 4 kinds:\n  missing_handler: slot_name=handler_step\n  missing_output_producer: slot_name=output_name\n  type_or_contract_ambiguity: slot_name=api_name/target_worker/etc\n  assumed_command_not_renderable: slot_name=source_evidence\n- target_ref and source_span_ids verified\n\nR7.4 Duplicate Diagnostic Consolidation:\n- post-normalize ON suppresses stage-local diags\n- gate vs post-normalize same dedup key verified\n- different flows not deduped\n- consolidation merges stage-local when post-normalize OFF\n\nR7.5 Gate Boundary Cleanup:\n- Gate does NOT emit assumed_command_not_renderable\n- Gate does NOT emit type_or_contract_ambiguity\n- Gate missing_handler only for filtered handlers\n\nR7.6 Projector Bridge Spike:\n- DiagnosticProjector can produce equivalent assumed_command diagnostic\n- PostNormalizeIRSChecker still directly creates CompileDiagnostic (not rewritten)",
+        "R7.risks": "None",
+        "R7.llmRuleDecision": "No new LLM/rule-based semantic judgment. Only consumes structured IR fields.",
+        "R7.reviewFindings": "R7 was implemented in 6 sub-tasks (R7.1-R7.6).\nNo review findings - all sub-tasks passed on first submission.\n\nKey decisions:\n- DiagnosticAnalyzer kept as legacy utility (not deleted)\n- PostNormalizeIRSChecker not rewritten as IRSChecker\n- Projector bridge spike shows feasibility but not production-ready\n- Gate boundary already correct, just locked with tests",
+        "R7.check.0": true,
+        "R7.check.1": true,
+        "R7.check.2": true,
+        "R7.check.3": true,
+        "R7.check.4": true,
+        "R7.check.5": true,
+        "R7.check.6": true,
+        "R7.check.7": true,
+        "R7.check.8": true,
+        "R7.check.9": true,
+        "R7.notes": "R7 completed: 2026-06-04\nAll sub-tasks (R7.1-R7.6) completed\nKey: diagnostic authority convergence without rewriting production checker\nNext: R8 Graph-ready Hardening"
+      };
+      applyState(r7Data);
       saveState();
     }
 
