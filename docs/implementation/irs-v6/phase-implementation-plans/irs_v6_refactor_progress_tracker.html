@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 6; // R0+R1+R2+R3+R4+R5 data version
+    const DATA_VERSION = 7; // R0+R1+R2+R3+R4+R5+R6 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -332,6 +332,7 @@
         applyR0R1R2R3R4R5Data();
       }
       applyR5IncrementalData();
+      applyR6IncrementalData();
       refreshSummary();
     }
 
@@ -477,6 +478,39 @@
         "R5.notes": "R5 completed: 2026-06-01\nReviewer confirmed: code-level verification passed\nKey design: factory isolates concrete checkers, feature flags default off,\n  orchestrator only imports IRSRunner + factory, not concrete checker classes\nNext: R6 Stage4/Stage7 compatibility migration"
       };
       applyState(r5Data);
+      saveState();
+    }
+
+    // R6 data is applied separately so it can be updated independently
+    function applyR6IncrementalData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        if (data["R6.status"] === "approved") return;
+      } catch (_) { return; }
+      const r6Data = {
+        "R6.status": "approved",
+        "R6.reviewDecision": "approved",
+        "R6.changedFiles": "New production files:\n- src/nl2spl/compiler/irs/checkers/exception_flow.py (Stage4ExceptionFlowIRSChecker)\n- src/nl2spl/compiler/irs/checkers/step.py (Stage7StepIRSChecker)\n\nModified production files:\n- src/nl2spl/compiler/irs/checkers/__init__.py (new exports)\n- src/nl2spl/compiler/irs/factory.py (construct_registry injection)\n- src/nl2spl/pipeline/stages/stage4_flow_assembler/irs_checker.py (rewritten wrapper)\n- src/nl2spl/pipeline/stages/stage7_step_extractor/irs_checker.py (rewritten wrapper)\n\nNew test files:\n- tests/unit/compiler/irs/test_r6_exception_flow_checker.py (16 tests)\n- tests/unit/compiler/irs/test_r6_step_checker.py (19 tests)\n- tests/unit/compiler/irs/test_r6_stage4_stage7_baseline.py (16 tests)\n- tests/unit/compiler/irs/test_r6_runner_stage4_stage7.py (10 tests)\n- tests/unit/compiler/irs/test_r6_orchestrator_compatibility.py (13 tests)\n\nModified test files:\n- tests/unit/test_stage4_irs_exception_flow.py (diagnostic_id format)\n- tests/unit/test_stage7_irs_step_extraction.py (diagnostic_id format)\n- tests/unit/test_irs_v6_r0_baseline.py (diagnostic_id format)\n- tests/unit/test_irs_v6_r1_report_schema.py (metadata/frontier_status)\n\nPrompt modifications:\n- None",
+        "R6.tests": "R6 checker tests:\npython -m pytest tests/unit/compiler/irs/test_r6_exception_flow_checker.py -q\nResult: 16 passed\n\npython -m pytest tests/unit/compiler/irs/test_r6_step_checker.py -q\nResult: 19 passed\n\npython -m pytest tests/unit/compiler/irs/test_r6_stage4_stage7_baseline.py -q\nResult: 16 passed\n\npython -m pytest tests/unit/compiler/irs/test_r6_runner_stage4_stage7.py -q\nResult: 10 passed\n\npython -m pytest tests/unit/compiler/irs/test_r6_orchestrator_compatibility.py -q\nResult: 13 passed\n\nFull unit tests:\npython -m pytest --tb=short -q\nResult: 1780 passed, 4 skipped",
+        "R6.evidence": "R6.1 Baseline Audit:\n- 16 tests locking Stage 4/7 current behavior before migration\n- diagnostic kinds, target_ref, blocks_rendering, missing_slot=None\n\nR6.2 Stage4ExceptionFlowIRSChecker:\n- IRSChecker protocol implementation\n- extract_instances from FlowStructureIR and WorkerFlowPlanIR\n- condition satisfied/assumed, handler_action not_applicable\n- frontier_status: cutline_partial/cutline_blocked\n- dict worker_flows path supported\n\nR6.3 Stage7StepIRSChecker:\n- 4 command types: GENERAL_COMMAND, REQUEST_INPUT, CALL_API, INVOKE_WORKER\n- DISPLAY_MESSAGE skipped\n- per-command-type slot checking\n- dict worker_steps path supported\n\nR6.4 Wrapper Migration:\n- Stage 4/7 wrappers rewritten to use IRSRunner + DiagnosticProjector\n- diagnostic_id: irs_{hash} format (deterministic)\n- missing_slot: now populated by projector\n- message: {explanation} [construct=..., slot=...]\n- Registry validation: KeyError on missing construct spec\n\nR6.5 Factory Tests:\n- 10 tests for factory registration and runner integration\n- enable_exception_flow/enable_step register correct checkers\n\nR6.6 Orchestrator Compatibility:\n- 13 tests for wrapper compatibility and registry injection\n- empty registry raises KeyError (not silently swallowed)",
+        "R6.risks": "None",
+        "R6.llmRuleDecision": "No new LLM/rule-based semantic judgment. Only consumes structured IR fields.",
+        "R6.reviewFindings": "First review: 2 P1/P2 issues\n\nP1: registry parameter ignored - wrappers always used default registry\n- Fixed: build_irs_runner() now accepts construct_registry param\n- All 4 wrappers pass registry through\n\nP2: dict worker path not supported\n- Fixed: extract_instances supports hasattr/isinstance check\n- Both checkers handle WorkerFlowPlanIR and plain dict\n\nSecond review: P1 failure visibility\n- Empty registry was silently swallowed (0 reports, 0 diagnostics)\n- Fixed: wrappers validate registry.get() before running\n- Empty registry now raises KeyError (matches old behavior)\n\nThird review passed.",
+        "R6.check.0": true,
+        "R6.check.1": true,
+        "R6.check.2": true,
+        "R6.check.3": true,
+        "R6.check.4": true,
+        "R6.check.5": true,
+        "R6.check.6": true,
+        "R6.check.7": true,
+        "R6.check.8": true,
+        "R6.check.9": true,
+        "R6.notes": "R6 completed: 2026-06-04\nReviewer confirmed: 3 rounds of review, all issues fixed\nKey design: v6 checkers replace old inline diagnostic creation,\n  DiagnosticProjector统一生成, registry validation prevents silent failure\nNext: R7 Post-normalize Cleanup"
+      };
+      applyState(r6Data);
       saveState();
     }
 
