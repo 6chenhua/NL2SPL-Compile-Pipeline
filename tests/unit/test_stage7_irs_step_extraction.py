@@ -262,8 +262,8 @@ class TestDiagnosticIDUniqueness:
         _, diags = check_steps_irs(steps)
         ids = {d.diagnostic_id for d in diags}
         assert len(ids) == 2
-        assert "diag_stage7_legacy_st_1_source_evidence" in ids
-        assert "diag_stage7_legacy_st_2_value_target" in ids
+        # R6.4: diagnostic_id format changed to irs_{hash}
+        assert all(did.startswith("irs_") for did in ids)
 
     def test_unique_ids_per_slot_same_step_call_api(self):
         step = _step("st_1", command_type="CALL_API", integration_ref=None, source_span_ids=[])
@@ -271,8 +271,8 @@ class TestDiagnosticIDUniqueness:
         assert len(diags) == 2
         ids = {d.diagnostic_id for d in diags}
         assert len(ids) == 2, f"duplicate IDs: {ids}"
-        assert "diag_stage7_legacy_st_1_api_name" in ids
-        assert "diag_stage7_legacy_st_1_call_action" in ids
+        # R6.4: different slots produce different irs_{hash} IDs
+        assert all(did.startswith("irs_") for did in ids)
 
     def test_unique_ids_per_slot_same_step_invoke_worker(self):
         step = _step("st_1", command_type="INVOKE_WORKER", integration_ref=None, handoff_id=None)
@@ -280,8 +280,8 @@ class TestDiagnosticIDUniqueness:
         assert len(diags) == 2
         ids = {d.diagnostic_id for d in diags}
         assert len(ids) == 2, f"duplicate IDs: {ids}"
-        assert "diag_stage7_legacy_st_1_target_worker" in ids
-        assert "diag_stage7_legacy_st_1_handoff_id" in ids
+        # R6.4: different slots produce different irs_{hash} IDs
+        assert all(did.startswith("irs_") for did in ids)
 
 
 # ---------------------------------------------------------------------------
@@ -333,8 +333,8 @@ class TestWorkerAwarePath:
         _, diags = check_worker_step_plan_irs(plan)
         ids = {d.diagnostic_id for d in diags}
         assert len(ids) == 2
-        assert "diag_stage7_worker_main_st_1_source_evidence" in ids
-        assert "diag_stage7_child_review_st_1_value_target" in ids
+        # R6.4: diagnostic_id format changed to irs_{hash}
+        assert all(did.startswith("irs_") for did in ids)
 
     def test_target_ref_includes_worker(self):
         plan = WorkerStepPlanIR(

@@ -193,8 +193,8 @@ class TestR0Stage4ExceptionFlowBaseline:
         assert len(diagnostics) == 2
         ids = {d.diagnostic_id for d in diagnostics}
         assert len(ids) == 2, f"Duplicate diagnostic_id found: {ids}"
-        assert "diag_stage4_worker_main_exc_0000" in ids
-        assert "diag_stage4_child_review_exc_0000" in ids
+        # R6.4: diagnostic_id format changed to irs_{hash}
+        assert all(did.startswith("irs_") for did in ids)
 
 
 # ===========================================================================
@@ -399,8 +399,8 @@ class TestR0Stage7StepIRSBaseline:
 
         ids = {d.diagnostic_id for d in diagnostics}
         assert len(ids) == 2
-        assert "diag_stage7_worker_main_st_1_source_evidence" in ids
-        assert "diag_stage7_child_review_st_1_value_target" in ids
+        # R6.4: diagnostic_id format changed to irs_{hash}
+        assert all(did.startswith("irs_") for did in ids)
 
 
 # ===========================================================================

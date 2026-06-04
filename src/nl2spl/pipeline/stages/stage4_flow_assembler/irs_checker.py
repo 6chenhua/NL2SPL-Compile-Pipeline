@@ -11,24 +11,23 @@ Rules (Phase 3):
   type_or_contract_ambiguity.
 - Does NOT check handler_action (cross-stage slot — Stage 9.5 authority).
 - Does NOT emit missing_handler.
+
+R6.4: Internally uses Stage4ExceptionFlowIRSChecker via IRSRunner +
+DiagnosticProjector.  Diagnostics are now projected (deterministic
+irs_{hash} IDs, populated missing_slot).
 """
 
 from __future__ import annotations
 
 from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
-    SlotSatisfaction,
-    SPLConstructRegistry, ConstructCompleteness,
+    SPLConstructRegistry,
 )
+from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.factory import build_irs_runner
 from nl2spl.ir.diagnostics import CompileDiagnostic
-from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
+from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR
-
-# Guard symbol for no-spans condition ambiguity.
-_SLOT_SOURCE_REQUIRED_MESSAGE = (
-    "Exception flow has condition text but no source-span evidence. "
-    "The condition may be an LLM inference rather than a source-backed fact."
-)
 
 
 def check_exception_flows_irs(
@@ -40,100 +39,37 @@ def check_exception_flows_irs(
 
     Returns (reports, diagnostics).  *worker_id* is forwarded to
     ``construct_id`` and ``target_ref`` for worker-scoped callers.
+
+    R6.4: Internally delegates to Stage4ExceptionFlowIRSChecker via
+    IRSRunner + DiagnosticProjector.
     """
-    if registry is None:
-        registry = SPLConstructRegistry.default()
+    reg = registry or SPLConstructRegistry.default()
+    # Validate required construct spec exists (matches old registry.get() behavior)
+    reg.get("EXCEPTION_FLOW")
 
-    irs = registry.get("EXCEPTION_FLOW")
-    reports: list[ConstructSatisfactionReport] = []
-    diagnostics: list[CompileDiagnostic] = []
+    runner = build_irs_runner(
+        enable_exception_flow=True,
+        construct_registry=reg,
+    )
 
-    for idx, exc_flow in enumerate(flow_structure.exception_flows):
-        construct_id = _make_construct_id(exc_flow.flow_id, worker_id)
-        diag_counter = 0
-
-        # -- condition slot ------------------------------------------------
-        condition_source_backed = bool(
-            exc_flow.condition_text and exc_flow.spans
+    if worker_id is not None:
+        # Worker-scoped path: wrap in a single-entry WorkerFlowPlanIR
+        worker_flow_plan = WorkerFlowPlanIR(
+            worker_flows={worker_id: flow_structure},
+        )
+        context = IRSCheckContext(
+            stage_name="stage4",
+            worker_flows=worker_flow_plan,
+        )
+    else:
+        # Legacy path: pass flow directly
+        context = IRSCheckContext(
+            stage_name="stage4",
+            flow=flow_structure,
         )
 
-        if condition_source_backed:
-            condition_sat = SlotSatisfaction(
-                slot_name="condition",
-                status="satisfied",
-                source_span_ids=list(exc_flow.spans),
-                relation="direct",
-            )
-        else:
-            condition_sat = SlotSatisfaction(
-                slot_name="condition",
-                status="assumed",
-                source_span_ids=list(exc_flow.spans),
-                relation="assumed",
-                diagnostic_kind="type_or_contract_ambiguity",
-                explanation=_SLOT_SOURCE_REQUIRED_MESSAGE,
-            )
-            diagnostics.append(
-                CompileDiagnostic(
-                    diagnostic_id=_make_diagnostic_id(idx, worker_id),
-                    kind="type_or_contract_ambiguity",
-                    severity="warning",
-                    message=(
-                        f"Exception flow '{exc_flow.flow_id}' has condition "
-                        f"text ('{exc_flow.condition_text[:80]}') but no "
-                        f"source-span evidence."
-                    ),
-                    target_ref=_make_target_ref(exc_flow.flow_id, worker_id),
-                    source_span_ids=list(exc_flow.spans),
-                    suggested_resolution=(
-                        "Ensure the exception condition is backed by a "
-                        "concrete source span, or remove the exception "
-                        "flow if the policy is too vague to materialise."
-                    ),
-                    blocks_rendering=True,
-                    blocks_completion=True,
-                )
-            )
-            diag_counter += 1
-
-        # -- handler_action ------------------------------------------------
-        handler_sat = SlotSatisfaction(
-            slot_name="handler_action",
-            status="not_applicable",
-            explanation=(
-                "handler_action is a cross-stage slot — Stage 7 / Stage 9.5 "
-                "are authoritative for handler presence."
-            ),
-        )
-
-        # -- trigger_step --------------------------------------------------
-        trigger_sat = SlotSatisfaction(
-            slot_name="trigger_step",
-            status="not_applicable",
-            explanation=(
-                "trigger_step is post-MVP and not assessed at Stage 4."
-            ),
-        )
-
-        slots = [condition_sat, handler_sat, trigger_sat]
-
-        completeness = "partial"  # handler_action unknown at Stage 4
-        renderable = condition_source_backed  # only renderable if source-backed
-
-        reports.append(
-            ConstructSatisfactionReport(
-                construct_id=construct_id,
-                construct_type="EXCEPTION_FLOW",
-                slots=slots,
-                completeness=completeness,
-                renderable=renderable,
-                diagnostics=list(diagnostics[-diag_counter:])
-                if diag_counter
-                else [],
-            )
-        )
-
-    return reports, diagnostics
+    result = runner.run_stage("stage4", context)
+    return result.reports, result.diagnostics
 
 
 def check_worker_flow_plan_exception_flows_irs(
@@ -143,45 +79,22 @@ def check_worker_flow_plan_exception_flows_irs(
     """Check every worker's exception flows in a WorkerFlowPlanIR.
 
     Returns aggregated (reports, diagnostics) across all workers.
+
+    R6.4: Internally delegates to Stage4ExceptionFlowIRSChecker via
+    IRSRunner + DiagnosticProjector.
     """
-    if registry is None:
-        registry = SPLConstructRegistry.default()
+    reg = registry or SPLConstructRegistry.default()
+    reg.get("EXCEPTION_FLOW")
 
-    all_reports: list[ConstructSatisfactionReport] = []
-    all_diagnostics: list[CompileDiagnostic] = []
+    runner = build_irs_runner(
+        enable_exception_flow=True,
+        construct_registry=reg,
+    )
 
-    for w_id, flow in worker_flow_plan.worker_flows.items():
-        reports, diagnostics = check_exception_flows_irs(
-            flow,
-            registry=registry,
-            worker_id=w_id,
-        )
-        all_reports.extend(reports)
-        all_diagnostics.extend(diagnostics)
+    context = IRSCheckContext(
+        stage_name="stage4",
+        worker_flows=worker_flow_plan,
+    )
 
-    return all_reports, all_diagnostics
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-
-def _make_construct_id(flow_id: str, worker_id: str | None) -> str:
-    """Build a scoped construct identifier."""
-    if worker_id:
-        return f"worker:{worker_id}.exception_flow:{flow_id}"
-    return f"exception_flow:{flow_id}"
-
-
-def _make_target_ref(flow_id: str, worker_id: str | None) -> str:
-    """Build a target_ref matching the construct_id convention."""
-    if worker_id:
-        return f"worker:{worker_id}.exception_flow:{flow_id}"
-    return f"exception_flow:{flow_id}"
-
-
-def _make_diagnostic_id(index: int, worker_id: str | None) -> str:
-    """Build a unique diagnostic_id scoped to the worker (or legacy path)."""
-    scope = worker_id or "legacy"
-    return f"diag_stage4_{scope}_exc_{index:04d}"
+    result = runner.run_stage("stage4", context)
+    return result.reports, result.diagnostics

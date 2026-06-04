@@ -367,12 +367,14 @@ class TestR1ExistingCheckerCompatibility:
         assert report.completeness == "partial"
         assert report.renderable is True
 
-        # 验证新字段有默认值
-        assert report.frontier_status == "leaf"
+        # R6.4: frontier_status now set by v6 checker (cutline_partial for source-backed)
+        assert report.frontier_status == "cutline_partial"
         assert report.related_edges == []
-        assert report.metadata == {}
+        # R6.4: metadata now contains exception_flow_ir and worker_id
+        assert "exception_flow_ir" in report.metadata
         assert report.child_construct_ids == []
-        assert report.source_span_ids == []
+        # R6.4: source_span_ids now populated from ExceptionFlow.spans
+        assert report.source_span_ids == ["s20"]
 
     def test_r1_stage7_checker_reports_have_v6_defaults(self):
         """验证 Stage 7 checker 生成的 report 具有 v6 默认值"""
@@ -398,12 +400,13 @@ class TestR1ExistingCheckerCompatibility:
         assert report.completeness == "complete"
         assert report.renderable is True
 
-        # 验证新字段有默认值
+        # R6.4: v6 checker sets frontier_status, construct_path, metadata
         assert report.frontier_status == "leaf"
         assert report.related_edges == []
-        assert report.metadata == {}
+        assert "step_ir" in report.metadata
         assert report.primary_parent_id is None
-        assert report.construct_path == ()
+        # R6.4: construct_path now populated by v6 checker
+        assert report.construct_path == ("steps", "st_1")
 
     def test_r1_stage4_checker_core_assertions_still_hold(self):
         """验证 Stage 4 checker 的核心断言仍成立（来自 R0 baseline）"""

@@ -340,8 +340,8 @@ class TestWorkerAwarePath:
         assert len(diagnostics) == 2
         ids = {d.diagnostic_id for d in diagnostics}
         assert len(ids) == 2, f"Duplicate diagnostic_id found: {ids}"
-        assert "diag_stage4_worker_main_exc_0000" in ids
-        assert "diag_stage4_child_review_exc_0000" in ids
+        # R6.4: diagnostic_id format changed to irs_{hash}
+        assert all(did.startswith("irs_") for did in ids)
 
 
 # ---------------------------------------------------------------------------
