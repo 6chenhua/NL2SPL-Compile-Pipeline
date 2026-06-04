@@ -6,8 +6,14 @@ between SPL constructs, supporting future recursive IRS checking.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Literal
+
+
+def _metadata_sort_key(metadata: dict[str, Any]) -> str:
+    """Canonical string for metadata, used in snapshot sorting."""
+    return json.dumps(metadata, sort_keys=True, default=str)
 
 ConstructEdgeType = Literal[
     "contains",
@@ -89,6 +95,8 @@ class ConstructGraph:
 
         Two edges are duplicates if they have the same (edge_type, from_id,
         to_id, sorted source_span_ids).  The first occurrence is kept.
+        Nodes are reconstructed from edges to ensure virtual nodes are
+        included.
         """
         seen: set[tuple[str, str, str, tuple[str, ...]]] = set()
         unique: list[ConstructEdge] = []
@@ -97,8 +105,16 @@ class ConstructGraph:
             if k not in seen:
                 seen.add(k)
                 unique.append(edge)
+        # Preserve explicit nodes, then add edge endpoints
+        nodes: list[str] = list(self.nodes)
+        seen_nodes: set[str] = set(self.nodes)
+        for edge in unique:
+            for node_id in (edge.from_id, edge.to_id):
+                if node_id not in seen_nodes:
+                    seen_nodes.add(node_id)
+                    nodes.append(node_id)
         return ConstructGraph(
-            nodes=list(self.nodes),
+            nodes=nodes,
             edges=unique,
         )
 
@@ -106,6 +122,12 @@ class ConstructGraph:
         """Return stable-sorted list of edge snapshots."""
         snapshots = [e.to_snapshot() for e in self.edges]
         snapshots.sort(
-            key=lambda s: (s["edge_type"], s["from_id"], s["to_id"])
+            key=lambda s: (
+                s["edge_type"],
+                s["from_id"],
+                s["to_id"],
+                tuple(s["source_span_ids"]),
+                _metadata_sort_key(s["metadata"]),
+            )
         )
         return snapshots

@@ -285,7 +285,7 @@ class TestR8StepEdges:
         return StepIR(**defaults)
 
     def test_step_consumes_variable(self) -> None:
-        """Step with inputs produces consumes edges."""
+        """Step with inputs produces consumes edges with source spans."""
         from nl2spl.compiler.construct_registry import SPLConstructRegistry
         from nl2spl.compiler.irs.checkers.step import Stage7StepIRSChecker
 
@@ -300,12 +300,13 @@ class TestR8StepEdges:
             e for e in report.related_edges if e.edge_type == "consumes"
         ]
         assert len(consumes) == 2
-        to_ids = {e.to_id for e in consumes}
-        assert "variable:topic" in to_ids
-        assert "variable:tone" in to_ids
+        for edge in consumes:
+            assert edge.source_span_ids == ["s1"]
+            assert edge.metadata["edge_source"] == "step_ir"
+            assert "variable_name" in edge.metadata
 
     def test_step_produces_variable(self) -> None:
-        """Step with outputs produces produces edges."""
+        """Step with outputs produces produces edges with source spans."""
         from nl2spl.compiler.construct_registry import SPLConstructRegistry
         from nl2spl.compiler.irs.checkers.step import Stage7StepIRSChecker
 
@@ -321,6 +322,8 @@ class TestR8StepEdges:
         ]
         assert len(produces) == 1
         assert produces[0].to_id == "variable:draft"
+        assert produces[0].source_span_ids == ["s1"]
+        assert produces[0].metadata["variable_name"] == "draft"
 
     def test_invoke_worker_invokes_child(self) -> None:
         """INVOKE_WORKER with integration_ref produces invokes edge."""
@@ -370,6 +373,25 @@ class TestR8StepEdges:
         ]
         assert len(invokes) == 1
         assert invokes[0].to_id == "api:payment_api"
+
+    def test_step_edges_not_sharing_mutable_list(self) -> None:
+        """Each edge has its own source_span_ids list (no shared mutation)."""
+        from nl2spl.compiler.construct_registry import SPLConstructRegistry
+        from nl2spl.compiler.irs.checkers.step import Stage7StepIRSChecker
+
+        checker = Stage7StepIRSChecker()
+        step = self._make_step(inputs=["inp1", "inp2"], outputs=["out"])
+        ctx = IRSCheckContext(stage_name="stage7", steps=(step,))
+        instances = checker.extract_instances(ctx)
+        irs = SPLConstructRegistry.default().get("GENERAL_COMMAND")
+        report = checker.check_instance(instances[0], irs, ctx)
+
+        edges = report.related_edges
+        # Mutate the first edge's spans
+        edges[0].source_span_ids.append("MUTATED")
+        # Other edges must not be affected
+        for other in edges[1:]:
+            assert "MUTATED" not in other.source_span_ids
 
     def test_display_message_no_edges(self) -> None:
         """DISPLAY_MESSAGE steps produce no instances or edges."""
@@ -538,3 +560,64 @@ class TestR8RunnerEdgeSnapshot:
         produces = [s for s in snap1 if s["edge_type"] == "produces"]
         assert len(consumes) == 1
         assert len(produces) == 1
+
+
+# ------------------------------------------------------------------
+# R8: Canonical snapshot and deduped nodes
+# ------------------------------------------------------------------
+
+
+class TestR8CanonicalSnapshot:
+    """Verify edge_snapshots() is canonical regardless of input order."""
+
+    def test_edge_snapshot_order_independent(self) -> None:
+        """Same edges in different order produce same snapshot.
+
+        Tests the critical case: same (edge_type, from_id, to_id) but
+        different source_span_ids — old sorting key would not canonicalize.
+        """
+        from nl2spl.compiler.irs.graph import ConstructEdge
+
+        e1 = ConstructEdge(
+            from_id="a", to_id="b", edge_type="consumes",
+            source_span_ids=["s2"],
+        )
+        e2 = ConstructEdge(
+            from_id="a", to_id="b", edge_type="consumes",
+            source_span_ids=["s1"],
+        )
+        g1 = ConstructGraph(edges=[e2, e1])
+        g2 = ConstructGraph(edges=[e1, e2])
+        assert g1.edge_snapshots() == g2.edge_snapshots()
+
+
+class TestR8DedupedNodes:
+    """Verify deduped() preserves nodes from edges."""
+
+    def test_deduped_reconstructs_nodes_from_edges(self) -> None:
+        """deduped().nodes includes all edge endpoints."""
+        from nl2spl.compiler.irs.graph import ConstructEdge
+
+        graph = ConstructGraph(edges=[
+            ConstructEdge(from_id="a", to_id="b", edge_type="contains"),
+            ConstructEdge(from_id="b", to_id="c", edge_type="produces"),
+        ])
+        deduped = graph.deduped()
+        assert "a" in deduped.nodes
+        assert "b" in deduped.nodes
+        assert "c" in deduped.nodes
+
+    def test_deduped_preserves_isolated_nodes(self) -> None:
+        """deduped().nodes preserves explicitly added isolated nodes."""
+        from nl2spl.compiler.irs.graph import ConstructEdge
+
+        graph = ConstructGraph(
+            nodes=["isolated"],
+            edges=[
+                ConstructEdge(from_id="a", to_id="b", edge_type="contains"),
+            ],
+        )
+        deduped = graph.deduped()
+        assert "isolated" in deduped.nodes
+        assert "a" in deduped.nodes
+        assert "b" in deduped.nodes

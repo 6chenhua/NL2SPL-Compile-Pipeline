@@ -422,6 +422,7 @@ class Stage7StepIRSChecker:
     ) -> list[ConstructEdge]:
         """Build graph edges for a step (consumes/produces/invokes/handoff)."""
         edges: list[ConstructEdge] = []
+        # Each edge gets its own copy to avoid shared mutable list
         var_prefix = (
             f"worker:{worker_id}.variable" if worker_id else "variable"
         )
@@ -432,6 +433,12 @@ class Stage7StepIRSChecker:
                 from_id=construct_id,
                 to_id=f"{var_prefix}:{inp}",
                 edge_type="consumes",
+                source_span_ids=list(step.source_span_ids),
+                metadata={
+                    "variable_name": inp,
+                    "step_id": step.step_id,
+                    "edge_source": "step_ir",
+                },
             ))
 
         # produces edges from outputs
@@ -440,6 +447,12 @@ class Stage7StepIRSChecker:
                 from_id=construct_id,
                 to_id=f"{var_prefix}:{out}",
                 edge_type="produces",
+                source_span_ids=list(step.source_span_ids),
+                metadata={
+                    "variable_name": out,
+                    "step_id": step.step_id,
+                    "edge_source": "step_ir",
+                },
             ))
 
         # INVOKE_WORKER specific edges
@@ -449,12 +462,24 @@ class Stage7StepIRSChecker:
                     from_id=construct_id,
                     to_id=f"child_worker:{step.integration_ref}",
                     edge_type="invokes",
+                    source_span_ids=list(step.source_span_ids),
+                    metadata={
+                        "target_worker_id": step.integration_ref,
+                        "step_id": step.step_id,
+                        "edge_source": "step_ir",
+                    },
                 ))
             if step.handoff_id:
                 edges.append(ConstructEdge(
                     from_id=construct_id,
                     to_id=f"worker_handoff:{step.handoff_id}",
                     edge_type="handoff_to",
+                    source_span_ids=list(step.source_span_ids),
+                    metadata={
+                        "handoff_id": step.handoff_id,
+                        "step_id": step.step_id,
+                        "edge_source": "step_ir",
+                    },
                 ))
 
         # CALL_API specific edges
@@ -463,6 +488,12 @@ class Stage7StepIRSChecker:
                 from_id=construct_id,
                 to_id=f"api:{step.integration_ref}",
                 edge_type="invokes",
+                source_span_ids=list(step.source_span_ids),
+                metadata={
+                    "api_name": step.integration_ref,
+                    "step_id": step.step_id,
+                    "edge_source": "step_ir",
+                },
             ))
 
         return edges
