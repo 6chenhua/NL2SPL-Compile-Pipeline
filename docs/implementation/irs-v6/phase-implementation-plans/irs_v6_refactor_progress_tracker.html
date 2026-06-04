@@ -212,7 +212,7 @@
 
   <script>
     const STORAGE_KEY = "irs-v6-refactor-progress-v1";
-    const DATA_VERSION = 8; // R0+R1+R2+R3+R4+R5+R6+R7 data version
+    const DATA_VERSION = 9; // R0+R1+R2+R3+R4+R5+R6+R7+R8 data version
     const phases = [
       ["R0", "Baseline Audit", "锁定当前 IRS 行为与测试基线；不改生产代码。"],
       ["R1", "Report Schema Foundation", "扩展 ConstructSatisfactionReport 与 graph/frontier 类型。"],
@@ -334,6 +334,7 @@
       applyR5IncrementalData();
       applyR6IncrementalData();
       applyR7IncrementalData();
+      applyR8IncrementalData();
       refreshSummary();
     }
 
@@ -545,6 +546,39 @@
         "R7.notes": "R7 completed: 2026-06-04\nAll sub-tasks (R7.1-R7.6) completed\nKey: diagnostic authority convergence without rewriting production checker\nNext: R8 Graph-ready Hardening"
       };
       applyState(r7Data);
+      saveState();
+    }
+
+    // R8 data is applied separately so it can be updated independently
+    function applyR8IncrementalData() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        if (data["R8.status"] === "approved") return;
+      } catch (_) { return; }
+      const r8Data = {
+        "R8.status": "approved",
+        "R8.reviewDecision": "approved",
+        "R8.changedFiles": "Modified production files:\n- src/nl2spl/compiler/irs/graph.py (key/snapshot/dedup helpers)\n- src/nl2spl/compiler/irs/checkers/worker_delegation.py (edges: promotes_to, blocked_by, handoff_to)\n- src/nl2spl/compiler/irs/checkers/exception_flow.py (edges: handles, contains)\n- src/nl2spl/compiler/irs/checkers/step.py (edges: consumes, produces, invokes, handoff_to)\n\nNew test files:\n- tests/unit/compiler/irs/test_construct_graph.py (11 tests)\n- tests/unit/compiler/irs/test_r8_graph_ready_hardening.py (17 tests)\n\nModified test files:\n- tests/unit/compiler/irs/test_r4_worker_delegation_checker.py (edge type update)\n- tests/unit/test_irs_v6_r1_report_schema.py (related_edges update)\n\nPrompt modifications:\n- None",
+        "R8.tests": "R8 graph API:\npython -m pytest tests/unit/compiler/irs/test_construct_graph.py -q\nResult: 11 passed\n\nR8 edge hardening:\npython -m pytest tests/unit/compiler/irs/test_r8_graph_ready_hardening.py -q\nResult: 17 passed\n\nFull unit tests:\npython -m pytest --tb=short -q\nResult: 1831 passed, 4 skipped",
+        "R8.evidence": "R8.1 Graph API Baseline:\n- ConstructEdge.key() deterministic dedup key\n- ConstructEdge.to_snapshot() stable dict with sorted spans/metadata\n- ConstructGraph.add_edge() auto-adds nodes\n- ConstructGraph.deduped() removes duplicate edges\n- ConstructGraph.edge_snapshots() returns sorted snapshots\n\nR8.2 Worker/Delegation Edges:\n- promotes_to edge with source_span_ids and metadata\n- blocked_by edges for each missing promotion slot\n- handoff_to edge (changed from invokes)\n- source_span_ids populated on all edges\n\nR8.3 Stage4 ExceptionFlow Edges:\n- handles condition edge (virtual node condition:{flow_id})\n- worker contains edge (worker-scoped only)\n\nR8.4 Stage7 Step Edges:\n- consumes variable edges from inputs\n- produces variable edges from outputs\n- invokes child_worker edge from INVOKE_WORKER\n- handoff_to worker_handoff edge from INVOKE_WORKER\n- invokes api:{name} edge from CALL_API\n\nR8.5 Construct Path Stability:\n- All construct_path values are tuples\n- No virtual nodes in paths\n\nR8.6 Runner Edge Snapshot:\n- Runner stage4 edge snapshots deterministic\n- Runner stage7 edge snapshots deterministic",
+        "R8.risks": "None",
+        "R8.llmRuleDecision": "No new LLM/rule-based semantic judgment. Edges only use structured IR fields.",
+        "R8.reviewFindings": "No review findings - all sub-tasks passed on first submission.\n\nKey decisions:\n- handoff_to replaces invokes for WORKER_HANDOFF edges\n- Virtual nodes (variable/condition/api) only in edges, not reports\n- Edge dedup by (edge_type, from_id, to_id, sorted spans)\n- No recursive traversal implemented",
+        "R8.check.0": true,
+        "R8.check.1": true,
+        "R8.check.2": true,
+        "R8.check.3": true,
+        "R8.check.4": true,
+        "R8.check.5": true,
+        "R8.check.6": true,
+        "R8.check.7": true,
+        "R8.check.8": true,
+        "R8.check.9": true,
+        "R8.notes": "R8 completed: 2026-06-04\nAll sub-tasks (R8.1-R8.6) completed\nKey: graph data preparation without traversal\nNext: R9 Final Audit"
+      };
+      applyState(r8Data);
       saveState();
     }
 
