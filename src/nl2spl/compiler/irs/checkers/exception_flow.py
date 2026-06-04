@@ -18,6 +18,7 @@ from nl2spl.compiler.construct_registry import (
     SlotSatisfaction,
 )
 from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
 
 # Guard message for no-spans condition ambiguity.
@@ -167,6 +168,34 @@ class Stage4ExceptionFlowIRSChecker:
             frontier_status = "cutline_blocked"
             cutline_reason = "missing_required_for_partial"
 
+        # -- related edges -------------------------------------------------
+        flow_id = exc_flow.flow_id  # type: ignore[attr-defined]
+        worker_id = instance.metadata.get("worker_id")
+        related_edges: list[ConstructEdge] = []
+
+        # handles edge: EXCEPTION_FLOW handles CONDITION (virtual node)
+        related_edges.append(ConstructEdge(
+            from_id=instance.construct_id,
+            to_id=(
+                f"worker:{worker_id}.condition:{flow_id}"
+                if worker_id else f"condition:{flow_id}"
+            ),
+            edge_type="handles",
+            source_span_ids=list(exc_flow.spans),  # type: ignore[attr-defined]
+            metadata={
+                "condition_text": exc_flow.condition_text,  # type: ignore[attr-defined]
+                "flow_id": flow_id,
+            },
+        ))
+
+        # contains edge: WORKER contains EXCEPTION_FLOW (worker-scoped only)
+        if worker_id is not None:
+            related_edges.append(ConstructEdge(
+                from_id=f"worker:{worker_id}",
+                to_id=instance.construct_id,
+                edge_type="contains",
+            ))
+
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type="EXCEPTION_FLOW",
@@ -175,9 +204,10 @@ class Stage4ExceptionFlowIRSChecker:
             renderable=renderable,
             primary_parent_id=instance.primary_parent_id,
             construct_path=instance.construct_path,
-            source_span_ids=list(exc_flow.spans),
+            source_span_ids=list(exc_flow.spans),  # type: ignore[attr-defined]
             frontier_status=frontier_status,
             cutline_reason=cutline_reason,
+            related_edges=related_edges,
             metadata=instance.metadata,
         )
 

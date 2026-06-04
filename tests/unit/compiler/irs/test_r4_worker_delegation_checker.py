@@ -931,11 +931,16 @@ class TestR4CheckerBehavior:
         
         report = checker.check_instance(promotion_instance, irs, context)
         
-        assert len(report.related_edges) == 1
-        edge = report.related_edges[0]
-        assert edge.from_id == "worker_candidate:cand_1"
-        assert edge.to_id == "worker_promotion:cand_1"
-        assert edge.edge_type == "promotes_to"
+        # R8.2: promotes_to + blocked_by edges for each missing slot
+        promotes = [e for e in report.related_edges if e.edge_type == "promotes_to"]
+        assert len(promotes) == 1
+        assert promotes[0].from_id == "worker_candidate:cand_1"
+        assert promotes[0].to_id == "worker_promotion:cand_1"
+        # promotes_to edge carries source_span_ids
+        assert promotes[0].source_span_ids == ["s1"]
+        # blocked_by edges for missing slots
+        blocked_by = [e for e in report.related_edges if e.edge_type == "blocked_by"]
+        assert len(blocked_by) >= 1
 
     def test_related_edges_express_handoff_to_worker(self):
         """Related edges express handoff -> worker relationship when target exists"""
@@ -1010,7 +1015,7 @@ class TestR4CheckerBehavior:
         edge = report.related_edges[0]
         assert edge.from_id == "worker_handoff:handoff_1"
         assert edge.to_id == "child_worker:worker_child"
-        assert edge.edge_type == "invokes"
+        assert edge.edge_type == "handoff_to"
 
     def test_candidate_instance_preserves_source_provenance(self):
         """Candidate instances preserve ir_ref, source_span_ids, construct_path"""

@@ -369,7 +369,10 @@ class TestR1ExistingCheckerCompatibility:
 
         # R6.4: frontier_status now set by v6 checker (cutline_partial for source-backed)
         assert report.frontier_status == "cutline_partial"
-        assert report.related_edges == []
+        # R8.3: exception flow now has handles condition edge
+        assert len(report.related_edges) >= 1
+        handles = [e for e in report.related_edges if e.edge_type == "handles"]
+        assert len(handles) == 1
         # R6.4: metadata now contains exception_flow_ir and worker_id
         assert "exception_flow_ir" in report.metadata
         assert report.child_construct_ids == []

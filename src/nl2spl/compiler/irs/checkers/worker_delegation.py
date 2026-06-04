@@ -474,8 +474,31 @@ class WorkerDelegationIRSChecker:
                 from_id=f"worker_candidate:{candidate.candidate_id}",
                 to_id=instance.construct_id,
                 edge_type="promotes_to",
+                source_span_ids=list(candidate.source_span_ids),
+                metadata={
+                    "candidate_id": candidate.candidate_id,
+                    "edge_source": "worker_plan",
+                },
             )
         ]
+
+        # Add blocked_by edges for each missing slot
+        if not all_satisfied:
+            for slot_name in missing_slot_names:
+                related_edges.append(ConstructEdge(
+                    from_id=instance.construct_id,
+                    to_id=(
+                        f"missing_slot:{candidate.candidate_id}"
+                        f":{slot_name}"
+                    ),
+                    edge_type="blocked_by",
+                    source_span_ids=list(candidate.source_span_ids),
+                    metadata={
+                        "missing_slot": slot_name,
+                        "candidate_id": candidate.candidate_id,
+                        "edge_source": "worker_plan",
+                    },
+                ))
         
         # WORKER_PROMOTION is not renderable (analysis construct)
         return ConstructSatisfactionReport(
@@ -707,7 +730,13 @@ class WorkerDelegationIRSChecker:
             related_edges.append(ConstructEdge(
                 from_id=instance.construct_id,
                 to_id=f"child_worker:{handoff.to_worker}",
-                edge_type="invokes",
+                edge_type="handoff_to",
+                source_span_ids=list(handoff_source_spans),
+                metadata={
+                    "handoff_id": handoff.handoff_id,
+                    "target_worker_id": handoff.to_worker,
+                    "edge_source": "worker_plan",
+                },
             ))
         
         return ConstructSatisfactionReport(

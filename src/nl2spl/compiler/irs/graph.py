@@ -41,6 +41,25 @@ class ConstructEdge:
     source_span_ids: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    def key(self) -> tuple[str, str, str, tuple[str, ...]]:
+        """Deterministic dedup key: (edge_type, from_id, to_id, sorted_spans)."""
+        return (
+            self.edge_type,
+            self.from_id,
+            self.to_id,
+            tuple(sorted(self.source_span_ids)),
+        )
+
+    def to_snapshot(self) -> dict[str, Any]:
+        """Stable dict representation for serialization and comparison."""
+        return {
+            "edge_type": self.edge_type,
+            "from_id": self.from_id,
+            "to_id": self.to_id,
+            "source_span_ids": sorted(self.source_span_ids),
+            "metadata": dict(sorted(self.metadata.items())),
+        }
+
 
 @dataclass
 class ConstructGraph:
@@ -53,3 +72,40 @@ class ConstructGraph:
 
     nodes: list[str] = field(default_factory=list)
     edges: list[ConstructEdge] = field(default_factory=list)
+
+    def add_node(self, node_id: str) -> None:
+        """Add a node if not already present."""
+        if node_id not in self.nodes:
+            self.nodes.append(node_id)
+
+    def add_edge(self, edge: ConstructEdge) -> None:
+        """Add an edge and ensure both endpoints are nodes."""
+        self.edges.append(edge)
+        self.add_node(edge.from_id)
+        self.add_node(edge.to_id)
+
+    def deduped(self) -> ConstructGraph:
+        """Return a new graph with duplicate edges removed.
+
+        Two edges are duplicates if they have the same (edge_type, from_id,
+        to_id, sorted source_span_ids).  The first occurrence is kept.
+        """
+        seen: set[tuple[str, str, str, tuple[str, ...]]] = set()
+        unique: list[ConstructEdge] = []
+        for edge in self.edges:
+            k = edge.key()
+            if k not in seen:
+                seen.add(k)
+                unique.append(edge)
+        return ConstructGraph(
+            nodes=list(self.nodes),
+            edges=unique,
+        )
+
+    def edge_snapshots(self) -> list[dict[str, Any]]:
+        """Return stable-sorted list of edge snapshots."""
+        snapshots = [e.to_snapshot() for e in self.edges]
+        snapshots.sort(
+            key=lambda s: (s["edge_type"], s["from_id"], s["to_id"])
+        )
+        return snapshots

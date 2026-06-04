@@ -17,6 +17,7 @@ from nl2spl.compiler.construct_registry import (
     SlotSatisfaction,
 )
 from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
 
 # Command types that map to IRS constructs.
@@ -184,6 +185,7 @@ class Stage7StepIRSChecker:
         result_sat = SlotSatisfaction(slot_name="result_variable", status=result_status)
 
         all_ok = source_backed
+        worker_id = instance.metadata.get("worker_id")
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type="GENERAL_COMMAND",
@@ -193,6 +195,9 @@ class Stage7StepIRSChecker:
             construct_path=instance.construct_path,
             source_span_ids=list(step.source_span_ids),
             frontier_status="leaf",
+            related_edges=Stage7StepIRSChecker._build_step_edges(
+                step, instance.construct_id, worker_id,
+            ),
             metadata=instance.metadata,
         )
 
@@ -235,6 +240,7 @@ class Stage7StepIRSChecker:
             )
 
         all_ok = source_backed
+        worker_id = instance.metadata.get("worker_id")
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type="REQUEST_INPUT",
@@ -244,6 +250,9 @@ class Stage7StepIRSChecker:
             construct_path=instance.construct_path,
             source_span_ids=list(step.source_span_ids),
             frontier_status="leaf",
+            related_edges=Stage7StepIRSChecker._build_step_edges(
+                step, instance.construct_id, worker_id,
+            ),
             metadata=instance.metadata,
         )
 
@@ -311,6 +320,7 @@ class Stage7StepIRSChecker:
         ))
 
         all_ok = has_api and has_call_action
+        worker_id = instance.metadata.get("worker_id")
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type="CALL_API",
@@ -320,6 +330,9 @@ class Stage7StepIRSChecker:
             construct_path=instance.construct_path,
             source_span_ids=list(step.source_span_ids),
             frontier_status="leaf",
+            related_edges=Stage7StepIRSChecker._build_step_edges(
+                step, instance.construct_id, worker_id,
+            ),
             metadata=instance.metadata,
         )
 
@@ -381,6 +394,7 @@ class Stage7StepIRSChecker:
         ))
 
         all_ok = has_target and has_handoff
+        worker_id = instance.metadata.get("worker_id")
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type="INVOKE_WORKER",
@@ -390,12 +404,68 @@ class Stage7StepIRSChecker:
             construct_path=instance.construct_path,
             source_span_ids=list(step.source_span_ids),
             frontier_status="leaf",
+            related_edges=Stage7StepIRSChecker._build_step_edges(
+                step, instance.construct_id, worker_id,
+            ),
             metadata=instance.metadata,
         )
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_step_edges(
+        step: object,
+        construct_id: str,
+        worker_id: str | None,
+    ) -> list[ConstructEdge]:
+        """Build graph edges for a step (consumes/produces/invokes/handoff)."""
+        edges: list[ConstructEdge] = []
+        var_prefix = (
+            f"worker:{worker_id}.variable" if worker_id else "variable"
+        )
+
+        # consumes edges from inputs
+        for inp in step.inputs:
+            edges.append(ConstructEdge(
+                from_id=construct_id,
+                to_id=f"{var_prefix}:{inp}",
+                edge_type="consumes",
+            ))
+
+        # produces edges from outputs
+        for out in step.outputs:
+            edges.append(ConstructEdge(
+                from_id=construct_id,
+                to_id=f"{var_prefix}:{out}",
+                edge_type="produces",
+            ))
+
+        # INVOKE_WORKER specific edges
+        if step.command_type == "INVOKE_WORKER":
+            if step.integration_ref:
+                edges.append(ConstructEdge(
+                    from_id=construct_id,
+                    to_id=f"child_worker:{step.integration_ref}",
+                    edge_type="invokes",
+                ))
+            if step.handoff_id:
+                edges.append(ConstructEdge(
+                    from_id=construct_id,
+                    to_id=f"worker_handoff:{step.handoff_id}",
+                    edge_type="handoff_to",
+                ))
+
+        # CALL_API specific edges
+        if step.command_type == "CALL_API" and step.integration_ref:
+            edges.append(ConstructEdge(
+                from_id=construct_id,
+                to_id=f"api:{step.integration_ref}",
+                edge_type="invokes",
+            ))
+
+        return edges
 
     @staticmethod
     def _make_instance(
