@@ -723,9 +723,29 @@ class TestDiagnosticShapeHardening:
         mh = [d for d in diags if d.kind == "missing_handler"]
         assert len(mh) == 1
         assert mh[0].missing_slot is not None
-        assert mh[0].missing_slot.slot_name == "handler_step"
+        assert mh[0].missing_slot.slot_name == "handler_action"
         assert mh[0].missing_slot.required_for == "exc_1"
         assert mh[0].target_ref == "exception_flow:exc_1"
+
+    def test_missing_handler_fallback_source_spans(self) -> None:
+        """missing_handler falls back to ExceptionFlowRef.spans when no findings."""
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            exception_flows=[
+                ExceptionFlowRef(
+                    flow_id="exc_1",
+                    condition_text="Fail.",
+                    spans=["s_fail"],
+                ),
+            ],
+            steps=[StepIR("st1", "Work", ["s1"], "GENERAL_COMMAND")],
+        )
+        diags = checker.check(worker)
+        mh = [d for d in diags if d.kind == "missing_handler"]
+        assert len(mh) == 1
+        # source_span_ids should fall back to ExceptionFlowRef.spans
+        assert mh[0].source_span_ids == ["s_fail"]
+        assert mh[0].missing_slot.source_span_ids == ["s_fail"]
 
     def test_missing_output_producer_has_missing_slot(self) -> None:
         """missing_output_producer diagnostic has populated missing_slot."""
@@ -796,6 +816,35 @@ class TestDiagnosticShapeHardening:
         # source_span_ids is empty by design (the diagnostic fires because
         # the step has no source spans)
         assert ac[0].source_span_ids == []
+
+    def test_missing_slot_slot_name_aligns_with_irs_registry(self) -> None:
+        """All missing_slot.slot_name values must exist in the IRS construct spec."""
+        from nl2spl.compiler.construct_registry import SPLConstructRegistry
+
+        registry = SPLConstructRegistry.default()
+        checker = PostNormalizeIRSChecker()
+        worker = _make_worker(
+            exception_flows=[
+                ExceptionFlowRef(flow_id="exc_1", condition_text="Fail."),
+            ],
+            steps=[
+                StepIR("st1", "Do work", [], "GENERAL_COMMAND"),
+                StepIR("st2", "Call API", ["s1"], "CALL_API"),
+            ],
+        )
+        diags = checker.check(worker)
+        for d in diags:
+            if d.missing_slot is not None:
+                # For step-level diagnostics, the slot_name might not be
+                # an IRS slot (it's the step's own field). For construct-
+                # level diagnostics, it should match.
+                if d.kind == "missing_handler":
+                    exc_irs = registry.get("EXCEPTION_FLOW")
+                    slot = exc_irs.get_slot(d.missing_slot.slot_name)
+                    assert slot is not None, (
+                        f"slot_name '{d.missing_slot.slot_name}' not found "
+                        f"in EXCEPTION_FLOW IRS"
+                    )
 
 
 # ------------------------------------------------------------------

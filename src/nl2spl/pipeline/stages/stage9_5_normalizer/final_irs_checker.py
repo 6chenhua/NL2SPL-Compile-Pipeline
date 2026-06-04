@@ -178,6 +178,9 @@ class PostNormalizeIRSChecker:
                     finding_spans = no_handler_index.get(
                         (worker_plan_id, exc_flow.flow_id), []
                     )
+            # Fallback to ExceptionFlowRef.spans when no finding spans
+            if not finding_spans:
+                finding_spans = list(getattr(exc_flow, "spans", []))
 
             condition_snippet = exc_flow.condition_text[:80]
             if worker_id is not None:
@@ -202,7 +205,7 @@ class PostNormalizeIRSChecker:
                     target_ref=target_ref,
                     source_span_ids=list(finding_spans),
                     missing_slot=self._make_missing_slot(
-                        slot_name="handler_step",
+                        slot_name="handler_action",
                         required_for=exc_flow.flow_id,
                         reason=(
                             f"Exception flow '{exc_flow.flow_id}' has "
@@ -497,7 +500,7 @@ class PostNormalizeIRSChecker:
                     ),
                     source_span_ids=list(finding.get("source_span_ids", [])),
                     missing_slot=self._make_missing_slot(
-                        slot_name="handler_step",
+                        slot_name="handler_action",
                         required_for=finding["flow_id"],
                         reason=(
                             f"Step is a condition restatement, not a "
