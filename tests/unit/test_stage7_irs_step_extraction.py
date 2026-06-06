@@ -1,4 +1,4 @@
-"""Unit tests for Stage 7 IRS step-level checker."""
+﻿"""Unit tests for Stage 7 IRS step-level checker."""
 
 from unittest.mock import MagicMock, patch
 
@@ -401,7 +401,6 @@ class TestPromptInjection:
     def _make_stage(self, flag_enabled: bool) -> StepExtractor:
         config = PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
-            enable_irs_prompt_builder=flag_enabled,
         )
         return StepExtractor(config, MagicMock())
 
@@ -436,8 +435,8 @@ class TestPromptInjection:
         assert "CONSTRUCT:" not in captured_prompt[0]
         assert "IRS-Driven Construct Checklist" not in captured_prompt[0]
 
-    def test_flag_on_injects_irs_checklist(self):
-        """When flag is True, system prompt must contain IRS checklist markers."""
+    def test_config_does_not_inject_irs_checklist(self):
+        """Stage-local IRS checklist injection is removed."""
         stage = self._make_stage(flag_enabled=True)
         captured_prompt: list[str] = []
 
@@ -449,11 +448,8 @@ class TestPromptInjection:
         stage.execute((self._spans(), self._routes(), self._flow(), self._blocks(), self._symbols()))
 
         assert len(captured_prompt) == 1
-        assert "CONSTRUCT: GENERAL_COMMAND" in captured_prompt[0]
-        assert "CONSTRUCT: REQUEST_INPUT" in captured_prompt[0]
-        assert "CONSTRUCT: CALL_API" in captured_prompt[0]
-        assert "CONSTRUCT: INVOKE_WORKER" in captured_prompt[0]
-        assert "IRS-Driven Construct Checklist" in captured_prompt[0]
+        assert "CONSTRUCT:" not in captured_prompt[0]
+        assert "IRS-Driven Construct Checklist" not in captured_prompt[0]
 
 
 # ---------------------------------------------------------------------------
@@ -464,7 +460,6 @@ class TestWorkerScopedPromptInjection:
     def _make_stage(self, flag_enabled: bool) -> StepExtractor:
         config = PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
-            enable_irs_prompt_builder=flag_enabled,
         )
         return StepExtractor(config, MagicMock())
 
@@ -525,7 +520,7 @@ class TestWorkerScopedPromptInjection:
         assert len(captured_prompt) >= 1
         assert "CONSTRUCT:" not in captured_prompt[0]
 
-    def test_flag_on_injects_irs_checklist_in_worker_scoped_prompt(self):
+    def test_config_does_not_inject_irs_checklist_in_worker_scoped_prompt(self):
         stage = self._make_stage(flag_enabled=True)
         captured_prompt: list[str] = []
 
@@ -541,8 +536,5 @@ class TestWorkerScopedPromptInjection:
         )
 
         assert len(captured_prompt) >= 1
-        assert "CONSTRUCT: GENERAL_COMMAND" in captured_prompt[0]
-        assert "CONSTRUCT: REQUEST_INPUT" in captured_prompt[0]
-        assert "CONSTRUCT: CALL_API" in captured_prompt[0]
-        assert "CONSTRUCT: INVOKE_WORKER" in captured_prompt[0]
-        assert "IRS-Driven Construct Checklist" in captured_prompt[0]
+        assert "CONSTRUCT:" not in captured_prompt[0]
+        assert "IRS-Driven Construct Checklist" not in captured_prompt[0]

@@ -1,4 +1,4 @@
-"""Unit tests for Stage 6 V2 resource context builder."""
+﻿"""Unit tests for Stage 6 V2 resource context builder."""
 
 from __future__ import annotations
 
@@ -219,21 +219,17 @@ class TestBuildResourceContext:
 # =============================================================================
 
 
-class TestStage6V2FlagIntegration:
-    """Verify that the V2 flag switches prompt format in execute() paths."""
+class TestStage6V2ConfigIntegration:
+    """Verify execute() paths always use the scoped prompt format."""
 
     @pytest.fixture
     def flag_on_config(self) -> MagicMock:
         cfg = MagicMock()
-        cfg.enable_stage6_resource_context_v2 = True
-        cfg.enable_resource_name_filter = False
         return cfg
 
     @pytest.fixture
     def flag_off_config(self) -> MagicMock:
         cfg = MagicMock()
-        cfg.enable_stage6_resource_context_v2 = False
-        cfg.enable_resource_name_filter = False
         return cfg
 
     def _make_extractor(self, config: MagicMock) -> ResourceExtractor:
@@ -266,10 +262,9 @@ class TestStage6V2FlagIntegration:
         # Old format must be absent
         assert "请从以下文本中提取资源" not in user_prompt
 
-    def test_legacy_with_flag_off_uses_old_prompt(
+    def test_legacy_with_config_off_still_uses_v2_context(
         self, flag_off_config: MagicMock,
     ) -> None:
-        """Legacy path with flag off preserves old behavior."""
         extractor = self._make_extractor(flag_off_config)
         extractor.client.call_json.return_value = {
             "variables": [], "files": [], "apis": [], "types": [],
@@ -281,9 +276,10 @@ class TestStage6V2FlagIntegration:
         extractor.execute((spans, routes))
 
         user_prompt = extractor.client.call_json.call_args.kwargs["user_prompt"]
-        assert "请从以下文本中提取资源" in user_prompt
-        assert "behavior spans" in user_prompt
-        assert "Resource extraction scope" not in user_prompt
+        assert "Resource extraction scope" in user_prompt
+        assert "Authoritative contract" in user_prompt
+        assert "Source spans" in user_prompt
+        assert "Extraction policy" in user_prompt
 
     def test_worker_scoped_with_flag_on_uses_v2_context(
         self, flag_on_config: MagicMock,
@@ -333,10 +329,9 @@ class TestStage6V2FlagIntegration:
         assert "worker context" not in user_prompt
         assert "请从以下文本中提取资源" not in user_prompt
 
-    def test_worker_scoped_with_flag_off_uses_old_prompt(
+    def test_worker_scoped_with_config_off_still_uses_v2_context(
         self, flag_off_config: MagicMock,
     ) -> None:
-        """Worker-scoped path with flag off preserves old behavior."""
         extractor = self._make_extractor(flag_off_config)
         extractor.client.call_json.return_value = {
             "variables": [], "files": [], "apis": [], "types": [],
@@ -366,6 +361,6 @@ class TestStage6V2FlagIntegration:
         )
 
         user_prompt = extractor.client.call_json.call_args.kwargs["user_prompt"]
-        assert "worker context" in user_prompt
-        assert "请从以下文本中提取资源" in user_prompt
-        assert "Resource extraction scope" not in user_prompt
+        assert "Resource extraction scope" in user_prompt
+        assert "worker_id: worker_test" in user_prompt
+        assert "TestWorker" in user_prompt

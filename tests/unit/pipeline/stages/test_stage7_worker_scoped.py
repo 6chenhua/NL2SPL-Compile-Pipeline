@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
+from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
@@ -148,7 +151,7 @@ def test_invalid_invoke_location_returns_empty_source_spans(
     assert source_spans == []
 
 
-def test_child_worker_invalid_invoke_step_is_rewritten_to_command(
+def test_child_worker_invalid_invoke_step_fails_fast(
     pipeline_config: MagicMock,
 ) -> None:
     handoff = WorkerHandoffIR(
@@ -183,22 +186,22 @@ def test_child_worker_invalid_invoke_step_is_rewritten_to_command(
         },
     ]
 
-    worker_step_plan, _ = StepExtractor(
-        pipeline_config,
-        client,
-    ).execute_worker_scoped(
-        spans=[SpanIR("s1", "Main work"), SpanIR("s2", "Child work")],
-        routes=FieldRouteIR(behavior=["s1", "s2"], integrations=[]),
-        worker_flow_plan=_flow_plan(),
-        worker_block_plan=_block_plan(),
-        symbol_table=SymbolTable(),
-        worker_plan=worker_plan,
-    )
+    with pytest.raises(StageError) as exc_info:
+        StepExtractor(
+            pipeline_config,
+            client,
+        ).execute_worker_scoped(
+            spans=[SpanIR("s1", "Main work"), SpanIR("s2", "Child work")],
+            routes=FieldRouteIR(behavior=["s1", "s2"], integrations=[]),
+            worker_flow_plan=_flow_plan(),
+            worker_block_plan=_block_plan(),
+            symbol_table=SymbolTable(),
+            worker_plan=worker_plan,
+        )
 
-    child_steps = worker_step_plan.worker_steps["worker_child"]
-    assert child_steps[0].step_id == "st_child_bad_invoke"
-    assert child_steps[0].command_type == "GENERAL_COMMAND"
-    assert child_steps[0].source_span_ids == ["s2"]
+    message = str(exc_info.value)
+    assert "LLM emitted invalid handoff command(s)" in message
+    assert "st_child_bad_invoke:INVOKE_WORKER" in message
 
 
 def _d6_flow_plan() -> WorkerFlowPlanIR:

@@ -395,3 +395,10 @@ class TestStage7Prompt:
         assert "unmapped_spans is optional" in prompt, (
             "Prompt must note that unmapped_spans is optional"
         )
+
+    def test_prompt_requires_executable_behavior_coverage(self) -> None:
+        """Executable behavior spans must not be skipped as already-known inputs."""
+        prompt = load_prompt("stage7")
+        assert "Cover each executable behavior span" in prompt
+        assert "provides, submits, gives" in prompt
+        assert "do not mark the span as unmapped" in prompt

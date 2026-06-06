@@ -1,6 +1,5 @@
-"""Full pipeline worker-aware integration tests.
+﻿"""Full pipeline worker-aware integration tests.
 
-End-to-end verification of the enable_worker_boundary_planner=True path
 from Stage 1 through Stage 11, confirming child workers are rendered and
 no validation errors occur.
 """
@@ -214,7 +213,6 @@ def test_full_pipeline_worker_aware_enterprise_procedure(tmp_path: Path) -> None
         llm=LLMConfig(api_key="test-key"),
         output_dir=tmp_path / "output",
         save_intermediate=False,
-        enable_worker_boundary_planner=True,
     )
     orchestrator = PipelineOrchestrator(config)
 
@@ -374,7 +372,6 @@ def test_full_pipeline_worker_aware_renders_child_workers(tmp_path: Path) -> Non
         llm=LLMConfig(api_key="test-key"),
         output_dir=tmp_path / "output",
         save_intermediate=False,
-        enable_worker_boundary_planner=True,
     )
     orchestrator = PipelineOrchestrator(config)
 
@@ -469,65 +466,12 @@ def test_full_pipeline_worker_aware_renders_child_workers(tmp_path: Path) -> Non
     assert "VendorPoolWorker" in result.spl_text
 
 
-def test_full_pipeline_legacy_path_unchanged(tmp_path: Path) -> None:
-    """Regression: legacy path (enable_worker_boundary_planner=False) works correctly."""
-    config = PipelineConfig(
-        llm=LLMConfig(api_key="test-key"),
-        output_dir=tmp_path / "output",
-        save_intermediate=False,
-        enable_worker_boundary_planner=False,
-    )
-    orchestrator = PipelineOrchestrator(config)
-
-    spans = _make_enterprise_spans()
-    routes = _make_enterprise_routes()
-    symbols = SymbolTable()
-    symbols.declare("purchase_request", "text", "input", "Purchase request")
-    symbols.declare("po_artifact", "text", "output", "PO artifact")
-
-    resources = ResourceRegistryIR(
-        variables=[
-            VariableSpec("purchase_request", "text", True, "Purchase request", "input"),
-        ]
-    )
-
-    flow_structure = FlowStructureIR(main_flow_spans=["s1", "s4", "s5"])
-    block_structure = BlockStructureIR(
-        main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1", "s4", "s5"])]
-    )
-
-    with (
-        patch.object(orchestrator, "_run_stage1", return_value=spans),
-        patch.object(orchestrator, "_run_stage2", return_value=(routes, [])),
-        patch.object(orchestrator, "_run_stage3", return_value=(spans, routes)),
-        patch.object(orchestrator, "_run_stage4", return_value=flow_structure),
-        patch.object(orchestrator, "_run_stage5", return_value=block_structure),
-        patch.object(orchestrator, "_run_stage6", return_value=(resources, symbols, [])),
-        patch.object(orchestrator, "_run_stage7", return_value=([], symbols, [])),
-        patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
-        patch.object(orchestrator, "_run_stage9", return_value=[]),
-        patch.object(
-            orchestrator, "_run_normalization",
-            return_value=(flow_structure, block_structure, [], [], symbols, [], []),
-        ),
-        patch.object(orchestrator, "_run_stage11", return_value=("LEGACY_SPL", [], [])),
-    ):
-        result = orchestrator.run("test")
-
-    assert result is not None
-    assert result.spl_text == "LEGACY_SPL"
-    # Legacy path should not have worker-scoped intermediate results
-    assert "stage6_worker_scoped_resources" not in result.intermediate_results
-    assert "stage7_worker_step_plan" not in result.intermediate_results
-
-
 def test_worker_aware_path_stores_all_intermediate_results(tmp_path: Path) -> None:
     """Verify worker-aware path stores complete intermediate result chain."""
     config = PipelineConfig(
         llm=LLMConfig(api_key="test-key"),
         output_dir=tmp_path / "output",
         save_intermediate=False,
-        enable_worker_boundary_planner=True,
     )
     orchestrator = PipelineOrchestrator(config)
 
@@ -589,3 +533,4 @@ def test_worker_aware_path_stores_all_intermediate_results(tmp_path: Path) -> No
     assert isinstance(intermediates["stage5_worker_blocks"], WorkerBlockPlanIR)
     assert isinstance(intermediates["stage6_worker_scoped_resources"], WorkerScopedResourceIR)
     assert isinstance(intermediates["stage7_worker_step_plan"], WorkerStepPlanIR)
+

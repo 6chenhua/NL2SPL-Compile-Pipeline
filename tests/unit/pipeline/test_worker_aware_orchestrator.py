@@ -1,4 +1,4 @@
-"""Worker-aware orchestrator path tests for Stage 4/5 migration."""
+﻿"""Worker-aware orchestrator path tests for Stage 4/5 migration."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
-from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
+from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
     VariableSpec,
@@ -170,7 +170,6 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
         llm=LLMConfig(api_key="test-key"),
         output_dir=tmp_path / "output",
         save_intermediate=False,
-        enable_worker_boundary_planner=True,
     )
     orchestrator = PipelineOrchestrator(config)
     plan = worker_plan()
@@ -195,7 +194,6 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
             "_run_stage6_worker_scoped",
             return_value=(worker_scoped_resources, symbols, []),
         ) as stage6_ws,
-        patch.object(orchestrator, "_run_stage7", return_value=([], symbols, [])),
         patch.object(orchestrator, "_run_stage7_worker_scoped", return_value=(MagicMock(), symbols, [])),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
@@ -230,165 +228,6 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
     # (stage4_flow/stage5_blocks 保留空结构用于 Stage 9 接口兼容)
     assert result.intermediate_results["stage6_worker_scoped_resources"] is worker_scoped_resources
     assert result.intermediate_results["stage6_resources"] is worker_scoped_resources.global_resources
-
-
-def test_orchestrator_irs_stage4_side_channel_populated(
-    tmp_path: Path,
-) -> None:
-    """Flag on: intermediate_results gets construct_satisfaction + stage_local_diagnostics."""
-    config = PipelineConfig(
-        llm=LLMConfig(api_key="test-key"),
-        output_dir=tmp_path / "output",
-        save_intermediate=False,
-        enable_worker_boundary_planner=True,
-        enable_irs_stage4_exception_flow_check=True,
-    )
-    orchestrator = PipelineOrchestrator(config)
-    plan = worker_plan()
-    span_list = spans()
-    route_ir = routes()
-
-    # Worker-aware flow plan with one source-backed + one assumed exception flow.
-    flow_plan = WorkerFlowPlanIR(
-        worker_flows={
-            "worker_main": FlowStructureIR(
-                main_flow_spans=["s1", "s3"],
-                exception_flows=[
-                    ExceptionFlow("exc_1", "Over budget", ["s1"]),
-                    ExceptionFlow("exc_2", "Vague failure", []),
-                ],
-            ),
-            "worker_source": FlowStructureIR(main_flow_spans=["s2"]),
-        }
-    )
-    block_plan = worker_block_plan()
-    symbols = SymbolTable()
-    worker_scoped_resources = WorkerScopedResourceIR(
-        global_resources=ResourceRegistryIR()
-    )
-
-    with (
-        patch.object(orchestrator, "_run_stage1", return_value=span_list),
-        patch.object(orchestrator, "_run_stage2", return_value=(route_ir, [])),
-        patch.object(orchestrator, "_run_stage3", return_value=(span_list, route_ir)),
-        patch.object(orchestrator, "_run_stage3_5", return_value=plan),
-        patch.object(orchestrator, "_run_stage4", return_value=flow_plan),
-        patch.object(orchestrator, "_run_stage5", return_value=block_plan),
-        patch.object(
-            orchestrator,
-            "_run_stage6_worker_scoped",
-            return_value=(worker_scoped_resources, symbols, []),
-        ),
-        patch.object(orchestrator, "_run_stage7", return_value=([], symbols, [])),
-        patch.object(orchestrator, "_run_stage7_worker_scoped", return_value=(MagicMock(), symbols, [])),
-        patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
-        patch.object(orchestrator, "_run_stage9", return_value=[]),
-        patch.object(
-            orchestrator,
-            "_run_normalization_worker_scoped",
-            return_value=(flow_plan, block_plan, MagicMock(), symbols, [], []),
-        ),
-        patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=MagicMock()),
-        patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])),
-    ):
-        result = orchestrator.run("test")
-
-    sat = result.intermediate_results["construct_satisfaction"]
-    diags = result.intermediate_results["stage_local_diagnostics"]
-
-    # Two exception flows in worker_main, none in worker_source → 2 reports.
-    assert len(sat["stage4"]) == 2
-    assert sat["stage4"][0].construct_id == "worker:worker_main.exception_flow:exc_1"
-    assert sat["stage4"][0].renderable is True
-    assert sat["stage4"][1].construct_id == "worker:worker_main.exception_flow:exc_2"
-    assert sat["stage4"][1].renderable is False
-
-    # One diagnostic for the assumed-span exception flow.
-    assert len(diags["stage4"]) == 1
-    assert diags["stage4"][0].kind == "type_or_contract_ambiguity"
-    assert "exc_2" in diags["stage4"][0].message
-
-
-def test_orchestrator_irs_stage7_side_channel_populated(
-    tmp_path: Path,
-) -> None:
-    """Flag on: intermediate_results gets Stage 7 IRS side-channel data."""
-    config = PipelineConfig(
-        llm=LLMConfig(api_key="test-key"),
-        output_dir=tmp_path / "output",
-        save_intermediate=False,
-        enable_worker_boundary_planner=True,
-        enable_irs_stage7_step_check=True,
-    )
-    orchestrator = PipelineOrchestrator(config)
-    plan = worker_plan()
-    span_list = spans()
-    route_ir = routes()
-    flow_plan = worker_flow_plan()
-    block_plan = worker_block_plan()
-    symbols = SymbolTable()
-    worker_scoped_resources = WorkerScopedResourceIR(
-        global_resources=ResourceRegistryIR()
-    )
-
-    # Stage 7 worker-scoped output: one source-backed + one assumed step.
-    worker_step_plan_mock = MagicMock()
-    worker_step_plan_mock.worker_steps = {
-        "worker_main": [
-            StepIR("st_1", "Process", ["s1"], "GENERAL_COMMAND", [], [], None, "main", "b_1", None),
-            StepIR("st_2", "Ask user", [], "REQUEST_INPUT", [], [], None, "main", "b_1", None),
-        ],
-        "worker_source": [],
-    }
-    worker_step_plan_mock.get_all_steps.return_value = [
-        StepIR("st_1", "Process", ["s1"], "GENERAL_COMMAND", [], [], None, "main", "b_1", None),
-        StepIR("st_2", "Ask user", [], "REQUEST_INPUT", [], [], None, "main", "b_1", None),
-    ]
-    worker_step_plan_mock.warnings = []
-
-    with (
-        patch.object(orchestrator, "_run_stage1", return_value=span_list),
-        patch.object(orchestrator, "_run_stage2", return_value=(route_ir, [])),
-        patch.object(orchestrator, "_run_stage3", return_value=(span_list, route_ir)),
-        patch.object(orchestrator, "_run_stage3_5", return_value=plan),
-        patch.object(orchestrator, "_run_stage4", return_value=flow_plan),
-        patch.object(orchestrator, "_run_stage5", return_value=block_plan),
-        patch.object(
-            orchestrator,
-            "_run_stage6_worker_scoped",
-            return_value=(worker_scoped_resources, symbols, []),
-        ),
-        patch.object(
-            orchestrator,
-            "_run_stage7_worker_scoped",
-            return_value=(worker_step_plan_mock, symbols, []),
-        ),
-        patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
-        patch.object(orchestrator, "_run_stage9", return_value=[]),
-        patch.object(
-            orchestrator,
-            "_run_normalization_worker_scoped",
-            return_value=(flow_plan, block_plan, MagicMock(), symbols, [], []),
-        ),
-        patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=MagicMock()),
-        patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])),
-    ):
-        result = orchestrator.run("test")
-
-    sat = result.intermediate_results["construct_satisfaction"]
-    diags = result.intermediate_results["stage_local_diagnostics"]
-
-    assert len(sat["stage7"]) == 2
-    assert sat["stage7"][0].construct_id == "worker:worker_main.step:st_1"
-    assert sat["stage7"][0].renderable is True
-    assert sat["stage7"][1].construct_id == "worker:worker_main.step:st_2"
-    assert sat["stage7"][1].renderable is False
-
-    assert len(diags["stage7"]) == 1
-    assert diags["stage7"][0].kind == "type_or_contract_ambiguity"
-    assert "st_2" in diags["stage7"][0].message
-
-
 def test_orchestrator_stage_helpers_call_worker_aware_assembler_inputs(
     pipeline_config: PipelineConfig,
 ) -> None:
@@ -421,7 +260,6 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
         llm=LLMConfig(api_key="test-key"),
         output_dir=tmp_path / "output",
         save_intermediate=False,
-        enable_worker_boundary_planner=True,
     )
     orchestrator = PipelineOrchestrator(config)
     orchestrator.client = MagicMock()
@@ -462,7 +300,6 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
         )
 
     # 创建 mock 的 WorkerStepPlanIR
-    from nl2spl.ir.step_ir import StepIR
     from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
     invoke_step = StepIR(
@@ -500,7 +337,6 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
             "_run_stage6_worker_scoped",
             return_value=(WorkerScopedResourceIR(global_resources=resources), symbols, []),
         ),
-        patch.object(orchestrator, "_run_stage7", return_value=([], symbols, [])),
         patch.object(
             orchestrator,
             "_run_stage7_worker_scoped",
@@ -508,21 +344,6 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
         ),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
-        patch.object(
-            orchestrator,
-            "_run_normalization",
-            return_value=(
-                FlowStructureIR(main_flow_spans=["s1", "s3"]),
-                BlockStructureIR(
-                    main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1", "s3"])]
-                ),
-                [],
-                [],
-                symbols,
-                [],
-                [],
-            ),
-        ),
         patch.object(
             orchestrator,
             "_run_normalization_worker_scoped",

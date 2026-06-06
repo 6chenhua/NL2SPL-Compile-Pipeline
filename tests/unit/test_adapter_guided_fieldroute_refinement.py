@@ -24,17 +24,19 @@ Gap resolution order (see docs/Todo/adapter_guided_llm_fieldroute_refinement/):
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from nl2spl.adapters import StructuralNLAdapter
+from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
+from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
-
 
 # ---------------------------------------------------------------------------
 # Shared input texts
@@ -183,10 +185,10 @@ def _adapt_slice_route(
 ):
     """Run the structural NL pipeline through Stage 2 and return results.
 
-    The adapter runs without mapper LLM here so exact-title compatibility
-    priors are deterministic. Stage 2 LLM refinement still uses mock_client.
+    The adapter uses mock_client for LLM semantic mapping. Stage 2 LLM
+    refinement also uses mock_client.
     """
-    canonical = StructuralNLAdapter(None).adapt(text)
+    canonical = StructuralNLAdapter(mock_client).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     router = FieldRouter(pipeline_config, mock_client)
     routes, ambiguity_updates = router.execute((spans, canonical))
@@ -201,36 +203,37 @@ def _adapt_slice_route(
 class TestCurrentFailureHandlingMixed:
     """Layer 1: document current deterministic behavior for mixed failure text."""
 
-    def test_current_whole_span_gets_single_failure_mode_condition(
+    def test_current_failure_span_gets_structural_prior(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """CURRENT: mixed condition+handler span → one failure_mode condition annotation.
-
-        The handler text is indistinguishable from the condition.  This test
-        documents the baseline defect.
-        """
+        """Phase D: failure_mode packet → StructuralPrior, not RouteAnnotation."""
         routes, spans, _canonical, ambiguity_updates = _adapt_slice_route(
             MIXED_FAILURE_TEXT, pipeline_config, mock_client
         )
 
-
+        # No deterministic RouteAnnotation for failure_mode
         failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
+        assert len(failure_anns) == 0, (
+            "Phase D: failure_mode packet should not generate RouteAnnotation"
+        )
 
-        for ann in failure_anns:
-            assert ann.semantic_role == "failure_mode"
-            assert ann.construct_target == "EXCEPTION_FLOW"
-            assert ann.slot_target == "condition"
-            assert ann.executable is False
-            assert ann.source_section_id == "sec_failure_handling"
-            assert ann.source_packet_id
-            # New architecture: packets are neutral list_items; ID reflects content
-            assert "failure" in ann.source_packet_id or "timeframe" in ann.source_packet_id
+        # Structural prior exists for the failure span
+        failure_sp = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_sp) >= 1, (
+            "failure_mode packet should generate StructuralPrior"
+        )
+        sp = failure_sp[0]
+        assert sp.prior_kind in {"packet_type_context", "route_prior"}, (
+            f"Expected packet_type_context or route_prior, got {sp.prior_kind}"
+        )
+        assert sp.suggested_field == "behavior"
 
         # Defect: no handler annotation exists
         handler_anns = [
-            a for a in routes.annotations
-            if a.semantic_role and "handler" in a.semantic_role
+            a for a in routes.annotations if a.semantic_role and "handler" in a.semantic_role
         ]
         assert len(handler_anns) == 0
 
@@ -250,7 +253,6 @@ def test_target_failure_handling_splits_condition_and_handler(
     mock_client: MagicMock,
 ) -> None:
     """TARGET: mixed failure handling → condition + handler are separated."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
     canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -260,14 +262,22 @@ def test_target_failure_handling_splits_condition_and_handler(
     # LLM returns multi-label: condition + handler for the same span
     mock_client.call_json.return_value = {
         "annotations": [
-            {"span_id": failure_span.span_id, "field": "behavior",
-             "semantic_role": "failure_mode",
-             "construct_target": "EXCEPTION_FLOW",
-             "slot_target": "condition", "executable": False},
-            {"span_id": failure_span.span_id, "field": "behavior",
-             "semantic_role": "exception_handler_action",
-             "construct_target": "EXCEPTION_FLOW",
-             "slot_target": "handler", "executable": True},
+            {
+                "span_id": failure_span.span_id,
+                "field": "behavior",
+                "semantic_role": "failure_mode",
+                "construct_target": "EXCEPTION_FLOW",
+                "slot_target": "condition",
+                "executable": False,
+            },
+            {
+                "span_id": failure_span.span_id,
+                "field": "behavior",
+                "semantic_role": "exception_handler_action",
+                "construct_target": "EXCEPTION_FLOW",
+                "slot_target": "handler",
+                "executable": True,
+            },
         ],
         "split_recommendations": [],
         "diagnostics": [],
@@ -295,40 +305,36 @@ def test_target_failure_handling_splits_condition_and_handler(
 # ===========================================================================
 
 
-def test_failure_handling_condition_only_no_fabricated_handler(
+def test_failure_handling_condition_only_structural_prior(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """Safety net: condition-only failure → no fabricated handler.
-
-    Must PASS now and MUST continue passing after LLM refinement.
-    """
+    """Phase D: condition-only failure → StructuralPrior, no fabricated handler."""
     routes, spans, _canonical, ambiguity_updates = _adapt_slice_route(
         CONDITION_ONLY_FAILURE_TEXT, pipeline_config, mock_client
     )
 
+    # No deterministic RouteAnnotation for failure_mode
     failure_anns = routes.get_annotations_by_role("failure_mode")
-    assert len(failure_anns) >= 1
+    assert len(failure_anns) == 0, (
+        "Phase D: failure_mode should not generate RouteAnnotation"
+    )
 
-    for ann in failure_anns:
-        assert ann.semantic_role == "failure_mode"
-        assert ann.construct_target == "EXCEPTION_FLOW"
-        assert ann.slot_target == "condition"
-        assert ann.executable is False
-        assert ann.source_section_id == "sec_failure_handling"
-        assert ann.source_packet_id
-        # New architecture: neutral list_item packets; ID reflects content not role
-        assert ann.source_section_id == "sec_failure_handling"
+    # Structural prior exists
+    failure_sp = [
+        sp for sp in routes.structural_priors
+        if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+    ]
+    assert len(failure_sp) >= 1, (
+        "failure_mode packet should generate StructuralPrior"
+    )
 
     handler_roles = {
         "exception_handler_action",
         "handler_action",
         "clarification_action",
     }
-    handler_anns = [
-        a for a in routes.annotations
-        if a.semantic_role in handler_roles
-    ]
+    handler_anns = [a for a in routes.annotations if a.semantic_role in handler_roles]
     assert len(handler_anns) == 0, (
         "SAFETY: no handler may be fabricated when the source text has none."
     )
@@ -354,29 +360,35 @@ class TestCurrentDelegationPolicyMixed:
     def test_current_all_delegation_sentences_get_identical_intent(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """CURRENT: every delegation sentence → identical delegation_intent.
+        """Phase D: every delegation sentence → StructuralPrior with delegation_intent.
 
         API references, worker names, boundary conditions, and prohibitions
-        are all folded into the same annotation type.
+        are all folded into the same suggested_semantic_role.
         """
         routes, spans, _canonical, ambiguity_updates = _adapt_slice_route(
             MIXED_DELEGATION_TEXT, pipeline_config, mock_client
         )
 
+        # Phase D: delegation packets generate StructuralPrior, not RouteAnnotation
+        delegation_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "delegation_intent"
+        ]
+        assert len(delegation_priors) >= 4
 
+        # No RouteAnnotation for delegation_intent (packet types → StructuralPrior)
         delegation_anns = routes.get_annotations_by_role("delegation_intent")
-        assert len(delegation_anns) >= 4
+        assert len(delegation_anns) == 0, (
+            "Phase D: delegation_intent packet should not generate RouteAnnotation"
+        )
 
-        # All identical role
-        for ann in delegation_anns:
-            assert ann.semantic_role == "delegation_intent"
-            assert ann.route_family == "delegation_boundary"
-            assert ann.executable is False
-            assert ann.source_section_id == "sec_delegation_policy"
-
-        # No fine-grained roles exist
-        finer_roles = {"api_candidate", "worker_handoff_candidate",
-                        "delegation_boundary_constraint", "delegation_prohibition"}
+        # No fine-grained roles exist in annotations
+        finer_roles = {
+            "api_candidate",
+            "worker_handoff_candidate",
+            "delegation_boundary_constraint",
+            "delegation_prohibition",
+        }
         for ann in routes.annotations:
             assert ann.semantic_role not in finer_roles, (
                 f"CURRENT: {ann.semantic_role} should not appear yet — "
@@ -384,7 +396,7 @@ class TestCurrentDelegationPolicyMixed:
             )
 
         # Verify input contains the varied semantics
-        del_span_ids = {a.span_id for a in delegation_anns}
+        del_span_ids = {sp.span_id for sp in delegation_priors}
         del_spans = [s for s in spans if s.span_id in del_span_ids]
         del_texts = {s.text.lower() for s in del_spans}
         assert any("searchapi" in t for t in del_texts)
@@ -398,9 +410,8 @@ def test_target_delegation_distinguishes_api_worker_policy(
     mock_client: MagicMock,
 ) -> None:
     """TARGET: mixed delegation → each sentence gets correct fine-grained role."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-    canonical = StructuralNLAdapter().adapt(MIXED_DELEGATION_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(MIXED_DELEGATION_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     span_by_text = {s.text.lower(): s for s in spans}
 
@@ -412,14 +423,30 @@ def test_target_delegation_distinguishes_api_worker_policy(
 
     mock_client.call_json.return_value = {
         "annotations": [
-            {"span_id": search_span.span_id, "field": "integrations",
-             "semantic_role": "api_candidate", "executable": False},
-            {"span_id": worker_span.span_id, "field": "behavior",
-             "semantic_role": "worker_handoff_candidate", "executable": False},
-            {"span_id": boundary_span.span_id, "field": "rules",
-             "semantic_role": "delegation_boundary_constraint", "executable": False},
-            {"span_id": prohibit_span.span_id, "field": "rules",
-             "semantic_role": "delegation_prohibition", "executable": False},
+            {
+                "span_id": search_span.span_id,
+                "field": "integrations",
+                "semantic_role": "api_candidate",
+                "executable": False,
+            },
+            {
+                "span_id": worker_span.span_id,
+                "field": "behavior",
+                "semantic_role": "worker_handoff_candidate",
+                "executable": False,
+            },
+            {
+                "span_id": boundary_span.span_id,
+                "field": "rules",
+                "semantic_role": "delegation_boundary_constraint",
+                "executable": False,
+            },
+            {
+                "span_id": prohibit_span.span_id,
+                "field": "rules",
+                "semantic_role": "delegation_prohibition",
+                "executable": False,
+            },
         ],
         "split_recommendations": [],
         "diagnostics": [],
@@ -445,48 +472,45 @@ class TestCurrentReusableProcessMixed:
     def test_current_constraint_text_marked_as_executable_process_step(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """CURRENT: 'Do not finalize...' → process_step, executable=True.
+        """Phase D: 'Do not finalize...' and 'Produce a draft' → StructuralPrior.
 
-        The constraint is indistinguishable from the executable process step.
+        Both produce StructuralPrior with suggested_semantic_role=process_step.
+        The constraint is indistinguishable from the executable process step
+        in the structural prior layer.
         """
         routes, spans, _canonical, ambiguity_updates = _adapt_slice_route(
             MIXED_PROCESS_TEXT, pipeline_config, mock_client
         )
 
+        # Phase D: process_step packets → StructuralPrior, not RouteAnnotation
+        process_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "process_step"
+        ]
+        assert len(process_priors) >= 2
 
+        # No deterministic RouteAnnotation for process_step
         process_anns = routes.get_annotations_by_role("process_step")
-        assert len(process_anns) >= 2
+        assert len(process_anns) == 0, (
+            "Phase D: process_step packet should not generate RouteAnnotation"
+        )
 
-        # Find the constraint-like span
-        constraint_span = None
-        executable_span = None
-        for ann in process_anns:
-            span = next((s for s in spans if s.span_id == ann.span_id), None)
+        # Find the constraint-like and executable spans via priors
+        constraint_prior = None
+        executable_prior = None
+        for sp in process_priors:
+            span = next((s for s in spans if s.span_id == sp.span_id), None)
             if span and "do not finalize" in span.text.lower():
-                constraint_span = span
+                constraint_prior = sp
             elif span and "produce a draft" in span.text.lower():
-                executable_span = span
+                executable_prior = sp
 
-        assert constraint_span is not None
-        assert executable_span is not None
+        assert constraint_prior is not None
+        assert executable_prior is not None
 
-        # Defect: constraint text is executable process_step
-        constraint_anns = [
-            a for a in process_anns
-            if a.span_id == constraint_span.span_id
-        ]
-        assert len(constraint_anns) == 1
-        assert constraint_anns[0].executable is True
-        assert constraint_anns[0].semantic_role == "process_step"
-
-        # Executable process step is correctly annotated (this part is fine)
-        exec_anns = [
-            a for a in process_anns
-            if a.span_id == executable_span.span_id
-        ]
-        assert len(exec_anns) == 1
-        assert exec_anns[0].executable is True
-        assert exec_anns[0].semantic_role == "process_step"
+        # Both are StructuralPrior with process_step suggested role
+        assert constraint_prior.metadata["suggested_semantic_role"] == "process_step"
+        assert executable_prior.metadata["suggested_semantic_role"] == "process_step"
 
 
 def test_target_reusable_process_constraint_not_executable(
@@ -494,9 +518,8 @@ def test_target_reusable_process_constraint_not_executable(
     mock_client: MagicMock,
 ) -> None:
     """TARGET: mixed reusable_process → constraint text is non-executable."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-    canonical = StructuralNLAdapter().adapt(MIXED_PROCESS_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(MIXED_PROCESS_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     draft_span = next((s for s in spans if "produce a draft" in s.text.lower()), None)
     constraint_span = next((s for s in spans if "do not finalize" in s.text.lower()), None)
@@ -504,10 +527,18 @@ def test_target_reusable_process_constraint_not_executable(
 
     mock_client.call_json.return_value = {
         "annotations": [
-            {"span_id": draft_span.span_id, "field": "behavior",
-             "semantic_role": "process_step", "executable": True},
-            {"span_id": constraint_span.span_id, "field": "rules",
-             "semantic_role": "constraint", "executable": False},
+            {
+                "span_id": draft_span.span_id,
+                "field": "behavior",
+                "semantic_role": "process_step",
+                "executable": True,
+            },
+            {
+                "span_id": constraint_span.span_id,
+                "field": "rules",
+                "semantic_role": "constraint",
+                "executable": False,
+            },
         ],
         "split_recommendations": [],
         "diagnostics": [],
@@ -535,43 +566,49 @@ class TestCurrentOutputSectionMixed:
     def test_current_behavior_text_becomes_output_contract(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """CURRENT: behavior text in output section → output_contract.
+        """Phase D: behavior text in output section → StructuralPrior.
 
-        The behavior semantics are silently consumed by the resource contract.
-        No conflict diagnostic is raised.
+        The behavior semantics are silently consumed by the resource contract
+        at the structural prior level.  No conflict diagnostic is raised.
         """
         routes, spans, canonical, ambiguity_updates = _adapt_slice_route(
             MIXED_OUTPUT_TEXT, pipeline_config, mock_client
         )
 
-
         # Behavior text IS classified as an output variable
         output_facts = canonical.hard_facts.outputs
         behavior_facts = [
-            f for f in output_facts
+            f
+            for f in output_facts
             if "ask" in f.description.lower() or "confirm" in f.description.lower()
         ]
         assert len(behavior_facts) >= 1, (
             "CURRENT: behavior text is classified as an output variable."
         )
 
-        # Behavior text gets output_contract annotation
-        output_anns = routes.get_annotations_by_role("output_contract")
-        behavior_anns = []
-        for ann in output_anns:
-            span = next((s for s in spans if s.span_id == ann.span_id), None)
+        # Phase D: output_contract packets → StructuralPrior, not RouteAnnotation
+        output_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "output_contract"
+        ]
+        # Behavior text in output section generates output_contract StructuralPrior
+        behavior_priors = []
+        for sp in output_priors:
+            span = next((s for s in spans if s.span_id == sp.span_id), None)
             if span and any(w in span.text.lower() for w in ["ask", "confirm"]):
-                behavior_anns.append(ann)
+                behavior_priors.append(sp)
 
-        assert len(behavior_anns) >= 1, (
-            "CURRENT: behavior text annotated as output_contract."
+        assert len(behavior_priors) >= 1, (
+            "Phase D: behavior text in output section → output_contract StructuralPrior."
         )
-        for ann in behavior_anns:
-            assert ann.semantic_role == "output_contract"
-            assert ann.executable is False
-            assert ann.route_family == "resource_contract"
 
-        # Defect: no conflict diagnostic is raised
+        # No deterministic RouteAnnotation for output_contract
+        output_anns = routes.get_annotations_by_role("output_contract")
+        assert len(output_anns) == 0, (
+            "Phase D: output_contract packet should not generate RouteAnnotation"
+        )
+
+        # No conflict diagnostic (annotations are empty)
         all_diagnostics: list[str] = []
         for ann in routes.annotations:
             all_diagnostics.extend(ann.diagnostics)
@@ -580,25 +617,14 @@ class TestCurrentOutputSectionMixed:
             "The behavior semantics are lost."
         )
 
-        # Legitimate output contract still works
-        draft_anns = [
-            a for a in output_anns
-            if any(
-                s.span_id == a.span_id and "draft communication" in s.text.lower()
-                for s in spans
-            )
-        ]
-        assert len(draft_anns) >= 1
-
 
 def test_target_output_section_flags_behavior_as_conflict(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
     """TARGET: LLM can emit diagnostics for mixed output section content."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-    canonical = StructuralNLAdapter().adapt(MIXED_OUTPUT_TEXT)
+    canonical = StructuralNLAdapter(mock_client).adapt(MIXED_OUTPUT_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
     behavior_span = next(
@@ -606,24 +632,32 @@ def test_target_output_section_flags_behavior_as_conflict(
         None,
     )
     draft_span = next(
-        (s for s in spans if "draft communication" in s.text.lower()), None,
+        (s for s in spans if "draft communication" in s.text.lower()),
+        None,
     )
     assert behavior_span and draft_span
 
     mock_client.call_json.return_value = {
         "annotations": [
-            {"span_id": draft_span.span_id, "field": "resources",
-             "semantic_role": "output_contract", "executable": False},
+            {
+                "span_id": draft_span.span_id,
+                "field": "resources",
+                "semantic_role": "output_contract",
+                "executable": False,
+            },
         ],
         "split_recommendations": [],
         "diagnostics": [
-            {"span_id": behavior_span.span_id,
-             "kind": "mixed_resource_semantics",
-             "message": "Behavior text in output section may need separate routing."},
+            {
+                "span_id": behavior_span.span_id,
+                "kind": "mixed_resource_semantics",
+                "message": "Behavior text in output section may need separate routing.",
+            },
         ],
     }
 
     from unittest.mock import patch
+
     router = FieldRouter(pipeline_config, mock_client)
     with patch.object(router, "save_checkpoint") as mock_save:
         router.execute((spans, canonical))
@@ -638,7 +672,9 @@ def test_target_output_section_flags_behavior_as_conflict(
     )
     # Output contract for draft still present
     route_diags_str = " ".join(llm_rf["route_diagnostics"])
-    assert "output_contract" not in route_diags_str.lower() or True  # no rejection of output_contract
+    assert (
+        "output_contract" not in route_diags_str.lower() or True
+    )  # no rejection of output_contract
 
 
 # ===========================================================================
@@ -693,14 +729,12 @@ class TestAdapterGuidedPromptContract:
         from nl2spl.llm.prompts import load_prompt
 
         prompt = load_prompt("stage2_adapter_guided")
-        assert len(prompt) > 200, (
-            f"Prompt should be substantial, got {len(prompt)} chars"
-        )
+        assert len(prompt) > 200, f"Prompt should be substantial, got {len(prompt)} chars"
 
-    def test_user_prompt_contains_spans_priors_allowed_schema(
+    def test_user_prompt_contains_spans_structural_priors_deterministic_annotations_allowed_schema(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """User prompt payload includes only spans, priors, allowed_schema."""
+        """User prompt payload includes spans, structural_priors, deterministic_annotations, allowed_schema."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             build_adapter_guided_user_prompt,
         )
@@ -710,16 +744,25 @@ class TestAdapterGuidedPromptContract:
         )
 
         payload_json = build_adapter_guided_user_prompt(
-            spans, canonical, routes.annotations,
+            spans,
+            canonical,
+            routes.structural_priors,
+            routes.annotations,
         )
         import json as _json
+
         payload = _json.loads(payload_json)
 
-        assert set(payload) == {"spans", "priors", "allowed_schema"}
+        assert set(payload) == {
+            "spans",
+            "structural_priors",
+            "deterministic_annotations",
+            "allowed_schema",
+        }
         for s in payload["spans"]:
             assert "span_id" in s and "text" in s
-        for p in payload["priors"]:
-            assert p.get("prior_source") == "packet_type_deterministic_mapping"
+        for p in payload["structural_priors"]:
+            assert "span_id" in p and "prior_kind" in p and "confidence" in p
 
     def test_user_prompt_spans_include_adapter_evidence(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -734,24 +777,20 @@ class TestAdapterGuidedPromptContract:
         )
 
         payload_json = build_adapter_guided_user_prompt(
-            spans, canonical, routes.annotations,
+            spans,
+            canonical,
+            routes.structural_priors,
+            routes.annotations,
         )
         import json as _json
+
         payload = _json.loads(payload_json)
 
         # At least one span should have adapter provenance
-        spans_with_section = [
-            s for s in payload["spans"] if "source_section_id" in s
-        ]
-        spans_with_packet = [
-            s for s in payload["spans"] if "source_packet_id" in s
-        ]
-        assert len(spans_with_section) >= 1, (
-            "At least one span must carry source_section_id"
-        )
-        assert len(spans_with_packet) >= 1, (
-            "At least one span must carry source_packet_id"
-        )
+        spans_with_section = [s for s in payload["spans"] if "source_section_id" in s]
+        spans_with_packet = [s for s in payload["spans"] if "source_packet_id" in s]
+        assert len(spans_with_section) >= 1, "At least one span must carry source_section_id"
+        assert len(spans_with_packet) >= 1, "At least one span must carry source_packet_id"
 
     def test_system_prompt_states_priors_are_guesses(
         self,
@@ -795,6 +834,18 @@ class TestAdapterGuidedPromptContract:
         assert "WarehouseWorker" in prompt
         assert "Do not delegate order cancellation" in prompt
 
+    def test_system_prompt_restricts_integration_hint_to_external_systems(
+        self,
+    ) -> None:
+        """Content/artifact examples must not be routed as integration hints."""
+        from nl2spl.llm.prompts import load_prompt
+
+        prompt = load_prompt("stage2_adapter_guided")
+
+        assert "integration_hint is only for named/specific APIs" in prompt
+        assert "Do NOT classify examples such as newsletters" in prompt
+        assert "classify them as profile_domain" in prompt
+
 
 class TestOutputSchemaContract:
     """Tests for the LLM output schema dataclasses."""
@@ -802,12 +853,8 @@ class TestOutputSchemaContract:
     def test_parse_valid_refinement_result(self) -> None:
         """Valid JSON parses into RouteRefinementResult correctly."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
-            parse_refinement_result,
-            RefinedAnnotation,
-            SplitRecommendation,
-            SplitSegment,
-            RouteDiagnostic,
             RouteRefinementResult,
+            parse_refinement_result,
         )
 
         data = {
@@ -917,12 +964,8 @@ class TestOutputSchemaContract:
         assert len(result.annotations) == 1
         ann = result.annotations[0]
         assert ann.span_id == "s1"
-        assert ann.field is None, (
-            "Missing field must be None, not defaulted to 'behavior'"
-        )
-        assert ann.executable is None, (
-            "Missing executable must be None, not defaulted to True"
-        )
+        assert ann.field is None, "Missing field must be None, not defaulted to 'behavior'"
+        assert ann.executable is None, "Missing executable must be None, not defaulted to True"
         # Parse diagnostics should record the missing fields
         assert len(result.parse_diagnostics) >= 2, (
             f"Expected parse diagnostics for missing field + executable, "
@@ -970,7 +1013,8 @@ class TestOutputSchemaContract:
         )
         # Parse diagnostic must record the malformed value
         exec_diags = [
-            d for d in result.parse_diagnostics
+            d
+            for d in result.parse_diagnostics
             if "executable" in d.field and "malformed" in d.issue
         ]
         assert len(exec_diags) >= 1, (
@@ -991,11 +1035,10 @@ class TestOutputSchemaContract:
         }
         result = parse_refinement_result(data)
         ann = result.annotations[0]
-        assert ann.executable is None, (
-            f"Int 0 must not coerce to bool, got {ann.executable}"
-        )
+        assert ann.executable is None, f"Int 0 must not coerce to bool, got {ann.executable}"
         exec_diags = [
-            d for d in result.parse_diagnostics
+            d
+            for d in result.parse_diagnostics
             if "executable" in d.field and "malformed" in d.issue
         ]
         assert len(exec_diags) >= 1
@@ -1003,12 +1046,12 @@ class TestOutputSchemaContract:
     def test_allowed_schema_constants_are_non_empty(self) -> None:
         """Allowed schema sets are non-empty and frozenset."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            ALLOWED_CONSTRUCT_TARGETS,
             ALLOWED_FIELDS,
             ALLOWED_SEMANTIC_ROLES,
-            ALLOWED_CONSTRUCT_TARGETS,
             ALLOWED_SLOT_TARGETS,
-            NON_EXECUTABLE_ROLES,
             EXECUTABLE_ROLES,
+            NON_EXECUTABLE_ROLES,
         )
 
         assert len(ALLOWED_FIELDS) >= 5
@@ -1065,39 +1108,17 @@ class TestOutputSchemaContract:
 class TestFieldRouteLLMRefinement:
     """Tests for adapter-guided LLM refinement in FieldRouter."""
 
-    def test_flag_disabled_does_not_call_llm(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
-        """Flag explicitly disabled: LLM is NOT called."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = False
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
-        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-        router = FieldRouter(pipeline_config, mock_client)
-
-        router.execute((spans, canonical))
-
-        call_args = [
-            str(call) for call in mock_client.call_json.call_args_list
-        ]
-        stage2_adapter_calls = [
-            a for a in call_args if "stage2_adapter_guided" in a
-        ]
-        assert len(stage2_adapter_calls) == 0, (
-            "Disabled flag must NOT call adapter-guided LLM"
-        )
-
     def test_enabled_calls_llm_with_adapter_evidence(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """When flag is enabled, LLM is called with stage2_adapter_guided prompt."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
         mock_client.call_json.return_value = {
             "annotations": [],
             "split_recommendations": [],
             "diagnostics": [],
         }
 
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
 
@@ -1115,9 +1136,7 @@ class TestFieldRouteLLMRefinement:
         """LLM failure → fallback to deterministic priors, no crash."""
         from unittest.mock import patch
 
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
-        pipeline_config.allow_adapter_guided_fieldroute_fallback = False
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         mock_client.call_json.side_effect = Exception("API timeout")
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
@@ -1147,53 +1166,16 @@ class TestFieldRouteLLMRefinement:
         assert checkpoint["llm_refinement"]["error_message"] == "API timeout"
         assert checkpoint["llm_refinement"]["fallback_allowed"] is False
 
-    def test_llm_failure_falls_back_only_when_explicitly_allowed(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
-        """Explicit compatibility mode: LLM call failure falls back with reason."""
-        from unittest.mock import patch
-
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
-        pipeline_config.allow_adapter_guided_fieldroute_fallback = True
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
-        mock_client.call_json.side_effect = Exception("API timeout")
-        spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-        router = FieldRouter(pipeline_config, mock_client)
-
-        with patch.object(router, "save_checkpoint") as mock_save:
-            routes, ambiguity_updates = router.execute((spans, canonical))
-
-        assert len(routes.annotations) >= 1
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
-        assert ambiguity_updates == []
-
-        mock_save.assert_called_once()
-        checkpoint = mock_save.call_args[0][0]
-        llm_rf = checkpoint["llm_refinement"]
-        assert llm_rf["used"] is False
-        assert any(
-            "api timeout" in d.lower() and "fell back" in d.lower()
-            for d in llm_rf["route_diagnostics"]
-        ), f"Expected fallback diagnostic, got: {llm_rf['route_diagnostics']}"
-        assert routes.structured_route_diagnostics
-        assert routes.structured_route_diagnostics[0]["kind"] == (
-            "route_refinement_fallback"
-        )
-
     def test_valid_llm_output_merged_with_correct_semantics(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """LLM refinement output with real span_id is merged correctly."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
         # Find the real failure span_id
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None, "Must find failure span"
 
         mock_client.call_json.return_value = {
@@ -1217,9 +1199,7 @@ class TestFieldRouteLLMRefinement:
         # LLM annotation must be present with correct semantics
         failure_anns = routes.get_annotations_by_role("failure_mode")
         assert len(failure_anns) >= 1
-        matched = [
-            a for a in failure_anns if a.span_id == failure_span.span_id
-        ]
+        matched = [a for a in failure_anns if a.span_id == failure_span.span_id]
         assert len(matched) == 1
         ann = matched[0]
         assert ann.executable is False
@@ -1230,14 +1210,11 @@ class TestFieldRouteLLMRefinement:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """LLM returns condition + handler for same span → both retained."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1269,9 +1246,7 @@ class TestFieldRouteLLMRefinement:
         # Both annotations must exist for the same span
         span_anns = routes.get_annotations(failure_span.span_id)
         roles = {a.semantic_role for a in span_anns}
-        assert "failure_mode" in roles, (
-            f"Missing failure_mode in annotations: {roles}"
-        )
+        assert "failure_mode" in roles, f"Missing failure_mode in annotations: {roles}"
         assert "exception_handler_action" in roles, (
             f"Missing exception_handler_action in annotations: {roles}"
         )
@@ -1287,15 +1262,12 @@ class TestFieldRouteLLMRefinement:
     def test_llm_malformed_field_rejected_prior_kept(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid field is rejected, prior survives."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """LLM annotation with invalid field is rejected, structural prior survives."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         # LLM returns invalid field
@@ -1315,28 +1287,28 @@ class TestFieldRouteLLMRefinement:
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        # The invalid annotation must NOT have replaced the prior
+        # The invalid annotation must NOT have been accepted
         process_anns = routes.get_annotations_by_role("process_step")
         for a in process_anns:
-            assert a.field != "invalid_field_xyz", (
-                "Malformed field must not be accepted"
-            )
-        # Deterministic failure_mode annotation must still exist
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
+            assert a.field != "invalid_field_xyz", "Malformed field must not be accepted"
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when LLM annotation is rejected"
+        )
 
     def test_llm_missing_executable_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation without executable flag is rejected."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """LLM annotation without executable flag is rejected, structural prior survives."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         # LLM returns no executable field
@@ -1355,50 +1327,51 @@ class TestFieldRouteLLMRefinement:
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        # Deterministic prior must still be present (LLM annotation rejected)
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when LLM annotation is rejected"
+        )
 
     def test_llm_unknown_span_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """LLM annotation referencing unknown span is rejected."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
         mock_client.call_json.return_value = {
             "annotations": [
-                {"span_id": "s_nonexistent", "field": "behavior",
-                 "semantic_role": "process_step", "executable": True},
+                {
+                    "span_id": "s_nonexistent",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                },
             ],
             "split_recommendations": [],
             "diagnostics": [],
         }
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
 
         routes, _ = router.execute((spans, canonical))
 
-        unknown_anns = [
-            a for a in routes.annotations if a.span_id == "s_nonexistent"
-        ]
-        assert len(unknown_anns) == 0, (
-            "LLM annotation for unknown span must be rejected"
-        )
+        unknown_anns = [a for a in routes.annotations if a.span_id == "s_nonexistent"]
+        assert len(unknown_anns) == 0, "LLM annotation for unknown span must be rejected"
 
     def test_llm_invalid_semantic_role_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid semantic_role is rejected."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """LLM annotation with invalid semantic_role is rejected, structural prior survives."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1418,27 +1391,26 @@ class TestFieldRouteLLMRefinement:
         routes, _ = router.execute((spans, canonical))
 
         # Invalid role must not appear
-        bad = [
-            a for a in routes.annotations
-            if a.semantic_role == "handler_action"
-        ]
+        bad = [a for a in routes.annotations if a.semantic_role == "handler_action"]
         assert len(bad) == 0, "Invalid semantic_role must be rejected"
-        # Deterministic prior survives
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when LLM annotation is rejected"
+        )
 
     def test_llm_invalid_construct_target_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid construct_target is rejected."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """LLM annotation with invalid construct_target is rejected, structural prior survives."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1458,26 +1430,29 @@ class TestFieldRouteLLMRefinement:
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        matched = [a for a in failure_anns if a.span_id == failure_span.span_id]
-        assert len(matched) >= 1
-        # The valid prior's construct_target must survive (LLM's was rejected)
-        assert any(a.construct_target == "EXCEPTION_FLOW" for a in matched), (
-            "Valid prior construct_target must survive after LLM rejection"
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when LLM annotation is rejected"
+        )
+        # The structural prior still carries the suggested_semantic_role
+        matched = [sp for sp in failure_priors if sp.span_id == failure_span.span_id]
+        assert len(matched) >= 1, (
+            "Structural prior must reference the failure span"
         )
 
     def test_llm_invalid_slot_target_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid slot_target is rejected."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """LLM annotation with invalid slot_target is rejected, structural prior survives."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1498,11 +1473,17 @@ class TestFieldRouteLLMRefinement:
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        matched = [a for a in failure_anns if a.span_id == failure_span.span_id]
-        assert len(matched) >= 1
-        assert all(a.slot_target != "made_up" for a in matched), (
-            "Invalid slot_target must be rejected"
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when LLM annotation is rejected"
+        )
+        matched = [sp for sp in failure_priors if sp.span_id == failure_span.span_id]
+        assert len(matched) >= 1, (
+            "Structural prior must reference the failure span"
         )
 
     def test_same_span_same_role_different_slot_both_retained(
@@ -1512,7 +1493,6 @@ class TestFieldRouteLLMRefinement:
 
         Uses 'constraint' role which allows flexible construct/slot combos.
         """
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
         from nl2spl.canonical import (
             CanonicalCompileInput,
@@ -1525,27 +1505,36 @@ class TestFieldRouteLLMRefinement:
         )
 
         section = RawSection(
-            "sec_policies", "policies",
-            "Policies", "Limit requests. Do not delegate.", 1,
+            "sec_policies",
+            "policies",
+            "Policies",
+            "Limit requests. Do not delegate.",
+            1,
         )
         packet = SemanticPacket(
-            "p_policy_0", "sec_policies",
-            "policy", "Limit requests. Do not delegate.", "hint",
+            "p_policy_0",
+            "sec_policies",
+            "policy",
+            "Limit requests. Do not delegate.",
+            "hint",
             compile_targets=["constraint.requirement"],
         )
         hint = CompileHint(
             source_section_id="sec_policies",
             text="Limit requests.",
             suggested_kind="requirement",
-            evidence=[EvidenceRef(
-                source_section_id="sec_policies",
-                source_packet_id="p_policy_0",
-            )],
+            evidence=[
+                EvidenceRef(
+                    source_section_id="sec_policies",
+                    source_packet_id="p_policy_0",
+                )
+            ],
             metadata={"semantic_role": "constraint", "executable": False},
         )
         compile_hints = CompileHints(constraint_hints=[hint])
         canonical = CanonicalCompileInput(
-            source_schema="structural_nl", schema_version="1.0",
+            source_schema="structural_nl",
+            schema_version="1.0",
             raw_text="Policies:\nLimit requests. Do not delegate.",
             raw_sections=[section],
             semantic_packets=[packet],
@@ -1587,8 +1576,7 @@ class TestFieldRouteLLMRefinement:
 
         span_anns = routes.get_annotations(span_id)
         assert len(span_anns) >= 2, (
-            f"Same role with different slot must produce "
-            f"separate annotations, got {len(span_anns)}"
+            f"Same role with different slot must produce separate annotations, got {len(span_anns)}"
         )
         slots = {a.slot_target for a in span_anns}
         assert "boundary" in slots
@@ -1600,14 +1588,10 @@ class TestFieldRouteLLMRefinement:
         """Checkpoint ambiguity_updates == returned ambiguity_updates."""
         from unittest.mock import patch
 
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
-
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1617,11 +1601,13 @@ class TestFieldRouteLLMRefinement:
                     "parent_span_id": failure_span.span_id,
                     "reason": "Mixed condition and handler.",
                     "segments": [
-                        {"text": "Missing timeframe",
-                         "semantic_role": "failure_mode",
-                         "construct_target": "EXCEPTION_FLOW",
-                         "slot_target": "condition",
-                         "executable": False},
+                        {
+                            "text": "Missing timeframe",
+                            "semantic_role": "failure_mode",
+                            "construct_target": "EXCEPTION_FLOW",
+                            "slot_target": "condition",
+                            "executable": False,
+                        },
                     ],
                 }
             ],
@@ -1638,8 +1624,7 @@ class TestFieldRouteLLMRefinement:
         expected_len = len(ambiguity_updates)
         actual_len = len(checkpoint["ambiguity_updates"])
         assert actual_len == expected_len, (
-            f"Checkpoint ambiguity_updates ({actual_len}) must match "
-            f"return value ({expected_len})"
+            f"Checkpoint ambiguity_updates ({actual_len}) must match return value ({expected_len})"
         )
         if expected_len > 0:
             assert checkpoint["ambiguity_updates"][0]["span_id"] == failure_span.span_id
@@ -1649,14 +1634,11 @@ class TestFieldRouteLLMRefinement:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """LLM split recommendations are returned as ambiguity_updates."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -1666,16 +1648,20 @@ class TestFieldRouteLLMRefinement:
                     "parent_span_id": failure_span.span_id,
                     "reason": "Condition and handler are mixed.",
                     "segments": [
-                        {"text": "Missing timeframe",
-                         "semantic_role": "failure_mode",
-                         "construct_target": "EXCEPTION_FLOW",
-                         "slot_target": "condition",
-                         "executable": False},
-                        {"text": "ask one clarifying question",
-                         "semantic_role": "exception_handler_action",
-                         "construct_target": "EXCEPTION_FLOW",
-                         "slot_target": "handler",
-                         "executable": True},
+                        {
+                            "text": "Missing timeframe",
+                            "semantic_role": "failure_mode",
+                            "construct_target": "EXCEPTION_FLOW",
+                            "slot_target": "condition",
+                            "executable": False,
+                        },
+                        {
+                            "text": "ask one clarifying question",
+                            "semantic_role": "exception_handler_action",
+                            "construct_target": "EXCEPTION_FLOW",
+                            "slot_target": "handler",
+                            "executable": True,
+                        },
                     ],
                 }
             ],
@@ -1687,8 +1673,7 @@ class TestFieldRouteLLMRefinement:
 
         # Ambiguity updates must contain the split recommendation
         assert len(ambiguity_updates) >= 1, (
-            f"Split recommendations must become ambiguity_updates, "
-            f"got {len(ambiguity_updates)}"
+            f"Split recommendations must become ambiguity_updates, got {len(ambiguity_updates)}"
         )
         update = ambiguity_updates[0]
         assert update["span_id"] == failure_span.span_id
@@ -1700,7 +1685,6 @@ class TestFieldRouteLLMRefinement:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """Generic NL path uses existing Stage 2, even when flag is enabled."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
         mock_client.call_json.return_value = {
             "routes": {
                 "identity": ["s1"],
@@ -1723,6 +1707,7 @@ class TestFieldRouteLLMRefinement:
         call_kwargs = mock_client.call_json.call_args.kwargs
         assert call_kwargs["stage_name"] == "stage2_field_router"
 
+
 # ===========================================================================
 # Step 4 — Validator-specific tests
 # ===========================================================================
@@ -1744,15 +1729,17 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s_nonexistent", field="behavior",
-                    semantic_role="process_step", executable=True,
+                    span_id="s_nonexistent",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
                 ),
             ],
         )
         spans = [SpanIR("s1", "test")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.accepted) == 0
         assert len(result.rejected) == 1
@@ -1771,15 +1758,17 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
-                    semantic_role="invented_role_xyz", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="invented_role_xyz",
+                    executable=True,
                 ),
             ],
         )
         spans = [SpanIR("s1", "test")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.accepted) == 0
         assert len(result.rejected) == 1
@@ -1798,8 +1787,10 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
-                    semantic_role="process_step", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
                     source_section_id="sec_process",
                     source_packet_id="p_process_step_0",
                 ),
@@ -1808,7 +1799,7 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "Do the thing.", source_section_id="sec_process")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.accepted) == 1
         ann = result.accepted[0]
@@ -1828,15 +1819,17 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="resources",
-                    semantic_role="input_contract", executable=True,
+                    span_id="s1",
+                    field="resources",
+                    semantic_role="input_contract",
+                    executable=True,
                 ),
             ],
         )
         spans = [SpanIR("s1", "user request")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
         assert "input_contract must be non-executable" in result.rejected[0].reason.lower()
@@ -1854,7 +1847,8 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
+                    span_id="s1",
+                    field="behavior",
                     semantic_role="failure_mode",
                     construct_target="EXCEPTION_FLOW",
                     slot_target="condition",
@@ -1865,7 +1859,7 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "Missing timeframe.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
         assert "failure_mode must be non-executable" in result.rejected[0].reason.lower()
@@ -1883,7 +1877,8 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
+                    span_id="s1",
+                    field="behavior",
                     semantic_role="exception_handler_action",
                     construct_target="EXCEPTION_FLOW",
                     slot_target="handler",
@@ -1895,7 +1890,7 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "ask one clarifying question.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.accepted) == 1
         ann = result.accepted[0]
@@ -1915,7 +1910,8 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
+                    span_id="s1",
+                    field="behavior",
                     semantic_role="exception_handler_action",
                     construct_target="EXCEPTION_FLOW",
                     slot_target="handler",
@@ -1927,7 +1923,7 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "Missing timeframe.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
         assert "handler action verb" in result.rejected[0].reason.lower()
@@ -1945,15 +1941,17 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
-                    semantic_role="delegation_intent", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    executable=True,
                 ),
             ],
         )
         spans = [SpanIR("s1", "delegate research")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
         assert "delegation_intent must be non-executable" in result.rejected[0].reason.lower()
@@ -1971,7 +1969,8 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
+                    span_id="s1",
+                    field="behavior",
                     semantic_role="failure_mode",
                     construct_target="CONSTRAINT",
                     slot_target="condition",
@@ -1982,13 +1981,14 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "Missing timeframe.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
         assert "requires construct_target='EXCEPTION_FLOW'" in result.rejected[0].reason
 
-    def test_validator_fallback_triggered_when_majority_rejected(self) -> None:
-        """Validator triggers fallback when >50% annotations rejected."""
+    def test_validator_no_fallback_even_when_majority_rejected(self) -> None:
+        """Validator does NOT trigger fallback — rejected annotations are
+        reported but do not suppress accepted ones or split recommendations."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1999,20 +1999,29 @@ class TestRouteRefinementValidator:
 
         llm_result = RouteRefinementResult(
             annotations=[
-                RefinedAnnotation(span_id="s1", field="behavior",
-                                  semantic_role="process_step", executable=True),
-                RefinedAnnotation(span_id="s_fake_1", field="behavior",
-                                  semantic_role="process_step", executable=True),
-                RefinedAnnotation(span_id="s_fake_2", field="behavior",
-                                  semantic_role="process_step", executable=True),
+                RefinedAnnotation(
+                    span_id="s1", field="behavior", semantic_role="process_step", executable=True
+                ),
+                RefinedAnnotation(
+                    span_id="s_fake_1",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
+                RefinedAnnotation(
+                    span_id="s_fake_2",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
             ],
         )
         spans = [SpanIR("s1", "Do the thing.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        assert result.fallback_triggered is True
+        assert result.fallback_triggered is False
         assert len(result.accepted) == 1
         assert len(result.rejected) == 2
 
@@ -2028,23 +2037,28 @@ class TestRouteRefinementValidator:
 
         llm_result = RouteRefinementResult(
             annotations=[
-                RefinedAnnotation(span_id="s1", field="behavior",
-                                  semantic_role="process_step", executable=True),
-                RefinedAnnotation(span_id="s2", field="behavior",
-                                  semantic_role="process_step", executable=True),
-                RefinedAnnotation(span_id="s_fake", field="behavior",
-                                  semantic_role="process_step", executable=True),
+                RefinedAnnotation(
+                    span_id="s1", field="behavior", semantic_role="process_step", executable=True
+                ),
+                RefinedAnnotation(
+                    span_id="s2", field="behavior", semantic_role="process_step", executable=True
+                ),
+                RefinedAnnotation(
+                    span_id="s_fake",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
             ],
         )
         spans = [SpanIR("s1", "Do thing."), SpanIR("s2", "Do another.")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert result.fallback_triggered is False
         assert len(result.accepted) == 2
         assert len(result.rejected) == 1
-
 
     def test_validator_provenance_mismatch_warning_not_reject(self) -> None:
         """LLM provenance that differs from span → warning, annotation still accepted."""
@@ -2059,90 +2073,33 @@ class TestRouteRefinementValidator:
         llm_result = RouteRefinementResult(
             annotations=[
                 RefinedAnnotation(
-                    span_id="s1", field="behavior",
-                    semantic_role="process_step", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
                     source_section_id="sec_wrong",
                     source_packet_id="p_wrong",
                 ),
             ],
         )
-        spans = [SpanIR("s1", "Do the thing.",
-                        source_section_id="sec_correct",
-                        source_packet_id="p_correct")]
+        spans = [
+            SpanIR(
+                "s1", "Do the thing.", source_section_id="sec_correct", source_packet_id="p_correct"
+            )
+        ]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # Annotation still accepted
         assert len(result.accepted) == 1
         # But provenance mismatch warning in diagnostics
         assert any(
-            "Provenance mismatch" in d and "source_section_id" in d
-            for d in result.diagnostics
+            "Provenance mismatch" in d and "source_section_id" in d for d in result.diagnostics
         ), f"Expected provenance mismatch diagnostic, got: {result.diagnostics}"
         assert any(
-            "Provenance mismatch" in d and "source_packet_id" in d
-            for d in result.diagnostics
-        ), f"Expected packet provenance mismatch diagnostic"
-
-    def test_validator_hard_fact_conflict_visible_in_diagnostics(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
-        """Hard fact conflict produces a warning diagnostic visible in output."""
-        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
-            RefinedAnnotation,
-            RouteRefinementResult,
-        )
-        from nl2spl.pipeline.stages.stage2_field_router_validator import (
-            RouteRefinementValidator,
-        )
-        from nl2spl.canonical import (
-            CanonicalCompileInput,
-            EvidenceRef,
-            FailureModeFact,
-            HardFacts,
-        )
-
-        hf = HardFacts(
-            failure_modes=[
-                FailureModeFact(
-                    name="test_failure", text="Test failure.",
-                    source_section_id="sec_failure_handling",
-                    evidence=[
-                        EvidenceRef(
-                            source_section_id="sec_failure_handling",
-                            source_packet_id="p_failure_mode_test",
-                        ),
-                    ],
-                ),
-            ],
-        )
-        canonical = CanonicalCompileInput(
-            source_schema="structural_nl", schema_version="1.0",
-            raw_text="Failure handling:\nTest failure.",
-            hard_facts=hf,
-        )
-        spans = [SpanIR("s1", "Test failure.",
-                        source_packet_id="p_failure_mode_test")]
-
-        # LLM says process_step for a failure_mode hard fact → conflict
-        llm_result = RouteRefinementResult(
-            annotations=[
-                RefinedAnnotation(
-                    span_id="s1", field="behavior",
-                    semantic_role="process_step", executable=True,
-                ),
-            ],
-        )
-        validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=canonical, priors=[])
-
-        # Not rejected (process_step is a valid role)
-        assert len(result.accepted) == 1
-        # But conflict diagnostic is visible
-        assert any(
-            "Hard fact conflict" in d for d in result.diagnostics
-        ), f"Expected hard fact conflict diagnostic, got: {result.diagnostics}"
+            "Provenance mismatch" in d and "source_packet_id" in d for d in result.diagnostics
+        ), "Expected packet provenance mismatch diagnostic"
 
     def test_validator_split_parent_span_must_exist(self) -> None:
         """Split recommendation with unknown parent_span_id is rejected."""
@@ -2168,12 +2125,12 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "test")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.split_recommendations) == 0
-        assert any(
-            "unknown parent_span_id" in d for d in result.diagnostics
-        ), f"Expected rejected split diagnostic, got: {result.diagnostics}"
+        assert any("unknown parent_span_id" in d for d in result.diagnostics), (
+            f"Expected rejected split diagnostic, got: {result.diagnostics}"
+        )
 
     def test_validator_split_segment_text_in_parent(self) -> None:
         """Split segment text not in parent span → accepted with warning."""
@@ -2199,13 +2156,13 @@ class TestRouteRefinementValidator:
         spans = [SpanIR("s1", "real text only")]
 
         validator = RouteRefinementValidator()
-        result = validator.validate(llm_result, spans, canonical_input=None, priors=[])
+        result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # Segment still present but warning emitted
         assert len(result.split_recommendations) == 1
-        assert any(
-            "not found in parent span" in d for d in result.diagnostics
-        ), f"Expected segment warning, got: {result.diagnostics}"
+        assert any("not found in parent span" in d for d in result.diagnostics), (
+            f"Expected segment warning, got: {result.diagnostics}"
+        )
 
 
 # ===========================================================================
@@ -2234,30 +2191,46 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             behavior=["s_fail", "s_good"],
             annotations=[
-                RouteAnnotation(span_id="s_fail", field="behavior",
-                                semantic_role="failure_mode",
-                                construct_target="EXCEPTION_FLOW",
-                                slot_target="condition",
-                                executable=False),
-                RouteAnnotation(span_id="s_good", field="behavior",
-                                semantic_role="process_step",
-                                executable=True),
+                RouteAnnotation(
+                    span_id="s_fail",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s_good",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
             ],
         )
 
         # LLM tries to create a command from the failure span
         mock_client.call_json.return_value = {
             "steps": [
-                {"step_id": "st_bad", "text": "Handle missing timeframe",
-                 "command_type": "GENERAL_COMMAND",
-                 "source_span_ids": ["s_fail"],
-                 "inputs": [], "outputs": [],
-                 "flow_ref": "main", "kind": "normal"},
-                {"step_id": "st_good", "text": "Determine communication type",
-                 "command_type": "GENERAL_COMMAND",
-                 "source_span_ids": ["s_good"],
-                 "inputs": [], "outputs": [],
-                 "flow_ref": "main", "kind": "normal"},
+                {
+                    "step_id": "st_bad",
+                    "text": "Handle missing timeframe",
+                    "command_type": "GENERAL_COMMAND",
+                    "source_span_ids": ["s_fail"],
+                    "inputs": [],
+                    "outputs": [],
+                    "flow_ref": "main",
+                    "kind": "normal",
+                },
+                {
+                    "step_id": "st_good",
+                    "text": "Determine communication type",
+                    "command_type": "GENERAL_COMMAND",
+                    "source_span_ids": ["s_good"],
+                    "inputs": [],
+                    "outputs": [],
+                    "flow_ref": "main",
+                    "kind": "normal",
+                },
             ],
         }
         extractor = StepExtractor(pipeline_config, mock_client)
@@ -2266,14 +2239,10 @@ class TestDownstreamAlignment:
         )
 
         # Bad step from failure span must be dropped
-        bad = [s for s in steps
-               if hasattr(s, "source_span_ids") and "s_fail" in s.source_span_ids]
-        assert len(bad) == 0, (
-            f"Failure-sourced command must be dropped, got {len(bad)}"
-        )
+        bad = [s for s in steps if hasattr(s, "source_span_ids") and "s_fail" in s.source_span_ids]
+        assert len(bad) == 0, f"Failure-sourced command must be dropped, got {len(bad)}"
         # Good step must survive
-        good = [s for s in steps
-                if hasattr(s, "source_span_ids") and "s_good" in s.source_span_ids]
+        good = [s for s in steps if hasattr(s, "source_span_ids") and "s_good" in s.source_span_ids]
         assert len(good) == 1, "Legitimate process_step command must survive"
 
     def test_stage7_delegation_intent_not_invoke_worker(
@@ -2292,29 +2261,45 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             behavior=["s_del", "s_good"],
             annotations=[
-                RouteAnnotation(span_id="s_del", field="behavior",
-                                semantic_role="delegation_intent",
-                                route_family="delegation_boundary",
-                                executable=False),
-                RouteAnnotation(span_id="s_good", field="behavior",
-                                semantic_role="process_step",
-                                executable=True),
+                RouteAnnotation(
+                    span_id="s_del",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s_good",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
             ],
         )
 
         # LLM tries to create INVOKE_WORKER from non-executable delegation span
         mock_client.call_json.return_value = {
             "steps": [
-                {"step_id": "st_bad", "text": "delegate research",
-                 "command_type": "INVOKE_WORKER",
-                 "source_span_ids": ["s_del"],
-                 "inputs": [], "outputs": [],
-                 "flow_ref": "main", "kind": "normal"},
-                {"step_id": "st_good", "text": "Determine communication type",
-                 "command_type": "GENERAL_COMMAND",
-                 "source_span_ids": ["s_good"],
-                 "inputs": [], "outputs": [],
-                 "flow_ref": "main", "kind": "normal"},
+                {
+                    "step_id": "st_bad",
+                    "text": "delegate research",
+                    "command_type": "INVOKE_WORKER",
+                    "source_span_ids": ["s_del"],
+                    "inputs": [],
+                    "outputs": [],
+                    "flow_ref": "main",
+                    "kind": "normal",
+                },
+                {
+                    "step_id": "st_good",
+                    "text": "Determine communication type",
+                    "command_type": "GENERAL_COMMAND",
+                    "source_span_ids": ["s_good"],
+                    "inputs": [],
+                    "outputs": [],
+                    "flow_ref": "main",
+                    "kind": "normal",
+                },
             ],
         }
         extractor = StepExtractor(pipeline_config, mock_client)
@@ -2324,16 +2309,15 @@ class TestDownstreamAlignment:
 
         # INVOKE_WORKER from non-executable delegation span must be dropped
         invoke_steps = [
-            s for s in steps
+            s
+            for s in steps
             if hasattr(s, "command_type") and "INVOKE_WORKER" in str(s.command_type)
         ]
         assert len(invoke_steps) == 0, (
-            f"INVOKE_WORKER from delegation_intent must be dropped, "
-            f"got {len(invoke_steps)}"
+            f"INVOKE_WORKER from delegation_intent must be dropped, got {len(invoke_steps)}"
         )
         # Good step survives
-        good = [s for s in steps
-                if hasattr(s, "source_span_ids") and "s_good" in s.source_span_ids]
+        good = [s for s in steps if hasattr(s, "source_span_ids") and "s_good" in s.source_span_ids]
         assert len(good) == 1, "Legitimate process_step command must survive"
 
     def test_stage7_handler_action_can_be_command(
@@ -2349,33 +2333,44 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             behavior=["s_handler"],
             annotations=[
-                RouteAnnotation(span_id="s_handler", field="behavior",
-                                semantic_role="exception_handler_action",
-                                construct_target="EXCEPTION_FLOW",
-                                slot_target="handler",
-                                executable=True),
+                RouteAnnotation(
+                    span_id="s_handler",
+                    field="behavior",
+                    semantic_role="exception_handler_action",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="handler",
+                    executable=True,
+                ),
             ],
         )
 
         mock_client.call_json.return_value = {
             "steps": [
-                {"step_id": "st_handler", "text": "ask one clarifying question",
-                 "command_type": "GENERAL_COMMAND",
-                 "source_span_ids": ["s_handler"],
-                 "inputs": [], "outputs": [],
-                 "flow_ref": "main", "kind": "normal"},
+                {
+                    "step_id": "st_handler",
+                    "text": "ask one clarifying question",
+                    "command_type": "GENERAL_COMMAND",
+                    "source_span_ids": ["s_handler"],
+                    "inputs": [],
+                    "outputs": [],
+                    "flow_ref": "main",
+                    "kind": "normal",
+                },
             ],
         }
         extractor = StepExtractor(pipeline_config, mock_client)
         steps, _ = extractor.execute(
-            (spans, routes,
-             FlowStructureIR(main_flow_spans=["s_handler"]),
-             BlockStructureIR(), SymbolTable())
+            (
+                spans,
+                routes,
+                FlowStructureIR(main_flow_spans=["s_handler"]),
+                BlockStructureIR(),
+                SymbolTable(),
+            )
         )
 
         handler_steps = [
-            s for s in steps
-            if hasattr(s, "source_span_ids") and "s_handler" in s.source_span_ids
+            s for s in steps if hasattr(s, "source_span_ids") and "s_handler" in s.source_span_ids
         ]
         assert len(handler_steps) >= 1, (
             "Executable exception_handler_action should produce a command"
@@ -2396,18 +2391,24 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             rules=["s_boundary"],
             annotations=[
-                RouteAnnotation(span_id="s_boundary", field="rules",
-                                semantic_role="delegation_boundary_constraint",
-                                executable=False),
+                RouteAnnotation(
+                    span_id="s_boundary",
+                    field="rules",
+                    semantic_role="delegation_boundary_constraint",
+                    executable=False,
+                ),
             ],
         )
 
         mock_client.call_json.return_value = {
             "constraints": [
-                {"constraint_id": "c_boundary",
-                 "text": "Only delegate if evidence can be normalized.",
-                 "kind": "obligation", "targets": ["delegation"],
-                 "source_span_ids": ["s_boundary"]},
+                {
+                    "constraint_id": "c_boundary",
+                    "text": "Only delegate if evidence can be normalized.",
+                    "kind": "obligation",
+                    "targets": ["delegation"],
+                    "source_span_ids": ["s_boundary"],
+                },
             ],
         }
         extractor = ConstraintExtractor(pipeline_config, mock_client)
@@ -2433,19 +2434,26 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             rules=["s_fail"],
             annotations=[
-                RouteAnnotation(span_id="s_fail", field="behavior",
-                                semantic_role="failure_mode",
-                                construct_target="EXCEPTION_FLOW",
-                                slot_target="condition",
-                                executable=False),
+                RouteAnnotation(
+                    span_id="s_fail",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
             ],
         )
 
         mock_client.call_json.return_value = {
             "constraints": [
-                {"constraint_id": "c_bad", "text": "Handle missing timeframe",
-                 "kind": "obligation", "targets": ["global"],
-                 "source_span_ids": ["s_fail"]},
+                {
+                    "constraint_id": "c_bad",
+                    "text": "Handle missing timeframe",
+                    "kind": "obligation",
+                    "targets": ["global"],
+                    "source_span_ids": ["s_fail"],
+                },
             ],
         }
         extractor = ConstraintExtractor(pipeline_config, mock_client)
@@ -2457,9 +2465,7 @@ class TestDownstreamAlignment:
         assert "Missing timeframe" not in prompt, (
             "failure_mode must be excluded from constraint prompt"
         )
-        assert len(result) == 0, (
-            "failure_mode-sourced constraint must be rejected"
-        )
+        assert len(result) == 0, "failure_mode-sourced constraint must be rejected"
 
     # -- Stage 6: resource extraction ------------------------------------
 
@@ -2471,7 +2477,7 @@ class TestDownstreamAlignment:
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
         from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 
-        canonical = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
         spans = [
             SpanIR("s_process", "Determine communication type."),
             SpanIR("s_fail", "Missing timeframe."),
@@ -2479,26 +2485,43 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             behavior=["s_process", "s_fail"],
             annotations=[
-                RouteAnnotation(span_id="s_process", field="behavior",
-                                semantic_role="process_step", executable=True),
-                RouteAnnotation(span_id="s_fail", field="behavior",
-                                semantic_role="failure_mode",
-                                construct_target="EXCEPTION_FLOW",
-                                slot_target="condition",
-                                executable=False),
+                RouteAnnotation(
+                    span_id="s_process",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
+                RouteAnnotation(
+                    span_id="s_fail",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
             ],
         )
 
         mock_client.call_json.return_value = {
             "variables": [
-                {"name": "missing_timeframe", "data_type": "text",
-                 "required": False, "description": "Missing timeframe condition",
-                 "source": "step"},
-                {"name": "communication_type", "data_type": "text",
-                 "required": False, "description": "Communication type",
-                 "source": "step"},
+                {
+                    "name": "missing_timeframe",
+                    "data_type": "text",
+                    "required": False,
+                    "description": "Missing timeframe condition",
+                    "source": "step",
+                },
+                {
+                    "name": "communication_type",
+                    "data_type": "text",
+                    "required": False,
+                    "description": "Communication type",
+                    "source": "step",
+                },
             ],
-            "files": [], "apis": [], "types": [],
+            "files": [],
+            "apis": [],
+            "types": [],
         }
         extractor = ResourceExtractor(pipeline_config, mock_client)
         resources, _ = extractor.execute(
@@ -2507,44 +2530,48 @@ class TestDownstreamAlignment:
 
         names = {v.name for v in resources.variables}
         assert "communication_type" in names, "Legitimate variable must survive"
-        assert "missing_timeframe" not in names, (
-            "Failure-derived variable must be rejected"
-        )
+        assert "missing_timeframe" not in names, "Failure-derived variable must be rejected"
 
     # -- Internal-Comms happy path ---------------------------------------
 
     def test_internal_comms_happy_path_stable(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """Full Internal-Comms structural NL → annotations still correct."""
+        """Full Internal-Comms structural NL → structural priors still correct."""
         routes, spans, canonical, _ = _adapt_slice_route(
             STRUCTURAL_TEXT, pipeline_config, mock_client
         )
 
-        assert len(routes.annotations) >= 5, (
-            f"Expected at least 5 annotations, got {len(routes.annotations)}"
+        # Phase D: packet types → StructuralPrior, not RouteAnnotation
+        assert len(routes.structural_priors) >= 5, (
+            f"Expected at least 5 structural priors, got {len(routes.structural_priors)}"
         )
-        roles = {a.semantic_role for a in routes.annotations if a.semantic_role}
-        assert "failure_mode" in roles
-        assert "process_step" in roles
-        assert "delegation_intent" in roles
-        assert "input_contract" in roles or "output_contract" in roles
+        prior_roles = {
+            sp.metadata.get("suggested_semantic_role")
+            for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role")
+        }
+        assert "failure_mode" in prior_roles
+        assert "process_step" in prior_roles
+        assert "delegation_intent" in prior_roles
+        assert "input_contract" in prior_roles or "output_contract" in prior_roles
 
     def test_mixed_failure_nl_has_correct_annotation_types(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """Mixed failure text → annotations include failure_mode (correct type)."""
-        routes, spans, _, _ = _adapt_slice_route(
-            MIXED_FAILURE_TEXT, pipeline_config, mock_client
-        )
+        """Mixed failure text → structural priors include failure_mode (correct type)."""
+        routes, spans, _, _ = _adapt_slice_route(MIXED_FAILURE_TEXT, pipeline_config, mock_client)
 
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1
-        for ann in failure_anns:
-            assert ann.semantic_role == "failure_mode"
-            assert ann.executable is False
-            assert ann.construct_target == "EXCEPTION_FLOW"
-            assert ann.slot_target == "condition"
+        # Phase D: failure_mode packet → StructuralPrior, not RouteAnnotation
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "failure_mode packet should generate StructuralPrior"
+        )
+        for sp in failure_priors:
+            assert sp.suggested_field == "behavior"
 
     # -- Route diagnostics in report -------------------------------------
 
@@ -2556,7 +2583,8 @@ class TestDownstreamAlignment:
             behavior=["s1"],
             annotations=[
                 RouteAnnotation(
-                    span_id="s1", field="behavior",
+                    span_id="s1",
+                    field="behavior",
                     semantic_role="failure_mode",
                     diagnostics=["test_diagnostic: conflict with prior"],
                 ),
@@ -2574,13 +2602,20 @@ class TestDownstreamAlignment:
         routes = FieldRouteIR(
             behavior=["s_exec", "s_non_exec"],
             annotations=[
-                RouteAnnotation(span_id="s_exec", field="behavior",
-                                semantic_role="process_step", executable=True),
-                RouteAnnotation(span_id="s_non_exec", field="behavior",
-                                semantic_role="failure_mode",
-                                construct_target="EXCEPTION_FLOW",
-                                slot_target="condition",
-                                executable=False),
+                RouteAnnotation(
+                    span_id="s_exec",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
+                RouteAnnotation(
+                    span_id="s_non_exec",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
             ],
         )
 
@@ -2598,14 +2633,11 @@ class TestValidatorMergeIntegration:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """Merge prefers prior/span provenance over LLM provenance."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
         # The span has real provenance from the adapter
         assert failure_span.source_section_id is not None
@@ -2640,26 +2672,31 @@ class TestValidatorMergeIntegration:
         assert ann.source_section_id != "sec_fake", (
             "LLM provenance must not override prior provenance"
         )
-        assert ann.source_packet_id != "p_fake", (
-            "LLM packet id must not override prior packet id"
-        )
+        assert ann.source_packet_id != "p_fake", "LLM packet id must not override prior packet id"
 
-    def test_merge_falls_back_to_prior_when_llm_all_invalid(
+    def test_deterministic_priors_survive_when_all_llm_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """When all LLM annotations are rejected, priors survive unchanged."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
+        """When all LLM annotations are rejected, structural priors remain."""
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
         # LLM returns all invalid annotations
         mock_client.call_json.return_value = {
             "annotations": [
-                {"span_id": "s_fake_1", "field": "behavior",
-                 "semantic_role": "process_step", "executable": True},
-                {"span_id": "s_fake_2", "field": "behavior",
-                 "semantic_role": "process_step", "executable": True},
+                {
+                    "span_id": "s_fake_1",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                },
+                {
+                    "span_id": "s_fake_2",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                },
             ],
             "split_recommendations": [],
             "diagnostics": [],
@@ -2668,10 +2705,13 @@ class TestValidatorMergeIntegration:
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
-        # Deterministic priors must survive
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1, (
-            "Deterministic failure_mode must survive when all LLM output rejected"
+        # Phase D: failure_mode packet → StructuralPrior (not RouteAnnotation)
+        failure_priors = [
+            sp for sp in routes.structural_priors
+            if sp.metadata.get("suggested_semantic_role") == "failure_mode"
+        ]
+        assert len(failure_priors) >= 1, (
+            "Structural prior for failure_mode must survive when all LLM output rejected"
         )
 
     def test_validator_output_includes_diagnostics(
@@ -2680,14 +2720,10 @@ class TestValidatorMergeIntegration:
         """Validator diagnostics appear in checkpoint route_diagnostics."""
         from unittest.mock import patch
 
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
-
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         # LLM returns executable failure_mode (will be rejected by validator)
@@ -2715,22 +2751,18 @@ class TestValidatorMergeIntegration:
         llm_rf = checkpoint["llm_refinement"]
         diags = llm_rf["route_diagnostics"]
         assert any("failure_mode must be non-executable" in d for d in diags), (
-            f"Expected validator diagnostic about non-executable failure_mode, "
-            f"got: {diags}"
+            f"Expected validator diagnostic about non-executable failure_mode, got: {diags}"
         )
 
     def test_merge_append_handler_uses_prior_provenance_not_llm(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """New handler annotation gets prior provenance, not LLM faked one."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(MIXED_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(MIXED_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
         real_pid = failure_span.source_packet_id
         assert real_pid is not None
@@ -2757,8 +2789,7 @@ class TestValidatorMergeIntegration:
         routes, _ = router.execute((spans, canonical))
 
         handler_anns = [
-            a for a in routes.annotations
-            if a.semantic_role == "exception_handler_action"
+            a for a in routes.annotations if a.semantic_role == "exception_handler_action"
         ]
         assert len(handler_anns) >= 1
         handler = handler_anns[0]
@@ -2779,14 +2810,11 @@ class TestValidatorMergeIntegration:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """Unknown-parent split rejected; valid annotation merged normally."""
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
         mock_client.call_json.return_value = {
@@ -2818,68 +2846,66 @@ class TestValidatorMergeIntegration:
         assert len(failure_anns) >= 1
 
         # Invalid split must NOT reach ambiguity_updates
-        invalid_splits = [
-            u for u in ambiguity_updates
-            if u.get("span_id") == "s_nonexistent"
-        ]
-        assert len(invalid_splits) == 0, (
-            "Unknown-parent split must not reach ambiguity_updates"
-        )
+        invalid_splits = [u for u in ambiguity_updates if u.get("span_id") == "s_nonexistent"]
+        assert len(invalid_splits) == 0, "Unknown-parent split must not reach ambiguity_updates"
 
-    def test_fallback_suppresses_split_recommendations(
+    def test_rejected_annotations_do_not_suppress_valid_splits(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """Fallback triggered → split recommendations suppressed (return [])."""
+        """Rejected annotations do NOT suppress valid split recommendations."""
         from unittest.mock import patch
 
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
-
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
 
-        failure_span = next(
-            (s for s in spans if "Missing timeframe" in s.text), None
-        )
+        failure_span = next((s for s in spans if "Missing timeframe" in s.text), None)
         assert failure_span is not None
 
-        # 2 invalid annotations trigger fallback (>50%), plus a valid split
+        # 2 invalid annotations (unknown span_ids), plus a valid split
         mock_client.call_json.return_value = {
             "annotations": [
-                {"span_id": "s_fake_1", "field": "behavior",
-                 "semantic_role": "process_step", "executable": True},
-                {"span_id": "s_fake_2", "field": "behavior",
-                 "semantic_role": "process_step", "executable": True},
+                {
+                    "span_id": "s_fake_1",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                },
+                {
+                    "span_id": "s_fake_2",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                },
             ],
             "split_recommendations": [
                 {
                     "parent_span_id": failure_span.span_id,
-                    "reason": "Should be suppressed.",
-                    "segments": [{"text": "Missing timeframe",
-                                  "semantic_role": "failure_mode",
-                                  "executable": False}],
+                    "reason": "Valid split.",
+                    "segments": [
+                        {
+                            "text": "Missing timeframe",
+                            "semantic_role": "failure_mode",
+                            "executable": False,
+                        }
+                    ],
                 },
             ],
             "diagnostics": [],
         }
 
         router = FieldRouter(pipeline_config, mock_client)
-        with patch.object(router, "save_checkpoint") as mock_save:
+        with patch.object(router, "save_checkpoint"):
             routes, ambiguity_updates = router.execute((spans, canonical))
 
-        # Fallback triggered → no splits in ambiguity_updates
-        assert len(ambiguity_updates) == 0, (
-            f"Fallback must suppress LLM split recommendations, "
+        # Valid split recommendation must NOT be suppressed
+        assert len(ambiguity_updates) >= 1, (
+            f"Valid split recommendations must not be suppressed by annotation rejections, "
             f"got {len(ambiguity_updates)} updates"
         )
-        # Deterministic priors survive
-        assert len(routes.annotations) >= 1
-
-        # Checkpoint diagnostic confirms suppression
-        mock_save.assert_called_once()
-        checkpoint = mock_save.call_args[0][0]
-        diags = checkpoint["llm_refinement"]["route_diagnostics"]
-        assert any("suppressed" in d.lower() for d in diags), (
-            f"Expected split suppression diagnostic, got: {diags}"
+        # Phase D: structural priors survive (no LLM annotations accepted,
+        # and packet types no longer generate deterministic RouteAnnotations)
+        assert len(routes.structural_priors) >= 1, (
+            "Structural priors must survive when all LLM annotations are rejected"
         )
 
     def test_checkpoint_includes_llm_refinement_summary(
@@ -2888,17 +2914,20 @@ class TestValidatorMergeIntegration:
         """Checkpoint must include llm_refinement metadata."""
         from unittest.mock import patch
 
-        pipeline_config.enable_adapter_guided_fieldroute_llm = True
         mock_client.call_json.return_value = {
             "annotations": [
-                {"span_id": "", "field": "behavior",
-                 "semantic_role": "failure_mode", "executable": False},
+                {
+                    "span_id": "",
+                    "field": "behavior",
+                    "semantic_role": "failure_mode",
+                    "executable": False,
+                },
             ],
             "split_recommendations": [],
             "diagnostics": [],
         }
 
-        canonical = StructuralNLAdapter().adapt(CONDITION_ONLY_FAILURE_TEXT)
+        canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         router = FieldRouter(pipeline_config, mock_client)
 
@@ -2915,3 +2944,484 @@ class TestValidatorMergeIntegration:
         assert llm_rf["used"] is True
         assert "route_diagnostics" in llm_rf
         assert "split_recommendations" in llm_rf
+
+
+# ===========================================================================
+# Phase A — Neutral prior merge
+# ===========================================================================
+
+
+class TestNeutralPriorMerge:
+    """Phase A: neutral pending priors are replaced by accepted LLM annotations."""
+
+    @staticmethod
+    @staticmethod
+    def _make_router_and_inputs(
+        priors: list[RouteAnnotation],
+        llm_annotations: list[dict[str, Any]],
+        span_ids: list[str],
+    ) -> tuple[FieldRouter, list[SpanIR], MagicMock]:
+        mock_client = MagicMock(spec=LLMClient)
+        mock_client.call_json.return_value = {
+            "annotations": llm_annotations,
+            "split_recommendations": [],
+            "diagnostics": [],
+        }
+        config = PipelineConfig(
+            llm=LLMConfig(model="gpt-4o", max_tokens=4096, temperature=0.0, api_key="test"),
+        )
+        router = FieldRouter(config, mock_client)
+        spans = [
+            SpanIR(
+                span_id=sid,
+                text=f"text for {sid}",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+            )
+            for sid in span_ids
+        ]
+        return router, spans, mock_client
+
+    def test_neutral_structural_prior_not_in_merged_annotations(self) -> None:
+        """Phase D: neutral StructuralPrior does NOT enter merged annotations.
+        Only the LLM annotation appears in the final result."""
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # Neutral prior is now StructuralPrior, not passed as RouteAnnotation
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="neutral_context",
+            )
+        ]
+        # No deterministic annotations (neutral prior is structural only)
+        deterministic_annotations: list[RouteAnnotation] = []
+        router, spans, _ = self._make_router_and_inputs(
+            deterministic_annotations,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(
+            deterministic_annotations, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        # Exactly one s13 annotation — the LLM one only
+        s13_anns = [a for a in merged if a.span_id == "s13"]
+        assert len(s13_anns) == 1, f"Expected 1 s13 annotation, got {len(s13_anns)}"
+        ann = s13_anns[0]
+        assert ann.semantic_role == "process_step"
+        assert ann.executable is True
+        # Provenance from structural prior
+        assert ann.source_section_id == "sec_real"
+        assert ann.source_packet_id == "pkt_real"
+
+    def test_neutral_prior_not_in_non_executable_set_after_merge(self) -> None:
+        """Phase D: StructuralPrior does not pollute executable/non-executable sets."""
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="neutral_context",
+            )
+        ]
+        deterministic_annotations: list[RouteAnnotation] = []
+        router, spans, _ = self._make_router_and_inputs(
+            deterministic_annotations,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(
+            deterministic_annotations, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        routes = FieldRouteIR(behavior=["s13"], annotations=merged)
+        exec_ids = routes.get_executable_behavior_span_ids()
+        non_exec_ids = routes.get_non_executable_behavior_span_ids()
+
+        assert "s13" in exec_ids, "s13 must be in executable set"
+        assert "s13" not in non_exec_ids, "s13 must NOT be in non-executable set"
+
+    def test_weak_section_context_structural_prior_not_in_merged(self) -> None:
+        """Phase D: weak_section_context StructuralPrior does NOT enter merged annotations."""
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="weak_section_context",
+            )
+        ]
+        deterministic_annotations: list[RouteAnnotation] = []
+        router, spans, _ = self._make_router_and_inputs(
+            deterministic_annotations,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(
+            deterministic_annotations, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        s13_anns = [a for a in merged if a.span_id == "s13"]
+        assert len(s13_anns) == 1, f"Expected 1 s13 annotation, got {len(s13_anns)}"
+        assert s13_anns[0].executable is True
+
+    def test_genuine_non_executable_not_replaced(self) -> None:
+        """Real failure_mode annotation (with semantic_role) is NOT treated as neutral."""
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # A real failure_mode prior — has semantic_role populated
+        real_prior = RouteAnnotation(
+            span_id="s19",
+            field="behavior",
+            semantic_role="failure_mode",
+            construct_target="EXCEPTION_FLOW",
+            slot_target="condition",
+            executable=False,
+            source_section_id="sec_real",
+            source_packet_id="pkt_real",
+        )
+        priors = [real_prior]
+        router, spans, _ = self._make_router_and_inputs(
+            priors,
+            [
+                {
+                    "span_id": "s19",
+                    "field": "behavior",
+                    "semantic_role": "failure_mode",
+                    "construct_target": "EXCEPTION_FLOW",
+                    "slot_target": "condition",
+                    "executable": False,
+                }
+            ],
+            ["s19"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s19",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
+
+        s19_anns = [a for a in merged if a.span_id == "s19"]
+        assert len(s19_anns) == 1
+        assert s19_anns[0].semantic_role == "failure_mode"
+        assert s19_anns[0].executable is False
+
+    def test_multi_label_deterministic_plus_llm(self) -> None:
+        """Phase D: StructuralPrior does NOT enter merged. Only deterministic
+        RouteAnnotation + LLM annotation remain."""
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # StructuralPrior (neutral) — does NOT enter merged
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="neutral_context",
+            )
+        ]
+        # Deterministic RouteAnnotation (real semantic decision)
+        real_prior = RouteAnnotation(
+            span_id="s13",
+            field="behavior",
+            semantic_role="failure_mode",
+            construct_target="EXCEPTION_FLOW",
+            slot_target="condition",
+            executable=False,
+        )
+        priors = [real_prior]
+        router, spans, _ = self._make_router_and_inputs(
+            priors,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(
+            priors, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        s13_anns = [a for a in merged if a.span_id == "s13"]
+        roles = {a.semantic_role for a in s13_anns}
+        # Real prior + LLM annotation remain; StructuralPrior NOT in merged
+        assert "failure_mode" in roles, f"Real prior must survive, got {roles}"
+        assert "process_step" in roles, f"LLM annotation must be added, got {roles}"
+        assert len(s13_anns) == 2, f"Expected 2 annotations, got {len(s13_anns)}"
+
+    # --- Phase C: conflict diagnostics -----------------------------------
+
+    def test_conflict_diagnostic_emitted_for_real_contradiction(self) -> None:
+        """Two real semantic annotations with conflicting exec state → diagnostic."""
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # Prior: failure_mode (non-executable, real role)
+        prior = RouteAnnotation(
+            span_id="s13",
+            field="behavior",
+            semantic_role="failure_mode",
+            construct_target="EXCEPTION_FLOW",
+            slot_target="condition",
+            executable=False,
+            source_section_id="sec_real",
+            source_packet_id="pkt_real",
+        )
+        # LLM returns: process_step (executable) — genuine conflict
+        priors = [prior]
+        router, spans, _ = self._make_router_and_inputs(
+            priors,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, diagnostics, _ = router._merge_llm_refinement(priors, llm_result, spans)
+
+        conflict_diags = [d for d in diagnostics if "route_refinement_conflict" in d]
+        assert len(conflict_diags) >= 1, (
+            f"Expected route_refinement_conflict diagnostic, got: {diagnostics}"
+        )
+        assert "s13" in conflict_diags[0]
+
+    def test_no_conflict_diagnostic_for_structural_prior_only(self) -> None:
+        """Phase D: StructuralPrior + LLM annotation → no conflict diagnostic."""
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # StructuralPrior does NOT enter merged — no conflict possible
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="neutral_context",
+            )
+        ]
+        deterministic_annotations: list[RouteAnnotation] = []
+        router, spans, _ = self._make_router_and_inputs(
+            deterministic_annotations,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, diagnostics, _ = router._merge_llm_refinement(
+            deterministic_annotations, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        conflict_diags = [d for d in diagnostics if "route_refinement_conflict" in d]
+        assert len(conflict_diags) == 0, (
+            f"Neutral prior leak must NOT emit conflict diagnostic, got: {conflict_diags}"
+        )
+
+    # --- Final SPL regression: executable span survives D6 guard --------
+
+    def test_executable_span_survives_d6_guard_after_merge(self) -> None:
+        """Phase D: StructuralPrior does not pollute D6 guard sets.
+
+        This test locks the invariant that after Phase D merge, an executable
+        process_step span appears in the executable set and does NOT appear
+        in the non-executable set, so Stage 7's D6 guard preserves it.
+        """
+        from nl2spl.ir.field_route_ir import StructuralPrior
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+
+        # Phase D: neutral prior is StructuralPrior, not RouteAnnotation
+        structural_priors = [
+            StructuralPrior(
+                span_id="s13",
+                suggested_field="behavior",
+                source_section_id="sec_real",
+                source_packet_id="pkt_real",
+                prior_kind="neutral_context",
+            )
+        ]
+        deterministic_annotations: list[RouteAnnotation] = []
+        router, spans, _ = self._make_router_and_inputs(
+            deterministic_annotations,
+            [
+                {
+                    "span_id": "s13",
+                    "field": "behavior",
+                    "semantic_role": "process_step",
+                    "executable": True,
+                }
+            ],
+            ["s13"],
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s13", field="behavior", semantic_role="process_step", executable=True
+                )
+            ],
+        )
+
+        merged, _, _ = router._merge_llm_refinement(
+            deterministic_annotations, llm_result, spans,
+            structural_priors=structural_priors,
+        )
+
+        # Build FieldRouteIR as Stage 4/5/7 would see it
+        routes = FieldRouteIR(behavior=["s13"], annotations=merged)
+
+        # Stage 7 D6 guard: compute effective sets
+        exec_ids = set(routes.get_executable_behavior_span_ids())
+        non_exec_ids = set(routes.get_non_executable_behavior_span_ids())
+
+        # s13 must be executable
+        assert "s13" in exec_ids, f"s13 must be in executable set after merge, got {exec_ids}"
+        # s13 must NOT be non-executable (D6 guard would drop it otherwise)
+        assert "s13" not in non_exec_ids, (
+            f"s13 must NOT be in non-executable set, D6 guard would drop it. Got {non_exec_ids}"
+        )
+        # Effective sets must not overlap
+        assert exec_ids.isdisjoint(non_exec_ids), (
+            f"Executable and non-executable sets must not overlap: "
+            f"intersection = {exec_ids & non_exec_ids}"
+        )

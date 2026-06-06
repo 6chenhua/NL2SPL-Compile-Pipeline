@@ -184,6 +184,46 @@ class TestP1HandoffStepOutputMismatch:
         # produces "final_report" → still produced via the binding
         assert index.is_produced("final_report")
 
+    def test_structured_handoff_result_is_produced_when_metadata_matches(self) -> None:
+        h = WorkerHandoffIR(
+            "h1",
+            "w_main",
+            "w_child",
+            None,
+            "invoke",
+            None,
+            "after",
+            input_bindings=[InputBindingIR("req", "child_in", True)],
+            output_bindings=[
+                OutputBindingIR("child_one", "out_one", True, "set"),
+                OutputBindingIR("child_two", "out_two", True, "set"),
+            ],
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Invoke",
+                [],
+                "INVOKE_WORKER",
+                handoff_id="h1",
+                outputs=["h1_response_structured"],
+                metadata={
+                    "structured_aggregation": {
+                        "result_name": "h1_response_structured",
+                        "original_outputs": ["out_one", "out_two"],
+                        "type_name": "h1_response_structured_type",
+                    }
+                },
+            )
+        ]
+        index = ProducerIndex(
+            steps=steps,
+            handoffs=[h],
+            known_child_worker_ids={"w_child"},
+        )
+
+        assert index.is_produced("h1_response_structured")
+
 
 # ---------------------------------------------------------------------------
 # P1 #2: handoff renderability — main worker excluded, IO required

@@ -347,6 +347,41 @@ class TestStepExtractor:
         assert steps[0].command_type == "DISPLAY_MESSAGE"
         assert steps[0].kind == "display"
 
+    def test_display_message_with_outputs_fails_fast(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """DISPLAY_MESSAGE is a presentation step and must not declare outputs."""
+        spans = [SpanIR(span_id="s1", text="Show the approval status")]
+        routes = FieldRouteIR(behavior=["s1"])
+        flow = FlowStructureIR(main_flow_spans=["s1"])
+        blocks = BlockStructureIR(
+            main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])]
+        )
+        symbols = SymbolTable()
+
+        mock_client.call_json.return_value = {
+            "steps": [
+                {
+                    "step_id": "st_1",
+                    "text": "Show the approval status",
+                    "source_span_ids": ["s1"],
+                    "command_type": "DISPLAY_MESSAGE",
+                    "inputs": [],
+                    "outputs": ["approval_status"],
+                    "integration_ref": None,
+                    "flow_ref": "main",
+                    "block_ref": "b1",
+                    "kind": "display",
+                }
+            ],
+            "new_variables": [],
+        }
+
+        with pytest.raises(StageError, match="DISPLAY_MESSAGE step\\(s\\) with outputs"):
+            StepExtractor(pipeline_config, mock_client).execute(
+                (spans, routes, flow, blocks, symbols)
+            )
+
     def test_alternative_flow_step(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
@@ -892,7 +927,7 @@ class TestD6ExecutableFiltering:
         prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
 
         # Executable behavior section: contains process_step, NOT failure_mode
-        beh_start = prompt.index("behavior spans：")
+        beh_start = prompt.index("behavior spans:")
         non_exec_start = prompt.index("Non-executable context only")
         beh_section = prompt[beh_start:non_exec_start]
         non_exec_section = prompt[non_exec_start:]

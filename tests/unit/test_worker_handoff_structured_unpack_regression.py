@@ -39,9 +39,8 @@ class _TestNormalizer(NormalizationMixin):
 
 def test_internal_comms_2_regression() -> None:
     """
-    Regression test for the issue where a multi-output handoff step was normalized
-    into a structured variable, but the executable gate blocked the producer step
-    and left the compiler_unpack steps orphaned.
+    Regression test for the issue where a multi-output handoff step generated
+    default compiler_unpack steps instead of preserving one structured result.
     """
     
     # 1. Setup Symbol Table and Resources
@@ -177,9 +176,9 @@ def test_internal_comms_2_regression() -> None:
     )
     main_worker.steps = steps
     
-    # The normalizer should have converted the producer step to single structured output
-    # and added 4 compiler_unpack steps.
-    assert len(main_worker.steps) == 5, f"Expected 5 steps, got {len(main_worker.steps)}"
+    # The normalizer should convert the producer step to a single structured
+    # output without adding default compiler_unpack steps.
+    assert len(main_worker.steps) == 1, f"Expected 1 step, got {len(main_worker.steps)}"
     structured_result = main_worker.steps[0].outputs[0]
     assert "structured" in structured_result
     
@@ -194,27 +193,22 @@ def test_internal_comms_2_regression() -> None:
     gate = ExecutableElementGate()
     filtered_main_worker, infos, diags = gate.apply(main_worker, worker_plan)
     
-    # The gate should allow ALL 5 steps (producer + 4 unpacks)
+    # The gate should allow the structured producer step.
     # No blocked steps
     blocked_infos = [i for i in infos if not i.renderable]
     assert len(blocked_infos) == 0, f"Steps blocked: {[i.render_block_reason for i in blocked_infos]}"
     
-    assert len(filtered_main_worker.steps) == 5
+    assert len(filtered_main_worker.steps) == 1
     
     # 5. Verify the order and validity of the final sequence
     # Producer must be first
     assert filtered_main_worker.steps[0].command_type == "INVOKE_WORKER"
     assert filtered_main_worker.steps[0].step_id == "st_invoke"
-    
-    for i in range(1, 5):
-        unpack_step = filtered_main_worker.steps[i]
-        assert unpack_step.command_type == "GENERAL_COMMAND"
-        assert unpack_step.metadata.get("origin") == "compiler_unpack"
-        # Verify it unpacks from the structured result
-        assert structured_result in unpack_step.text
-        # Verify metadata links to producer
-        assert unpack_step.metadata.get("structured_source_step_id") == "st_invoke"
-        assert unpack_step.metadata.get("structured_result") == structured_result
+    assert filtered_main_worker.steps[0].outputs == [structured_result]
+    assert not any(
+        step.metadata.get("origin") == "compiler_unpack"
+        for step in filtered_main_worker.steps
+    )
 
 
 def test_unpack_strong_binding_validation() -> None:

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+import json
+from dataclasses import asdict
+
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation, StructuralPrior
 
 
 class TestBackwardCompatibility:
@@ -113,6 +116,44 @@ class TestExecutableBehaviorFiltering:
         routes = self._sample_routes()
         assert routes.get_non_executable_behavior_span_ids() == ["s1"]
 
+    def test_executable_wins_over_stale_non_executable(self) -> None:
+        """Phase B: span with both exec=True and exec=False → only in executable set."""
+        routes = FieldRouteIR(
+            behavior=["s13"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s13",
+                    field="behavior",
+                    executable=False,
+                    metadata={"prior_resolution": "no_prior_neutral_context"},
+                ),
+                RouteAnnotation(
+                    span_id="s13",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
+            ],
+        )
+        assert "s13" in routes.get_executable_behavior_span_ids()
+        assert "s13" not in routes.get_non_executable_behavior_span_ids()
+
+    def test_pure_non_executable_still_in_non_executable_set(self) -> None:
+        """Phase B: span with only exec=False stays in non-executable set."""
+        routes = FieldRouteIR(
+            behavior=["s19"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s19",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    executable=False,
+                ),
+            ],
+        )
+        assert "s19" in routes.get_non_executable_behavior_span_ids()
+        assert "s19" not in routes.get_executable_behavior_span_ids()
+
 
 class TestPrimaryFieldFallback:
     """F2: primary annotation wins, old list fallback otherwise."""
@@ -192,14 +233,20 @@ class TestBehaviorSpanOrdering:
             behavior=["s2", "s10", "s1"],
             annotations=[
                 RouteAnnotation(
-                    span_id="s2", field="behavior", executable=True,
+                    span_id="s2",
+                    field="behavior",
+                    executable=True,
                 ),
                 RouteAnnotation(
-                    span_id="s10", field="behavior", executable=False,
+                    span_id="s10",
+                    field="behavior",
+                    executable=False,
                     semantic_role="failure_mode",
                 ),
                 RouteAnnotation(
-                    span_id="s1", field="behavior", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    executable=True,
                 ),
             ],
         )
@@ -214,22 +261,26 @@ class TestBehaviorSpanOrdering:
     def test_non_executable_preserves_behavior_list_order(self) -> None:
         routes = self._sample_routes()
         non_exec = routes.get_non_executable_behavior_span_ids()
-        assert non_exec == ["s10"], (
-            f"Expected ['s10'] preserving behavior order, got {non_exec}"
-        )
+        assert non_exec == ["s10"], f"Expected ['s10'] preserving behavior order, got {non_exec}"
 
     def test_annotation_only_span_appended_in_annotation_order(self) -> None:
         routes = FieldRouteIR(
             behavior=["s1"],
             annotations=[
                 RouteAnnotation(
-                    span_id="s1", field="behavior", executable=True,
+                    span_id="s1",
+                    field="behavior",
+                    executable=True,
                 ),
                 RouteAnnotation(
-                    span_id="s_extra", field="behavior", executable=True,
+                    span_id="s_extra",
+                    field="behavior",
+                    executable=True,
                 ),
                 RouteAnnotation(
-                    span_id="s_later", field="behavior", executable=True,
+                    span_id="s_later",
+                    field="behavior",
+                    executable=True,
                 ),
             ],
         )
@@ -237,3 +288,77 @@ class TestBehaviorSpanOrdering:
         assert executable == ["s1", "s_extra", "s_later"], (
             f"Expected annotation-only spans appended in order, got {executable}"
         )
+
+
+class TestStructuralPrior:
+    """Phase D Step 1: StructuralPrior type and FieldRouteIR.structural_priors."""
+
+    def test_structural_prior_construction_defaults(self) -> None:
+        prior = StructuralPrior(span_id="s1")
+        assert prior.span_id == "s1"
+        assert prior.suggested_field is None
+        assert prior.source_section_id is None
+        assert prior.source_packet_id is None
+        assert prior.source_hint_ids == []
+        assert prior.prior_kind == "neutral_context"
+        assert prior.confidence == "context"
+        assert prior.reason is None
+        assert prior.packet_type is None
+        assert prior.section_title is None
+        assert prior.structural_tags == []
+        assert prior.metadata == {}
+
+    def test_structural_prior_construction_explicit(self) -> None:
+        prior = StructuralPrior(
+            span_id="s13",
+            suggested_field="behavior",
+            source_section_id="sec_reusable",
+            source_packet_id="pkt_process",
+            prior_kind="weak_section_context",
+            confidence="weak",
+            packet_type="list_item",
+            section_title="Reusable process",
+            structural_tags=["list_item"],
+        )
+        assert prior.span_id == "s13"
+        assert prior.suggested_field == "behavior"
+        assert prior.prior_kind == "weak_section_context"
+        assert prior.confidence == "weak"
+        assert prior.packet_type == "list_item"
+
+    def test_structural_prior_json_serializable(self) -> None:
+        prior = StructuralPrior(
+            span_id="s1",
+            suggested_field="behavior",
+            source_section_id="sec_1",
+            source_packet_id="pkt_1",
+            source_hint_ids=["h1", "h2"],
+            prior_kind="neutral_context",
+            confidence="context",
+            reason="No matching prior",
+            packet_type="sentence",
+            section_title="Policies",
+            structural_tags=["sentence"],
+            metadata={"key": "value"},
+        )
+        # Must not raise
+        serialized = json.dumps(asdict(prior))
+        deserialized = json.loads(serialized)
+        assert deserialized["span_id"] == "s1"
+        assert deserialized["prior_kind"] == "neutral_context"
+        assert deserialized["source_hint_ids"] == ["h1", "h2"]
+
+    def test_field_route_ir_has_structural_priors_default_empty(self) -> None:
+        routes = FieldRouteIR(behavior=["s1"])
+        assert routes.structural_priors == []
+
+    def test_field_route_ir_with_structural_priors(self) -> None:
+        prior = StructuralPrior(span_id="s1", prior_kind="neutral_context")
+        routes = FieldRouteIR(
+            behavior=["s1"],
+            annotations=[RouteAnnotation(span_id="s1", field="behavior", executable=True)],
+            structural_priors=[prior],
+        )
+        assert len(routes.structural_priors) == 1
+        assert routes.structural_priors[0].span_id == "s1"
+        assert len(routes.annotations) == 1

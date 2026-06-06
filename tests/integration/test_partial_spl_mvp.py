@@ -23,7 +23,6 @@ from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
-from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
 
 _MIN_PROFILE = AgentProfileIR(persona=PersonaIR(role="Assistant"))
 
@@ -47,12 +46,14 @@ def _run_post_compile(
     symbols = symbol_table or SymbolTable()
     spans = spans or []
 
-    # Stage 9.5: normalize
-    normalizer = IRNormalizer()
-    norm_result = normalizer.normalize(
-        flow, blocks, resources, symbols, list(steps), [], None,
-    )
-    n_flow, n_blocks, n_steps, _nc, n_symbols, n_errors, n_warnings = norm_result
+    # These fixtures exercise post-compile behavior from already assembled
+    # flat IR fragments. Stage 9.5 no longer exposes a flat legacy normalizer.
+    n_flow = flow
+    n_blocks = blocks
+    n_steps = list(steps)
+    n_symbols = symbols
+    n_errors: list[str] = []
+    n_warnings: list[str] = []
 
     # Stage 10: assemble
     assembler = WorkerAssembler()

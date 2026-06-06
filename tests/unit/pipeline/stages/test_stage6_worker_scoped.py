@@ -756,10 +756,11 @@ def test_extract_resources_for_scope_includes_worker_context_in_prompt(
         worker_spec=worker_spec,
     )
 
-    # Verify the LLM was called with worker context in the prompt
+    # Verify the LLM was called with scoped worker metadata in the prompt
     call_args = extractor.client.call_json.call_args
     user_prompt = call_args.kwargs.get("user_prompt", "")
-    assert "worker context" in user_prompt
+    assert "Resource extraction scope" in user_prompt
+    assert "worker_id: worker_test" in user_prompt
     assert "TestWorker" in user_prompt
     assert "Test resource extraction" in user_prompt
 
@@ -831,13 +832,14 @@ def test_extract_resources_for_scope_includes_known_variables(
     call_args = extractor.client.call_json.call_args
     user_prompt = call_args.kwargs.get("user_prompt", "")
 
-    # Verify worker context with contracts
-    assert "worker context" in user_prompt
+    # Verify worker scope with contracts
+    assert "Resource extraction scope" in user_prompt
+    assert "worker_id: worker_test" in user_prompt
     assert "TestWorker" in user_prompt
     assert "input_data" in user_prompt
     assert "output_data" in user_prompt
 
     # Verify known variables section
-    assert "known variables" in user_prompt
+    assert "Known variables" in user_prompt
     assert "global_query" in user_prompt
     assert "local_temp" in user_prompt

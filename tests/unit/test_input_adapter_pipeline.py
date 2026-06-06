@@ -1,4 +1,4 @@
-"""Tests for InputAdapter MVP pipeline integration."""
+﻿"""Tests for InputAdapter MVP pipeline integration."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
-from nl2spl.pipeline.fact_bridges import bridge_delegation_intents
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 
 
@@ -127,29 +126,58 @@ def test_stage6_seeds_hard_fact_variables_and_keeps_output_producer_empty(
 def test_orchestrator_records_adapter_intermediate_results(
     pipeline_config: MagicMock,
 ) -> None:
+    from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
+    from nl2spl.ir.worker_plan_ir import (
+        WorkerBlockPlanIR,
+        WorkerFlowPlanIR,
+        WorkerPlanIR,
+        WorkerSpecIR,
+        WorkerStepPlanIR,
+    )
+
     orchestrator = PipelineOrchestrator(pipeline_config)
+    worker_plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                "worker_main", "Main", "main", "Main worker",
+                [], [], [], [], [], "main_worker", [], "",
+            )
+        ],
+        candidates=[],
+        decisions=[],
+        handoffs=[],
+    )
+    worker_flow_plan = WorkerFlowPlanIR(worker_flows={"worker_main": FlowStructureIR()})
+    worker_block_plan = WorkerBlockPlanIR(worker_blocks={"worker_main": BlockStructureIR()})
+    worker_step_plan = WorkerStepPlanIR(main_worker_id="worker_main", worker_steps={"worker_main": []})
+    worker = MagicMock()
+    worker.steps = []
+    worker.child_workers = []
+    worker.scoped_steps = False
 
     setattr(orchestrator, "_run_stage1", MagicMock(return_value=[]))
     setattr(orchestrator, "_run_stage2", MagicMock(return_value=(FieldRouteIR(), [])))
     setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
-    setattr(orchestrator, "_run_stage4", MagicMock(return_value=FlowStructureIR()))
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
+    setattr(orchestrator, "_run_stage3_5", MagicMock(return_value=worker_plan))
+    setattr(orchestrator, "_run_stage4", MagicMock(return_value=worker_flow_plan))
+    setattr(orchestrator, "_run_stage5", MagicMock(return_value=worker_block_plan))
     setattr(
         orchestrator,
-        "_run_stage6",
-        MagicMock(return_value=(MagicMock(variables=[]), MagicMock(), [])),
+        "_run_stage6_worker_scoped",
+        MagicMock(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), MagicMock(), [])),
     )
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
+    setattr(orchestrator, "_run_stage7_worker_scoped", MagicMock(return_value=(worker_step_plan, MagicMock(), [])))
     setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
     setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
     setattr(
         orchestrator,
-        "_run_normalization",
+        "_run_normalization_worker_scoped",
         MagicMock(
-            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])
+            return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, MagicMock(), [], [])
         ),
     )
-    setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
+    setattr(orchestrator, "_run_stage10_worker_scoped", MagicMock(return_value=worker))
     setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
 
     result = orchestrator.run(STRUCTURAL_TEXT)
@@ -163,8 +191,6 @@ def test_orchestrator_stage2_adapter_llm_failure_fails_fast(
     pipeline_config: MagicMock,
 ) -> None:
     """Structural NL must not continue when Stage 2 adapter LLM is unavailable."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
-    pipeline_config.allow_adapter_guided_fieldroute_fallback = False
     orchestrator = PipelineOrchestrator(pipeline_config)
     orchestrator.client = MagicMock()
     orchestrator.client.call_json.side_effect = RuntimeError("stage2 unavailable")
@@ -179,51 +205,6 @@ def test_orchestrator_stage2_adapter_llm_failure_fails_fast(
     assert "stage2 unavailable" in str(err)
     assert err.details["fallback_allowed"] is False
     orchestrator._run_stage3.assert_not_called()
-
-
-def test_orchestrator_stage2_explicit_fallback_reaches_report(
-    pipeline_config: MagicMock,
-) -> None:
-    """Explicit fallback may continue, but Stage 2 failure is reported."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
-    pipeline_config.allow_adapter_guided_fieldroute_fallback = True
-    orchestrator = PipelineOrchestrator(pipeline_config)
-    orchestrator.client = MagicMock()
-    orchestrator.client.call_json.side_effect = RuntimeError("stage2 unavailable")
-
-    setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
-    setattr(orchestrator, "_run_stage4", MagicMock(return_value=FlowStructureIR()))
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
-    setattr(
-        orchestrator,
-        "_run_stage6",
-        MagicMock(return_value=(ResourceRegistryIR(), SymbolTable(), [])),
-    )
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], None, [])))
-    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
-    setattr(
-        orchestrator,
-        "_run_normalization",
-        MagicMock(
-            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], SymbolTable(), [], [])
-        ),
-    )
-    worker = MagicMock()
-    worker.steps = []
-    worker.child_workers = []
-    worker.exception_flows = []
-    setattr(orchestrator, "_run_stage10", MagicMock(return_value=worker))
-    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
-
-    result = orchestrator.run(STRUCTURAL_TEXT)
-
-    assert any(
-        getattr(diag, "kind", "") == "route_refinement_fallback"
-        and "stage2 unavailable" in getattr(diag, "message", "")
-        for diag in result.compile_diagnostics
-    )
-    assert "stage2 unavailable" in result.readable_report
 
 
 # ===========================================================================
@@ -294,60 +275,6 @@ Optional delegated subtasks such as source gathering or template matching may be
 """
 
 
-
-
-
-
-def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
-    pipeline_config: MagicMock,
-) -> None:
-    pipeline_config.adapter_llm_engine = "generic_only"
-    orchestrator = PipelineOrchestrator(pipeline_config)
-    orchestrator.client = MagicMock()
-    orchestrator.client.call_json.return_value = {
-        "outputs": [
-            {
-                "name": "summary",
-                "description": "A summary.",
-                "data_type": "text",
-                "required": True,
-                "source_section_id": "sec_freeform_input",
-                "source_packet_id": "p_freeform_000",
-            }
-        ]
-    }
-
-    setattr(orchestrator, "_run_stage1", MagicMock(return_value=[]))
-    setattr(orchestrator, "_run_stage2", MagicMock(return_value=(FieldRouteIR(), [])))
-    setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
-    setattr(orchestrator, "_run_stage4", MagicMock(return_value=FlowStructureIR()))
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
-    setattr(
-        orchestrator,
-        "_run_stage6",
-        MagicMock(return_value=(MagicMock(variables=[]), MagicMock(), [])),
-    )
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
-    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
-    setattr(
-        orchestrator,
-        "_run_normalization",
-        MagicMock(
-            return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])
-        ),
-    )
-    setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
-
-    result = orchestrator.run("Summarize the request.")
-
-    canonical = result.intermediate_results["canonical_input"]
-    assert canonical.source_schema == "generic_nl"
-    assert canonical.hard_facts.outputs[0].name == "summary"
-    assert canonical.raw_sections[0].section_id == "sec_freeform_input"
-
-
 # ===========================================================================
 # F3 Baseline: Hint-Aware FieldRouter emits RouteAnnotations
 # ===========================================================================
@@ -355,10 +282,54 @@ def test_orchestrator_adapter_llm_engine_populates_canonical_facts(
 
 def _adapt_slice_route(text: str, pipeline_config, mock_client):
     """Helper: adapter → slicer → router for structural NL."""
-    canonical = StructuralNLAdapter(None).adapt(text)
+    canonical = StructuralNLAdapter(mock_client).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    mock_client.call_json.return_value = _route_annotations_for_spans(spans)
     router = FieldRouter(pipeline_config, mock_client)
     return router.execute((spans, canonical))
+
+
+def _route_annotations_for_spans(spans: list[SpanIR]) -> dict:
+    annotations = []
+    role_by_section = {
+        "sec_task_family": ("domain", "profile_domain", False, "profile"),
+        "sec_inputs_for_each_run": (
+            "resources", "input_contract", False, "resource_contract",
+        ),
+        "sec_required_outputs": (
+            "resources", "output_contract", False, "resource_contract",
+        ),
+        "sec_reusable_process": (
+            "behavior", "process_step", True, "flow_relevant",
+        ),
+        "sec_policies": ("rules", "constraint", False, "rule"),
+        "sec_failure_handling": (
+            "behavior", "failure_mode", False, "flow_relevant",
+        ),
+        "sec_delegation_policy": (
+            "behavior", "delegation_intent", False, "delegation_boundary",
+        ),
+    }
+    for span in spans:
+        section_id = span.source_section_id
+        if section_id not in role_by_section:
+            continue
+        field, role, executable, route_family = role_by_section[section_id]
+        ann = {
+            "span_id": span.span_id,
+            "field": field,
+            "semantic_role": role,
+            "route_family": route_family,
+            "executable": executable,
+            "source_section_id": section_id,
+        }
+        if span.source_packet_id:
+            ann["source_packet_id"] = span.source_packet_id
+        if role == "failure_mode":
+            ann["construct_target"] = "EXCEPTION_FLOW"
+            ann["slot_target"] = "condition"
+        annotations.append(ann)
+    return {"annotations": annotations}
 
 
 class TestF3StructuralAnnotations:
@@ -367,14 +338,16 @@ class TestF3StructuralAnnotations:
     def test_canonical_emits_annotations(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        pipeline_config.enable_adapter_guided_fieldroute_llm = False
         routes, ambiguity_updates = _adapt_slice_route(
             F0_STRUCTURAL_TEXT, pipeline_config, mock_client
         )
 
         assert len(routes.annotations) >= 1, "Expected at least one annotation"
         assert ambiguity_updates == []
-        mock_client.call_json.assert_not_called()
+        assert any(
+            call.kwargs.get("stage_name") == "stage2_adapter_guided"
+            for call in mock_client.call_json.call_args_list
+        )
 
         packets_by_pid = {}  # We don't have canonical here, but check provenance
         for ann in routes.annotations:
@@ -391,21 +364,22 @@ class TestF3StructuralAnnotations:
             F0_STRUCTURAL_TEXT, pipeline_config, mock_client
         )
 
-        failure_anns = routes.get_annotations_by_role("failure_mode")
-        assert len(failure_anns) >= 1, "Expected at least one failure_mode annotation"
+        failure_anns = [
+            a for a in routes.annotations
+            if a.semantic_role in ("failure_mode", "failure_condition")
+        ]
+        assert len(failure_anns) >= 1, "Expected at least one failure annotation"
 
         for ann in failure_anns:
-            assert ann.span_id in routes.behavior
+            assert ann.span_id not in routes.behavior
             assert ann.span_id not in routes.rules
             assert ann.field == "behavior"
-            assert ann.semantic_role == "failure_mode"
-            assert ann.route_family == "flow_relevant"
+            assert ann.semantic_role in ("failure_mode", "failure_condition")
             assert ann.construct_target == "EXCEPTION_FLOW"
             assert ann.slot_target == "condition"
             assert ann.executable is False
             assert ann.source_section_id
             assert ann.source_packet_id
-            assert ann.source_packet_id.startswith(("p_list_item_", "p_sentence_"))
 
     def test_resource_contract_annotations_not_routed(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -441,9 +415,8 @@ class TestF3StructuralAnnotations:
         assert len(delegation_anns) >= 1, "Expected at least one delegation annotation"
 
         for ann in delegation_anns:
-            # Old-list compatibility: delegation_rule remains in behavior
-            assert ann.span_id in routes.behavior, (
-                f"BASELINE: delegation span {ann.span_id} still in routes.behavior"
+            assert ann.span_id not in routes.behavior, (
+                f"Delegation boundary span {ann.span_id} must not pollute routes.behavior"
             )
             assert ann.semantic_role == "delegation_intent"
             assert ann.route_family == "delegation_boundary"
@@ -501,6 +474,7 @@ class TestF3StructuralAnnotations:
 
         canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        mock_client.call_json.return_value = _route_annotations_for_spans(spans)
         router = FieldRouter(pipeline_config, mock_client)
 
         with patch.object(router, "save_checkpoint") as mock_save:
@@ -512,10 +486,10 @@ class TestF3StructuralAnnotations:
         assert "annotations" in routes_data, "Checkpoint routes missing annotations"
         assert len(routes_data["annotations"]) >= 1
 
-    def test_hint_conflict_recorded_as_diagnostic(
+    def test_llm_annotation_not_overridden_by_conflicting_hint(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """F3: conflicting hint does NOT override packet semantics, diagnostic added."""
+        """F3: conflicting hint does not override final LLM annotation."""
         from nl2spl.canonical import (
             CanonicalCompileInput,
             CompileHint,
@@ -562,6 +536,7 @@ class TestF3StructuralAnnotations:
             compile_hints=compile_hints,
         )
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        mock_client.call_json.return_value = _route_annotations_for_spans(spans)
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
@@ -569,7 +544,6 @@ class TestF3StructuralAnnotations:
         assert len(failure_anns) == 1
         ann = failure_anns[0]
 
-        # Packet-derived semantics are NOT overridden
         assert ann.slot_target == "condition", (
             f"Hint slot_target should not override packet-derived 'condition': {ann.slot_target}"
         )
@@ -578,17 +552,13 @@ class TestF3StructuralAnnotations:
         )
         assert ann.construct_target == "EXCEPTION_FLOW"
 
-        # Conflict is recorded
-        assert len(ann.diagnostics) >= 1, (
-            f"Expected at least one conflict diagnostic, got: {ann.diagnostics}"
-        )
-
     def test_section_only_hints_populate_source_hint_ids(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """F3: exact-title RoutePriors reach neutral packet annotations."""
-        canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
+        """F3: LLM RoutePriors reach neutral packet annotations."""
+        canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+        mock_client.call_json.return_value = _route_annotations_for_spans(spans)
         router = FieldRouter(pipeline_config, mock_client)
         routes, _ = router.execute((spans, canonical))
 
@@ -793,6 +763,7 @@ def test_d10_route_driven_delegation_diagnostic_from_annotation(
 
     canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    mock_client.call_json.return_value = _route_annotations_for_spans(spans)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
     # Verify delegation annotations exist
@@ -808,13 +779,16 @@ def test_d10_route_driven_delegation_diagnostic_from_annotation(
         assert "no-section" in d.message or "sec_" in d.message
 
 
-def test_d10_bridge_fallback_still_works_without_delegation_annotations(
+def test_d10_no_delegation_annotation_emits_no_bridge_diagnostic(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: when no delegation annotations exist, bridge fallback still emits."""
+    """D10: hard-fact-only delegation no longer triggers bridge fallback."""
     from nl2spl.canonical import (
         CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts, RawSection,
+    )
+    from nl2spl.pipeline.delegation_diagnostics import (
+        diagnose_delegation_intents_from_routes,
     )
 
     section = RawSection(
@@ -837,22 +811,17 @@ def test_d10_bridge_fallback_still_works_without_delegation_annotations(
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
-    # No delegation annotations → bridge fallback
     assert routes.get_annotations_by_role("delegation_intent") == []
 
-    diags = bridge_delegation_intents(
-        list(canonical.hard_facts.delegation_intents),
-        None, spans,
-    )
-    assert len(diags) >= 1
-    assert diags[0].kind == "type_or_contract_ambiguity"
+    diags = diagnose_delegation_intents_from_routes(routes, spans)
+    assert diags == []
 
 
 def test_d10_orchestrator_run_delegation_diagnostics(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: _run_delegation_diagnostics uses route-driven + coverage-based fallback."""
+    """D10: _run_delegation_diagnostics uses final RouteAnnotations only."""
     from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
     text = (
@@ -863,6 +832,7 @@ def test_d10_orchestrator_run_delegation_diagnostics(
     )
     canonical = StructuralNLAdapter(mock_client).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
+    mock_client.call_json.return_value = _route_annotations_for_spans(spans)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
     # Run _run_delegation_diagnostics directly
@@ -876,16 +846,11 @@ def test_d10_orchestrator_run_delegation_diagnostics(
     assert all(d.kind == "type_or_contract_ambiguity" for d in diags)
 
 
-def test_d10_same_section_unrelated_intent_not_over_suppressed(
+def test_d10_only_route_annotations_drive_delegation_diagnostics(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: route covers one intent; unrelated hard fact in same section still diagnosed.
-
-    Source_gathering is covered by route annotation (packet_id match).
-    Template_matching has only section evidence and DIFFERENT span text —
-    so it must still produce a bridge-derived diagnostic independently.
-    """
+    """D10: unrelated hard facts in the same section do not create diagnostics."""
     from nl2spl.canonical import (
         CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts,
         RawSection,
@@ -897,8 +862,6 @@ def test_d10_same_section_unrelated_intent_not_over_suppressed(
         "Source gathering may be used if bounded. "
         "Template matching may be used if available.", 1,
     )
-    # Manual construction: exactly ONE delegation_intent annotation
-    # covering source_gathering only.
     canonical = CanonicalCompileInput(
         source_schema="structural_nl", schema_version="1.0",
         raw_text="Delegation policy:\nSource gathering. Template matching.",
@@ -924,7 +887,6 @@ def test_d10_same_section_unrelated_intent_not_over_suppressed(
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
-    # Manually add ONLY one delegation annotation for source_gathering
     from nl2spl.ir.field_route_ir import RouteAnnotation
     routes.annotations = [
         RouteAnnotation(
@@ -944,104 +906,8 @@ def test_d10_same_section_unrelated_intent_not_over_suppressed(
         routes, spans, canonical, None, set(), set(),
     )
     refs = {d.target_ref for d in diags}
-    # Route-derived for source_gathering plus bridge-derived for template_matching
-    assert len(diags) >= 1, f"Got {len(diags)} with refs {refs}"
-
-
-def test_d10_section_handoff_does_not_suppress_unrelated_intent() -> None:
-    """D10: valid handoff for source_gathering does not suppress template_matching."""
-    from nl2spl.canonical import DelegationIntentFact, EvidenceRef
-
-    spans = [
-        SpanIR("s_src", "Source gathering may be used.", source_section_id="sec_del"),
-        SpanIR("s_tmpl", "Template matching may be used.", source_section_id="sec_del"),
-    ]
-    intents = [
-        DelegationIntentFact(
-            name="source_gathering", text="Source gathering",
-            evidence=[EvidenceRef(source_section_id="sec_del")],
-        ),
-        DelegationIntentFact(
-            name="template_matching", text="Template matching",
-            evidence=[EvidenceRef(source_section_id="sec_del")],
-        ),
-    ]
-    from nl2spl.ir.worker_plan_ir import (
-        InputBindingIR, InvokeLocationHintIR, OutputBindingIR, WorkerHandoffIR,
-    )
-    # Valid handoff only covers s_src
-    handoff = WorkerHandoffIR(
-        handoff_id="h1", from_worker="w_main", to_worker="w_child",
-        api_ref=None, mode="invoke", condition_text=None, ordering="after",
-        input_bindings=[InputBindingIR("a", "b", True)],
-        output_bindings=[OutputBindingIR("c", "d", True, "set")],
-        invoke_location_hint=InvokeLocationHintIR(
-            flow_kind="main", flow_id=None,
-            after_span_id="s_src", before_span_id=None,
-            block_hint="unknown",
-        ),
-    )
-    diags = bridge_delegation_intents(
-        intents, handoffs=[handoff], spans=spans,
-        known_child_worker_ids={"w_child"},
-    )
-    # Only template_matching should produce a diagnostic
-    assert len(diags) == 1, (
-        f"Expected 1 (template_matching), got {len(diags)}: "
-        f"{[d.message for d in diags]}"
-    )
-    assert diags[0].target_ref == "delegation_intent:template_matching"
-    assert diags[0].source_span_ids == ["s_tmpl"]
-    assert "template_matching" in diags[0].message.lower()
-
-
-def test_d10_nonmatching_text_not_suppressed_by_section_fallback() -> None:
-    """D10: template_matching with non-matching span text still diagnosed."""
-    from nl2spl.canonical import DelegationIntentFact, EvidenceRef
-    from nl2spl.ir.worker_plan_ir import (
-        InputBindingIR, InvokeLocationHintIR, OutputBindingIR, WorkerHandoffIR,
-    )
-
-    # s_tmpl text does NOT contain "Template matching" → text narrowing fails
-    spans = [
-        SpanIR("s_src", "Source gathering may be used.", source_section_id="sec_del"),
-        SpanIR("s_tmpl", "Additional research tasks.", source_section_id="sec_del"),
-    ]
-    intents = [
-        DelegationIntentFact(
-            name="source_gathering", text="Source gathering",
-            evidence=[EvidenceRef(source_section_id="sec_del")],
-        ),
-        DelegationIntentFact(
-            name="template_matching", text="Template matching",
-            evidence=[EvidenceRef(source_section_id="sec_del")],
-        ),
-    ]
-    handoff = WorkerHandoffIR(
-        handoff_id="h1", from_worker="w_main", to_worker="w_child",
-        api_ref=None, mode="invoke", condition_text=None, ordering="after",
-        input_bindings=[InputBindingIR("a", "b", True)],
-        output_bindings=[OutputBindingIR("c", "d", True, "set")],
-        invoke_location_hint=InvokeLocationHintIR(
-            flow_kind="main", flow_id=None,
-            after_span_id="s_src", before_span_id=None,
-            block_hint="unknown",
-        ),
-    )
-    diags = bridge_delegation_intents(
-        intents, handoffs=[handoff], spans=spans,
-        known_child_worker_ids={"w_child"},
-    )
-    # Source_gathering suppressed (s_src matches text); template_matching
-    # must still be diagnosed because text narrowing failed and multi-span
-    # section is NOT eligible for whole-section suppression fallback.
-    assert len(diags) == 1, (
-        f"Expected only template_matching diagnostic: {[d.message for d in diags]}"
-    )
-    assert diags[0].target_ref == "delegation_intent:template_matching"
-    assert set(diags[0].source_span_ids) == {"s_src", "s_tmpl"}
-    assert "source_gathering" not in diags[0].message
-    assert "template_matching" in diags[0].message
+    assert len(diags) == 1, f"Got {len(diags)} with refs {refs}"
+    assert refs == {f"delegation_intent:{routes.annotations[0].span_id}"}
 
 def test_d5_stage8_profile_annotation_only_no_old_list(
     pipeline_config: MagicMock,
@@ -1189,9 +1055,6 @@ def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
     mock_client: MagicMock,
 ) -> None:
     """Stage 2 route diagnostics become CompileDiagnostic in orchestrator output."""
-    pipeline_config.enable_adapter_guided_fieldroute_llm = True
-    pipeline_config.enable_irs_diagnostic_consolidation = True
-    pipeline_config.enable_irs_post_normalize_check = False
 
     canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1219,21 +1082,64 @@ def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
     orchestrator = PipelineOrchestrator(pipeline_config)
     orchestrator.client = mock_client
 
-    # Mock all other stages
+    # Mock all other stages on the worker-aware path.
     from unittest.mock import MagicMock as M
-    from nl2spl.ir.flow_structure_ir import FlowStructureIR
-    from nl2spl.ir.block_structure_ir import BlockStructureIR
+    from nl2spl.ir.worker_ir import WorkerIR
+    from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
+    from nl2spl.ir.worker_plan_ir import (
+        WorkerBlockPlanIR,
+        WorkerFlowPlanIR,
+        WorkerPlanIR,
+        WorkerSpecIR,
+        WorkerStepPlanIR,
+    )
 
-    setattr(orchestrator, "_run_stage3", M(return_value=(spans, FieldRouteIR())))
-    setattr(orchestrator, "_run_stage4", M(return_value=FlowStructureIR()))
-    setattr(orchestrator, "_run_stage5", M(return_value=BlockStructureIR()))
-    setattr(orchestrator, "_run_stage6", M(return_value=(M(variables=[]), M(), [])))
-    setattr(orchestrator, "_run_stage7", M(return_value=([], M(), [])))
+    routes = FieldRouteIR(behavior=[span.span_id for span in spans])
+    worker_plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                "worker_main", "Main", "main", "Main worker",
+                [span.span_id for span in spans], [], [], [], [],
+                "main_worker", [], "",
+            )
+        ],
+        candidates=[],
+        decisions=[],
+        handoffs=[],
+    )
+    worker_flow_plan = WorkerFlowPlanIR(
+        worker_flows={
+            "worker_main": FlowStructureIR(main_flow_spans=[span.span_id for span in spans])
+        }
+    )
+    worker_block_plan = WorkerBlockPlanIR(
+        worker_blocks={"worker_main": BlockStructureIR()}
+    )
+    worker_step_plan = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": []},
+    )
+    worker = WorkerIR(worker_name="Main", description="Main", steps=[])
+
+    setattr(orchestrator, "_run_stage3", M(return_value=(spans, routes)))
+    setattr(orchestrator, "_run_stage3_5", M(return_value=worker_plan))
+    setattr(orchestrator, "_run_stage4", M(return_value=worker_flow_plan))
+    setattr(orchestrator, "_run_stage5", M(return_value=worker_block_plan))
+    setattr(
+        orchestrator,
+        "_run_stage6_worker_scoped",
+        M(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), SymbolTable(), [])),
+    )
+    setattr(orchestrator, "_run_stage7_worker_scoped", M(return_value=(worker_step_plan, SymbolTable(), [])))
     setattr(orchestrator, "_run_stage8", M(return_value=M()))
     setattr(orchestrator, "_run_stage9", M(return_value=[]))
-    setattr(orchestrator, "_run_normalization", M(
-        return_value=(FlowStructureIR(), BlockStructureIR(), [], [], M(), [], [])))
-    setattr(orchestrator, "_run_stage10", M(return_value=M()))
+    setattr(
+        orchestrator,
+        "_run_normalization_worker_scoped",
+        M(return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, SymbolTable(), [], [])),
+    )
+    setattr(orchestrator, "_run_stage10_worker_scoped", M(return_value=worker))
     setattr(orchestrator, "_run_stage11", M(return_value=("SPL", [], [])))
 
     result = orchestrator.run(STRUCTURAL_TEXT)

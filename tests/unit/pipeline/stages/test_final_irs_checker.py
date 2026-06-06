@@ -78,8 +78,8 @@ class TestMissingHandler:
         mh = [d for d in diags if d.kind == "missing_handler"]
         assert len(mh) == 0
 
-    def test_pseudo_handler_marked_step_does_not_count(self) -> None:
-        """Steps marked pseudo_exception_handler are excluded."""
+    def test_handler_metadata_does_not_override_flow_ref(self) -> None:
+        """Handler presence is structural; metadata is ignored."""
         checker = PostNormalizeIRSChecker()
         worker = _make_worker(
             exception_flows=[
@@ -97,7 +97,7 @@ class TestMissingHandler:
 
         diags = checker.check(worker)
         mh = [d for d in diags if d.kind == "missing_handler"]
-        assert len(mh) == 1  # pseudo-handler doesn't count as real handler
+        assert len(mh) == 0
 
     def test_child_worker_exception_flow_without_handler(self) -> None:
         checker = PostNormalizeIRSChecker()
@@ -411,7 +411,7 @@ class TestTypeContractAmbiguity:
         toca = [d for d in diags if d.kind == "type_or_contract_ambiguity"]
         assert len(toca) == 0
 
-    def test_pseudo_handler_findings_generate_ambiguity(self) -> None:
+    def test_construct_findings_are_ignored_for_compatibility(self) -> None:
         checker = PostNormalizeIRSChecker()
         worker = _make_worker(
             exception_flows=[
@@ -435,8 +435,8 @@ class TestTypeContractAmbiguity:
 
         diags = checker.check(worker, construct_findings=findings)
         toca = [d for d in diags if d.kind == "type_or_contract_ambiguity"]
-        assert any("st_disp" in d.message for d in toca)
-        assert any("condition restatement" in d.message for d in toca)
+        assert not any("st_disp" in d.message for d in toca)
+        assert not any("condition restatement" in d.message for d in toca)
 
     def test_call_api_with_handoff_bound_api_no_ambiguity(self) -> None:
         """CALL_API with handoff_id matching an api_call handoff is not ambiguous."""

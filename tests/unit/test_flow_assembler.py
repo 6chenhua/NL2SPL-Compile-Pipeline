@@ -1,4 +1,4 @@
-"""Unit tests for Stage 4: FlowAssembler."""
+﻿"""Unit tests for Stage 4: FlowAssembler."""
 
 from __future__ import annotations
 
@@ -8,12 +8,10 @@ import pytest
 
 from nl2spl.errors.exceptions import StageError
 from nl2spl.adapters import StructuralNLAdapter
-from nl2spl.canonical import EvidenceRef, FailureModeFact
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.pipeline.fact_bridges import bridge_failure_modes
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
@@ -279,7 +277,7 @@ class TestFlowAssembler:
 
 
 # ===========================================================================
-# D0: Baseline — Stage 4 ignores annotations
+# D0: Baseline 鈥?Stage 4 ignores annotations
 # ===========================================================================
 
 
@@ -331,6 +329,56 @@ class TestD0Stage4Baseline:
         exc = result.exception_flows[0]
         assert exc.condition_text == "Missing timeframe"
         assert "s1" in exc.spans
+
+    def test_stage4_prompt_excludes_non_executable_behavior_annotations(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Non-executable behavior annotations must not enter Stage 4 behavior prompt."""
+        mock_client.call_json.return_value = {
+            "main_flow_spans": ["s2"],
+            "alternative_flows": [],
+            "exception_flows": [],
+            "delegation_candidates": [],
+        }
+        spans = [
+            SpanIR(span_id="s1", text="Missing timeframe."),
+            SpanIR(span_id="s2", text="Draft the communication artifact."),
+            SpanIR(span_id="s3", text="Do not delegate final approval."),
+        ]
+        routes = FieldRouteIR(
+            behavior=["s1", "s2", "s3"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="failure_mode",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="condition",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s2",
+                    field="behavior",
+                    semantic_role="process_step",
+                    executable=True,
+                ),
+                RouteAnnotation(
+                    span_id="s3",
+                    field="rules",
+                    semantic_role="delegation_boundary_constraint",
+                    executable=False,
+                ),
+            ],
+        )
+
+        FlowAssembler(pipeline_config, mock_client).execute((spans, routes))
+
+        user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+        behavior_section = user_prompt.split("Behavior spans to classify:", 1)[1]
+        behavior_section = behavior_section.split("Full source text context:", 1)[0]
+        assert "s2: Draft the communication artifact." in behavior_section
+        assert "s1: Missing timeframe." not in behavior_section
+        assert "s3: Do not delegate final approval." not in behavior_section
 
     def test_helper_fallback_when_no_annotations(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -398,7 +446,7 @@ class TestD2RouteDrivenExceptions:
     def test_llm_handler_exception_flow_filtered(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM returns exception flow from handler span → filtered out."""
+        """LLM returns exception flow from handler span 鈫?filtered out."""
         mock_client.call_json.return_value = {
             "main_flow_spans": ["s_cond", "s_handler"],
             "alternative_flows": [],
@@ -459,7 +507,7 @@ class TestD2RouteDrivenExceptions:
     def test_llm_handler_plus_process_exception_filtered(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM exception backed by handler+process (no condition) → filtered."""
+        """LLM exception backed by handler+process (no condition) 鈫?filtered."""
         mock_client.call_json.return_value = {
             "main_flow_spans": ["s_handler", "s_process", "s_cond"],
             "alternative_flows": [],
@@ -497,7 +545,7 @@ class TestD2RouteDrivenExceptions:
         assembler = FlowAssembler(pipeline_config, mock_client)
         result = assembler.execute((spans, routes))
 
-        # The handler+process exception flow has no condition span → filtered
+        # The handler+process exception flow has no condition span 鈫?filtered
         bad_flows = [
             exc for exc in result.exception_flows
             if "s_handler" in exc.spans or "s_process" in exc.spans
@@ -514,7 +562,7 @@ class TestD2RouteDrivenExceptions:
     def test_no_condition_annotation_filters_all_llm_exceptions(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """Annotations present but no condition → ALL LLM exceptions filtered."""
+        """Annotations present but no condition 鈫?ALL LLM exceptions filtered."""
         mock_client.call_json.return_value = {
             "main_flow_spans": ["s_handler", "s_process"],
             "alternative_flows": [],
@@ -546,7 +594,7 @@ class TestD2RouteDrivenExceptions:
         assembler = FlowAssembler(pipeline_config, mock_client)
         result = assembler.execute((spans, routes))
 
-        # Annotations exist but no condition → all LLM exceptions filtered
+        # Annotations exist but no condition 鈫?all LLM exceptions filtered
         assert len(result.exception_flows) == 0, (
             f"Without condition annotations, LLM exceptions must be filtered, "
             f"got {len(result.exception_flows)}"
@@ -825,7 +873,7 @@ class TestD2RouteDrivenExceptions:
 
         assert len(result.exception_flows) == 1  # deduped, not duplicated
 
-    def test_bridge_fallback_works_without_annotations(
+    def test_no_annotations_do_not_create_route_exception(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         mock_client.call_json.return_value = {
@@ -841,19 +889,8 @@ class TestD2RouteDrivenExceptions:
         result = assembler.execute((spans, routes))
 
         assert result.exception_flows == []  # route materializer has nothing to do
-        # Bridge still works independently
-        from nl2spl.pipeline.fact_bridges import bridge_failure_modes
-        from nl2spl.canonical import FailureModeFact, EvidenceRef
 
-        fact = FailureModeFact(
-            name="missing", text="Missing timeframe.",
-            source_section_id="sec_fail",
-            evidence=[EvidenceRef(source_section_id="sec_fail")],
-        )
-        bridged = bridge_failure_modes([fact], spans, result)
-        assert len(bridged.exception_flows) == 1
-
-    def test_route_plus_bridge_no_duplicate(
+    def test_route_materialization_no_duplicate(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         mock_client.call_json.return_value = {
@@ -882,18 +919,6 @@ class TestD2RouteDrivenExceptions:
         result = assembler.execute((spans, routes))
         # Route-driven exception already materialized
         assert len(result.exception_flows) == 1
-
-        # Bridge with same condition text → deduped, no duplicate
-        from nl2spl.pipeline.fact_bridges import bridge_failure_modes
-        from nl2spl.canonical import FailureModeFact, EvidenceRef
-
-        fact = FailureModeFact(
-            name="missing_timeframe", text="Missing timeframe.",
-            source_section_id="sec_fail",
-            evidence=[EvidenceRef(source_section_id="sec_fail")],
-        )
-        bridged = bridge_failure_modes([fact], spans, result)
-        assert len(bridged.exception_flows) == 1  # still one
 
     def test_non_failure_annotation_ignored(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -962,7 +987,7 @@ class TestD2RouteDrivenExceptions:
     def test_filter_noop_returns_original_object(
         self,
     ) -> None:
-        """Filter with only route-derived flows → returns original unchanged."""
+        """Filter with only route-derived flows 鈫?returns original unchanged."""
         from nl2spl.ir.flow_structure_ir import FlowStructureIR as FSI, ExceptionFlow
         from nl2spl.pipeline.stages.stage4_flow_assembler.executor import (
             _filter_non_condition_exception_flows,
@@ -1002,86 +1027,8 @@ class TestD2RouteDrivenExceptions:
         assert result is original
 
 
-def test_d2_orchestrator_path_route_plus_bridge_no_duplicate(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """D2: PipelineOrchestrator.run() produces no duplicate exception from route+bridge."""
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
-    text = (
-        "Task family: Test.\n\n"
-        "Inputs for each run:\nA user request.\n\n"
-        "Required outputs:\nA result.\n\n"
-        "Reusable process:\nDetermine type.\n\n"
-        "Policies:\nDo not invent.\n\n"
-        "Failure handling:\nMissing timeframe.\n\n"
-        "Delegation policy:\nNone.\n"
-    )
-    canonical = StructuralNLAdapter().adapt(text)
-    # Adapter keeps compatibility facts for bridge fallback.
-    assert len(canonical.hard_facts.failure_modes) >= 1
-
-    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
-    # Verify failure annotation exists (triggers route materialization in Stage 4)
-    failure_anns = routes.get_construct_slot_candidates("EXCEPTION_FLOW", "condition")
-    assert len(failure_anns) >= 1
-
-    # Build a real PipelineOrchestrator and run through Stage 4 + bridge
-    orchestrator = PipelineOrchestrator(pipeline_config)
-    orchestrator.client = mock_client
-
-    # Stage 4 LLM: no exceptions → route materializer adds one
-    flow_structure = FlowStructureIR()
-    mock_client.call_json.return_value = {
-        "main_flow_spans": [s.span_id for s in spans if "timeframe" not in s.text],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": [],
-    }
-    # Mock stages 5+ to avoid running full pipeline
-    setattr(orchestrator, "_run_stage1", MagicMock(return_value=spans))
-    setattr(orchestrator, "_run_stage2", MagicMock(return_value=(routes, [])))
-    setattr(orchestrator, "_run_stage3", MagicMock(return_value=(spans, routes)))
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
-    setattr(orchestrator, "_run_stage6", MagicMock(
-        return_value=(MagicMock(variables=[]), MagicMock(), [])))
-
-    from nl2spl.ir.step_ir import StepIR
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
-    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
-    setattr(orchestrator, "_run_normalization", MagicMock(
-        return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])))
-    setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
-
-    # Stage 4 uses real FlowAssembler.execute() so route materializer runs
-    def real_stage4(spans, routes, worker_plan=None):
-        return FlowAssembler(pipeline_config, mock_client).execute((spans, routes))
-    setattr(orchestrator, "_run_stage4", real_stage4)
-
-    result = orchestrator.run(text)
-
-    stage4_flow = result.intermediate_results["stage4_flow"]
-    # Route materialization plus bridge fallback must not duplicate.
-    timeframe_exceptions = [
-        e for e in stage4_flow.exception_flows
-        if "timeframe" in e.condition_text.lower()
-    ]
-    assert len(timeframe_exceptions) == 1, (
-        f"Expected 1 exception for 'timeframe', got {len(timeframe_exceptions)}"
-    )
-
-
 # ===========================================================================
-# D8: Bridge fallback guards — route is canonical, bridge is fallback
-# ===========================================================================
-
-
-# ===========================================================================
-# D11: Import boundary — route materializer not in fact_bridges
+# D11: Import boundary 鈥?route materializer not in fact_bridges
 # ===========================================================================
 
 
@@ -1119,194 +1066,4 @@ def test_d11_route_materializer_not_imported_from_fact_bridges() -> None:
     )
 
 
-def test_d8_bridge_fallback_skipped_when_route_exceptions_exist(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """D8: bridge fallback is skipped when route materialization has exceptions."""
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
-    text = (
-        "Task family: Test.\n\nInputs for each run:\nA request.\n\n"
-        "Required outputs:\nA result.\n\nReusable process:\nDetermine type.\n\n"
-        "Policies:\nDo not invent.\n\nFailure handling:\nMissing timeframe.\n\n"
-        "Delegation policy:\nNone.\n"
-    )
-    canonical = StructuralNLAdapter().adapt(text)
-    assert len(canonical.hard_facts.failure_modes) >= 1
-
-    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
-    # Route annotations exist
-    assert routes.annotations, "Annotations must be present for D8 test"
-    failure_anns = routes.get_construct_slot_candidates("EXCEPTION_FLOW", "condition")
-    assert len(failure_anns) >= 1  # route-derived will create exception
-
-    mock_client.call_json.return_value = {
-        "main_flow_spans": [s.span_id for s in spans if "timeframe" not in s.text],
-        "alternative_flows": [], "exception_flows": [], "delegation_candidates": [],
-    }
-    assembler = FlowAssembler(pipeline_config, mock_client)
-    flow = assembler.execute((spans, routes))
-
-    # Route materialized exception
-    assert len(flow.exception_flows) >= 1
-
-    # Bridge fallback sees adapter facts but must not duplicate route exceptions.
-    from nl2spl.pipeline.fact_bridges import bridge_failure_modes
-    bridged = bridge_failure_modes(canonical.hard_facts.failure_modes, spans, flow)
-    assert len(bridged.exception_flows) == len(flow.exception_flows)
-
-
-def test_d8_hard_fact_only_fallback_still_works(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """D8: without route annotations, bridge fallback still creates exception."""
-    from nl2spl.canonical import EvidenceRef, FailureModeFact
-    from nl2spl.pipeline.fact_bridges import bridge_failure_modes
-
-    spans = [SpanIR("s1", "Missing timeframe.")]
-    routes = FieldRouteIR(behavior=["s1"])  # no annotations
-    flow = FlowStructureIR()  # no exception flows
-
-    fact = FailureModeFact(
-        name="missing_timeframe", text="Missing timeframe.",
-        source_section_id="sec_fail",
-        evidence=[EvidenceRef(source_section_id="sec_fail")],
-    )
-    bridged = bridge_failure_modes([fact], spans, flow)
-    assert len(bridged.exception_flows) == 1
-    assert bridged.exception_flows[0].condition_text == "Missing timeframe."
-
-
-def test_d8_guard_by_normalized_condition_coverage():
-    """D8: guard checks normalized condition text, not just flow count."""
-    from nl2spl.canonical import EvidenceRef, FailureModeFact
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
-    flow = FlowStructureIR(
-        exception_flows=[
-            ExceptionFlow("exc_adapter_00", "Missing timeframe.", ["s_fail"]),
-        ],
-    )
-    # Already-covered failure mode → no fallback needed
-    covered = [FailureModeFact(
-        name="mt", text="Missing timeframe.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    )]
-    assert not PipelineOrchestrator._bridge_fallback_needed(covered, flow)
-
-    # Unrelated failure mode → fallback still needed
-    unrelated = [FailureModeFact(
-        name="es", text="Evidence shortage.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    )]
-    assert PipelineOrchestrator._bridge_fallback_needed(unrelated, flow)
-
-    # Mixed: one covered, one not → fallback needed
-    assert PipelineOrchestrator._bridge_fallback_needed(covered + unrelated, flow)
-
-    # Empty flow → fallback needed
-    assert PipelineOrchestrator._bridge_fallback_needed(covered, FlowStructureIR())
-
-
-def test_d8_orchestrator_guard_stops_bridge_when_route_has_exceptions(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """D8: orchestrator path uses patch to prove bridge NOT called when route covers all."""
-    from unittest.mock import patch
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
-    text = (
-        "Task family: Test.\n\nInputs for each run:\nA request.\n\n"
-        "Required outputs:\nA result.\n\nReusable process:\nDetermine type.\n\n"
-        "Policies:\nDo not invent.\n\nFailure handling:\nMissing timeframe.\n\n"
-        "Delegation policy:\nNone.\n"
-    )
-    canonical = StructuralNLAdapter().adapt(text)
-    spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
-
-    orchestrator = PipelineOrchestrator(pipeline_config)
-    orchestrator.client = mock_client
-
-    mock_client.call_json.return_value = {
-        "main_flow_spans": [s.span_id for s in spans if "timeframe" not in s.text],
-        "alternative_flows": [], "exception_flows": [], "delegation_candidates": [],
-    }
-    # Mock stages
-    setattr(orchestrator, "_run_stage1", MagicMock(return_value=spans))
-    setattr(orchestrator, "_run_stage2", MagicMock(return_value=(routes, [])))
-    setattr(orchestrator, "_run_stage3", MagicMock(return_value=(spans, routes)))
-    from nl2spl.ir.block_structure_ir import BlockStructureIR
-
-    def real_stage4(s, r, wp=None):
-        return FlowAssembler(pipeline_config, mock_client).execute((s, r))
-    setattr(orchestrator, "_run_stage4", real_stage4)
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=BlockStructureIR()))
-    setattr(orchestrator, "_run_stage6", MagicMock(
-        return_value=(MagicMock(variables=[]), MagicMock(), [])))
-    setattr(orchestrator, "_run_stage7", MagicMock(return_value=([], MagicMock(), [])))
-    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
-    setattr(orchestrator, "_run_normalization", MagicMock(
-        return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])))
-    setattr(orchestrator, "_run_stage10", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
-
-    with patch("nl2spl.pipeline.orchestrator.bridge_failure_modes") as spy_bridge:
-        result = orchestrator.run(text)
-        stage4_flow = result.intermediate_results["stage4_flow"]
-        # Route materialized the exception
-        timeframe_excs = [
-            e for e in stage4_flow.exception_flows
-            if "timeframe" in e.condition_text.lower()
-        ]
-        assert len(timeframe_excs) == 1
-        # Bridge fallback must NOT be called (route covers all failure modes)
-        spy_bridge.assert_not_called()
-
-
-def test_d8_worker_scoped_guard_coverage():
-    """D8: worker-scoped guard — uncovered hard fact triggers fallback."""
-    from nl2spl.canonical import EvidenceRef, FailureModeFact
-    from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
-    wfp = WorkerFlowPlanIR(worker_flows={
-        "worker_main": FlowStructureIR(
-            exception_flows=[
-                ExceptionFlow("exc_adapter_00", "Missing timeframe.", ["s1"]),
-            ],
-        ),
-        "worker_child": FlowStructureIR(),
-    })
-    # Already-covered failure mode → no fallback
-    covered = [FailureModeFact(
-        name="mt", text="Missing timeframe.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    )]
-    assert not PipelineOrchestrator._bridge_fallback_needed_worker_scoped(
-        covered, wfp,
-    )
-    # Unrelated failure mode → fallback needed
-    unrelated = [FailureModeFact(
-        name="es", text="Evidence shortage.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    )]
-    assert PipelineOrchestrator._bridge_fallback_needed_worker_scoped(
-        unrelated, wfp,
-    )
-    # Mixed: one covered in child, one uncovered — fallback needed
-    mixed = [FailureModeFact(
-        name="mt", text="Missing timeframe.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    ), FailureModeFact(
-        name="es", text="Evidence shortage.",
-        source_section_id="s", evidence=[EvidenceRef(source_section_id="s")],
-    )]
-    assert PipelineOrchestrator._bridge_fallback_needed_worker_scoped(
-        mixed, wfp,
-    ), "Mixed covered+uncovered must trigger fallback"

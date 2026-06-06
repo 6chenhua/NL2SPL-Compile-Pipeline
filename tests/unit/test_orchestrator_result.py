@@ -1,4 +1,4 @@
-"""Unit tests for PipelineResult MVP fields and orchestrator run path (Phase 9)."""
+﻿"""Unit tests for PipelineResult MVP fields and orchestrator run path (Phase 9)."""
 
 from __future__ import annotations
 
@@ -12,11 +12,18 @@ from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import FlowRef, WorkerIR
+from nl2spl.ir.worker_plan_ir import (
+    WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
+    WorkerPlanIR,
+    WorkerSpecIR,
+    WorkerStepPlanIR,
+)
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator, PipelineResult
 from nl2spl.pipeline.provenance import ProvenanceAggregator
@@ -105,305 +112,136 @@ class TestPipelineResultMvpFields:
 class TestOrchestratorRunPath:
     """Verify run() fills completeness, assumptions, readable_report."""
 
-    def test_run_fills_mvp_fields_with_diagnostics(
-        self, monkeypatch: pytest.MonkeyPatch,
+    def _worker_plan(self, owned_span_ids: list[str]) -> WorkerPlanIR:
+        return WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    "worker_main", "MainWorker", "main", "Main worker",
+                    owned_span_ids, [], [], [], [], "main_worker", [], "",
+                )
+            ],
+            candidates=[],
+            decisions=[],
+            handoffs=[],
+        )
+
+    def _patch_worker_aware_stages(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        spans: list[SpanIR],
+        stage7_diagnostics: list[CompileDiagnostic] | None = None,
+        worker: WorkerIR | None = None,
     ) -> None:
-        from nl2spl.config import LLMConfig, PipelineConfig
         from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 
-        config = PipelineConfig(
-            llm=LLMConfig(api_key="sk-fake"),
-            output_dir=Path("output"),
-            run_name="test_run_path",
-            enable_worker_boundary_planner=False,
+        span_ids = [span.span_id for span in spans]
+        worker_plan = self._worker_plan(span_ids)
+        worker_flow_plan = WorkerFlowPlanIR(
+            worker_flows={"worker_main": FlowStructureIR(main_flow_spans=span_ids)}
+        )
+        worker_block_plan = WorkerBlockPlanIR(
+            worker_blocks={
+                "worker_main": BlockStructureIR(
+                    main_flow_blocks=[BlockIR("b1", "SEQUENTIAL", spans=span_ids)]
+                )
+            }
+        )
+        worker_step_plan = WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={
+                "worker_main": [
+                    StepIR("st1", "Do work", span_ids, "GENERAL_COMMAND")
+                ]
+            },
+        )
+        result_worker = worker or WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(blocks=[BlockIR("b1", "SEQUENTIAL", spans=span_ids)]),
+            steps=[StepIR("st1", "Do work", span_ids, "GENERAL_COMMAND")],
         )
 
-        # Diagnostic that Stage 7 would produce
-        stage7_diag = CompileDiagnostic(
-            "D_stage7", "unmapped_behavior_span", "warning",
-            "Unmapped span s1.",
-        )
-
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage3_5", lambda s, *a, **kw: worker_plan)
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage4", lambda s, *a, **kw: worker_flow_plan)
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage5", lambda s, *a, **kw: worker_block_plan)
         monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage1",
-            lambda s, *a, **kw: [SpanIR("s1", "Do work.")],
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage2",
-            lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage3",
+            PipelineOrchestrator,
+            "_run_stage6_worker_scoped",
             lambda s, *a, **kw: (
-                [SpanIR("s1", "Do work.")], FieldRouteIR(behavior=["s1"]),
+                WorkerScopedResourceIR(global_resources=ResourceRegistryIR()),
+                SymbolTable(),
+                [],
             ),
         )
         monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage4",
-            lambda s, *a, **kw: FlowStructureIR(),
+            PipelineOrchestrator,
+            "_run_stage7_worker_scoped",
+            lambda s, *a, **kw: (worker_step_plan, SymbolTable(), stage7_diagnostics or []),
         )
         monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage5",
-            lambda s, *a, **kw: BlockStructureIR(),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
-        )
-
-        # Stage 7 — inject a diagnostic via the orchestrator's _run_stage7 wrapper
-        def _fake_stage7(s, *a, **kw):
-            s._test_stage7_diags = [stage7_diag]
-            return (
-                [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-                SymbolTable(),
-                [],
-            )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage7", _fake_stage7,
-        )
-
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage8",
+            PipelineOrchestrator,
+            "_run_stage8",
             lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T")),
         )
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage9", lambda s, *a, **kw: [])
         monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage9",
-            lambda s, *a, **kw: [],
+            PipelineOrchestrator,
+            "_run_normalization_worker_scoped",
+            lambda s, *a, **kw: (worker_flow_plan, worker_block_plan, worker_step_plan, SymbolTable(), [], []),
         )
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage10_worker_scoped", lambda s, *a, **kw: result_worker)
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage11", lambda s, *a, **kw: ("[DEFINE_WORKER: MainWorker]", [], []))
 
-        def _fake_stage10(s, *a, **kw):
-            return WorkerIR(
-                worker_name="MainWorker", description="Test",
-                main_flow=FlowRef(),
-                steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-            )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage10", _fake_stage10,
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage11",
-            lambda s, *a, **kw: ("[DEFINE_WORKER: MainWorker]", [], []),
-        )
+    def test_run_fills_mvp_fields_with_diagnostics(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from nl2spl.config import LLMConfig, PipelineConfig
 
-        # Gate produces a diagnostic
+        config = PipelineConfig(llm=LLMConfig(api_key="sk-fake"), output_dir=Path("output"), run_name="test_run_path")
+        span = SpanIR("s1", "Do work.")
+        stage7_diag = CompileDiagnostic("D_stage7", "unmapped_behavior_span", "warning", "Unmapped span s1.")
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage1", lambda s, *a, **kw: [span])
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage2", lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []))
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage3", lambda s, *a, **kw: ([span], FieldRouteIR(behavior=["s1"])))
+        self._patch_worker_aware_stages(monkeypatch, [span], [stage7_diag])
+
         def _fake_gate_apply(g, worker, worker_plan=None):
-            diag = CompileDiagnostic(
-                "D_gate", "assumed_command_not_renderable", "warning",
-                "Blocked.", target_ref="step:st_synth",
-            )
-            infos = [
-                StepRenderInfo("st1", "source_backed", True),
-            ]
-            return worker, infos, [diag]
-        monkeypatch.setattr(
-            ExecutableElementGate, "apply", _fake_gate_apply,
-        )
+            diag = CompileDiagnostic("D_gate", "assumed_command_not_renderable", "warning", "Blocked.", target_ref="step:st_synth")
+            return worker, [StepRenderInfo("st1", "source_backed", True)], [diag]
 
-        # Provenance
-        monkeypatch.setattr(
-            ProvenanceAggregator, "aggregate",
-            lambda s, **kw: (
-                [TraceRecord("step:st1", ["s1"], relation="direct",
-                             explanation="From source.")],
-                [],
-            ),
-        )
-
-        # Override the Stage 7 diagnostic extraction to use our injected value.
-        # The orchestrator calls getattr(stage, "stage7_diagnostics", [])
-        # but we patched _run_stage7 — the orchestrator's wrapper calls
-        # stage.execute(...) and then reads stage.stage7_diagnostics.
-        # Since we replaced _run_stage7 entirely, we need a different
-        # approach: patch the orchestrator's _run_stage7 to return a 3-tuple.
-        orig_run = PipelineOrchestrator.run
-
-        # Simpler: just monkeypatch the run method's call to _run_stage7
-        # to return (steps, symbols, [stage7_diag])
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage7",
-            lambda s, *a, **kw: (
-                [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-                SymbolTable(),
-                [stage7_diag],
-            ),
-        )
-
-        orchestrator = PipelineOrchestrator(config)
-        result = orchestrator.run("Do work.")
-
-        assert result.completeness == "partial", (
-            f"Expected partial, got {result.completeness}"
-        )
-        assert len(result.assumptions) > 0, (
-            "Must produce assumptions from diagnostics"
-        )
+        monkeypatch.setattr(ExecutableElementGate, "apply", _fake_gate_apply)
+        monkeypatch.setattr(ProvenanceAggregator, "aggregate", lambda s, **kw: ([TraceRecord("step:st1", ["s1"], relation="direct", explanation="From source.")], []))
+        result = PipelineOrchestrator(config).run("Do work.")
+        assert result.completeness == "partial"
+        assert len(result.assumptions) > 0
         assert "NL2SPL Compile Report" in result.readable_report
         assert "Status: partial" in result.readable_report
 
-    def test_clean_run_is_complete(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    def test_clean_run_is_complete(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from nl2spl.config import LLMConfig, PipelineConfig
-        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 
-        config = PipelineConfig(
-            llm=LLMConfig(api_key="sk-fake"),
-            output_dir=Path("output"),
-            run_name="test_clean",
-            enable_worker_boundary_planner=False,
-        )
-
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage1",
-            lambda s, *a, **kw: [SpanIR("s1", "Do work.")],
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage2",
-            lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage3",
-            lambda s, *a, **kw: (
-                [SpanIR("s1", "Do work.")], FieldRouteIR(behavior=["s1"]),
-            ),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage4",
-            lambda s, *a, **kw: FlowStructureIR(),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage5",
-            lambda s, *a, **kw: BlockStructureIR(),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage7",
-            lambda s, *a, **kw: (
-                [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-                SymbolTable(),
-                [],
-            ),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage8",
-            lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T")),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage9",
-            lambda s, *a, **kw: [],
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage10",
-            lambda s, *a, **kw: WorkerIR(
-                worker_name="MainWorker", description="Test",
-                main_flow=FlowRef(),
-                steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-            ),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage11",
-            lambda s, *a, **kw: ("[DEFINE_WORKER: MainWorker]", [], []),
-        )
-        monkeypatch.setattr(
-            ExecutableElementGate, "apply",
-            lambda g, w, wp=None: (w, [], []),
-        )
-        monkeypatch.setattr(
-            ProvenanceAggregator, "aggregate",
-            lambda s, **kw: ([], []),
-        )
-
-        orchestrator = PipelineOrchestrator(config)
-        result = orchestrator.run("Do work.")
-
+        config = PipelineConfig(llm=LLMConfig(api_key="sk-fake"), output_dir=Path("output"), run_name="test_clean")
+        span = SpanIR("s1", "Do work.")
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage1", lambda s, *a, **kw: [span])
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage2", lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []))
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage3", lambda s, *a, **kw: ([span], FieldRouteIR(behavior=["s1"])))
+        self._patch_worker_aware_stages(monkeypatch, [span])
+        monkeypatch.setattr(ExecutableElementGate, "apply", lambda g, w, wp=None: (w, [], []))
+        monkeypatch.setattr(ProvenanceAggregator, "aggregate", lambda s, **kw: ([], []))
+        result = PipelineOrchestrator(config).run("Do work.")
         assert result.completeness == "complete"
         assert result.assumptions == []
         assert "Status: complete" in result.readable_report
 
-    def test_structural_spans_produce_section_in_report(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """P1: Spans with source_section_id propagate through the REAL
-        ProvenanceAggregator into the report.  No mock on aggregator --
-        the test proves the full orchestrator-to-report chain."""
+    def test_structural_spans_produce_section_in_report(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from nl2spl.config import LLMConfig, PipelineConfig
-        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 
-        config = PipelineConfig(
-            llm=LLMConfig(api_key="sk-fake"),
-            output_dir=Path("output"),
-            run_name="test_section_prov",
-            enable_worker_boundary_planner=False,
-        )
-
-        span = SpanIR(
-            "s1", "Do work.",
-            source_section_id="sec_reusable_process",
-            source_packet_id="p_process_1",
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage1",
-            lambda s, *a, **kw: [span],
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage2",
-            lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage3",
-            lambda s, *a, **kw: ([span], FieldRouteIR(behavior=["s1"])),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage4",
-            lambda s, *a, **kw: FlowStructureIR(),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage5",
-            lambda s, *a, **kw: BlockStructureIR(),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage6",
-            lambda s, *a, **kw: (ResourceRegistryIR(), SymbolTable(), []),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage7",
-            lambda s, *a, **kw: (
-                [StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-                SymbolTable(),
-                [],
-            ),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage8",
-            lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T")),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage9",
-            lambda s, *a, **kw: [],
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage10",
-            lambda s, *a, **kw: WorkerIR(
-                worker_name="MainWorker", description="Test",
-                main_flow=FlowRef(blocks=[
-                    BlockIR("b1", "SEQUENTIAL", spans=["s1"]),
-                ]),
-                steps=[StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND")],
-            ),
-        )
-        monkeypatch.setattr(
-            PipelineOrchestrator, "_run_stage11",
-            lambda s, *a, **kw: ("[DEFINE_WORKER: MainWorker]", [], []),
-        )
-        monkeypatch.setattr(
-            ExecutableElementGate, "apply",
-            lambda g, w, wp=None: (w, [], []),
-        )
-        # Capture kwargs passed to the real ProvenanceAggregator.aggregate
+        config = PipelineConfig(llm=LLMConfig(api_key="sk-fake"), output_dir=Path("output"), run_name="test_section_prov")
+        span = SpanIR("s1", "Do work.", source_section_id="sec_reusable_process", source_packet_id="p_process_1")
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage1", lambda s, *a, **kw: [span])
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage2", lambda s, *a, **kw: (FieldRouteIR(behavior=["s1"]), []))
+        monkeypatch.setattr(PipelineOrchestrator, "_run_stage3", lambda s, *a, **kw: ([span], FieldRouteIR(behavior=["s1"])))
+        self._patch_worker_aware_stages(monkeypatch, [span])
+        monkeypatch.setattr(ExecutableElementGate, "apply", lambda g, w, wp=None: (w, [], []))
         captured_kwargs: dict = {}
         _orig_aggregate = ProvenanceAggregator.aggregate
 
@@ -411,26 +249,13 @@ class TestOrchestratorRunPath:
             captured_kwargs.update(kw)
             return _orig_aggregate(self, **kw)
 
-        monkeypatch.setattr(
-            ProvenanceAggregator, "aggregate", _spy_aggregate,
-        )
-
-        orchestrator = PipelineOrchestrator(config)
-        result = orchestrator.run("Do work.")
-
-        # Report must contain section provenance from the real aggregator
-        assert "section=sec_reusable_process" in result.readable_report, (
-            f"Report missing section provenance:\n{result.readable_report[:600]}"
-        )
+        monkeypatch.setattr(ProvenanceAggregator, "aggregate", _spy_aggregate)
+        result = PipelineOrchestrator(config).run("Do work.")
+        assert "section=sec_reusable_process" in result.readable_report
         assert "packet=p_process_1" in result.readable_report
         assert result.completeness == "complete"
-        # Verify the orchestrator passed variable_facts (empty for generic NL)
         assert "variable_facts" in captured_kwargs
         assert captured_kwargs["variable_facts"] == []
-
-
-# ---------------------------------------------------------------------------
-# P3: CLI report file writing regression
 # ---------------------------------------------------------------------------
 
 class TestCliReportFile:
@@ -493,3 +318,4 @@ class TestCliReportFile:
         assert "Completeness: `partial`" in feedback
         assert "missing_handler" in feedback
         assert "section=`sec_failure_handling`" in feedback
+

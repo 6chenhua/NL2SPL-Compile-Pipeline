@@ -110,62 +110,15 @@ def test_generic_freeform_uses_generic_adapter() -> None:
     assert canonical.semantic_packets == []
 
 
-def test_registry_adapter_llm_engine_off_passes_no_clients() -> None:
-    registry = InputAdapterRegistry(llm_client=object(), adapter_llm_engine="off")
+def test_registry_constructs_structure_only_adapters() -> None:
+    registry = InputAdapterRegistry()
 
     structural, generic = registry.adapters
 
     assert isinstance(structural, StructuralNLAdapter)
     assert isinstance(generic, GenericNLAdapter)
-    assert getattr(structural, "_llm_client") is None
-    assert getattr(generic, "_llm_client") is None
-
-
-def test_registry_adapter_llm_engine_generic_only() -> None:
-    client = object()
-    registry = InputAdapterRegistry(llm_client=client, adapter_llm_engine="generic_only")
-
-    structural, generic = registry.adapters
-
-    assert getattr(structural, "_llm_client") is None
-    assert getattr(generic, "_llm_client") is client
-
-
-def test_registry_adapter_llm_engine_structural_enrich() -> None:
-    client = object()
-    registry = InputAdapterRegistry(
-        llm_client=client,
-        adapter_llm_engine="structural_enrich",
-    )
-
-    structural, generic = registry.adapters
-
-    assert getattr(structural, "_llm_client") is client
-    assert getattr(generic, "_llm_client") is None
-
-
-def test_registry_adapter_llm_engine_all() -> None:
-    client = object()
-    registry = InputAdapterRegistry(llm_client=client, adapter_llm_engine="all")
-
-    structural, generic = registry.adapters
-
-    assert getattr(structural, "_llm_client") is client
-    assert getattr(generic, "_llm_client") is client
-
-
-def test_load_config_reads_adapter_llm_engine_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    monkeypatch.setenv("NL2SPL_ADAPTER_LLM_ENGINE", "generic_only")
-
-    config = load_config(output_dir=tmp_path)
-
-    assert config.adapter_llm_engine == "generic_only"
-
-
-def test_load_config_rejects_invalid_adapter_llm_engine(tmp_path) -> None:
-    with pytest.raises(ValueError, match="adapter_llm_engine"):
-        load_config(output_dir=tmp_path, adapter_llm_engine="invalid")
-
+    assert not hasattr(structural, "_llm_client")
+    assert not hasattr(generic, "_llm_client")
 
 def test_structural_adapter_extracts_hard_facts_and_hints(mock_client) -> None:
     """F0 Baseline: adapter populates canonical input structure correctly with compat mode."""
@@ -174,7 +127,7 @@ def test_structural_adapter_extracts_hard_facts_and_hints(mock_client) -> None:
     input_names = {fact.name for fact in canonical.hard_facts.inputs}
     output_names = {fact.name for fact in canonical.hard_facts.outputs}
 
-    # Inputs/outputs and bridge fallback facts remain available for compatibility.
+    # Inputs/outputs remain hard facts; failure handling is route-driven.
     assert {"user_request", "known_topics", "timeframe"}.issubset(input_names)
     assert {
         "draft_communication_artifact",
@@ -182,11 +135,9 @@ def test_structural_adapter_extracts_hard_facts_and_hints(mock_client) -> None:
         "short_assumptions_log",
         "completion_status",
     }.issubset(output_names)
-    failure_names = {fact.name for fact in canonical.hard_facts.failure_modes}
-    assert {"missing_timeframe", "conflicting_instructions", "evidence_shortage"}.issubset(
-        failure_names
-    )
-    assert canonical.hard_facts.delegation_intents
+    assert not hasattr(canonical.hard_facts, "failure_modes")
+    assert canonical.hard_facts.delegation_intents == []
+    assert canonical.route_priors == []
 
 
 def test_structural_adapter_filters_empty_markers_from_bridge_facts() -> None:
@@ -195,7 +146,7 @@ def test_structural_adapter_filters_empty_markers_from_bridge_facts() -> None:
         "Delegation policy:\nN/A\n"
     )
 
-    assert canonical.hard_facts.failure_modes == []
+    assert not hasattr(canonical.hard_facts, "failure_modes")
     assert canonical.hard_facts.delegation_intents == []
 
 
@@ -204,11 +155,10 @@ def test_structural_adapter_strips_inline_bold_failure_items() -> None:
         "Anticipated Failures: **Missing inputs**, **tone mismatch**, **unverified facts**"
     )
 
-    assert [fact.text for fact in canonical.hard_facts.failure_modes] == [
-        "Missing inputs",
-        "Tone mismatch",
-        "Unverified facts",
-    ]
+    assert not hasattr(canonical.hard_facts, "failure_modes")
+    # Adapter produces neutral packets only; semantic mapping is LLM's job
+    packet_texts = [p.text for p in canonical.semantic_packets if p.packet_type == "list_item"]
+    assert len(packet_texts) == 3
 
 
 def test_structural_adapter_semantic_packets_cover_neutral_types(mock_client) -> None:
@@ -240,15 +190,12 @@ def test_structural_adapter_semantic_packets_cover_neutral_types(mock_client) ->
         )
 
 
-def test_registry_adapter_llm_engine_off_preserves_neutral_packets() -> None:
-    """adapter_llm_engine='off' preserves sections/packets and weak exact-title priors."""
-    # Instantiate without LLM client
+    # Structural adapter does not perform LLM semantic mapping.
     canonical = StructuralNLAdapter(None).adapt(F0_STRUCTURAL_TEXT)
 
     assert len(canonical.raw_sections) >= 7
     assert len(canonical.semantic_packets) > 0
-    assert len(canonical.route_priors) >= 1
-    assert {prior.source for prior in canonical.route_priors} == {"heuristic"}
+    assert len(canonical.route_priors) == 0
 
 
 def test_structural_adapter_chinese_colon_and_markdown() -> None:
@@ -285,6 +232,40 @@ def test_structural_adapter_parses_inline_key_value_sections() -> None:
     assert by_title["task family"].text == "Internal newsletters."
     assert by_title["inputs for each run"].text == "A user request."
     assert by_title["required outputs"].text == "A draft artifact."
+
+
+def test_structural_adapter_strips_markdown_from_inline_section_titles() -> None:
+    text = (
+        "**Scope:** Internal communications only.\n"
+        "**Examples:** Draft an announcement.\n"
+        "**Non-delegable:** Final approval remains with the communications lead.\n"
+    )
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    by_title = {section.canonical_title: section for section in canonical.raw_sections}
+    assert by_title["scope"].section_id == "sec_scope"
+    assert by_title["examples"].section_id == "sec_examples"
+    assert by_title["non-delegable"].section_id == "sec_non_delegable"
+    for section in canonical.raw_sections:
+        assert "*" not in section.canonical_title
+        assert "*" not in section.section_id
+
+
+def test_structural_adapter_does_not_warn_for_empty_document_title() -> None:
+    text = (
+        "# Internal Communications Drafting\n\n"
+        "## Task Family\n\n"
+        "Internal newsletters.\n"
+    )
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    empty_warnings = [
+        warning for warning in canonical.warnings
+        if warning.code == "EMPTY_SECTION"
+    ]
+    assert empty_warnings == []
 
 
 def test_key_value_content_under_heading_stays_in_parent_section() -> None:

@@ -1,4 +1,4 @@
-"""Unit tests for worker-aware Stage 4 flow assembly."""
+﻿"""Unit tests for worker-aware Stage 4 flow assembly."""
 
 from __future__ import annotations
 
@@ -236,7 +236,7 @@ def test_d3_unowned_failure_falls_back_to_main_worker(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D3: failure span owned by no worker → main worker with warning."""
+    """D3: failure span owned by no worker 鈫?main worker with warning."""
     mock_client.call_json.return_value = {
         "main_flow_spans": ["s1", "s3"],
         "alternative_flows": [],
@@ -251,7 +251,7 @@ def test_d3_unowned_failure_falls_back_to_main_worker(
         (_d3_spans(), _d3_routes(), plan)
     )
 
-    # s2 not owned → falls back to main worker
+    # s2 not owned 鈫?falls back to main worker
     main_flow = result.worker_flows["worker_main"]
     failure_exceptions = [
         e for e in main_flow.exception_flows
@@ -271,7 +271,7 @@ def test_d3_ambiguous_ownership_falls_back_to_main(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D3: span owned by multiple workers → main worker with ambiguous warning."""
+    """D3: span owned by multiple workers 鈫?main worker with ambiguous warning."""
     mock_client.call_json.side_effect = [
         {"main_flow_spans": ["s1", "s3"], "alternative_flows": [],
          "exception_flows": []},
@@ -312,54 +312,6 @@ def test_d3_ambiguous_ownership_falls_back_to_main(
     )
 
 
-def test_d3_route_plus_bridge_worker_path_no_duplicate(
-    pipeline_config: MagicMock,
-    mock_client: MagicMock,
-) -> None:
-    """D3: route-derived exception + bridge hard fact → no duplicate across workers."""
-    from nl2spl.canonical import EvidenceRef, FailureModeFact
-    from nl2spl.pipeline.fact_bridges import bridge_failure_modes_worker_scoped
-
-    mock_client.call_json.side_effect = [
-        {"main_flow_spans": ["s1", "s3"], "alternative_flows": [],
-         "exception_flows": []},
-        {"main_flow_spans": ["s2"], "alternative_flows": [],
-         "exception_flows": []},
-    ]
-    plan = WorkerPlanIR(
-        main_worker_id="worker_main",
-        workers=[
-            worker("worker_main", "main", ["s1", "s3"]),
-            worker("worker_child", "child", ["s2"]),
-        ],
-    )
-
-    result = FlowAssembler(pipeline_config, mock_client).execute(
-        (_d3_spans(), _d3_routes(), plan)
-    )
-
-    # Route-derived exception in child worker
-    child_flow = result.worker_flows["worker_child"]
-    assert len(child_flow.exception_flows) >= 1
-
-    # Bridge with same hard fact → no extra copy in main
-    fact = FailureModeFact(
-        name="missing_timeframe", text="Missing timeframe.",
-        source_section_id="sec_fail",
-        evidence=[EvidenceRef(source_section_id="sec_fail")],
-    )
-    bridged = bridge_failure_modes_worker_scoped(
-        [fact], _d3_spans(), result, plan,
-    )
-
-    # Count timeframe exceptions across ALL workers
-    total = sum(
-        len([e for e in flow.exception_flows if "timeframe" in e.condition_text.lower()])
-        for flow in bridged.worker_flows.values()
-    )
-    assert total == 1, f"Route + bridge must not duplicate: got {total} timeframe exceptions"
-
-
 def test_worker_aware_handler_exception_flow_filtered(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
@@ -372,7 +324,7 @@ def test_worker_aware_handler_exception_flow_filtered(
             "alternative_flows": [],
             "exception_flows": [],
         },
-        {  # Child worker — LLM fabricates handler-backed exception
+        {  # Child worker 鈥?LLM fabricates handler-backed exception
             "main_flow_spans": ["s_handler", "s_process"],
             "alternative_flows": [],
             "exception_flows": [

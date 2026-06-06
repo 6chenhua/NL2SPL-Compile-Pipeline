@@ -11,6 +11,7 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -149,15 +150,14 @@ class TestSectionContextRouting:
             source_section_id="sec_policies",  # canonical -> "rules"
             section_context="Task Family",  # would be "domain" if used
         )
-        from nl2spl.adapters.section_semantic_mapper import RoutePrior
         canonical_input.route_priors = [
-            RoutePrior(
+            SimpleNamespace(
                 section_id="sec_policies",
                 suggested_semantic_role="policies",
                 suggested_field="rules",
                 strength="strong",
                 evidence="mock",
-                source="llm"
+                source="llm",
             )
         ]
         field = FieldRouter._section_field(span, canonical_input)

@@ -1,4 +1,4 @@
-"""Unit tests for Stage 3.5 WorkerBoundaryPlanner."""
+﻿"""Unit tests for Stage 3.5 WorkerBoundaryPlanner."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from nl2spl.canonical import (
     VariableFact,
 )
 from nl2spl.config import LLMConfig, PipelineConfig
-from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import (
@@ -29,9 +28,6 @@ from nl2spl.ir.worker_plan_ir import (
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import (
     WorkerBoundaryPlanner,
 )
-
-_MISSING = object()
-
 
 def field(name: str, source: str = "input") -> dict[str, Any]:
     return {
@@ -556,10 +552,15 @@ def test_split_materializer_does_not_anchor_on_other_child_or_exception_spans(
             "evidence": ["bounded_io"],
         },
     ]
-    mock_client.call_json.return_value = {
-        "candidates": candidates,
-        "decisions": decisions,
-    }
+    # Split path: 3.5a returns all candidates, 3.5b returns decisions
+    # for eligible candidates only (those without blocking risks).
+    eligible_candidates = [c for c in candidates if not c["risks"]]
+    eligible_decision_ids = {c["candidate_id"] for c in eligible_candidates}
+    eligible_decisions = [d for d in decisions if d["candidate_id"] in eligible_decision_ids]
+    mock_client.call_json.side_effect = [
+        {"candidates": candidates},
+        {"decisions": eligible_decisions},
+    ]
 
     plan = planner.execute((spans, routes))
     hints = {
@@ -610,36 +611,19 @@ def test_rejected_boundary_candidates_preserve_rejection_category(
     assert all(worker.worker_id != candidate_id for worker in plan.workers)
 
 
-def test_planner_output_with_missing_main_worker_fails_validation(
-    planner: WorkerBoundaryPlanner,
-    mock_client: MagicMock,
-    sample_spans: list[SpanIR],
-    sample_field_route: FieldRouteIR,
-) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
-    mock_client.call_json.return_value = base_plan(
-        main_worker_id="worker_main",
-        workers=[],
-    )
-
-    with pytest.raises(StageError, match="WorkerPlanIR validation failed"):
-        planner.execute((sample_spans, sample_field_route))
-
-
 def test_prompt_uses_compact_text_not_full_raw_ir(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
     sample_spans: list[SpanIR],
     sample_field_route: FieldRouteIR,
 ) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
     mock_client.call_json.return_value = base_plan(workers=[main_worker(["s2", "s5"])])
 
     planner.execute((sample_spans, sample_field_route))
 
-    user_prompt = mock_client.call_json.call_args.kwargs["user_prompt"]
+    user_prompt = mock_client.call_json.call_args_list[0].kwargs["user_prompt"]
     assert "s2: First determine what kind of communication is requested." in user_prompt
-    assert "behavior: s2, s5" in user_prompt
+    assert "Behavior spans available for candidate source_span_ids:" in user_prompt
     assert '"span_id"' not in user_prompt
     assert "ambiguity" not in user_prompt
 
@@ -648,7 +632,6 @@ def test_adapter_metadata_prompt_omits_full_raw_section_text(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
 ) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR(
             "s1",
@@ -721,107 +704,10 @@ def test_adapter_metadata_prompt_omits_full_raw_section_text(
     assert "worker=SourceGatheringWorker" in user_prompt
 
 
-@pytest.mark.parametrize(
-    ("hint_value", "policy_value"),
-    [
-        (None, None),
-        ({}, {}),
-        (_MISSING, _MISSING),
-    ],
-)
-def test_null_empty_or_missing_handoff_nested_objects_use_defaults(
-    planner: WorkerBoundaryPlanner,
-    mock_client: MagicMock,
-    hint_value: object,
-    policy_value: object,
-) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
-    spans = [
-        SpanIR("s1", "Plan the main response."),
-        SpanIR("s2", "Delegate bounded source gathering."),
-    ]
-    routes = FieldRouteIR(behavior=["s1", "s2"])
-    candidate = {
-        "candidate_id": "candidate_source_gathering",
-        "source_span_ids": ["s2"],
-        "task_text": "Delegate bounded source gathering.",
-        "purpose": "Gather sources.",
-        "candidate_kind": "bounded_subtask",
-        "possible_inputs": [field("request_context")],
-        "possible_outputs": [field("evidence_set", "output")],
-        "signals": ["explicit_delegation", "bounded_io"],
-        "risks": [],
-    }
-    decision = {
-        "candidate_id": "candidate_source_gathering",
-        "decision": "extract_child_worker",
-        "boundary_strength": "strong",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": None,
-        "reason": "Clear bounded source-gathering handoff.",
-        "evidence": ["explicit_delegation", "bounded_io"],
-    }
-    child = {
-        "worker_id": "worker_source_gathering",
-        "worker_name": "SourceGatheringWorker",
-        "kind": "child",
-        "purpose": "Gather sources.",
-        "owned_span_ids": ["s2"],
-        "input_contract": [field("request_context")],
-        "output_contract": [field("evidence_set", "output")],
-        "depends_on": [],
-        "constraints": [],
-        "boundary_kind": "bounded_subtask",
-        "decision_evidence": ["explicit_delegation", "bounded_io"],
-        "reason": "Accepted bounded source gathering.",
-    }
-    handoff = {
-        "handoff_id": "handoff_source_gathering",
-        "from_worker": "worker_main",
-        "to_worker": "worker_source_gathering",
-        "api_ref": None,
-        "mode": "invoke",
-        "condition_text": None,
-        "ordering": "conditional",
-        "input_bindings": [
-            {
-                "parent_variable": "request_context",
-                "child_input": "request_context",
-                "required": True,
-            }
-        ],
-        "output_bindings": [
-            {
-                "child_output": "evidence_set",
-                "parent_variable": "evidence_set",
-                "required": True,
-                "merge_strategy": "set",
-            }
-        ],
-    }
-    if hint_value is not _MISSING:
-        handoff["invoke_location_hint"] = hint_value
-    if policy_value is not _MISSING:
-        handoff["failure_policy"] = policy_value
-    mock_client.call_json.return_value = base_plan(
-        workers=[main_worker(["s1"]), child],
-        handoffs=[handoff],
-        candidates=[candidate],
-        decisions=[decision],
-    )
-
-    plan = planner.execute((spans, routes))
-
-    assert plan.handoffs[0].invoke_location_hint.flow_kind == "main"
-    assert plan.handoffs[0].invoke_location_hint.block_hint == "unknown"
-    assert plan.handoffs[0].failure_policy.policy_kind == "propagate_exception"
-
-
 def test_sequential_handoff_ordering_is_normalized_to_after(
     planner: WorkerBoundaryPlanner,
     mock_client: MagicMock,
 ) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
     spans = [
         SpanIR("s1", "Plan the main response."),
         SpanIR("s2", "Delegate bounded source gathering."),
@@ -897,88 +783,6 @@ def test_sequential_handoff_ordering_is_normalized_to_after(
 
     assert plan.handoffs[0].ordering == "after"
     assert plan.handoffs[0].invoke_location_hint.block_hint == "sequential"
-
-
-def test_invalid_nested_handoff_object_raises_stage_error(
-    planner: WorkerBoundaryPlanner,
-    mock_client: MagicMock,
-) -> None:
-    planner.config.enable_worker_boundary_planner_split = False
-    spans = [
-        SpanIR("s1", "Plan the main response."),
-        SpanIR("s2", "Delegate bounded source gathering."),
-    ]
-    routes = FieldRouteIR(behavior=["s1", "s2"])
-    handoff = {
-        "handoff_id": "handoff_source_gathering",
-        "from_worker": "worker_main",
-        "to_worker": "worker_source_gathering",
-        "api_ref": None,
-        "mode": "invoke",
-        "condition_text": None,
-        "ordering": "conditional",
-        "input_bindings": [
-            {
-                "parent_variable": "request_context",
-                "child_input": "request_context",
-                "required": True,
-            }
-        ],
-        "output_bindings": [
-            {
-                "child_output": "evidence_set",
-                "parent_variable": "evidence_set",
-                "required": True,
-                "merge_strategy": "set",
-            }
-        ],
-        "invoke_location_hint": "not an object",
-    }
-    mock_client.call_json.return_value = base_plan(
-        workers=[
-            main_worker(["s1"]),
-            {
-                "worker_id": "worker_source_gathering",
-                "worker_name": "SourceGatheringWorker",
-                "kind": "child",
-                "purpose": "Gather sources.",
-                "owned_span_ids": ["s2"],
-                "input_contract": [field("request_context")],
-                "output_contract": [field("evidence_set", "output")],
-                "depends_on": [],
-                "constraints": [],
-                "boundary_kind": "bounded_subtask",
-                "decision_evidence": ["explicit_delegation", "bounded_io"],
-                "reason": "Accepted bounded source gathering.",
-            },
-        ],
-        handoffs=[handoff],
-        candidates=[
-            {
-                "candidate_id": "candidate_source_gathering",
-                "source_span_ids": ["s2"],
-                "task_text": "Delegate bounded source gathering.",
-                "purpose": "Gather sources.",
-                "candidate_kind": "bounded_subtask",
-                "signals": ["explicit_delegation", "bounded_io"],
-                "risks": [],
-            }
-        ],
-        decisions=[
-            {
-                "candidate_id": "candidate_source_gathering",
-                "decision": "extract_child_worker",
-                "boundary_strength": "strong",
-                "boundary_kind": "bounded_subtask",
-                "rejection_reason": None,
-                "reason": "Clear bounded source-gathering handoff.",
-                "evidence": ["explicit_delegation", "bounded_io"],
-            }
-        ],
-    )
-
-    with pytest.raises(StageError, match="Invalid WorkerPlanIR output"):
-        planner.execute((spans, routes))
 
 
 def test_parser_moves_risk_values_out_of_candidate_signals(
@@ -1058,9 +862,6 @@ class TestStage35PromptInjection:
     def _make_config(self, flag_enabled: bool) -> PipelineConfig:
         return PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
-            enable_worker_boundary_planner=True,
-            enable_worker_boundary_planner_split=True,
-            enable_irs_prompt_builder=flag_enabled,
         )
 
     def test_flag_on_stage3_5a_no_construct_injected(self):
@@ -1159,84 +960,6 @@ class TestStage35PromptInjection:
 
         executor.client.call_json = capture
         executor._run_boundary_decisions(spans, routes, None, [])
-
-        assert len(captured_prompt) == 1
-        assert "CONSTRUCT:" not in captured_prompt[0]
-
-    def test_flag_on_legacy_no_construct_injected(self):
-        """Legacy path uses prompt file only — IRS not injected."""
-        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
-            DecisionValidatorMixin,
-        )
-        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
-            ExecutorMixin,
-        )
-
-        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
-            pass
-
-        executor = TestExecutor()
-        executor.config = self._make_config(flag_enabled=True)
-        executor.client = MagicMock()
-        executor.logger = MagicMock()
-        executor.name = "test"
-        executor._build_user_prompt = lambda s, r, c: "test prompt"
-        executor._parse_worker_plan = lambda r: _make_valid_plan()
-        executor._hard_fact_contracts = lambda ci: ([], [])
-        executor.save_checkpoint = lambda d: None
-        executor._has_decision_worker_mismatch = lambda errs: False
-
-        spans = [SpanIR("s1", "Determine type")]
-        routes = FieldRouteIR(behavior=["s1"])
-
-        captured_prompt: list[str] = []
-
-        def capture(**kw):
-            captured_prompt.append(kw["system_prompt"])
-            return {"workers": [], "candidates": [], "decisions": [],
-                    "handoffs": [], "main_worker_id": "worker_main"}
-
-        executor.client.call_json = capture
-        executor._execute_legacy_single_call(spans, routes, None)
-
-        assert len(captured_prompt) == 1
-        assert "CONSTRUCT:" not in captured_prompt[0]
-
-    def test_flag_off_legacy_no_irs_in_prompt(self):
-        """Legacy single-call path: flag off, no IRS checklist."""
-        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.decision_validator import (
-            DecisionValidatorMixin,
-        )
-        from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
-            ExecutorMixin,
-        )
-
-        class TestExecutor(DecisionValidatorMixin, ExecutorMixin):
-            pass
-
-        executor = TestExecutor()
-        executor.config = self._make_config(flag_enabled=False)
-        executor.client = MagicMock()
-        executor.logger = MagicMock()
-        executor.name = "test"
-        executor._build_user_prompt = lambda s, r, c: "test prompt"
-        executor._parse_worker_plan = lambda r: _make_valid_plan()
-        executor._hard_fact_contracts = lambda ci: ([], [])
-        executor.save_checkpoint = lambda d: None
-        executor._has_decision_worker_mismatch = lambda errs: False
-
-        spans = [SpanIR("s1", "Determine type")]
-        routes = FieldRouteIR(behavior=["s1"])
-
-        captured_prompt: list[str] = []
-
-        def capture(**kw):
-            captured_prompt.append(kw["system_prompt"])
-            return {"workers": [], "candidates": [], "decisions": [],
-                    "handoffs": [], "main_worker_id": "worker_main"}
-
-        executor.client.call_json = capture
-        executor._execute_legacy_single_call(spans, routes, None)
 
         assert len(captured_prompt) == 1
         assert "CONSTRUCT:" not in captured_prompt[0]

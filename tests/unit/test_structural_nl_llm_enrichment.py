@@ -1,4 +1,4 @@
-"""Unit tests for StructuralNLAdapter LLM enrichment."""
+"""Unit tests for StructuralNLAdapter without LLM enrichment."""
 
 from __future__ import annotations
 
@@ -16,96 +16,50 @@ Required outputs:
 
 Reusable process:
 Read the request.
+
+Failure handling:
+Missing source material.
+
+Delegation policy:
+Source gathering may be delegated when bounded.
 """
 
 
-class _FakeLLM:
-    def __init__(self, response: dict) -> None:
-        self.response = response
-        self.calls: list[dict] = []
-
-    def call_json(
-        self,
-        stage_name: str = "",
-        system_prompt: str = "",
-        user_prompt: str = "",
-        **_kwargs: object,
-    ) -> dict:
-        self.calls.append({
-            "stage_name": stage_name,
-            "system_prompt": system_prompt,
-            "user_prompt": user_prompt,
-        })
-        if stage_name == "section_semantic_mapper":
-            return {
-                "priors": [
-                    {"section_id": "sec_inputs_for_each_run", "suggested_field": "resources", "suggested_semantic_role": "input_contract", "strength": "strong", "evidence": "x"},
-                    {"section_id": "sec_required_outputs", "suggested_field": "resources", "suggested_semantic_role": "output_contract", "strength": "strong", "evidence": "x"},
-                    {"section_id": "sec_reusable_process", "suggested_field": "behavior", "suggested_semantic_role": "process_step", "strength": "strong", "evidence": "x"},
-                ]
-            }
-        return dict(self.response)
-
-
 class _FailingLLM:
-    def call_json(self, stage_name: str = "", **_kwargs: object) -> dict:
-        if stage_name == "section_semantic_mapper":
-            return {
-                "priors": [
-                    {"section_id": "sec_inputs_for_each_run", "suggested_field": "resources", "suggested_semantic_role": "input_contract", "strength": "strong", "evidence": "x"},
-                    {"section_id": "sec_required_outputs", "suggested_field": "resources", "suggested_semantic_role": "output_contract", "strength": "strong", "evidence": "x"},
-                    {"section_id": "sec_reusable_process", "suggested_field": "behavior", "suggested_semantic_role": "process_step", "strength": "strong", "evidence": "x"},
-                ]
-            }
-        raise RuntimeError("unavailable")
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def call_json(self, **_kwargs: object) -> dict:
+        self.calls += 1
+        raise RuntimeError("LLM must not be called by StructuralNLAdapter")
 
 
-def test_structural_enrichment_merges_non_duplicate_fact() -> None:
-    adapter = StructuralNLAdapter(llm_client=_FakeLLM({
-        "failure_modes": [
-            {
-                "name": "missing_source",
-                "text": "Missing source: source material was not provided.",
-                "source_section_id": "sec_reusable_process",
-            }
-        ]
-    }))
+def test_structural_adapter_ignores_llm_client() -> None:
+    llm = _FailingLLM()
+    adapter = StructuralNLAdapter(llm_client=llm)
 
     result = adapter.adapt(STRUCTURAL_TEXT)
 
-    names = {fact.name for fact in result.hard_facts.failure_modes}
-    assert "missing_source" in names
+    assert llm.calls == 0
     assert not any(w.code == "LLM_ENRICHMENT_FAILED" for w in result.warnings)
+    assert result.route_priors == []
 
 
-def test_structural_enrichment_duplicate_deterministic_fact_rejected() -> None:
-    adapter = StructuralNLAdapter(llm_client=_FakeLLM({
-        "outputs": [
-            {
-                "name": "final_report_a_compiled_report",
-                "description": "Duplicate report output.",
-                "data_type": "text",
-                "required": True,
-                "source_section_id": "sec_required_outputs",
-            }
-        ]
-    }))
+def test_structural_adapter_preserves_only_deterministic_variable_facts() -> None:
+    result = StructuralNLAdapter(llm_client=_FailingLLM()).adapt(STRUCTURAL_TEXT)
 
-    result = adapter.adapt(STRUCTURAL_TEXT)
+    input_names = {fact.name for fact in result.hard_facts.inputs}
+    output_names = {fact.name for fact in result.hard_facts.outputs}
 
-    outputs = [
-        fact
-        for fact in result.hard_facts.outputs
-        if fact.name == "final_report_a_compiled_report"
-    ]
-    assert len(outputs) == 1
-    assert any(w.code == "LLM_DUPLICATE_FACT" for w in result.warnings)
+    assert input_names
+    assert output_names
+    assert result.hard_facts.delegation_intents == []
+    assert not hasattr(result.hard_facts, "failure_modes")
 
 
-def test_structural_enrichment_failure_preserves_deterministic_facts() -> None:
-    adapter = StructuralNLAdapter(llm_client=_FailingLLM())
+def test_structural_adapter_keeps_semantic_packets_neutral() -> None:
+    result = StructuralNLAdapter().adapt(STRUCTURAL_TEXT)
 
-    result = adapter.adapt(STRUCTURAL_TEXT)
-
-    assert result.hard_facts.outputs
-    assert any(w.code == "LLM_ENRICHMENT_FAILED" for w in result.warnings)
+    assert result.semantic_packets
+    assert all(packet.modality == "hint" for packet in result.semantic_packets)
+    assert all(packet.metadata.get("executable") is False for packet in result.semantic_packets)

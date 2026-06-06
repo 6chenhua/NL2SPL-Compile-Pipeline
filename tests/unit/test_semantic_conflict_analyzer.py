@@ -1,4 +1,4 @@
-"""Unit tests for Phase 6 semantic conflict analyzer, verifier, and integration."""
+﻿"""Unit tests for Phase 6 semantic conflict analyzer, verifier, and integration."""
 
 import contextlib
 import json
@@ -401,8 +401,6 @@ class TestFlagIntegration:
             llm=LLMConfig(api_key="test-key"),
             output_dir=tmp_path / "output",
             save_intermediate=False,
-            enable_worker_boundary_planner=True,
-            enable_llm_conflict_analyzer=flag,
         )
 
     def _run(self, tmp_path: Path, flag: bool, fake_analyzer=None):
@@ -535,15 +533,14 @@ class TestFlagIntegration:
         assert "semantic_conflict" not in kinds
         assert any("SEMANTIC_CONFLICT_REJECTED" in w for w in result.adapter_warnings)
 
-    def test_flag_on_factory_injects_client_call_json(self, tmp_path: Path):
+    def test_factory_returns_noop(self, tmp_path: Path):
         orch = PipelineOrchestrator(self._base_config(tmp_path, flag=True))
         orch.client = MagicMock()
         orch.client.call_json = MagicMock(return_value={"diagnostics": []})
 
         analyzer = orch._make_semantic_conflict_analyzer()
 
-        assert isinstance(analyzer, LLMSemanticConflictAnalyzer)
-        assert analyzer._call_json is orch.client.call_json
+        assert isinstance(analyzer, NoOpSemanticConflictAnalyzer)
 
     def test_flag_off_factory_returns_noop(self, tmp_path: Path):
         orch = PipelineOrchestrator(self._base_config(tmp_path, flag=False))

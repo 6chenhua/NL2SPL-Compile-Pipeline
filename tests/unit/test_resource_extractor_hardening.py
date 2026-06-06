@@ -1,4 +1,4 @@
-"""Unit tests for Phase 7 resource name filter."""
+﻿"""Unit tests for Phase 7 resource name filter."""
 
 import pytest
 
@@ -171,12 +171,11 @@ class TestStage6ParseBoundary:
         from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
         config = PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
-            enable_resource_name_filter=flag_enabled,
         )
         return ResourceExtractor(config, MagicMock())
 
-    def test_flag_off_span_id_allowed(self):
-        """Flag off: reserved name passes through (backward compatible)."""
+    def test_config_off_still_rejects_span_id(self):
+        """Reserved names are always filtered."""
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.span_ir import SpanIR
         stage = self._make_stage(flag_enabled=False)
@@ -187,9 +186,9 @@ class TestStage6ParseBoundary:
         resources, symbols = stage.execute((
             [SpanIR("s1", "text")], FieldRouteIR(behavior=["s1"]),
         ))
-        assert any(v.name == "span_id" for v in resources.variables)
-        assert "span_id" in symbols.variables
-        assert not getattr(stage, "resource_filter_warnings", [])
+        assert not any(v.name == "span_id" for v in resources.variables)
+        assert "span_id" not in symbols.variables
+        assert any("span_id" in w for w in getattr(stage, "resource_filter_warnings", []))
 
     def test_flag_on_span_id_rejected(self):
         """Flag on: reserved name rejected from resources and symbols."""
@@ -243,7 +242,6 @@ class TestWorkerScopedParseBoundary:
         from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
         config = PipelineConfig(
             llm=LLMConfig(api_key="test-key"),
-            enable_resource_name_filter=flag_enabled,
         )
         return ResourceExtractor(config, MagicMock())
 
@@ -302,7 +300,7 @@ class TestWorkerScopedParseBoundary:
         assert any("span_id" in w for w in warnings)
         assert any("Rejected" in w for w in warnings)
 
-    def test_flag_off_worker_scoped_span_id_allowed(self):
+    def test_config_off_worker_scoped_span_id_rejected(self):
         from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
@@ -342,11 +340,11 @@ class TestWorkerScopedParseBoundary:
             spans, routes, flow_plan, block_plan, worker_plan,
         )
 
-        # flag off: reserved name passes through
+        # Reserved names are always filtered.
         all_vars = ws_resources.get_all_variables()
-        assert any(v.name == "span_id" for v in all_vars)
-        assert "span_id" in symbols.variables
-        assert not getattr(stage, "resource_filter_warnings", [])
+        assert not any(v.name == "span_id" for v in all_vars)
+        assert "span_id" not in symbols.variables
+        assert any("span_id" in w for w in getattr(stage, "resource_filter_warnings", []))
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +359,18 @@ class TestOrchestratorFilterWarnings:
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
         from nl2spl.ir.block_structure_ir import BlockStructureIR
-        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
+        from nl2spl.ir.resource_registry_ir import (
+            ResourceRegistryIR,
+            VariableSpec,
+            WorkerScopedResourceIR,
+        )
+        from nl2spl.ir.worker_plan_ir import (
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerPlanIR,
+            WorkerSpecIR,
+            WorkerStepPlanIR,
+        )
         from nl2spl.ir.span_ir import SpanIR
         from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.pipeline.orchestrator import PipelineOrchestrator
@@ -370,28 +379,48 @@ class TestOrchestratorFilterWarnings:
             llm=LLMConfig(api_key="test-key"),
             output_dir=tmp_path / "output",
             save_intermediate=False,
-            enable_worker_boundary_planner=False,
-            enable_resource_name_filter=True,
         )
         orch = PipelineOrchestrator(config)
 
         fake_resources = ResourceRegistryIR(
             variables=[VariableSpec("purchase_request", "text", True, "Purchase request", "input")],
         )
+        fake_ws_resources = WorkerScopedResourceIR(global_resources=fake_resources)
         fake_warnings = ["Rejected schema-looking variable 'span_id': reserved IR/schema name: span_id"]
+        worker_plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR("worker_main", "Main", "main", "Main worker",
+                             ["s1"], [], [], [], [], "main_worker", [], ""),
+            ],
+            candidates=[],
+            decisions=[],
+            handoffs=[],
+        )
+        worker_flow_plan = WorkerFlowPlanIR(
+            worker_flows={"worker_main": FlowStructureIR(main_flow_spans=["s1"])}
+        )
+        worker_block_plan = WorkerBlockPlanIR(
+            worker_blocks={"worker_main": BlockStructureIR()}
+        )
+        worker_step_plan = WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={"worker_main": []},
+        )
 
         with (
             patch.object(orch, "_run_stage1", return_value=[SpanIR("s1", "text")]),
             patch.object(orch, "_run_stage2", return_value=(FieldRouteIR(behavior=["s1"]), [])),
             patch.object(orch, "_run_stage3", return_value=([SpanIR("s1", "text")], FieldRouteIR(behavior=["s1"]))),
-            patch.object(orch, "_run_stage4", return_value=FlowStructureIR()),
-            patch.object(orch, "_run_stage5", return_value=BlockStructureIR()),
-            patch.object(orch, "_run_stage6", return_value=(fake_resources, SymbolTable(), fake_warnings)),
-            patch.object(orch, "_run_stage7", return_value=([], MagicMock(), [])),
+            patch.object(orch, "_run_stage3_5", return_value=worker_plan),
+            patch.object(orch, "_run_stage4", return_value=worker_flow_plan),
+            patch.object(orch, "_run_stage5", return_value=worker_block_plan),
+            patch.object(orch, "_run_stage6_worker_scoped", return_value=(fake_ws_resources, SymbolTable(), fake_warnings)),
+            patch.object(orch, "_run_stage7_worker_scoped", return_value=(worker_step_plan, MagicMock(), [])),
             patch.object(orch, "_run_stage8", return_value=MagicMock()),
             patch.object(orch, "_run_stage9", return_value=[]),
-            patch.object(orch, "_run_normalization", return_value=(FlowStructureIR(), BlockStructureIR(), [], [], MagicMock(), [], [])),
-            patch.object(orch, "_run_stage10", return_value=MagicMock()),
+            patch.object(orch, "_run_normalization_worker_scoped", return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, MagicMock(), [], [])),
+            patch.object(orch, "_run_stage10_worker_scoped", return_value=MagicMock()),
             patch.object(orch, "_run_stage11", return_value=("SPL", [], [])),
         ):
             result = orch.run("test")

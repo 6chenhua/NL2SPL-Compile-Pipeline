@@ -21,6 +21,14 @@ from nl2spl.ir import (
     StepIR,
     SymbolTable,
 )
+from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
+from nl2spl.ir.worker_plan_ir import (
+    WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
+    WorkerPlanIR,
+    WorkerSpecIR,
+    WorkerStepPlanIR,
+)
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator, PipelineResult
 
 
@@ -396,31 +404,54 @@ class TestPipelineCheckpointing:
             save_intermediate=False,
         )
         orchestrator = PipelineOrchestrator(config)
+        worker_plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    "worker_main", "Main", "main", "Main worker",
+                    [], [], [], [], [], "main_worker", [], "",
+                )
+            ],
+            candidates=[],
+            decisions=[],
+            handoffs=[],
+        )
+        worker_flow_plan = WorkerFlowPlanIR(worker_flows={"worker_main": FlowStructureIR()})
+        worker_block_plan = WorkerBlockPlanIR(worker_blocks={"worker_main": BlockStructureIR()})
+        worker_step_plan = WorkerStepPlanIR(main_worker_id="worker_main", worker_steps={"worker_main": []})
+        worker = MagicMock()
+        worker.steps = []
+        worker.child_workers = []
+        worker.scoped_steps = False
 
         with (
             patch.object(orchestrator, "_run_stage1", return_value=[]),
-            patch.object(orchestrator, "_run_stage2", return_value=(MagicMock(), [])),
-            patch.object(orchestrator, "_run_stage3", return_value=([], MagicMock())),
-            patch.object(orchestrator, "_run_stage4", return_value=MagicMock()),
-            patch.object(orchestrator, "_run_stage5", return_value=MagicMock()),
-            patch.object(orchestrator, "_run_stage6", return_value=(MagicMock(), MagicMock(), [])),
-            patch.object(orchestrator, "_run_stage7", return_value=([], MagicMock(), [])),
+            patch.object(orchestrator, "_run_stage2", return_value=(FieldRouteIR(), [])),
+            patch.object(orchestrator, "_run_stage3", return_value=([], FieldRouteIR())),
+            patch.object(orchestrator, "_run_stage3_5", return_value=worker_plan),
+            patch.object(orchestrator, "_run_stage4", return_value=worker_flow_plan),
+            patch.object(orchestrator, "_run_stage5", return_value=worker_block_plan),
+            patch.object(
+                orchestrator,
+                "_run_stage6_worker_scoped",
+                return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), SymbolTable(), []),
+            ),
+            patch.object(orchestrator, "_run_stage7_worker_scoped", return_value=(worker_step_plan, SymbolTable(), [])),
             patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
             patch.object(orchestrator, "_run_stage9", return_value=[]),
             patch.object(
                 orchestrator,
-                "_run_normalization",
+                "_run_normalization_worker_scoped",
                 return_value=(
-                    MagicMock(),
-                    MagicMock(),
-                    [],
-                    [],
-                    MagicMock(),
+                    worker_flow_plan,
+                    worker_block_plan,
+                    worker_step_plan,
+                    SymbolTable(),
                     [],
                     [],
                 ),
             ),
-            patch.object(orchestrator, "_run_stage10", return_value=MagicMock()),
+            patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=worker),
             patch.object(orchestrator, "_run_stage11", return_value=("FINAL SPL", [], [])),
         ):
             result = orchestrator.run("test")

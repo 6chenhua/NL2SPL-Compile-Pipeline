@@ -25,6 +25,10 @@ phase-implementation-plans/
 | [R3_diagnostic_projector_implementation_plan.md](R3_diagnostic_projector_implementation_plan.md) | R3 DiagnosticProjector 的详细实施计划 |
 | [R4_worker_delegation_checker_implementation_plan.md](R4_worker_delegation_checker_implementation_plan.md) | R4 Worker/Delegation Checker 的详细实施计划 |
 | [R5_runner_orchestrator_integration_implementation_plan.md](R5_runner_orchestrator_integration_implementation_plan.md) | R5 Runner Orchestrator Integration 的详细实施计划 |
+| [R6_stage4_stage7_compatibility_migration_implementation_plan.md](R6_stage4_stage7_compatibility_migration_implementation_plan.md) | R6 Stage4 / Stage7 Compatibility Migration 的详细实施计划 |
+| [R7_post_normalize_cleanup_implementation_plan.md](R7_post_normalize_cleanup_implementation_plan.md) | R7 Post-normalize Cleanup 的详细实施计划 |
+| [R8_graph_ready_hardening_implementation_plan.md](R8_graph_ready_hardening_implementation_plan.md) | R8 Graph-ready Hardening 的详细实施计划 |
+| [R9_final_audit_implementation_plan.md](R9_final_audit_implementation_plan.md) | R9 Final Audit 的详细实施计划 |
 | [irs_v6_refactor_progress_tracker.html](irs_v6_refactor_progress_tracker.html) | R0-R9 重构进度跟踪 HTML |
 
 ## 审核原则
