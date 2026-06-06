@@ -1,6 +1,6 @@
-"""R9 Final Audit tests.
+﻿"""R9 Final Audit tests.
 
-Verifies IRS v6 architecture boundaries, feature flags, test hygiene,
+Verifies IRS v6 architecture boundaries, configuration hygiene, test hygiene,
 and internal-comms-3 Issue 3 explanation capability.
 """
 
@@ -21,25 +21,21 @@ from nl2spl.ir.worker_plan_ir import (
 
 
 # ------------------------------------------------------------------
-# R9.2: Feature Flag Audit
+# R9.2: Configuration Audit
 # ------------------------------------------------------------------
 
 
-class TestR9FeatureFlags:
-    """Verify feature flags and factory consistency."""
+class TestR9ConfigSurface:
+    """Verify runtime config surface and factory consistency."""
 
-    def test_default_config_preserves_irs_v6_opt_in(self) -> None:
-        """Stage-local/v6 runner flags default off; post-normalize defaults on."""
+    def test_pipeline_config_has_no_stage_local_irs_flags(self) -> None:
+        """Stage-local/v6 IRS runtime flags are no longer PipelineConfig options."""
         config = PipelineConfig()
-        # Stage-local / v6 runner opt-in flags: default off
-        assert config.enable_irs_v6_runner is False
-        assert config.enable_irs_worker_delegation_check is False
-        assert config.enable_irs_stage4_exception_flow_check is False
-        assert config.enable_irs_stage7_step_check is False
-        assert config.enable_irs_prompt_builder is False
-        assert config.enable_irs_diagnostic_consolidation is False
-        # Post-normalize final authority: default on
-        assert config.enable_irs_post_normalize_check is True
+        assert not hasattr(config, "enable_irs_v6_runner")
+        assert not hasattr(config, "enable_irs_worker_delegation_check")
+        assert not hasattr(config, "enable_irs_stage4_exception_flow_check")
+        assert not hasattr(config, "enable_irs_stage7_step_check")
+        assert not hasattr(config, "enable_irs_post_normalize_check")
 
     def test_factory_registry_matches_flags(self) -> None:
         """Factory registers checkers exactly matching flags."""
@@ -115,7 +111,6 @@ class TestR9TestHygiene:
         "tests/unit/test_irs_v6_r0_baseline.py",
         "tests/unit/test_irs_v6_r1_report_schema.py",
         "tests/unit/pipeline/stages/test_final_irs_checker.py",
-        "tests/unit/test_diagnostic_consolidation.py",
         "tests/unit/test_executable_gate.py",
     ]
 

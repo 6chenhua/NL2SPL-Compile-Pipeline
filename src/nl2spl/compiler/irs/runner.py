@@ -53,8 +53,9 @@ class IRSRunner:
     Design notes:
         - Empty registry returns empty result, no error
         - Unknown construct types are skipped with warning, not error
-        - Runner does not write intermediate files or checkpoints (R5)
-        - Runner does not integrate with orchestrator (R5)
+        - Runner itself does not write orchestrator state; orchestrator
+          calls it through stage-local integration helpers (e.g.
+          _run_stage3_5_irs_v6 in PipelineOrchestrator)
         - Projector is optional; if None, diagnostics will be empty
     """
     

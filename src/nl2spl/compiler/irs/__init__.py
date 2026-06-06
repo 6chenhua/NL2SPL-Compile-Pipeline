@@ -1,4 +1,4 @@
-"""IRS v6 — Information Requirements Satisfaction framework.
+"""IRS v6 — Information Requirements Specification framework.
 
 This package provides the v6 IRS type system and checking framework:
 
@@ -13,6 +13,11 @@ R2 types (framework skeleton):
     - IRSCheckerRegistry: Checker registration and lookup
     - IRSRunner, IRSRunResult: Checker orchestration
     - DiagnosticProjector, DiagnosticProjectionResult: Report projection
+
+R10 types (subsystem foundation):
+    - IRSRuntimeConfig: Product-level IRS configuration
+    - IRSStageResult, IRSResultStore: Deterministic result storage
+    - IRSSubsystem: Unified entry point
 """
 
 from __future__ import annotations
@@ -47,6 +52,12 @@ __all__ = [
     # R5: Factory
     "build_irs_runner",
     "build_irs_checker_registry",
+    # R10: Subsystem foundation
+    "IRSRuntimeConfig",
+    "IRSStageResult",
+    "IRSResultStore",
+    "IRSSubsystem",
+    "build_irs_subsystem",
 ]
 
 
@@ -84,6 +95,22 @@ def __getattr__(name: str):
     elif name == "build_irs_checker_registry":
         from nl2spl.compiler.irs.factory import build_irs_checker_registry
         return build_irs_checker_registry
-    
+    # R10: Subsystem foundation
+    elif name == "IRSRuntimeConfig":
+        from nl2spl.compiler.irs.policy import IRSRuntimeConfig
+        return IRSRuntimeConfig
+    elif name == "IRSStageResult":
+        from nl2spl.compiler.irs.result_store import IRSStageResult
+        return IRSStageResult
+    elif name == "IRSResultStore":
+        from nl2spl.compiler.irs.result_store import IRSResultStore
+        return IRSResultStore
+    elif name == "IRSSubsystem":
+        from nl2spl.compiler.irs.subsystem import IRSSubsystem
+        return IRSSubsystem
+    elif name == "build_irs_subsystem":
+        from nl2spl.compiler.irs.factory import build_irs_subsystem
+        return build_irs_subsystem
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

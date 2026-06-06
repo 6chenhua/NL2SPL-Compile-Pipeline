@@ -146,7 +146,10 @@ class DiagnosticProjector:
                 # Build missing_slot for structured diagnostic
                 missing_slot = MissingSlot(
                     slot_name=slot.slot_name,
-                    required_for="complete",
+                    required_for=(
+                        slot.diagnostic_required_for
+                        or "complete"
+                    ),
                     reason=slot.explanation or spec.description,
                     source_span_ids=source_span_ids,
                 )
@@ -157,11 +160,16 @@ class DiagnosticProjector:
                     kind=kind,
                     severity=spec.default_severity,
                     message=message,
-                    target_ref=report.construct_id,
+                    target_ref=slot.diagnostic_target_ref or report.construct_id,
                     source_span_ids=source_span_ids,
                     missing_slot=missing_slot,
-                    blocks_rendering=not report.renderable,
+                    blocks_rendering=(
+                        slot.diagnostic_blocks_rendering
+                        if slot.diagnostic_blocks_rendering is not None
+                        else not report.renderable
+                    ),
                     blocks_completion=spec.blocks_completion,
+                    suggested_resolution=slot.suggested_resolution,
                 )
                 
                 diagnostics.append(diagnostic)

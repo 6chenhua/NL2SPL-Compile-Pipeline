@@ -350,8 +350,8 @@ class TestR4PromotionChecking:
         assert report.construct_type == "WORKER_PROMOTION"
         assert report.completeness == "partial"
         assert report.renderable is False
-        assert report.frontier_status == "cutline_partial"
-        assert report.cutline_reason == "promotion_blocked"
+        assert report.frontier_status == "cutline_blocked"
+        assert report.cutline_reason == "missing_promotion_contract"
         assert report.metadata["promotion_status"] == "blocked"
         assert report.metadata["promotion_candidate_id"] == "cand_draft"
         
@@ -546,8 +546,8 @@ class TestR4PromotionChecking:
         assert report.metadata["promotion_status"] == "blocked"
         assert "promotion_invocation_point" in report.metadata["promotion_missing_slots"]
         assert "promotion_result_handoff" in report.metadata["promotion_missing_slots"]
-        assert report.frontier_status == "cutline_partial"
-        assert report.cutline_reason == "promotion_blocked"
+        assert report.frontier_status == "cutline_blocked"
+        assert report.cutline_reason == "missing_promotion_contract"
 
     def test_complete_promotion_with_all_evidence_is_ready(self):
         """Complete promotion with decision, child worker, handoff, and bindings is ready"""
@@ -700,6 +700,173 @@ class TestR4ChildWorkerAndHandoff:
         assert report.completeness == "complete"
         assert report.renderable is True
         assert all(s.status == "satisfied" for s in report.slots)
+
+    def test_child_worker_missing_contract_is_blocked(self):
+        """CHILD_WORKER missing input/output contract → blocked / cutline_blocked."""
+        worker = WorkerSpecIR(
+            worker_id="worker_child",
+            worker_name="Child",
+            kind="child",
+            purpose="Child worker purpose",
+            owned_span_ids=["s2"],
+            input_contract=[],  # missing
+            output_contract=[],  # missing
+            depends_on=[],
+            constraints=[],
+            boundary_kind="child_worker",
+            decision_evidence=[],
+            reason="",
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="main",
+            workers=[worker],
+            candidates=[],
+            handoffs=[],
+            decisions=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        irs = SPLConstructRegistry.default().get("CHILD_WORKER")
+        instances = checker.extract_instances(context)
+        child = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
+        report = checker.check_instance(child, irs, context)
+
+        assert report.completeness == "blocked"
+        assert report.frontier_status == "cutline_blocked"
+        assert report.cutline_reason == "missing_required_for_partial"
+        assert report.renderable is False
+        # input/output slots have diagnostic_kind
+        for slot in report.slots:
+            if slot.slot_name in ("input_contract", "output_contract"):
+                assert slot.status == "missing"
+                assert slot.diagnostic_kind == "type_or_contract_ambiguity"
+
+    def test_child_worker_missing_only_invocation_is_partial(self):
+        """CHILD_WORKER with contracts but missing invocation → partial / leaf."""
+        worker = WorkerSpecIR(
+            worker_id="worker_child",
+            worker_name="Child",
+            kind="child",
+            purpose="Child worker purpose",
+            owned_span_ids=["s2"],
+            input_contract=[{"name": "x", "type": "string"}],
+            output_contract=[{"name": "y", "type": "string"}],
+            depends_on=[],
+            constraints=[],
+            boundary_kind="child_worker",
+            decision_evidence=[],
+            reason="",
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="main",
+            workers=[worker],
+            candidates=[],
+            handoffs=[],  # no handoff → invocation_point/result_handoff missing
+            decisions=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        irs = SPLConstructRegistry.default().get("CHILD_WORKER")
+        instances = checker.extract_instances(context)
+        child = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
+        report = checker.check_instance(child, irs, context)
+
+        assert report.completeness == "partial"
+        assert report.frontier_status == "leaf"
+        assert report.cutline_reason is None
+        # input/output slots are satisfied
+        for slot in report.slots:
+            if slot.slot_name in ("input_contract", "output_contract"):
+                assert slot.status == "satisfied"
+
+    def test_child_worker_frontier_reads_from_irs_spec(self):
+        """Checker reads required_for_partial from IRS spec, not hardcoded.
+
+        If invocation_point were required_for_partial in the spec,
+        a child worker missing invocation would be blocked, not partial.
+        This test locks that the checker uses irs.slots, not a hardcoded set.
+        """
+        from nl2spl.compiler.construct_registry import (
+            ConstructIRS,
+            SlotSpec,
+            SPLConstructRegistry,
+        )
+
+        # Build a custom registry where invocation_point is required_for_partial
+        custom_registry = SPLConstructRegistry()
+        custom_registry.register(ConstructIRS(
+            construct_type="CHILD_WORKER",
+            existence_policy="source_signal_required",
+            source_signals=[],
+            partial_rendering_allowed=False,
+            slots=[
+                SlotSpec(
+                    slot_name="responsibility",
+                    required_for_partial=True,
+                    required_for_complete=True,
+                ),
+                SlotSpec(
+                    slot_name="input_contract",
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    renderable_without=False,
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="output_contract",
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    renderable_without=False,
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="invocation_point",
+                    required_for_partial=True,  # override: now required for partial
+                    required_for_complete=True,
+                    renderable_without=False,
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+                SlotSpec(
+                    slot_name="result_handoff",
+                    required_for_complete=True,
+                    renderable_without=False,
+                    missing_diagnostic="type_or_contract_ambiguity",
+                ),
+            ],
+        ))
+
+        worker = WorkerSpecIR(
+            worker_id="worker_child",
+            worker_name="Child",
+            kind="child",
+            purpose="Child worker purpose",
+            owned_span_ids=["s2"],
+            input_contract=[{"name": "x", "type": "string"}],
+            output_contract=[{"name": "y", "type": "string"}],
+            depends_on=[],
+            constraints=[],
+            boundary_kind="child_worker",
+            decision_evidence=[],
+            reason="",
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="main",
+            workers=[worker],
+            candidates=[],
+            handoffs=[],  # invocation_point/result_handoff missing
+            decisions=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        irs = custom_registry.get("CHILD_WORKER")
+        instances = checker.extract_instances(context)
+        child = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
+        report = checker.check_instance(child, irs, context)
+
+        # With invocation_point required_for_partial=True, missing it → blocked
+        assert report.completeness == "blocked"
+        assert report.frontier_status == "cutline_blocked"
+        assert report.cutline_reason == "missing_required_for_partial"
 
     def test_materialized_handoff_produces_report(self):
         """Materialized handoff produces WORKER_HANDOFF report"""

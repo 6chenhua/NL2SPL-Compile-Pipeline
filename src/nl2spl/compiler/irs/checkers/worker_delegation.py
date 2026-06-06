@@ -509,8 +509,8 @@ class WorkerDelegationIRSChecker:
             renderable=False,
             source_span_ids=list(candidate.source_span_ids),
             construct_path=instance.construct_path,
-            frontier_status="cutline_partial" if not all_satisfied else "leaf",
-            cutline_reason="promotion_blocked" if not all_satisfied else None,
+            frontier_status="cutline_blocked" if not all_satisfied else "leaf",
+            cutline_reason="missing_promotion_contract" if not all_satisfied else None,
             related_edges=related_edges,
             metadata={
                 "promotion_status": promotion_status,
@@ -598,12 +598,33 @@ class WorkerDelegationIRSChecker:
             diagnostic_kind=slot_spec.missing_diagnostic if not result_handoff_satisfied else None,
         ))
         
-        # Determine completeness
+        # Determine completeness and frontier
+        # Read required-for-partial from IRS spec, not hardcoded
+        required_for_partial_names = {
+            slot_spec.slot_name
+            for slot_spec in irs.slots
+            if slot_spec.required_for_partial
+        }
+        partial_slots_missing = any(
+            s.status != "satisfied"
+            for s in slots
+            if s.slot_name in required_for_partial_names
+        )
         all_satisfied = all(s.status == "satisfied" for s in slots)
-        completeness = "complete" if all_satisfied else "partial"
-        
-        # CHILD_WORKER report does not determine final renderability
-        # That's the responsibility of Gate/ProducerIndex
+
+        if all_satisfied:
+            completeness = "complete"
+            frontier = "leaf"
+            cutline = None
+        elif partial_slots_missing:
+            completeness = "blocked"
+            frontier = "cutline_blocked"
+            cutline = "missing_required_for_partial"
+        else:
+            completeness = "partial"
+            frontier = "leaf"
+            cutline = None
+
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type=instance.construct_type,
@@ -612,7 +633,8 @@ class WorkerDelegationIRSChecker:
             renderable=all_satisfied,
             source_span_ids=list(worker.owned_span_ids),
             construct_path=instance.construct_path,
-            frontier_status="leaf",
+            frontier_status=frontier,
+            cutline_reason=cutline,
             metadata={
                 "worker_id": worker.worker_id,
                 "worker_kind": worker.kind,
