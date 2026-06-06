@@ -24,13 +24,11 @@ from nl2spl.pipeline.stages.stage2_field_router_prompt import (
     ALLOWED_FIELDS,
     ALLOWED_SEMANTIC_ROLES,
     ALLOWED_SLOT_TARGETS,
-    EXECUTABLE_ROLES,
     NON_EXECUTABLE_ROLES,
     RefinedAnnotation,
-    SplitRecommendation,
     RouteRefinementResult,
+    SplitRecommendation,
 )
-
 
 # ===========================================================================
 # Role-specific contracts
@@ -60,11 +58,30 @@ _ROLE_CONTRACT: dict[str, dict[str, Any]] = {
     "integration_hint": {"executable": False},
 }
 
-_HANDLER_ACTION_VERBS: frozenset[str] = frozenset({
-    "ask", "clarify", "handle", "return", "notify", "respond", "reply",
-    "request", "query", "prompt", "alert", "warn", "report", "log",
-    "fallback", "default", "skip", "ignore", "retry", "abort",
-})
+_HANDLER_ACTION_VERBS: frozenset[str] = frozenset(
+    {
+        "ask",
+        "clarify",
+        "handle",
+        "return",
+        "notify",
+        "respond",
+        "reply",
+        "request",
+        "query",
+        "prompt",
+        "alert",
+        "warn",
+        "report",
+        "log",
+        "fallback",
+        "default",
+        "skip",
+        "ignore",
+        "retry",
+        "abort",
+    }
+)
 
 
 # ===========================================================================
@@ -93,27 +110,33 @@ class ValidatedRefinementResult:
 
 
 class RouteRefinementValidator:
-
     def validate(
         self,
         llm_result: RouteRefinementResult,
         spans: list[Any],
         canonical_input: Any,
-        priors: list[RouteAnnotation],
+        structural_priors: list[Any] | None = None,
+        deterministic_annotations: list[RouteAnnotation] | None = None,
     ) -> ValidatedRefinementResult:
         diagnostics: list[str] = []
         rejected: list[RejectedItem] = []
         accepted: list[RefinedAnnotation] = []
         valid_span_ids = {s.span_id for s in spans}
         span_by_id = {s.span_id: s for s in spans}
-        prior_by_sid: dict[str, RouteAnnotation] = {}
-        for p in priors:
-            if p.span_id not in prior_by_sid:
-                prior_by_sid[p.span_id] = p
+
+        # Build structural prior index for provenance checks
+        structural_prior_by_sid: dict[str, Any] = {}
+        for sp in (structural_priors or []):
+            if sp.span_id not in structural_prior_by_sid:
+                structural_prior_by_sid[sp.span_id] = sp
 
         for llm_ann in llm_result.annotations:
             ok, rej_msg, warns = self._validate_one(
-                llm_ann, valid_span_ids, span_by_id, prior_by_sid, canonical_input,
+                llm_ann,
+                valid_span_ids,
+                span_by_id,
+                structural_prior_by_sid,
+                canonical_input,
             )
             if ok:
                 accepted.append(llm_ann)
@@ -122,18 +145,12 @@ class RouteRefinementValidator:
                 rejected.append(RejectedItem(annotation=llm_ann, reason=rej_msg))
                 diagnostics.append(rej_msg)
 
-        # Fallback if > 50 % rejected
-        total = len(llm_result.annotations)
-        fallback = total > 0 and len(rejected) > total / 2
-        if fallback:
-            diagnostics.append(
-                f"LLM refinement fallback triggered: {len(rejected)}/{total} "
-                f"annotations rejected.  Using deterministic priors."
-            )
-
         # Validate split recommendations
         split_recs = self._validate_split_recommendations(
-            llm_result.split_recommendations, valid_span_ids, span_by_id, diagnostics,
+            llm_result.split_recommendations,
+            valid_span_ids,
+            span_by_id,
+            diagnostics,
         )
 
         return ValidatedRefinementResult(
@@ -141,7 +158,7 @@ class RouteRefinementValidator:
             rejected=rejected,
             split_recommendations=split_recs,
             diagnostics=diagnostics,
-            fallback_triggered=fallback,
+            fallback_triggered=False,
         )
 
     # ------------------------------------------------------------------
@@ -153,7 +170,7 @@ class RouteRefinementValidator:
         ann: RefinedAnnotation,
         valid_span_ids: set[str],
         span_by_id: dict[str, Any],
-        prior_by_sid: dict[str, RouteAnnotation],
+        structural_prior_by_sid: dict[str, Any],
         canonical_input: Any,
     ) -> tuple[bool, str, list[str]]:
         """Return (accepted, rejection_reason, warnings)."""
@@ -169,41 +186,36 @@ class RouteRefinementValidator:
             return reject(f"Rejected: unknown span_id '{ann.span_id}'")
 
         span = span_by_id.get(ann.span_id)
-        prior = prior_by_sid.get(ann.span_id)
 
         # --- 2. Allowed schema ------------------------------------------
         if ann.field is None or ann.field not in ALLOWED_FIELDS:
-            return reject(
-                f"Rejected: invalid field '{ann.field}' for span '{ann.span_id}'"
-            )
+            return reject(f"Rejected: invalid field '{ann.field}' for span '{ann.span_id}'")
         if ann.semantic_role is not None and ann.semantic_role not in ALLOWED_SEMANTIC_ROLES:
             return reject(
-                f"Rejected: invalid semantic_role '{ann.semantic_role}' "
-                f"for span '{ann.span_id}'"
+                f"Rejected: invalid semantic_role '{ann.semantic_role}' for span '{ann.span_id}'"
             )
-        if ann.construct_target is not None and ann.construct_target not in ALLOWED_CONSTRUCT_TARGETS:
+        if (
+            ann.construct_target is not None
+            and ann.construct_target not in ALLOWED_CONSTRUCT_TARGETS
+        ):
             return reject(
                 f"Rejected: invalid construct_target '{ann.construct_target}' "
                 f"for span '{ann.span_id}'"
             )
         if ann.slot_target is not None and ann.slot_target not in ALLOWED_SLOT_TARGETS:
             return reject(
-                f"Rejected: invalid slot_target '{ann.slot_target}' "
-                f"for span '{ann.span_id}'"
+                f"Rejected: invalid slot_target '{ann.slot_target}' for span '{ann.span_id}'"
             )
 
         # --- 3. Executable must be a bool -------------------------------
         if not isinstance(ann.executable, bool):
-            return reject(
-                f"Rejected: missing or malformed executable for span '{ann.span_id}'"
-            )
+            return reject(f"Rejected: missing or malformed executable for span '{ann.span_id}'")
 
         # --- 4. NON_EXECUTABLE_ROLES ------------------------------------
         if ann.semantic_role and ann.semantic_role in NON_EXECUTABLE_ROLES:
             if ann.executable:
                 return reject(
-                    f"Rejected: {ann.semantic_role} must be non-executable "
-                    f"for span '{ann.span_id}'"
+                    f"Rejected: {ann.semantic_role} must be non-executable for span '{ann.span_id}'"
                 )
 
         # --- 4.5. Placeholder spans and empty markers cannot be executable roles ----------
@@ -216,11 +228,12 @@ class RouteRefinementValidator:
                         f"('{getattr(span, 'text', '')[:60]}') cannot be annotated as "
                         f"{ann.semantic_role}"
                     )
-            
+
             # Check empty marker text (additional defense for LLM path)
             span_text = getattr(span, "text", "")
             if span_text and ann.semantic_role in ("failure_mode", "constraint", "process_step"):
                 import re as _re
+
                 candidate = span_text.strip()
                 candidate = _re.sub(r"^\s*[-*+]\s+", "", candidate)
                 candidate = _re.sub(r"^\s*\d+\.\s+", "", candidate)
@@ -291,6 +304,15 @@ class RouteRefinementValidator:
 
         # --- 8. Provenance alignment (warning, not reject) ---------------
         warns: list[str] = []
+        sp = structural_prior_by_sid.get(ann.span_id)
+
+        # Fill missing provenance from structural prior
+        if not ann.source_section_id and sp and sp.source_section_id:
+            ann.source_section_id = sp.source_section_id
+        if not ann.source_packet_id and sp and sp.source_packet_id:
+            ann.source_packet_id = sp.source_packet_id
+
+        # Check against span provenance
         if ann.source_section_id and span is not None:
             span_sid = getattr(span, "source_section_id", None)
             if span_sid and ann.source_section_id != span_sid:
@@ -306,6 +328,31 @@ class RouteRefinementValidator:
                     f"Provenance mismatch: LLM source_packet_id "
                     f"'{ann.source_packet_id}' != span source_packet_id "
                     f"'{span_pid}' for span '{ann.span_id}'"
+                )
+
+        # Check against structural prior provenance
+        if sp:
+            if (
+                ann.source_section_id
+                and sp.source_section_id
+                and ann.source_section_id != sp.source_section_id
+            ):
+                warns.append(
+                    f"Provenance mismatch: LLM source_section_id "
+                    f"'{ann.source_section_id}' != structural prior "
+                    f"source_section_id '{sp.source_section_id}' "
+                    f"for span '{ann.span_id}'"
+                )
+            if (
+                ann.source_packet_id
+                and sp.source_packet_id
+                and ann.source_packet_id != sp.source_packet_id
+            ):
+                warns.append(
+                    f"Provenance mismatch: LLM source_packet_id "
+                    f"'{ann.source_packet_id}' != structural prior "
+                    f"source_packet_id '{sp.source_packet_id}' "
+                    f"for span '{ann.span_id}'"
                 )
 
         # --- 9. Hard fact conflict (warning, not reject) -----------------
@@ -332,8 +379,7 @@ class RouteRefinementValidator:
             # parent_span_id must exist
             if sr.parent_span_id not in valid_span_ids:
                 diagnostics.append(
-                    f"Split recommendation rejected: unknown parent_span_id "
-                    f"'{sr.parent_span_id}'"
+                    f"Split recommendation rejected: unknown parent_span_id '{sr.parent_span_id}'"
                 )
                 continue
 
@@ -345,8 +391,7 @@ class RouteRefinementValidator:
                 seg_text = (seg.text or "").strip()
                 if not seg_text:
                     diagnostics.append(
-                        f"Split segment rejected: empty text for "
-                        f"parent '{sr.parent_span_id}'"
+                        f"Split segment rejected: empty text for parent '{sr.parent_span_id}'"
                     )
                     continue
                 in_parent = parent_text and seg_text.lower() in parent_text.lower()
@@ -356,20 +401,24 @@ class RouteRefinementValidator:
                         f"'{seg_text[:60]}' not found in parent span text "
                         f"'{parent_text[:60]}' for parent '{sr.parent_span_id}'"
                     )
-                valid_segments.append({
-                    "text": seg_text,
-                    "semantic_role": seg.semantic_role,
-                    "construct_target": seg.construct_target,
-                    "slot_target": seg.slot_target,
-                    "executable": seg.executable,
-                })
+                valid_segments.append(
+                    {
+                        "text": seg_text,
+                        "semantic_role": seg.semantic_role,
+                        "construct_target": seg.construct_target,
+                        "slot_target": seg.slot_target,
+                        "executable": seg.executable,
+                    }
+                )
 
             if valid_segments:
-                out.append({
-                    "parent_span_id": sr.parent_span_id,
-                    "reason": sr.reason,
-                    "segments": valid_segments,
-                })
+                out.append(
+                    {
+                        "parent_span_id": sr.parent_span_id,
+                        "reason": sr.reason,
+                        "segments": valid_segments,
+                    }
+                )
             else:
                 diagnostics.append(
                     f"Split recommendation dropped: no valid segments "
@@ -414,22 +463,6 @@ class RouteRefinementValidator:
         if not hasattr(canonical_input, "hard_facts") or canonical_input.hard_facts is None:
             return None
         hf = canonical_input.hard_facts
-
-        for fm in getattr(hf, "failure_modes", []):
-            fm_pid = None
-            if hasattr(fm, "evidence") and fm.evidence:
-                for ev in fm.evidence:
-                    if getattr(ev, "source_packet_id", None) == source_pid:
-                        fm_pid = source_pid
-                        break
-            if fm_pid and ann.semantic_role not in (
-                "failure_mode", "exception_handler_action", None,
-            ):
-                return (
-                    f"Hard fact conflict: span '{ann.span_id}' packet "
-                    f"'{source_pid}' has failure_mode hard fact but LLM "
-                    f"returned semantic_role='{ann.semantic_role}'"
-                )
 
         for di in getattr(hf, "delegation_intents", []):
             di_pid = None

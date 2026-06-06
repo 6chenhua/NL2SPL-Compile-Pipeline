@@ -220,13 +220,6 @@ Do not output workers, handoffs, flow, blocks, steps, or SPL."""
                 f"section={fact.source_section_id}, {fact.description}"
                 for fact in canonical_input.hard_facts.outputs
             )
-        if canonical_input.hard_facts.failure_modes:
-            lines.append("failure modes:")
-            lines.extend(
-                f"- {fact.name}: section={fact.source_section_id}, "
-                f"text={self._compact_text(fact.text)}"
-                for fact in canonical_input.hard_facts.failure_modes
-            )
         self._append_hints(
             lines,
             "process hints",

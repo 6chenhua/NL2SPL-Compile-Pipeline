@@ -2,8 +2,7 @@
 
 Emits ``type_or_contract_ambiguity`` diagnostics from route annotations
 with ``semantic_role="delegation_intent"`` when no valid handoff contract
-covers the delegation span.  Bridge ``delegation_intents()`` remains as a
-compatibility fallback for hard-fact-only inputs.
+covers the delegation span.
 """
 
 from __future__ import annotations
@@ -12,7 +11,6 @@ from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR
-from nl2spl.pipeline.fact_bridges import _is_valid_handoff
 
 
 def diagnose_delegation_intents_from_routes(
@@ -109,4 +107,31 @@ def _handoff_covers_span(
         hint_ids.extend(h.failure_policy.source_span_ids)
         if span_id in hint_ids:
             return True
+    return False
+
+
+def _is_valid_handoff(
+    handoff: WorkerHandoffIR,
+    known_child_worker_ids: set[str] | None,
+    declared_apis: set[str] | None,
+) -> bool:
+    """Check whether a handoff has enough contract evidence."""
+    if handoff.mode == "invoke":
+        if not handoff.to_worker:
+            return False
+        if known_child_worker_ids is not None:
+            if handoff.to_worker not in known_child_worker_ids:
+                return False
+        if not handoff.input_bindings:
+            return False
+        if not handoff.output_bindings:
+            return False
+        return True
+    if handoff.mode == "api_call":
+        if not handoff.api_ref:
+            return False
+        if declared_apis is not None:
+            if handoff.api_ref not in declared_apis:
+                return False
+        return True
     return False

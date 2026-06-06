@@ -1,4 +1,4 @@
-"""Pipeline orchestrator."""
+﻿"""Pipeline orchestrator."""
 
 from __future__ import annotations
 
@@ -11,12 +11,16 @@ from nl2spl.canonical import CanonicalCompileInput, CanonicalCompileInputValidat
 from nl2spl.compiler.analyzers.semantic_conflict import (
     ConflictAnalysisContext,
     LLMConflictDiagnosticVerifier,
-    LLMSemanticConflictAnalyzer,
     NoOpSemanticConflictAnalyzer,
 )
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
+from nl2spl.compiler.diagnostic_consolidator import (
+    DiagnosticConsolidationInput,
+    DiagnosticConsolidator,
+)
+from nl2spl.compiler.construct_plan import ConstructPlan, ConstructPlanner
 from nl2spl.compiler.report_renderer import render_report
 from nl2spl.config import PipelineConfig
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
@@ -41,42 +45,30 @@ from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.delegation_diagnostics import (
     diagnose_delegation_intents_from_routes,
 )
-from nl2spl.pipeline.fact_bridges import (
-    bridge_delegation_intents,
-    bridge_failure_modes,
-    bridge_failure_modes_worker_scoped,
-)
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
+    _span_sort_key,
+)
 from nl2spl.pipeline.stages.stage3_ambiguity_resolver import AmbiguityResolver
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
-from nl2spl.pipeline.stages.stage4_flow_assembler.irs_checker import (
-    check_exception_flows_irs,
-    check_worker_flow_plan_exception_flows_irs,
-)
 from nl2spl.pipeline.stages.stage5_block_assembler import BlockAssembler
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
-from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
-    check_steps_irs,
-    check_worker_step_plan_irs,
-)
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
-from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
-    PostNormalizeIRSChecker,
-)
+from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.factory import build_irs_subsystem
+from nl2spl.compiler.irs.result_store import IRSResultStore
+from nl2spl.compiler.irs.subsystem import IRSSubsystem
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
 from nl2spl.utils.persistence import save_final_spl
-
-# R5: IRS v6 runner factory (lazy import via __getattr__)
-from nl2spl.compiler.irs import build_irs_runner, IRSCheckContext, IRSRunResult
 
 
 @dataclass
@@ -91,7 +83,7 @@ class PipelineResult:
         diagnostics: Alias for compile_diagnostics (preferred for new callers)
         traces: Provenance TraceRecords linking SPL elements to source
         adapter_warnings: Adapter-level warnings
-        completeness: Overall compile status — complete, partial, or blocked
+        completeness: Overall compile status 鈥?complete, partial, or blocked
         assumptions: Compiler assumptions that were NOT rendered into SPL
         readable_report: Human-readable compile report (deterministic, no LLM)
         intermediate_results: Intermediate stage results
@@ -112,32 +104,8 @@ class PipelineResult:
 
     @property
     def diagnostics(self) -> list[Any]:
-        """Alias for compile_diagnostics — preferred for new callers."""
+        """Alias for compile_diagnostics 鈥?preferred for new callers."""
         return self.compile_diagnostics
-
-
-def _missing_slot_name(diagnostic: Any) -> str | None:
-    """Extract the missing slot name from a diagnostic, if present."""
-    missing_slot = getattr(diagnostic, "missing_slot", None)
-    if missing_slot is not None:
-        return getattr(missing_slot, "slot_name", None)
-    metadata = getattr(diagnostic, "metadata", None)
-    if isinstance(metadata, dict):
-        return metadata.get("missing_slot")
-    return None
-
-
-DiagnosticDedupKey = tuple[Any, Any, tuple[Any, ...], str | None]
-
-
-def _dedup_key(diagnostic: Any) -> DiagnosticDedupKey:
-    """Deterministic dedup key: (kind, target_ref, sorted source_span_ids, missing_slot_name)."""
-    return (
-        getattr(diagnostic, "kind", ""),
-        getattr(diagnostic, "target_ref", None),
-        tuple(sorted(getattr(diagnostic, "source_span_ids", []) or [])),
-        _missing_slot_name(diagnostic),
-    )
 
 
 class PipelineOrchestrator:
@@ -170,16 +138,14 @@ class PipelineOrchestrator:
         """
         self.logger.info("Starting NL2SPL pipeline")
         self.logger.info("Input text length: %d chars", len(raw_text))
-        # Reset per-run state so stale findings never leak between calls.
-        self._pending_construct_findings: dict[str, list[dict]] = {}
-
         intermediate: dict[str, Any] = {}
         worker_stage_warnings: list[str] = []
 
-        adapter_registry = InputAdapterRegistry(
-            llm_client=self.client,
-            adapter_llm_engine=self.config.adapter_llm_engine,
-        )
+        # IRS subsystem: stage-local construct satisfaction + post-normalize
+        irs_subsystem: IRSSubsystem = build_irs_subsystem(self.config.irs)
+        irs_store = IRSResultStore()
+
+        adapter_registry = InputAdapterRegistry()
         canonical_input = adapter_registry.adapt(raw_text)
         contract_errors = CanonicalCompileInputValidator.validate(canonical_input)
         if contract_errors:
@@ -226,220 +192,193 @@ class PipelineOrchestrator:
         resolved_spans, resolved_routes = self._run_stage3(spans, routes, ambiguity_updates)
         intermediate["stage3_resolved"] = {"spans": resolved_spans, "routes": resolved_routes}
 
-        worker_plan: WorkerPlanIR | None = None
-        if self.config.enable_worker_boundary_planner:
-            # Stage 3.5/3.6: Worker Boundary Planning and validation
-            self.logger.info("Stage 3.5: Worker Boundary Planning")
-            worker_plan = self._run_stage3_5(resolved_spans, resolved_routes, canonical_input)
-            self.logger.info("Stage 3.6: Worker Plan Validation")
-            worker_validation = WorkerPlanValidator().validate(
-                worker_plan,
-                {span.span_id for span in resolved_spans},
+        # Stage 3.25: Construct demand planning
+        self.logger.info("Stage 3.25: Construct Demand Planning")
+        construct_plan = ConstructPlanner().plan(
+            resolved_spans,
+            resolved_routes,
+            source_schema=canonical_input.source_schema,
+        )
+        intermediate["construct_plan"] = construct_plan
+        intermediate["construct_plan_payload"] = construct_plan.to_payload()
+        if construct_plan.diagnostics:
+            intermediate.setdefault("stage_local_diagnostics", {})
+            intermediate["stage_local_diagnostics"]["construct_plan"] = (
+                construct_plan.diagnostics
             )
-            if not worker_validation.is_valid:
-                raise ValueError(
-                    "WorkerPlanIR validation failed: "
-                    + "; ".join(worker_validation.errors)
-                )
-            intermediate["stage3_5_worker_plan"] = worker_plan
-            intermediate["stage3_6_worker_plan_validation"] = worker_validation
 
-            # R5: IRS v6 runner for Stage 3.5 worker/delegation constructs
-            if (
-                self.config.enable_irs_v6_runner
-                and self.config.enable_irs_worker_delegation_check
-            ):
-                self.logger.info("Stage 3.5 IRS v6: Worker/Delegation Check")
-                irs_result = self._run_stage3_5_irs_v6(
-                    worker_plan=worker_plan,
-                    spans=resolved_spans,
-                    routes=resolved_routes,
-                    canonical_input=canonical_input,
-                )
-                intermediate.setdefault("construct_satisfaction", {})
-                intermediate.setdefault("stage_local_diagnostics", {})
-                intermediate["construct_satisfaction"]["stage3_5"] = irs_result.reports
-                intermediate["stage_local_diagnostics"]["stage3_5"] = irs_result.diagnostics
-                if irs_result.warnings:
-                    intermediate.setdefault("irs_v6_warnings", {})
-                    intermediate["irs_v6_warnings"]["stage3_5"] = irs_result.warnings
+        # Stage 3.5/3.6: Worker Boundary Planning and validation
+        self.logger.info("Stage 3.5: Worker Boundary Planning")
+        worker_plan = self._run_stage3_5(resolved_spans, resolved_routes, canonical_input)
+        pre_repair_validation = WorkerPlanValidator().validate(
+            worker_plan,
+            {span.span_id for span in resolved_spans},
+        )
+        if not pre_repair_validation.is_valid:
+            raise ValueError(
+                "WorkerPlanIR validation failed: "
+                + "; ".join(pre_repair_validation.errors)
+            )
 
-            # Defensive repair: worker ownership is required for behavior spans.
-            # Non-behavior spans remain global/hint context and must not be
-            # forced into a worker ownership set.
-            behavior_span_ids = set(resolved_routes.behavior)
-            assigned_ids: set[str] = set()
-            for w in worker_plan.workers:
-                assigned_ids.update(w.owned_span_ids)
-            unassigned = behavior_span_ids - assigned_ids
-            if unassigned:
-                main_worker = worker_plan.main_worker
-                main_worker.owned_span_ids.extend(sorted(unassigned, key=lambda sid: int(sid[1:])))
-                self.logger.warning(
-                    "Stage 3.5 left %d behavior spans unassigned; "
-                    "reassigning to main worker %s: %s",
-                    len(unassigned), main_worker.worker_id,
-                    sorted(unassigned, key=lambda sid: int(sid[1:])),
-                )
+        # Defensive repair: worker ownership is required for behavior spans.
+        # Non-behavior spans remain global/hint context and must not be
+        # forced into a worker ownership set.
+        behavior_span_ids = set(resolved_routes.behavior)
+        assigned_ids: set[str] = set()
+        for w in worker_plan.workers:
+            assigned_ids.update(w.owned_span_ids)
+        unassigned = behavior_span_ids - assigned_ids
+        if unassigned:
+            main_worker = worker_plan.main_worker
+            main_worker.owned_span_ids.extend(sorted(unassigned, key=_span_sort_key))
+            self.logger.warning(
+                "Stage 3.5 left %d behavior spans unassigned; "
+                "reassigning to main worker %s: %s",
+                len(unassigned), main_worker.worker_id,
+                sorted(unassigned, key=_span_sort_key),
+            )
+
+        if construct_plan.demands:
+            construct_plan.enforce_exception_flow_ownership(worker_plan)
+
+        self.logger.info("Stage 3.6: Worker Plan Validation")
+        worker_validation = WorkerPlanValidator().validate(
+            worker_plan,
+            {span.span_id for span in resolved_spans},
+        )
+        if not worker_validation.is_valid:
+            raise ValueError(
+                "WorkerPlanIR validation failed: "
+                + "; ".join(worker_validation.errors)
+            )
+        intermediate["stage3_5_worker_plan"] = worker_plan
+        intermediate["stage3_6_worker_plan_validation"] = worker_validation
+
+        # Stage 3.5 IRS: construct satisfaction for worker/delegation
+        if self.config.irs.stage_local_enabled:
+            irs_ctx_35 = IRSCheckContext(
+                stage_name="stage3_5",
+                worker_plan=worker_plan,
+                spans=tuple(resolved_spans),
+                routes=resolved_routes,
+            )
+            irs_store.put_stage_result(
+                irs_subsystem.run_stage_local("stage3_5", irs_ctx_35)
+            )
 
         # Stage 4: Flow Assembly
         self.logger.info("Stage 4: Flow Assembly")
-        worker_flow_plan: WorkerFlowPlanIR | None = None
-        if worker_plan is not None:
-            flow_output = self._run_stage4(resolved_spans, resolved_routes, worker_plan)
-            if not isinstance(flow_output, WorkerFlowPlanIR):
-                raise TypeError("Worker-aware Stage 4 must return WorkerFlowPlanIR")
-            worker_flow_plan = flow_output
-            worker_stage_warnings.extend(worker_flow_plan.warnings)
-            intermediate["stage4_worker_flows"] = worker_flow_plan
-            # Stage 9 compat: 创建空 FlowStructureIR（Stage 9 不使用 flow/blocks 参数）
-            flow_structure = FlowStructureIR()
+        active_construct_plan = construct_plan if construct_plan.demands else None
+        if active_construct_plan is not None:
+            flow_output = self._run_stage4(
+                resolved_spans, resolved_routes, worker_plan, active_construct_plan,
+            )
         else:
-            flow_structure = self._run_stage4(resolved_spans, resolved_routes)
+            flow_output = self._run_stage4(
+                resolved_spans, resolved_routes, worker_plan,
+            )
+        if not isinstance(flow_output, WorkerFlowPlanIR):
+            raise TypeError("Worker-aware Stage 4 must return WorkerFlowPlanIR")
+        worker_flow_plan = flow_output
+        worker_stage_warnings.extend(worker_flow_plan.warnings)
+        intermediate["stage4_worker_flows"] = worker_flow_plan
+        # Stage 9 compatibility placeholder; worker-aware path uses worker flows.
+        flow_structure = FlowStructureIR()
         intermediate["stage4_flow"] = flow_structure
 
-        # D8: Bridge fallback — only runs when route annotations did NOT
-        # already materialize failure exception flows.  Hard-fact-only
-        # input without route annotations still receives compatibility
-        # fallback so failure conditions are not silently dropped.
-        if canonical_input.hard_facts.failure_modes:
-            if worker_flow_plan is not None and worker_plan is not None:
-                if self._bridge_fallback_needed_worker_scoped(
-                    canonical_input.hard_facts.failure_modes,
-                    worker_flow_plan,
-                ):
-                    worker_flow_plan = bridge_failure_modes_worker_scoped(
-                        canonical_input.hard_facts.failure_modes,
-                        resolved_spans,
-                        worker_flow_plan,
-                        worker_plan,
-                        intermediate_results=intermediate,
-                    )
-                    intermediate["stage4_worker_flows"] = worker_flow_plan
-            else:
-                if self._bridge_fallback_needed(
-                    canonical_input.hard_facts.failure_modes,
-                    flow_structure,
-                ):
-                    flow_structure = bridge_failure_modes(
-                        canonical_input.hard_facts.failure_modes,
-                        resolved_spans,
-                        flow_structure,
-                        intermediate_results=intermediate,
-                    )
-                    intermediate["stage4_flow"] = flow_structure
-
-        # Stage 4 IRS check: exception flow slot satisfaction (Phase 3).
-        if self.config.enable_irs_stage4_exception_flow_check:
-            intermediate.setdefault("construct_satisfaction", {})
-            intermediate.setdefault("stage_local_diagnostics", {})
-            if worker_flow_plan is not None:
-                reports, diags = check_worker_flow_plan_exception_flows_irs(
-                    worker_flow_plan,
-                )
-            else:
-                reports, diags = check_exception_flows_irs(flow_structure)
-            intermediate["construct_satisfaction"]["stage4"] = reports
-            intermediate["stage_local_diagnostics"]["stage4"] = diags
+        # Stage 4 IRS: construct satisfaction for exception flows
+        if self.config.irs.stage_local_enabled:
+            irs_ctx_4 = IRSCheckContext(
+                stage_name="stage4",
+                worker_flows=worker_flow_plan,
+                routes=resolved_routes,
+                spans=tuple(resolved_spans),
+            )
+            irs_store.put_stage_result(
+                irs_subsystem.run_stage_local("stage4", irs_ctx_4)
+            )
 
         # Stage 5: Block Assembly
         self.logger.info("Stage 5: Block Assembly")
-        worker_block_plan: WorkerBlockPlanIR | None = None
-        if worker_flow_plan is not None and worker_plan is not None:
+        if active_construct_plan is not None:
+            block_output = self._run_stage5(
+                resolved_spans,
+                resolved_routes,
+                worker_flow_plan,
+                active_construct_plan,
+            )
+        else:
             block_output = self._run_stage5(
                 resolved_spans,
                 resolved_routes,
                 worker_flow_plan,
             )
-            if not isinstance(block_output, WorkerBlockPlanIR):
-                raise TypeError("Worker-aware Stage 5 must return WorkerBlockPlanIR")
-            worker_block_plan = block_output
-            worker_stage_warnings.extend(worker_block_plan.warnings)
-            intermediate["stage5_worker_blocks"] = worker_block_plan
-            # Stage 9 compat: 创建空 BlockStructureIR（Stage 9 不使用 flow/blocks 参数）
-            block_structure = BlockStructureIR()
-        else:
-            block_structure = self._run_stage5(
-                resolved_spans,
-                resolved_routes,
-                flow_structure,
-            )
+        if not isinstance(block_output, WorkerBlockPlanIR):
+            raise TypeError("Worker-aware Stage 5 must return WorkerBlockPlanIR")
+        worker_block_plan = block_output
+        worker_stage_warnings.extend(worker_block_plan.warnings)
+        intermediate["stage5_worker_blocks"] = worker_block_plan
+        # Stage 9 compatibility placeholder; worker-aware path uses worker blocks.
+        block_structure = BlockStructureIR()
         intermediate["stage5_blocks"] = block_structure
 
         # Stage 6: Resource Extraction
         self.logger.info("Stage 6: Resource Extraction")
-        if (
-            self.config.enable_worker_boundary_planner
-            and worker_flow_plan is not None
-            and worker_block_plan is not None
-            and worker_plan is not None
-        ):
-            # Worker-aware path
-            worker_scoped_resources, symbol_table, filter_warns = self._run_stage6_worker_scoped(
-                resolved_spans,
-                resolved_routes,
-                worker_flow_plan,
-                worker_block_plan,
-                worker_plan,
-                canonical_input,
-            )
-            resources = worker_scoped_resources.global_resources
-            intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
-            adapter_warnings.extend(filter_warns)
-        else:
-            # Legacy path
-            resources, symbol_table, filter_warns = self._run_stage6(
-                resolved_spans,
-                resolved_routes,
-                flow_structure,
-                block_structure,
-                canonical_input,
-            )
-            adapter_warnings.extend(filter_warns)
+        worker_scoped_resources, symbol_table, filter_warns = self._run_stage6_worker_scoped(
+            resolved_spans,
+            resolved_routes,
+            worker_flow_plan,
+            worker_block_plan,
+            worker_plan,
+            canonical_input,
+        )
+        resources = worker_scoped_resources.global_resources
+        intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
+        adapter_warnings.extend(filter_warns)
         intermediate["stage6_resources"] = resources
 
         # Stage 7: Step Extraction
         self.logger.info("Stage 7: Step Extraction")
-        if (
-            self.config.enable_worker_boundary_planner
-            and worker_flow_plan is not None
-            and worker_block_plan is not None
-            and worker_plan is not None
-        ):
-            # Worker-aware path
-            worker_step_plan, symbol_table, stage7_diags = self._run_stage7_worker_scoped(
-                resolved_spans,
-                resolved_routes,
-                worker_flow_plan,
-                worker_block_plan,
-                symbol_table,
-                worker_plan,
+        if active_construct_plan is not None:
+            worker_step_plan, symbol_table, stage7_diags = (
+                self._run_stage7_worker_scoped(
+                    resolved_spans,
+                    resolved_routes,
+                    worker_flow_plan,
+                    worker_block_plan,
+                    symbol_table,
+                    worker_plan,
+                    active_construct_plan,
+                )
             )
-            steps = worker_step_plan.get_all_steps()
-            worker_stage_warnings.extend(worker_step_plan.warnings)
-            intermediate["stage7_worker_step_plan"] = worker_step_plan
         else:
-            # Legacy path
-            steps, symbol_table, stage7_diags = self._run_stage7(
-                resolved_spans,
-                resolved_routes,
-                flow_structure,
-                block_structure,
-                symbol_table,
-                worker_plan,
+            worker_step_plan, symbol_table, stage7_diags = (
+                self._run_stage7_worker_scoped(
+                    resolved_spans,
+                    resolved_routes,
+                    worker_flow_plan,
+                    worker_block_plan,
+                    symbol_table,
+                    worker_plan,
+                )
             )
+        steps = worker_step_plan.get_all_steps()
+        worker_stage_warnings.extend(worker_step_plan.warnings)
+        intermediate["stage7_worker_step_plan"] = worker_step_plan
         intermediate["stage7_steps"] = steps
 
-        # Stage 7 IRS check: step-level slot satisfaction (Phase 4).
-        if self.config.enable_irs_stage7_step_check:
-            intermediate.setdefault("construct_satisfaction", {})
-            intermediate.setdefault("stage_local_diagnostics", {})
-            if worker_step_plan is not None:
-                reports, diags = check_worker_step_plan_irs(worker_step_plan)
-            else:
-                reports, diags = check_steps_irs(steps)
-            intermediate["construct_satisfaction"]["stage7"] = reports
-            intermediate["stage_local_diagnostics"]["stage7"] = diags
+        # Stage 7 IRS: construct satisfaction for steps
+        if self.config.irs.stage_local_enabled:
+            irs_ctx_7 = IRSCheckContext(
+                stage_name="stage7",
+                worker_steps=worker_step_plan,
+                routes=resolved_routes,
+                spans=tuple(resolved_spans),
+                symbol_table=symbol_table,
+            )
+            irs_store.put_stage_result(
+                irs_subsystem.run_stage_local("stage7", irs_ctx_7)
+            )
 
         # Stage 8: Profile Extraction
         self.logger.info("Stage 8: Profile Extraction")
@@ -461,110 +400,66 @@ class PipelineOrchestrator:
 
         # Stage 9.5: IR Normalization
         self.logger.info("Stage 9.5: IR Normalization")
-        if (
-            self.config.enable_worker_boundary_planner
-            and worker_flow_plan is not None
-            and worker_block_plan is not None
-            and worker_step_plan is not None
-            and worker_plan is not None
-        ):
-            # Worker-aware path
-            norm_result = self._run_normalization_worker_scoped(
-                worker_flow_plan,
-                worker_block_plan,
-                worker_step_plan,
-                worker_plan,
-                resources,
-                symbol_table,
-            )
-            (
-                worker_flow_plan,
-                worker_block_plan,
-                worker_step_plan,
-                symbol_table,
-                normalization_errors,
-                normalization_warnings,
-            ) = norm_result
-            # 更新 steps 为所有 worker 的 steps
-            steps = worker_step_plan.get_all_steps()
-        else:
-            # Legacy path
-            norm_result = self._run_normalization(
-                flow_structure,
-                block_structure,
-                resources,
-                symbol_table,
-                steps,
-                constraints,
-                worker_plan,
-            )
-            (
-                flow_structure,
-                block_structure,
-                steps,
-                constraints,
-                symbol_table,
-                normalization_errors,
-                normalization_warnings,
-            ) = norm_result
-        intermediate["stage9_5_normalization"] = norm_result
-        # Forward construct findings from Stage 9.5 to post-normalize IRS pass.
-        # Always assign (even empty) so a previous run's findings never leak.
-        intermediate["stage9_5_construct_findings"] = getattr(
-            self, "_pending_construct_findings", {}
+        norm_result = self._run_normalization_worker_scoped(
+            worker_flow_plan,
+            worker_block_plan,
+            worker_step_plan,
+            worker_plan,
+            resources,
+            symbol_table,
         )
-        self._pending_construct_findings = {}
+        (
+            worker_flow_plan,
+            worker_block_plan,
+            worker_step_plan,
+            symbol_table,
+            normalization_errors,
+            normalization_warnings,
+        ) = norm_result
+        # 鏇存柊 steps 涓烘墍鏈?worker 鐨?steps
+        steps = worker_step_plan.get_all_steps()
+        intermediate["stage9_5_normalization"] = norm_result
 
         # Stage 10: Worker Assembly
         self.logger.info("Stage 10: Worker Assembly")
-        if (
-            self.config.enable_worker_boundary_planner
-            and worker_flow_plan is not None
-            and worker_block_plan is not None
-            and worker_step_plan is not None
-            and worker_plan is not None
-        ):
-            # Worker-aware path
-            worker = self._run_stage10_worker_scoped(
-                worker_step_plan,
-                resources,
-                symbol_table,
-                worker_plan,
-                worker_flow_plan,
-                worker_block_plan,
-            )
-        else:
-            # Legacy path
-            worker = self._run_stage10(
-                flow_structure,
-                block_structure,
-                steps,
-                resources,
-                symbol_table,
-                worker_plan,
-            )
+        worker = self._run_stage10_worker_scoped(
+            worker_step_plan,
+            resources,
+            symbol_table,
+            worker_plan,
+            worker_flow_plan,
+            worker_block_plan,
+        )
         intermediate["stage10_worker"] = worker
 
         # Post-normalize IRS check: final authority for construct-level
         # diagnostics from normalized, assembled IR.
-        post_norm_diags: list[Any] = []
-        if self.config.enable_irs_post_normalize_check:
-            self.logger.info("Post-normalize IRS check")
-            checker = PostNormalizeIRSChecker()
-            post_norm_diags = checker.check(
-                worker=worker,
-                worker_plan=worker_plan,
-                symbol_table=symbol_table,
-                resources=resources,
-                worker_scoped_resources=intermediate.get(
-                    "stage6_worker_scoped_resources"
-                ),
-                construct_findings=intermediate.get(
-                    "stage9_5_construct_findings"
-                ),
-            )
+        self.logger.info("Post-normalize IRS check")
+        post_norm_diags = irs_subsystem.run_post_normalize(
+            worker=worker,
+            worker_plan=worker_plan,
+            symbol_table=symbol_table,
+            resources=resources,
+            worker_scoped_resources=intermediate.get(
+                "stage6_worker_scoped_resources"
+            ),
+        )
+        irs_store.put_post_normalize_diagnostics(post_norm_diags)
 
-        # Executable element gate — filter non-source-backed steps before
+        # Write IRS payload to intermediate (after all IRS checks complete)
+        if self.config.irs.enabled:
+            irs_payload = irs_store.to_intermediate_payload()
+            intermediate["construct_satisfaction"] = irs_payload["construct_satisfaction"]
+            intermediate["stage_local_diagnostics"] = {
+                **intermediate.get("stage_local_diagnostics", {}),
+                **irs_payload["stage_local_diagnostics"],
+            }
+            intermediate["irs_stage_results"] = irs_payload["irs_stage_results"]
+            intermediate["irs_post_normalize_diagnostics"] = irs_payload[
+                "irs_post_normalize_diagnostics"
+            ]
+
+        # Executable element gate 鈥?filter non-source-backed steps before
         # rendering so only verifiable commands reach Stage 11.
         self.logger.info("Executable element gate")
         gate = ExecutableElementGate()
@@ -617,7 +512,7 @@ class PipelineOrchestrator:
                 for v in wr.variables:
                     worker_var_scopes[v.name] = worker_id
 
-        # Build post-gate flat step list — blocked steps must not
+        # Build post-gate flat step list 鈥?blocked steps must not
         # participate in provenance traces or variable producer detection.
         prov_steps = list(worker.steps)
         for child in worker.child_workers:
@@ -664,10 +559,7 @@ class PipelineOrchestrator:
             delegation_intents=prov_delegation_intents,
         )
 
-        # D10: route-driven delegation diagnostics are the preferred path.
-        # Emit route-derived diagnostics first, then bridge fallback for
-        # hard facts not covered by route annotation provenance (see
-        # _run_delegation_diagnostics for coverage logic).
+        # D10: route-driven delegation diagnostics.
         delegation_diags = self._run_delegation_diagnostics(
             resolved_routes,
             resolved_spans,
@@ -706,26 +598,29 @@ class PipelineOrchestrator:
         stage2_diags = intermediate.get(
             "stage_local_diagnostics", {}
         ).get("stage2", [])
-        # R5: Stage 3.5 IRS v6 diagnostics (worker promotion/delegation)
-        stage3_5_irs_diags = (
-            intermediate.get("stage_local_diagnostics", {}).get("stage3_5", [])
-            if self.config.enable_irs_v6_runner
-            and self.config.enable_irs_worker_delegation_check
-            else []
+        consolidation = DiagnosticConsolidator().consolidate(
+            DiagnosticConsolidationInput(
+                stage2_diagnostics=list(stage2_diags),
+                construct_plan_diagnostics=list(construct_plan.diagnostics),
+                stage7_diagnostics=list(stage7_diags),
+                irs_store=irs_store,
+                post_normalize_diagnostics=list(post_norm_diags),
+                gate_diagnostics=list(gate_diags),
+                provenance_diagnostics=list(provenance_diags),
+                delegation_diagnostics=list(delegation_diags),
+                conflict_diagnostics=list(conflict_diags),
+                include_stage_local_diagnostics=(
+                    self.config.irs.include_stage_local_diagnostics_in_compile
+                ),
+            )
         )
-        all_diagnostics = (
-            stage2_diags + stage3_5_irs_diags + stage7_diags + post_norm_diags
-            + conflict_diags + gate_diags + provenance_diags + delegation_diags
+        all_diagnostics = consolidation.final_diagnostics
+        intermediate["suppressed_stage_local_diagnostics"] = (
+            consolidation.suppressed_stage_local_diagnostics
         )
-        # IRS consolidation only runs when the post-normalize checker is
-        # disabled; otherwise Stage 4/7 IRS diagnostics stay as reports only.
-        if (
-            self.config.enable_irs_diagnostic_consolidation
-            and not self.config.enable_irs_post_normalize_check
-        ):
-            all_diagnostics = self._consolidate_compile_diagnostics(
-                all_diagnostics,
-                intermediate,
+        if consolidation.warnings:
+            intermediate["diagnostic_consolidation_warnings"] = (
+                consolidation.warnings
             )
         completeness = compute_completeness(
             validation_errors=errors,
@@ -739,6 +634,11 @@ class PipelineOrchestrator:
             diagnostics=all_diagnostics,
             assumptions=assumptions,
             traces=traces,
+            construct_satisfaction=(
+                intermediate.get("construct_satisfaction")
+                if self.config.irs.include_construct_satisfaction_in_feedback
+                else None
+            ),
             adapter_warnings=adapter_warnings,
             validation_errors=errors,
             validation_warnings=warnings,
@@ -795,56 +695,17 @@ class PipelineOrchestrator:
         stage = WorkerBoundaryPlanner(self.config, self.client)
         return stage.execute((spans, routes, canonical_input))
 
-    def _run_stage3_5_irs_v6(
-        self,
-        *,
-        worker_plan: WorkerPlanIR,
-        spans: list[SpanIR],
-        routes: FieldRouteIR,
-        canonical_input: CanonicalCompileInput | None,
-    ) -> IRSRunResult:
-        """Run IRS v6 runner for Stage 3.5 worker/delegation constructs.
-
-        This method runs after WorkerPlanValidator passes and before Stage 4.
-        It produces construct satisfaction reports and diagnostics for
-        worker promotion readiness and handoff satisfaction.
-
-        Args:
-            worker_plan: Validated worker plan from Stage 3.5
-            spans: Resolved spans from Stage 3
-            routes: Resolved routes from Stage 3
-            canonical_input: Canonical input with adapter evidence
-
-        Returns:
-            IRSRunResult with reports, diagnostics, and warnings
-        """
-        runner = build_irs_runner(
-            enable_worker_delegation=self.config.enable_irs_worker_delegation_check,
-        )
-
-        context = IRSCheckContext(
-            stage_name="stage3_5",
-            spans=tuple(spans),
-            routes=routes,
-            worker_plan=worker_plan,
-            metadata={
-                "canonical_input_schema": (
-                    canonical_input.source_schema if canonical_input else None
-                ),
-                "planner_enabled": True,
-            },
-        )
-
-        return runner.run_stage("stage3_5", context)
-
     def _run_stage4(
         self,
         spans: list[SpanIR],
         routes: FieldRouteIR,
         worker_plan: WorkerPlanIR | None = None,
+        construct_plan: ConstructPlan | None = None,
     ) -> FlowStructureIR | WorkerFlowPlanIR:
         """Stage 4: Flow Assembly."""
         stage = FlowAssembler(self.config, self.client)
+        if worker_plan is not None and construct_plan is not None:
+            return stage.execute((spans, routes, worker_plan, construct_plan))
         if worker_plan is not None:
             return stage.execute((spans, routes, worker_plan))
         return stage.execute((spans, routes))
@@ -854,27 +715,13 @@ class PipelineOrchestrator:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         flow_structure: FlowStructureIR | WorkerFlowPlanIR,
+        construct_plan: ConstructPlan | None = None,
     ) -> BlockStructureIR | WorkerBlockPlanIR:
         """Stage 5: Block Assembly."""
         stage = BlockAssembler(self.config, self.client)
+        if construct_plan is not None:
+            return stage.execute((spans, routes, flow_structure, construct_plan))
         return stage.execute((spans, routes, flow_structure))
-
-    def _run_stage6(
-        self,
-        spans: list[SpanIR],
-        routes: FieldRouteIR,
-        flow: FlowStructureIR,
-        blocks: BlockStructureIR,
-        canonical_input: CanonicalCompileInput | None = None,
-    ) -> tuple[ResourceRegistryIR, SymbolTable, list[str]]:
-        """Stage 6: Resource Extraction."""
-        stage = ResourceExtractor(self.config, self.client)
-        if canonical_input is not None:
-            resources, symbols = stage.execute((spans, routes, flow, blocks, canonical_input))
-        else:
-            resources, symbols = stage.execute((spans, routes, flow, blocks))
-        filter_warnings = getattr(stage, "resource_filter_warnings", [])
-        return resources, symbols, list(filter_warnings)
 
     def _run_stage6_worker_scoped(
         self,
@@ -893,23 +740,6 @@ class PipelineOrchestrator:
         filter_warnings = getattr(stage, "resource_filter_warnings", [])
         return worker_scoped_resources, symbols, list(filter_warnings)
 
-    def _run_stage7(
-        self,
-        spans: list[SpanIR],
-        routes: FieldRouteIR,
-        flow: FlowStructureIR,
-        blocks: BlockStructureIR,
-        symbols: SymbolTable,
-        worker_plan: WorkerPlanIR | None = None,
-    ) -> tuple[list[StepIR], SymbolTable, list[Any]]:
-        """Stage 7: Step Extraction."""
-        stage = StepExtractor(self.config, self.client)
-        if worker_plan is not None:
-            result = stage.execute((spans, routes, flow, blocks, symbols, worker_plan))
-        else:
-            result = stage.execute((spans, routes, flow, blocks, symbols))
-        return (*result, getattr(stage, "stage7_diagnostics", []))
-
     def _run_stage7_worker_scoped(
         self,
         spans: list[SpanIR],
@@ -918,11 +748,13 @@ class PipelineOrchestrator:
         worker_block_plan: WorkerBlockPlanIR,
         symbol_table: SymbolTable,
         worker_plan: WorkerPlanIR,
+        construct_plan: ConstructPlan | None = None,
     ) -> tuple[WorkerStepPlanIR, SymbolTable, list[Any]]:
         """Stage 7: Worker-scoped Step Extraction."""
         stage = StepExtractor(self.config, self.client)
         result = stage.execute_worker_scoped(
-            spans, routes, worker_flow_plan, worker_block_plan, symbol_table, worker_plan
+            spans, routes, worker_flow_plan, worker_block_plan, symbol_table,
+            worker_plan, construct_plan,
         )
         return (*result, getattr(stage, "stage7_diagnostics", []))
 
@@ -954,41 +786,6 @@ class PipelineOrchestrator:
             )
         return stage.execute((spans, routes, flow, blocks, symbols, steps))
 
-    def _run_normalization(
-        self,
-        flow: FlowStructureIR,
-        blocks: BlockStructureIR,
-        resources: ResourceRegistryIR,
-        symbols: SymbolTable,
-        steps: list[StepIR],
-        constraints: list[ConstraintIR],
-        worker_plan: WorkerPlanIR | None = None,
-    ) -> tuple[
-        FlowStructureIR,
-        BlockStructureIR,
-        list[StepIR],
-        list[ConstraintIR],
-        SymbolTable,
-        list[str],
-        list[str],
-    ]:
-        """Stage 9.5: IR Normalization."""
-        normalizer = IRNormalizer()
-        result = normalizer.normalize(
-            flow,
-            blocks,
-            resources,
-            symbols,
-            steps,
-            constraints,
-            worker_plan,
-        )
-        # Collect structured findings for post-normalize IRS pass.
-        findings = getattr(normalizer, "construct_findings", None)
-        if findings:
-            self._pending_construct_findings = findings
-        return result
-
     def _run_normalization_worker_scoped(
         self,
         worker_flow_plan: WorkerFlowPlanIR,
@@ -1015,10 +812,6 @@ class PipelineOrchestrator:
             resources,
             symbol_table,
         )
-        # Collect structured findings for post-normalize IRS pass.
-        findings = getattr(normalizer, "construct_findings", None)
-        if findings:
-            self._pending_construct_findings = findings
         return result
 
     # -- D10 delegation diagnostics -------------------------------------------
@@ -1032,134 +825,15 @@ class PipelineOrchestrator:
         prov_child_ids: set[str],
         prov_declared_apis: set[str],
     ) -> list[CompileDiagnostic]:
-        """D10: route-driven delegation diagnostics preferred; bridge fallback
-        only for hard facts not covered by route annotation provenance.
-
-        Route-derived diagnostics come first.  The hard-fact bridge then
-        runs as a compatibility fallback using provenance-coverage:
-        source_packet_id match > source_span_ids overlap > section-level
-        match with normalized text containment.
-        """
-        import re as _re
-
-        def _norm(text: str) -> str:
-            return _re.sub(r"[^\w\s]", "", text.strip().lower())
-
-        diags = diagnose_delegation_intents_from_routes(
+        """Emit delegation diagnostics from final RouteAnnotations only."""
+        _ = canonical_input
+        _ = prov_child_ids
+        return diagnose_delegation_intents_from_routes(
             resolved_routes,
             resolved_spans,
             worker_plan,
             declared_apis=prov_declared_apis,
         )
-        # Collect precise provenance evidence from route delegation annotations
-        covered_packet_ids: set[str] = set()
-        covered_span_ids: set[str] = set()
-        covered_texts: dict[str, set[str]] = {}  # section_id → set of normalized span texts
-        for ann in resolved_routes.get_annotations_by_role("delegation_intent"):
-            if ann.source_packet_id:
-                covered_packet_ids.add(ann.source_packet_id)
-            covered_span_ids.add(ann.span_id)
-            sid = ann.source_section_id
-            if sid:
-                span = next(
-                    (s for s in resolved_spans if s.span_id == ann.span_id), None
-                )
-                if span:
-                    covered_texts.setdefault(sid, set()).add(
-                        _norm(span.text)
-                    )
-
-        # Bridge: only run for hard facts whose evidence is NOT covered
-        uncovered_hard_facts = []
-        for fact in list(canonical_input.hard_facts.delegation_intents):
-            covered = False
-            fact_norm = _norm(fact.text)
-            for ev in fact.evidence:
-                pid = getattr(ev, "source_packet_id", None)
-                if pid and pid in covered_packet_ids:
-                    covered = True
-                    break
-                span_ids = getattr(ev, "source_span_ids", None) or []
-                if any(sid in covered_span_ids for sid in span_ids):
-                    covered = True
-                    break
-                # Section-level only with normalized text containment guard
-                sid = getattr(ev, "source_section_id", None)
-                if sid and sid in covered_texts:
-                    for covered_t in covered_texts[sid]:
-                        if fact_norm in covered_t or covered_t in fact_norm:
-                            covered = True
-                            break
-                if covered:
-                    break
-            if not covered:
-                uncovered_hard_facts.append(fact)
-        if uncovered_hard_facts:
-            bridge_diags = bridge_delegation_intents(
-                uncovered_hard_facts,
-                worker_plan.handoffs if worker_plan else None,
-                resolved_spans,
-                known_child_worker_ids=prov_child_ids,
-                declared_apis=prov_declared_apis,
-            )
-            diags.extend(bridge_diags)
-
-        return diags
-
-    # -- D8 bridge fallback guards -------------------------------------------
-
-    @staticmethod
-    def _bridge_fallback_needed(
-        failure_modes: list, flow: FlowStructureIR,
-    ) -> bool:
-        """D8: bridge fallback only for hard-fact failure conditions that
-        are NOT already covered by an existing exception flow (by normalized
-        condition text).  Returns True when at least one failure fact needs
-        fallback materialization."""
-        import re as _re
-        existing = {
-            _re.sub(r"[^\w\s]", "", exc.condition_text.strip().lower())
-            for exc in flow.exception_flows
-        }
-        for fact in failure_modes:
-            norm = _re.sub(r"[^\w\s]", "", fact.text.strip().lower())
-            if norm not in existing:
-                return True
-        return False
-
-    @staticmethod
-    def _bridge_fallback_needed_worker_scoped(
-        failure_modes: list,
-        worker_flow_plan: WorkerFlowPlanIR,
-    ) -> bool:
-        """D8: worker-scoped bridge fallback — checks ALL worker flows for
-        coverage of each hard-fact failure condition."""
-        import re as _re
-        all_existing: set[str] = set()
-        for flow in worker_flow_plan.worker_flows.values():
-            for exc in flow.exception_flows:
-                norm = _re.sub(r"[^\w\s]", "", exc.condition_text.strip().lower())
-                all_existing.add(norm)
-        for fact in failure_modes:
-            norm = _re.sub(r"[^\w\s]", "", fact.text.strip().lower())
-            if norm not in all_existing:
-                return True
-        return False
-
-    # ------------------------------------------------------------------------
-
-    def _run_stage10(
-        self,
-        flow: FlowStructureIR,
-        blocks: BlockStructureIR,
-        steps: list[StepIR],
-        resources: ResourceRegistryIR,
-        symbols: SymbolTable,
-        worker_plan: WorkerPlanIR | None = None,
-    ) -> WorkerIR:
-        """Stage 10: Worker Assembly (legacy path)."""
-        assembler = WorkerAssembler()
-        return assembler.assemble(flow, blocks, steps, resources, symbols, worker_plan)
 
     def _run_stage10_worker_scoped(
         self,
@@ -1184,46 +858,9 @@ class PipelineOrchestrator:
             worker_block_plan,
         )
 
-    def _make_semantic_conflict_analyzer(
-        self,
-    ) -> NoOpSemanticConflictAnalyzer | LLMSemanticConflictAnalyzer:
-        """Return the active semantic conflict analyzer (Phase 6)."""
-        if self.config.enable_llm_conflict_analyzer:
-            return LLMSemanticConflictAnalyzer(call_json=self.client.call_json)
+    def _make_semantic_conflict_analyzer(self) -> NoOpSemanticConflictAnalyzer:
+        """Return the active semantic conflict analyzer."""
         return NoOpSemanticConflictAnalyzer()
-
-    def _consolidate_compile_diagnostics(
-        self,
-        existing: list[Any],
-        intermediate: dict[str, Any],
-    ) -> list[Any]:
-        """Merge stage-local IRS diagnostics into *existing* diagnostics.
-
-        Existing diagnostics take priority.  Stage-local diagnostics with
-        the same ``(kind, target_ref, sorted source_span_ids)`` key are
-        skipped as duplicates.
-        """
-        stage_local: dict[str, list[Any]] = intermediate.get(
-            "stage_local_diagnostics", {}
-        )
-        if not stage_local:
-            return list(existing)
-
-        seen: set[DiagnosticDedupKey] = set()
-        for diag in existing:
-            seen.add(_dedup_key(diag))
-
-        consolidated = list(existing)
-        for _stage_name, diags in stage_local.items():
-            if not isinstance(diags, list):
-                continue
-            for diag in diags:
-                key = _dedup_key(diag)
-                if key not in seen:
-                    seen.add(key)
-                    consolidated.append(diag)
-
-        return consolidated
 
     def _run_stage11(
         self,

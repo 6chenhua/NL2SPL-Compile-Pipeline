@@ -23,6 +23,8 @@ EXTRACTION_POLICY = """\
 - Do not extract span_id, block_id, flow_id, worker_id, source_section_id,
   or source_packet_id as domain variables.
 - Do not extract compiler schema fields.
+- Write descriptions in concise English ASCII. Translate non-English source
+  wording instead of copying it.
 - Return JSON only with variables, files, apis, and types."""
 
 

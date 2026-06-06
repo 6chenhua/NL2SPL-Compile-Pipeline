@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from nl2spl.compiler.construct_plan import ConstructPlan
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic
@@ -21,7 +22,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
-from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.llm.prompts import load_prompt
 
 
@@ -36,6 +36,7 @@ class WorkerScopedMethodsMixin:
         worker_block_plan: WorkerBlockPlanIR,
         symbol_table: SymbolTable,
         worker_plan: WorkerPlanIR,
+        construct_plan: ConstructPlan | None = None,
     ) -> tuple[WorkerStepPlanIR, SymbolTable]:
         """Execute worker-scoped step extraction.
 
@@ -84,6 +85,7 @@ class WorkerScopedMethodsMixin:
                 symbol_table,
                 worker,
                 worker_plan,
+                construct_plan,
             )
 
             worker_step_plan.worker_steps[worker_id] = worker_steps
@@ -128,6 +130,7 @@ class WorkerScopedMethodsMixin:
         symbol_table: SymbolTable,
         worker: WorkerSpecIR,
         worker_plan: WorkerPlanIR | None = None,
+        construct_plan: ConstructPlan | None = None,
     ) -> tuple[list[StepIR], SymbolTable]:
         """Extract steps for a single worker.
 
@@ -148,6 +151,8 @@ class WorkerScopedMethodsMixin:
             non_exec_span_ids = set(routes.get_non_executable_behavior_span_ids())
         else:
             behavior_span_ids = set(routes.behavior)
+        if construct_plan is not None:
+            behavior_span_ids -= construct_plan.reserved_without_dual_role()
         flow_span_ids = set(flow.get_all_flow_spans())
         if flow_span_ids:
             behavior_span_ids = behavior_span_ids.intersection(flow_span_ids)
@@ -186,8 +191,6 @@ class WorkerScopedMethodsMixin:
         system_prompt = load_prompt("stage7").replace(
             "{variable_list}", variable_list
         )
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
 
         non_exec_context = ""
         if non_exec_span_ids:
@@ -204,36 +207,36 @@ class WorkerScopedMethodsMixin:
                     f"---\n{non_exec_json}\n---\n\n"
                 )
 
-        user_prompt = f"""请从以下文本中提取 step：
+        user_prompt = f"""Extract steps from the following text:
 
-behavior spans：
+behavior spans:
 ---
 {behavior_json}
 ---
 
-{non_exec_context}Flow 结构：
+{non_exec_context}Flow structure:
 ---
 {flow_json}
 ---
 
-Block 结构：
+Block structure:
 ---
 {blocks_json}
 ---
 
-已知变量：
+Known variables:
 ---
 {variable_list}
 ---
 
-Worker 信息：
+Worker information:
 - worker_id: {worker.worker_id}
 - worker_name: {worker.worker_name}
 - kind: {worker.kind}
 - purpose: {worker.purpose}
 - handoff_rule: {handoff_rule}
 
-输出 JSON："""
+Output JSON:"""
 
         # 调用 LLM
         try:
@@ -271,6 +274,8 @@ Worker 信息：
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
+        self._validate_step_type_contracts(steps, worker.worker_id)
+
         # D6 guard: drop steps sourced only from non-executable spans
         if non_exec_span_ids:
             kept_steps: list[StepIR] = []
@@ -285,32 +290,28 @@ Worker 信息：
                 kept_steps.append(step)
             steps = kept_steps
 
-        # 子 worker 不应包含 INVOKE_WORKER 步骤（只有主 worker 通过 handoff
-        # 生成 INVOKE）。LLM 可能因 prompt 中列出了 INVOKE_WORKER 类型而误生成。
-        # 不能直接 drop——会丢失 child-owned span 的真实行为。
-        # 改为降级为 GENERAL_COMMAND，保留 text / source_span_ids / inputs / outputs。
+        # Child workers may emit handoff commands only when backed by an
+        # accepted outgoing handoff. Invalid handoff-shaped commands are LLM
+        # contract errors and must fail fast instead of being rewritten.
         if worker.kind == "child":
             allowed_handoff_ids = set(outgoing_handoffs)
-            rewritten = 0
-            for s in steps:
-                if (
-                    s.command_type in ("INVOKE_WORKER", "CALL_API")
-                    and s.handoff_id not in allowed_handoff_ids
-                ):
-                    s.command_type = "GENERAL_COMMAND"
-                    s.kind = "normal"
-                    s.integration_ref = None
-                    s.handoff_id = None
-                    self.logger.warning(
-                        "Rewriting handoff step %s to GENERAL_COMMAND "
-                        "in child worker %s",
-                        s.step_id, worker.worker_id,
-                    )
-                    rewritten += 1
-            if rewritten:
-                self.logger.info(
-                    "Rewrote %d invalid handoff steps in child worker %s",
-                    rewritten, worker.worker_id,
+            invalid_handoff_steps = [
+                s for s in steps
+                if s.command_type in ("INVOKE_WORKER", "CALL_API")
+                and s.handoff_id not in allowed_handoff_ids
+            ]
+            if invalid_handoff_steps:
+                details = [
+                    f"{s.step_id}:{s.command_type}:handoff_id={s.handoff_id or '<none>'}"
+                    for s in invalid_handoff_steps
+                ]
+                raise StageError(
+                    message=(
+                        f"LLM emitted invalid handoff command(s) for child worker "
+                        f"{worker.worker_id}: {details}. Child-worker handoff "
+                        "commands must be backed by accepted outgoing handoffs."
+                    ),
+                    stage=self.name,
                 )
 
         # Store detection data for deferred unmapped-span check.  Generated

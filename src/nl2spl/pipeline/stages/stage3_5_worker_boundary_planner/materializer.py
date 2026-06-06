@@ -11,6 +11,14 @@ from __future__ import annotations
 import re
 
 from nl2spl.ir.field_route_ir import RouteAnnotation
+
+
+def _span_sort_key(sid: str) -> tuple[int, str]:
+    """Sort key for span IDs like s5, s5a, s10, s10b."""
+    m = re.match(r"s(\d+)(.*)", sid)
+    if m:
+        return int(m.group(1)), m.group(2)
+    return (0, sid)
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     ContractFieldIR,
@@ -261,7 +269,7 @@ class WorkerPlanMaterializer:
             )
             handoffs.append(handoff)
 
-        main_worker.owned_span_ids = sorted(main_owned, key=lambda sid: int(sid[1:]))
+        main_worker.owned_span_ids = sorted(main_owned, key=_span_sort_key)
         return workers, handoffs, rejected, materialized_decisions, warnings
 
     @staticmethod
@@ -580,7 +588,7 @@ class WorkerPlanMaterializer:
             main_worker = next((w for w in workers if w.kind == "main"), None)
             if main_worker:
                 main_worker.owned_span_ids.extend(
-                    sorted(unassigned, key=lambda sid: int(sid[1:]))
+                    sorted(unassigned, key=_span_sort_key)
                 )
 
     # ---- Merge --------------------------------------------------------

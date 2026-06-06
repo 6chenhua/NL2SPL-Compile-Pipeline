@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.ir.field_route_ir import StructuralPrior
 from nl2spl.ir.span_ir import SpanIR
 
 
@@ -272,11 +273,31 @@ def _prior_to_dict(annotation: Any) -> dict[str, Any]:
     return d
 
 
+def _structural_prior_to_dict(prior: StructuralPrior) -> dict[str, Any]:
+    """Serialize a structural prior for the LLM prompt."""
+    d: dict[str, Any] = {
+        "span_id": prior.span_id,
+        "prior_kind": prior.prior_kind,
+        "confidence": prior.confidence,
+    }
+    if prior.suggested_field:
+        d["suggested_field"] = prior.suggested_field
+    if prior.source_section_id:
+        d["source_section_id"] = prior.source_section_id
+    if prior.source_packet_id:
+        d["source_packet_id"] = prior.source_packet_id
+    if prior.packet_type:
+        d["packet_type"] = prior.packet_type
+    if prior.reason:
+        d["reason"] = prior.reason
+    return d
+
+
 def _fact_to_dict(
     fact: Any,
     extra_fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Serialize a hard fact (VariableFact, FailureModeFact, DelegationIntentFact).
+    """Serialize a hard fact (VariableFact, DelegationIntentFact).
 
     Always includes the evidence chain.
     """
@@ -304,18 +325,25 @@ def _fact_to_dict(
 def build_adapter_guided_user_prompt(
     spans: list[SpanIR],
     canonical_input: CanonicalCompileInput,
-    deterministic_priors: list[Any],  # list[RouteAnnotation]
+    structural_priors: list[Any],
+    deterministic_annotations: list[Any],
 ) -> str:
     """Build the user-prompt JSON payload for adapter-guided FieldRoute refinement.
 
-    Only includes the three fields the LLM actually needs for routing decisions:
-    spans (text to classify), priors (deterministic guesses to refine),
-    and allowed_schema (output constraints).  Sections, packets, hard_facts,
-    and compile_hints are validator material — not LLM input.
+    Payload keys:
+      - ``spans``: text spans to classify
+      - ``structural_priors``: deterministic structural evidence (NOT final decisions)
+      - ``deterministic_annotations``: already-accepted semantic routing decisions
+      - ``allowed_schema``: output constraints
     """
     payload: dict[str, Any] = {
         "spans": [_span_to_dict(s) for s in spans],
-        "priors": [_prior_to_dict(p) for p in deterministic_priors],
+        "structural_priors": [
+            _structural_prior_to_dict(p) for p in structural_priors
+        ],
+        "deterministic_annotations": [
+            _prior_to_dict(a) for a in deterministic_annotations
+        ],
         "allowed_schema": {
             "fields": sorted(ALLOWED_FIELDS),
             "semantic_roles": sorted(ALLOWED_SEMANTIC_ROLES),

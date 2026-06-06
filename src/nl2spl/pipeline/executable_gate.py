@@ -49,15 +49,13 @@ class ExecutableElementGate:
         infos.extend(blocked_infos)
         diags.extend(blocked_diags)
 
-        # Filter child-worker steps
-        # Collect pre-gate handler flows BEFORE mutation for both main
-        # and child workers.  Exclude pseudo-handlers (Stage 9.5 metadata).
+        # Filter child-worker steps. Collect pre-gate handler flows before
+        # mutation for both main and child workers.
         def _pre_gate_flows(steps: list) -> set[str]:
             return {
                 step.flow_ref
                 for step in steps
                 if step.flow_ref
-                and step.metadata.get("pseudo_exception_handler") != "true"
             }
 
         pre_gate_main = _pre_gate_flows(worker.steps)

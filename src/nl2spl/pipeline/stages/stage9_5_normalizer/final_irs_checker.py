@@ -2,10 +2,10 @@
 
 Runs AFTER Stage 9.5 normalization and Stage 10 assembly, consuming the
 fully assembled WorkerIR.  Produces authoritative diagnostics for:
-- missing_handler (replaces Stage 9.5's _diagnose_exception_flow_handlers)
-- missing_output_producer (replaces Stage 9.5's _ensure_required_main_outputs)
-- type_or_contract_ambiguity (replaces Stage 9.5's _diagnose_type_contract_ambiguities)
-- assumed_command_not_renderable (replaces Stage 9.5's _diagnose_assumed_commands)
+- missing_handler
+- missing_output_producer
+- type_or_contract_ambiguity
+- assumed_command_not_renderable
 
 Gate is the downstream consumer — it only emits post-gate missing_handler.
 """
@@ -20,7 +20,6 @@ from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
-from nl2spl.pipeline.stages.stage9_5_normalizer.normalization import NormalizationMixin
 
 
 class PostNormalizeIRSChecker:
@@ -49,20 +48,19 @@ class PostNormalizeIRSChecker:
             symbol_table: Symbol table with producer/consumer links.
             resources: Global resource registry.
             worker_scoped_resources: Worker-scoped resources for merged view.
-            construct_findings: Structured findings from Stage 9.5
-                (pseudo_handlers, exception_flow_no_handler).
+            construct_findings: Deprecated compatibility parameter. Stage 9.5
+                no longer records semantic findings.
 
         Returns:
             List of CompileDiagnostic records.
         """
         self._diagnostics: list[CompileDiagnostic] = []
-        findings = construct_findings or {}
 
         # Build merged resource view for worker-aware path.
         merged_resources = self._merge_resources(resources, worker_scoped_resources)
         declared_apis = {a.api_name for a in merged_resources.apis}
-        extra_api_names = NormalizationMixin._collect_extra_api_names(worker_plan)
-        api_handoff_refs = NormalizationMixin._build_api_handoff_refs(worker_plan)
+        extra_api_names = self._collect_extra_api_names(worker_plan)
+        api_handoff_refs = self._build_api_handoff_refs(worker_plan)
         valid_handoff_ids = {
             h.handoff_id for h in (worker_plan.handoffs if worker_plan else [])
         }
@@ -74,7 +72,7 @@ class PostNormalizeIRSChecker:
             all_steps.extend(child.steps)
 
         # 1. missing_handler
-        self._check_missing_handlers(worker, worker_plan, findings)
+        self._check_missing_handlers(worker, worker_plan)
 
         # 2. missing_output_producer
         self._check_missing_output_producers(
@@ -83,11 +81,10 @@ class PostNormalizeIRSChecker:
             api_handoff_refs, child_ids,
         )
 
-        # 3. type_or_contract_ambiguity (steps + pseudo-handler findings)
+        # 3. type_or_contract_ambiguity
         self._check_type_contract_ambiguities(
             all_steps, symbol_table, merged_resources,
             declared_apis, extra_api_names, api_handoff_refs,
-            findings,
         )
 
         # 4. assumed_command_not_renderable
@@ -103,13 +100,12 @@ class PostNormalizeIRSChecker:
         self,
         worker: WorkerIR,
         worker_plan: WorkerPlanIR | None,
-        findings: dict[str, list[dict]],
     ) -> None:
         """Emit missing_handler for exception flows without real handler steps.
 
-        Iterates main worker + child worker exception flows.  Pseudo-handlers
-        were already removed by Stage 9.5, so if no step has a matching
-        flow_ref the exception flow has no handler.
+        Iterates main worker + child worker exception flows. This checker
+        intentionally does not infer whether a matching step is a "real"
+        handler from its text; that semantic judgment belongs in LLM stages.
         """
         main_worker_id = worker_plan.main_worker_id if worker_plan else None
 
@@ -121,20 +117,11 @@ class PostNormalizeIRSChecker:
                 if w.worker_name and w.worker_name != w.worker_id:
                     name_to_id[w.worker_name] = w.worker_id
 
-        # Index exception_flow_no_handler findings by (worker_id, flow_id).
-        no_handler_index: dict[tuple[str | None, str], list[str]] = {}
-        for f in findings.get("exception_flow_no_handler", []):
-            key = (f.get("worker_id"), f["flow_id"])
-            no_handler_index.setdefault(key, []).extend(
-                f.get("source_span_ids", [])
-            )
-
         # Main worker exception flows.
         self._check_exception_flow_handlers_for_scope(
             worker.exception_flows,
             worker.steps,
             worker_id=main_worker_id,
-            no_handler_index=no_handler_index,
         )
 
         # Child worker exception flows.
@@ -145,7 +132,6 @@ class PostNormalizeIRSChecker:
                 child.steps,
                 worker_id=child.worker_name,
                 worker_plan_id=child_plan_id,
-                no_handler_index=no_handler_index,
             )
 
     def _check_exception_flow_handlers_for_scope(
@@ -154,33 +140,17 @@ class PostNormalizeIRSChecker:
         steps: list[StepIR],
         worker_id: str | None = None,
         worker_plan_id: str | None = None,
-        no_handler_index: dict | None = None,
     ) -> None:
         for exc_flow in exception_flows:
             handler_steps = [
                 s for s in steps
                 if s.flow_ref == exc_flow.flow_id
-                and not s.metadata.get("pseudo_exception_handler")
             ]
 
             if handler_steps:
                 continue
 
-            # Look up source spans from Stage 9.5 findings.
-            # Stage 9.5 records with worker_id (plan id); we also try
-            # worker_plan_id for children whose name differs from id.
-            finding_spans: list[str] = []
-            if no_handler_index is not None:
-                finding_spans = no_handler_index.get(
-                    (worker_id, exc_flow.flow_id), []
-                )
-                if not finding_spans and worker_plan_id is not None:
-                    finding_spans = no_handler_index.get(
-                        (worker_plan_id, exc_flow.flow_id), []
-                    )
-            # Fallback to ExceptionFlowRef.spans when no finding spans
-            if not finding_spans:
-                finding_spans = list(getattr(exc_flow, "spans", []))
+            source_span_ids = list(getattr(exc_flow, "spans", []))
 
             condition_snippet = exc_flow.condition_text[:80]
             if worker_id is not None:
@@ -203,7 +173,7 @@ class PostNormalizeIRSChecker:
                         f"step{scope_note}."
                     ),
                     target_ref=target_ref,
-                    source_span_ids=list(finding_spans),
+                    source_span_ids=list(source_span_ids),
                     missing_slot=self._make_missing_slot(
                         slot_name="handler_action",
                         required_for=exc_flow.flow_id,
@@ -211,7 +181,7 @@ class PostNormalizeIRSChecker:
                             f"Exception flow '{exc_flow.flow_id}' has "
                             f"condition but no handler step."
                         ),
-                        source_span_ids=list(finding_spans),
+                        source_span_ids=list(source_span_ids),
                     ),
                     suggested_resolution=(
                         f"Add a handler step for "
@@ -396,7 +366,6 @@ class PostNormalizeIRSChecker:
         declared_apis: set[str],
         extra_api_names: set[str],
         api_handoff_refs: dict[str, str],
-        findings: dict[str, list[dict]],
     ) -> None:
         """Emit type_or_contract_ambiguity for commands with unclear contracts."""
         declared = declared_apis
@@ -479,42 +448,6 @@ class PostNormalizeIRSChecker:
                         blocks_completion=True,
                     )
                 )
-
-        # Pseudo-handler findings from Stage 9.5.
-        for finding in findings.get("pseudo_handlers", []):
-            wid = finding.get("worker_id")
-            self._diagnostics.append(
-                CompileDiagnostic(
-                    diagnostic_id=self._next_diag_id(),
-                    kind="type_or_contract_ambiguity",
-                    severity="warning",
-                    message=(
-                        f"Step '{finding['step_id']}' "
-                        f"('{finding.get('text', '')[:80]}') in "
-                        f"exception flow '{finding['flow_id']}' is a "
-                        f"condition restatement, not a handler action."
-                    ),
-                    target_ref=(
-                        f"worker:{wid}.step:{finding['step_id']}"
-                        if wid else f"step:{finding['step_id']}"
-                    ),
-                    source_span_ids=list(finding.get("source_span_ids", [])),
-                    missing_slot=self._make_missing_slot(
-                        slot_name="handler_action",
-                        required_for=finding["flow_id"],
-                        reason=(
-                            f"Step is a condition restatement, not a "
-                            f"handler action for flow "
-                            f"'{finding['flow_id']}'."
-                        ),
-                        source_span_ids=list(
-                            finding.get("source_span_ids", [])
-                        ),
-                    ),
-                    blocks_rendering=True,
-                    blocks_completion=True,
-                )
-            )
 
     # ------------------------------------------------------------------
     # 4. assumed_command_not_renderable
@@ -639,6 +572,30 @@ class PostNormalizeIRSChecker:
         if step.integration_ref in extra_api_names:
             return True
         return False
+
+    @staticmethod
+    def _collect_extra_api_names(
+        worker_plan: WorkerPlanIR | None,
+    ) -> set[str]:
+        """Collect API names from accepted api_call-mode handoffs."""
+        if worker_plan is None:
+            return set()
+        return {
+            h.api_ref for h in worker_plan.handoffs
+            if h.mode == "api_call" and h.api_ref
+        }
+
+    @staticmethod
+    def _build_api_handoff_refs(
+        worker_plan: WorkerPlanIR | None,
+    ) -> dict[str, str]:
+        """Build handoff_id -> api_ref lookup from api_call-mode handoffs."""
+        if worker_plan is None:
+            return {}
+        return {
+            h.handoff_id: h.api_ref for h in worker_plan.handoffs
+            if h.mode == "api_call" and h.api_ref
+        }
 
     def _next_diag_id(self) -> str:
         idx = len(self._diagnostics)

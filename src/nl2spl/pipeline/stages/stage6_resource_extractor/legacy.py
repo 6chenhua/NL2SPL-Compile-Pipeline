@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
 
 from nl2spl.canonical import CanonicalCompileInput, VariableFact
@@ -23,6 +22,9 @@ from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     build_resource_context,
+)
+from nl2spl.pipeline.stages.stage6_resource_extractor.description_cleaner import (
+    clean_resource_description,
 )
 from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter import (
     is_allowed_resource_variable,
@@ -62,55 +64,14 @@ class LegacyMethodsMixin:
         )
 
         system_prompt = load_prompt("stage6")
-        if self.config.enable_stage6_resource_context_v2:
-            user_prompt = build_resource_context(
-                spans=spans,
-                routes=routes,
-                flow=flow_structure,
-                blocks=block_structure,
-                canonical_input=canonical_input,
-                scope_kind="global",
-            )
-        else:
-            behavior_spans = [s for s in spans if s.span_id in routes.behavior]
-            integrations_spans = [s for s in spans if s.span_id in routes.integrations]
-
-            behavior_json = json.dumps(
-                [s.to_dict() for s in behavior_spans], ensure_ascii=False
-            )
-            integrations_json = json.dumps(
-                [s.to_dict() for s in integrations_spans], ensure_ascii=False
-            )
-            structure_context = ""
-            if flow_structure is not None and block_structure is not None:
-                flow_json = json.dumps(asdict(flow_structure), ensure_ascii=False)
-                blocks_json = json.dumps(asdict(block_structure), ensure_ascii=False)
-                structure_context = f"""
-
-flow structure:
----
-{flow_json}
----
-
-block structure:
----
-{blocks_json}
----"""
-
-            user_prompt = f"""请从以下文本中提取资源：
-
-behavior spans：
----
-{behavior_json}
----
-
-integrations spans：
----
-{integrations_json}
----
-{structure_context}
-
-输出 JSON："""
+        user_prompt = build_resource_context(
+            spans=spans,
+            routes=routes,
+            flow=flow_structure,
+            blocks=block_structure,
+            canonical_input=canonical_input,
+            scope_kind="global",
+        )
 
         try:
             result = self.client.call_json(
@@ -138,13 +99,12 @@ integrations spans：
         for var_data in result.get("variables", []):
             try:
                 name = var_data["name"]
-                if self.config.enable_resource_name_filter:
-                    allowed, reason = is_allowed_resource_variable(name)
-                    if not allowed:
-                        filter_warnings.append(
-                            f"Rejected schema-looking variable '{name}': {reason}"
-                        )
-                        continue
+                allowed, reason = is_allowed_resource_variable(name)
+                if not allowed:
+                    filter_warnings.append(
+                        f"Rejected schema-looking variable '{name}': {reason}"
+                    )
+                    continue
                 # D5: reject variables derived from failure condition text
                 if failure_texts:
                     var_text = (
@@ -160,7 +120,9 @@ integrations spans：
                     name=name,
                     data_type=var_data["data_type"],
                     required=var_data.get("required", False),
-                    description=var_data.get("description", ""),
+                    description=clean_resource_description(
+                        name, var_data.get("description", "")
+                    ),
                     source=var_data.get("source", "step"),
                 )
                 variables.append(var)
@@ -283,16 +245,14 @@ integrations spans：
                         f"Hard fact variable {var.name} keeps type {existing.data_type}; "
                         f"LLM suggested {var.data_type}."
                     )
-                if existing.description != var.description and var.description:
-                    existing.description = (
-                        f"{existing.description} (LLM note: {var.description})"
-                    )
                 existing.required = existing.required or var.required
                 continue
             if existing.data_type == var.data_type:
                 existing.required = existing.required or var.required
                 if not existing.description and var.description:
-                    existing.description = var.description
+                    existing.description = clean_resource_description(
+                        var.name, var.description
+                    )
             else:
                 warnings.append(
                     f"Variable {var.name} has conflicting inferred types: "
@@ -307,6 +267,6 @@ integrations spans：
             name=fact.name,
             data_type=fact.data_type,
             required=fact.required,
-            description=fact.description,
+            description=clean_resource_description(fact.name, fact.description),
             source=source,
         )

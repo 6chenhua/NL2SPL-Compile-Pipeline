@@ -5,11 +5,15 @@ from __future__ import annotations
 import re as _re
 from dataclasses import asdict
 
+from nl2spl.compiler.construct_plan import ConstructPlan
+from nl2spl.compiler.construct_plan.exception_materializer import (
+    materialize_exception_flows_from_construct_plan,
+    materialize_worker_exception_flows_from_construct_plan,
+)
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR, WorkerSpecIR
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.route_exception_materializer import (
@@ -24,15 +28,26 @@ class ExecutorMixin:
     def execute(
         self,
         input_data: tuple[list[SpanIR], FieldRouteIR]
-        | tuple[list[SpanIR], FieldRouteIR, WorkerPlanIR],
+        | tuple[list[SpanIR], FieldRouteIR, WorkerPlanIR]
+        | tuple[list[SpanIR], FieldRouteIR, WorkerPlanIR, ConstructPlan],
     ) -> FlowStructureIR | WorkerFlowPlanIR:
         """Execute flow assembly."""
-        if len(input_data) == 3:
-            spans, routes, worker_plan = input_data
-            return self._execute_worker_aware(spans, routes, worker_plan)
+        construct_plan = input_data[3] if len(input_data) == 4 else None
+        if len(input_data) in (3, 4):
+            spans, routes, worker_plan = input_data[:3]
+            return self._execute_worker_aware(
+                spans, routes, worker_plan, construct_plan,
+            )
 
         spans, routes = input_data
-        behavior_spans = [s for s in spans if s.span_id in routes.behavior]
+        behavior_span_ids = (
+            set(routes.get_executable_behavior_span_ids())
+            if routes.annotations
+            else set(routes.behavior)
+        )
+        if construct_plan is not None:
+            behavior_span_ids -= construct_plan.reserved_without_dual_role()
+        behavior_spans = [s for s in spans if s.span_id in behavior_span_ids]
         self.logger.info(
             "Starting flow assembly for %d behavior spans (out of %d total)",
             len(behavior_spans),
@@ -45,10 +60,17 @@ class ExecutorMixin:
             include_delegation_candidates=True,
         )
 
-        # D2: materialize exception flows from route annotations
-        flow_structure = materialize_route_exception_flows(
-            flow_structure, routes, spans,
-        )
+        # ConstructPlan is the construct-level authority.  RouteAnnotation
+        # materialization remains as compatibility fallback when no plan is
+        # available.
+        if construct_plan is not None:
+            flow_structure = materialize_exception_flows_from_construct_plan(
+                flow_structure, construct_plan, spans,
+            )
+        else:
+            flow_structure = materialize_route_exception_flows(
+                flow_structure, routes, spans,
+            )
 
         # D2 guard: remove LLM-generated exception flows whose spans are
         # handler actions (NOT conditions).  Route annotations are the
@@ -75,9 +97,16 @@ class ExecutorMixin:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         worker_plan: WorkerPlanIR,
+        construct_plan: ConstructPlan | None = None,
     ) -> WorkerFlowPlanIR:
         """Assemble one FlowStructureIR per worker in a WorkerPlanIR."""
-        behavior_span_ids = set(routes.behavior)
+        behavior_span_ids = (
+            set(routes.get_executable_behavior_span_ids())
+            if routes.annotations
+            else set(routes.behavior)
+        )
+        if construct_plan is not None:
+            behavior_span_ids -= construct_plan.reserved_without_dual_role()
         span_by_id = {span.span_id: span for span in spans}
         worker_flows: dict[str, FlowStructureIR] = {}
         warnings = list(worker_plan.warnings)
@@ -127,11 +156,17 @@ class ExecutorMixin:
                     worker_flows[wid], routes, spans,
                 )
 
-        # D3: ownership-driven exception flow materialization
-        self._materialize_worker_exceptions(
-            worker_flows, routes, spans, span_by_id,
-            worker_plan, warnings,
-        )
+        # ConstructPlan-driven exception flow materialization.  The older
+        # route-driven worker materializer remains as compatibility fallback.
+        if construct_plan is not None:
+            materialize_worker_exception_flows_from_construct_plan(
+                worker_flows, construct_plan, spans, worker_plan, warnings,
+            )
+        else:
+            self._materialize_worker_exceptions(
+                worker_flows, routes, spans, span_by_id,
+                worker_plan, warnings,
+            )
 
         plan = WorkerFlowPlanIR(worker_flows=worker_flows, warnings=warnings)
         self.save_checkpoint(asdict(plan))
@@ -149,8 +184,6 @@ class ExecutorMixin:
         behavior_text = self._format_span_text(behavior_spans)
         source_text = self._format_span_text(spans)
         system_prompt = load_prompt("stage4")
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage4")
 
         if worker is None:
             user_prompt = f"""Assemble flow structure from behavior spans.
@@ -232,7 +265,7 @@ Return JSON only."""
         )
         failure_anns = [
             a for a in candidates
-            if a.semantic_role == "failure_mode" and a.executable is False
+            if a.semantic_role in ("failure_mode", "failure_condition") and a.executable is False
         ]
         if not failure_anns:
             return
@@ -320,7 +353,7 @@ def _filter_non_condition_exception_flows(
         for a in routes.get_construct_slot_candidates(
             "EXCEPTION_FLOW", "condition",
         )
-        if a.semantic_role == "failure_mode" and a.executable is False
+        if a.semantic_role in ("failure_mode", "failure_condition") and a.executable is False
     }
 
     span_by_id = {s.span_id: s for s in spans}

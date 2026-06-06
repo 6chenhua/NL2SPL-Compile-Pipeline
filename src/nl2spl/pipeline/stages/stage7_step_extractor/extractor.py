@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from nl2spl.compiler.construct_plan import ConstructPlan
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic
@@ -14,7 +15,6 @@ from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR
-from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.stages.base import PipelineStage
 from nl2spl.pipeline.stages.stage7_step_extractor.legacy import LegacyMethodsMixin
@@ -33,6 +33,7 @@ class StepExtractor(
             BlockStructureIR,
             SymbolTable,
             WorkerPlanIR,
+            ConstructPlan,
         ],
         tuple[list[StepIR], SymbolTable],
     ],
@@ -75,7 +76,8 @@ class StepExtractor(
         Raises:
             StageError: If step extraction fails
         """
-        worker_plan = input_data[5] if len(input_data) == 6 else None
+        worker_plan = input_data[5] if len(input_data) >= 6 else None
+        construct_plan = input_data[6] if len(input_data) == 7 else None
         spans, routes, flow_structure, block_structure, symbol_table = input_data[:5]
         self.logger.info(
             "Starting step extraction with %d spans and %d known variables",
@@ -90,6 +92,12 @@ class StepExtractor(
             non_exec_span_ids = set(routes.get_non_executable_behavior_span_ids())
         else:
             behavior_span_ids = list(routes.behavior)
+        if construct_plan is not None:
+            reserved = construct_plan.reserved_without_dual_role()
+            behavior_span_ids = [
+                span_id for span_id in behavior_span_ids
+                if span_id not in reserved
+            ]
         if worker_plan is not None:
             self._assert_legacy_main_view_excludes_child_spans(
                 flow_structure,
@@ -112,8 +120,6 @@ class StepExtractor(
         system_prompt = load_prompt("stage7").replace(
             "{variable_list}", variable_list
         )
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage7")
 
         non_exec_context = ""
         if non_exec_span_ids:
@@ -128,29 +134,29 @@ class StepExtractor(
                 f"---\n{non_exec_json}\n---\n\n"
             )
 
-        user_prompt = f"""请从以下文本中提取 step：
+        user_prompt = f"""Extract steps from the following text:
 
-behavior spans：
+behavior spans:
 ---
 {behavior_json}
 ---
 
-{non_exec_context}Flow 结构：
+{non_exec_context}Flow structure:
 ---
 {flow_json}
 ---
 
-Block 结构：
+Block structure:
 ---
 {blocks_json}
 ---
 
-已知变量：
+Known variables:
 ---
 {variable_list}
 ---
 
-输出 JSON："""
+Output JSON:"""
 
         # 2. Call LLM
         try:
@@ -189,6 +195,8 @@ Block 结构：
             except (KeyError, ValueError, TypeError) as e:
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
+
+        self._validate_step_type_contracts(steps)
 
         # 3.5 D6 guard: drop steps sourced only from non-executable spans
         if non_exec_span_ids:
@@ -301,3 +309,30 @@ Block 结构：
         })
 
         return steps, symbol_table
+
+    def _validate_step_type_contracts(
+        self,
+        steps: list[StepIR],
+        worker_id: str | None = None,
+    ) -> None:
+        """Fail fast when LLM output violates command-type contracts."""
+        display_with_outputs = [
+            step for step in steps
+            if step.command_type == "DISPLAY_MESSAGE" and step.outputs
+        ]
+        if not display_with_outputs:
+            return
+
+        details = [
+            f"{step.step_id}:outputs={list(step.outputs)}"
+            for step in display_with_outputs
+        ]
+        worker_context = f" for worker {worker_id}" if worker_id else ""
+        raise StageError(
+            message=(
+                f"LLM emitted DISPLAY_MESSAGE step(s) with outputs{worker_context}: "
+                f"{details}. DISPLAY_MESSAGE may read inputs but must not declare "
+                "outputs; use GENERAL_COMMAND for steps that produce or update data."
+            ),
+            stage=self.name,
+        )

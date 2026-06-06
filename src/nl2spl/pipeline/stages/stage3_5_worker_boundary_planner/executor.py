@@ -6,7 +6,6 @@ from dataclasses import asdict
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
-from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
@@ -47,9 +46,7 @@ class ExecutorMixin:
         spans, routes, canonical_input = self._unpack_input(input_data)
         self.logger.info("Starting worker boundary planning for %d spans", len(spans))
 
-        if getattr(self.config, "enable_worker_boundary_planner_split", True):
-            return self._execute_split(spans, routes, canonical_input)
-        return self._execute_legacy_single_call(spans, routes, canonical_input)
+        return self._execute_split(spans, routes, canonical_input)
 
     def _execute_split(
         self,
@@ -68,12 +65,25 @@ class ExecutorMixin:
                 "stage3_5a_candidate_task_units",
                 {"candidates": [asdict(candidate) for candidate in candidates]},
             )
-            decisions = self._run_boundary_decisions(
-                spans,
-                routes,
-                canonical_input,
-                candidates,
-            )
+
+            # Filter out candidates with blocking risks — auto-reject them
+            # instead of passing to 3.5b where the LLM might contradict itself.
+            eligible, auto_rejected = self._split_by_blocking_risks(candidates)
+
+            if eligible:
+                decisions = self._run_boundary_decisions(
+                    spans,
+                    routes,
+                    canonical_input,
+                    eligible,
+                )
+                decisions.extend(auto_rejected)
+            else:
+                self.logger.info(
+                    "No eligible candidates after blocking-risk filter; "
+                    "skipping Stage 3.5b boundary decisions"
+                )
+                decisions = auto_rejected
             self._save_substage_checkpoint(
                 "stage3_5b_worker_boundary_decisions",
                 {"decisions": [asdict(decision) for decision in decisions]},
@@ -94,13 +104,6 @@ class ExecutorMixin:
                 asdict(plan),
             )
         except Exception as e:
-            if getattr(self.config, "enable_worker_boundary_single_call_fallback", False):
-                self.logger.warning(
-                    "Split worker boundary planning failed; falling back to "
-                    "legacy single-call Stage 3.5: %s",
-                    e,
-                )
-                return self._execute_legacy_single_call(spans, routes, canonical_input)
             if isinstance(e, StageError):
                 raise
             raise StageError(
@@ -125,88 +128,6 @@ class ExecutorMixin:
         self.save_checkpoint(asdict(plan))
         return plan
 
-    def _execute_legacy_single_call(
-        self,
-        spans: list[SpanIR],
-        routes: FieldRouteIR,
-        canonical_input: CanonicalCompileInput | None,
-    ) -> WorkerPlanIR:
-        """Run the previous single-call WorkerPlanIR generation path."""
-        system_prompt = load_prompt("stage3_5")
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5")
-        user_prompt = self._build_user_prompt(spans, routes, canonical_input)
-
-        try:
-            result = self.client.call_json(
-                stage_name=self.name,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-            )
-        except Exception as e:
-            self.logger.error("LLM call failed: %s", e)
-            raise StageError(
-                message=f"LLM call failed in {self.name}: {e}",
-                stage=self.name,
-            ) from e
-
-        try:
-            plan = self._parse_worker_plan(result)
-            self._validate_planner_decisions(plan)
-        except (AttributeError, KeyError, TypeError, ValueError) as e:
-            raise StageError(
-                message=f"Invalid WorkerPlanIR output in {self.name}: {e}",
-                stage=self.name,
-            ) from e
-
-        known_span_ids = {span.span_id for span in spans}
-        validation = WorkerPlanValidator().validate(plan, known_span_ids)
-
-        # Deterministic repair pass: when the LLM produces inconsistent
-        # output (e.g. accepted decision without matching worker), rebuild
-        # workers + handoffs from decisions + candidates.
-        if not validation.is_valid and self._has_decision_worker_mismatch(
-            validation.errors
-        ):
-            self.logger.warning(
-                "LLM output has decision/worker mismatches; "
-                "running deterministic materialization repair."
-            )
-            materializer = WorkerPlanMaterializer()
-            hard_inputs, hard_outputs = self._hard_fact_contracts(canonical_input)
-
-            behavior_span_ids = {s.span_id for s in spans if s.span_id in routes.behavior}
-            plan, materialize_warnings = materializer.materialize(
-                candidates=plan.candidates,
-                decisions=plan.decisions,
-                hard_fact_inputs=hard_inputs,
-                hard_fact_outputs=hard_outputs,
-                behavior_span_ids=behavior_span_ids,
-                existing_workers=None,
-                existing_handoffs=None,
-                main_worker_id=plan.main_worker_id,
-                behavior_span_order=list(routes.behavior),
-                annotations=routes.annotations if routes.annotations else None,
-            )
-            plan.warnings.extend(materialize_warnings)
-            validation = WorkerPlanValidator().validate(plan, known_span_ids)
-
-        if not validation.is_valid:
-            raise StageError(
-                message="WorkerPlanIR validation failed: " + "; ".join(validation.errors),
-                stage=self.name,
-                details={"errors": validation.errors, "warnings": validation.warnings},
-            )
-
-        self.logger.info(
-            "Worker boundary planning complete: %d workers, %d handoffs, %d rejected candidates",
-            len(plan.workers),
-            len(plan.handoffs),
-            len(plan.rejected_candidates),
-        )
-        self.save_checkpoint(asdict(plan))
-        return plan
-
     def _run_candidate_extraction(
         self,
         spans: list[SpanIR],
@@ -214,8 +135,6 @@ class ExecutorMixin:
         canonical_input: CanonicalCompileInput | None,
     ) -> list[CandidateTaskUnitIR]:
         system_prompt = load_prompt("stage3_5a")
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5a")
         user_prompt = self._build_candidate_prompt(spans, routes, canonical_input)
         result = self.client.call_json(
             stage_name="stage3_5a_candidate_task_units",
@@ -236,8 +155,6 @@ class ExecutorMixin:
         candidates: list[CandidateTaskUnitIR],
     ) -> list[WorkerBoundaryDecisionIR]:
         system_prompt = load_prompt("stage3_5b")
-        if self.config.enable_irs_prompt_builder:
-            system_prompt += "\n\n" + irs_checklist_for_stage("stage3_5b")
         user_prompt = self._build_decision_prompt(
             spans,
             routes,
@@ -249,9 +166,11 @@ class ExecutorMixin:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
         )
+        candidate_ids = {c.candidate_id for c in candidates}
         decisions = [
             self._parse_decision(decision)
             for decision in result.get("decisions", [])
+            if decision.get("candidate_id") in candidate_ids
         ]
         self._validate_split_decisions(candidates, decisions)
         return decisions
@@ -304,6 +223,55 @@ class ExecutorMixin:
             deduped.append(candidate)
         return deduped
 
+    # Map risk types to the decision the materializer expects for that
+    # category.  Using the correct decision type preserves the materializer's
+    # blocked-anchor and ownership semantics.
+    _RISK_TO_DECISION: dict[str, str] = {
+        "alternative_flow": "compile_as_alternative_flow",
+        "exception_flow": "compile_as_exception_flow",
+        "policy_or_constraint": "compile_as_constraint",
+        "single_api_call": "compile_as_call_api",
+    }
+
+    def _split_by_blocking_risks(
+        self,
+        candidates: list[CandidateTaskUnitIR],
+    ) -> tuple[list[CandidateTaskUnitIR], list[WorkerBoundaryDecisionIR]]:
+        """Split candidates into eligible and auto-rejected.
+
+        Candidates whose ``risks`` overlap with ``_BLOCKING_RISKS`` are
+        automatically rejected instead of being sent to Stage 3.5b where
+        the LLM might contradict itself by accepting them.
+
+        Returns:
+            (eligible, auto_rejected_decisions)
+        """
+        eligible: list[CandidateTaskUnitIR] = []
+        auto_rejected: list[WorkerBoundaryDecisionIR] = []
+        for candidate in candidates:
+            blocking = set(candidate.risks) & self._BLOCKING_RISKS
+            if blocking:
+                risk = next(iter(blocking))
+                self.logger.info(
+                    "Auto-rejecting candidate %s due to blocking risk: %s",
+                    candidate.candidate_id,
+                    risk,
+                )
+                decision = self._RISK_TO_DECISION.get(risk, "keep_in_main_worker")
+                auto_rejected.append(
+                    WorkerBoundaryDecisionIR(
+                        candidate_id=candidate.candidate_id,
+                        decision=decision,
+                        boundary_strength="weak",
+                        boundary_kind=candidate.candidate_kind,
+                        rejection_reason=risk,
+                        reason=f"Auto-rejected: blocking risk {risk}",
+                    )
+                )
+            else:
+                eligible.append(candidate)
+        return eligible, auto_rejected
+
     def _hard_fact_contracts(
         self,
         canonical_input: CanonicalCompileInput | None,
@@ -327,14 +295,6 @@ class ExecutorMixin:
                 result=result,
                 output_dir=self.config.run_dir,
             )
-
-    @staticmethod
-    def _has_decision_worker_mismatch(errors: list[str]) -> bool:
-        """Check whether errors include decision→worker consistency failures."""
-        return any(
-            "must match exactly one" in e or "has no matching" in e
-            for e in errors
-        )
 
     def _unpack_input(
         self,

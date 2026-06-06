@@ -6,6 +6,10 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from nl2spl.compiler.construct_plan import ConstructPlan
+from nl2spl.compiler.construct_plan.exception_materializer import (
+    materialize_handler_blocks_from_construct_plan,
+)
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
@@ -28,12 +32,16 @@ class ExecutorMixin:
     def execute(
         self,
         input_data: tuple[list[SpanIR], FieldRouteIR, FlowStructureIR]
-        | tuple[list[SpanIR], FieldRouteIR, WorkerFlowPlanIR],
+        | tuple[list[SpanIR], FieldRouteIR, WorkerFlowPlanIR]
+        | tuple[list[SpanIR], FieldRouteIR, WorkerFlowPlanIR, ConstructPlan],
     ) -> BlockStructureIR | WorkerBlockPlanIR:
         """Execute block assembly."""
-        spans, routes, flow_input = input_data
+        construct_plan = input_data[3] if len(input_data) == 4 else None
+        spans, routes, flow_input = input_data[:3]
         if isinstance(flow_input, WorkerFlowPlanIR):
-            return self._execute_worker_aware(spans, routes, flow_input)
+            return self._execute_worker_aware(
+                spans, routes, flow_input, construct_plan,
+            )
 
         self.logger.info(
             "Starting block assembly with %d spans and %d behavior spans",
@@ -46,6 +54,7 @@ class ExecutorMixin:
             worker_id=None,
             include_delegation_context=True,
             routes=routes,
+            construct_plan=construct_plan,
         )
 
         total_blocks = len(block_structure.get_all_blocks())
@@ -65,6 +74,7 @@ class ExecutorMixin:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         worker_flow_plan: WorkerFlowPlanIR,
+        construct_plan: ConstructPlan | None = None,
     ) -> WorkerBlockPlanIR:
         """Assemble one BlockStructureIR per worker flow."""
         self.logger.info(
@@ -83,6 +93,7 @@ class ExecutorMixin:
                 include_delegation_context=False,
                 allowed_span_ids=flow.get_all_flow_spans(),
                 routes=routes,
+                construct_plan=construct_plan,
             )
             worker_blocks[worker_id] = block_structure
             control_regions.extend(worker_regions)
@@ -104,6 +115,7 @@ class ExecutorMixin:
         include_delegation_context: bool,
         allowed_span_ids: set[str] | None = None,
         routes: FieldRouteIR | None = None,
+        construct_plan: ConstructPlan | None = None,
     ) -> tuple[BlockStructureIR, list[ControlComplexityRegionIR], list[str]]:
         """Call the LLM and parse a legal BlockStructureIR."""
         flow_json = json.dumps(
@@ -188,9 +200,17 @@ Return JSON only."""
             exception_flow_blocks=exception_flow_blocks,
         )
 
+        if construct_plan is not None:
+            block_structure = materialize_handler_blocks_from_construct_plan(
+                block_structure,
+                flow_structure,
+                construct_plan,
+            )
+
         # D4 guard: strip fabricated handler blocks from condition-only flows
         block_structure, d4_warnings = self._guard_condition_only_exception_blocks(
             block_structure, flow_structure, routes=routes,
+            construct_plan=construct_plan,
         )
         self.stage5_d4_warnings = list(d4_warnings) if d4_warnings else []
 
@@ -211,6 +231,7 @@ Return JSON only."""
         blocks: BlockStructureIR,
         flow_structure: FlowStructureIR,
         routes: FieldRouteIR | None = None,
+        construct_plan: ConstructPlan | None = None,
     ) -> tuple[BlockStructureIR, list[str]]:
         """D4: strip fabricated handler blocks from condition-only exception flows.
 
@@ -225,13 +246,19 @@ Return JSON only."""
 
         # Identify condition spans via route annotations (preferred)
         condition_span_ids: set[str] = set()
-        if routes is not None and routes.annotations:
+        if construct_plan is not None:
+            condition_span_ids = {
+                span_id
+                for demand in construct_plan.exception_flow_demands()
+                for span_id in demand.condition_span_ids
+            }
+        elif routes is not None and routes.annotations:
             condition_span_ids = {
                 a.span_id
                 for a in routes.get_construct_slot_candidates(
                     "EXCEPTION_FLOW", "condition"
                 )
-                if a.semantic_role == "failure_mode" and a.executable is False
+                if a.semantic_role in ("failure_mode", "failure_condition") and a.executable is False
             }
 
         # Build per-flow condition span sets
