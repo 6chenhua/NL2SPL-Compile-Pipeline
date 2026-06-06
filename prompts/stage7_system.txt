@@ -8,6 +8,11 @@ steps from behavior spans and identify their input/output variables.
    Non-executable partial behavior — vague policies, failure conditions without
    concrete handlers, aspirational goals — should NOT be forced into steps.
    Instead, report them in `unmapped_spans` with a brief reason.
+   Every span listed in the `behavior spans` input is already considered
+   executable unless explicitly contradicted by the non-executable context.
+   Cover each executable behavior span with at least one step; do NOT put
+   executable behavior spans in `unmapped_spans` merely because they describe
+   inputs that may already exist in the symbol table.
 3. **Order**: Steps must follow the order of their source spans.
 4. **Canonical action text**: Write the text field as a concise imperative
    action (verb + object). Do NOT repeat the flow/block condition in
@@ -30,23 +35,36 @@ steps from behavior spans and identify their input/output variables.
 | REQUEST_INPUT    | Waits for and receives input FROM the user              |
 | DISPLAY_MESSAGE  | Sends output TO the user (shows, presents, displays)    |
 
-**REQUEST_INPUT — use only when the source explicitly says to ask, request,
-or prompt the user AND receive input back.** Do NOT create REQUEST_INPUT for
-vague or implicit interaction patterns. If the source only mentions showing,
-displaying, or sending something to the user, use DISPLAY_MESSAGE.
+**REQUEST_INPUT — use when the source explicitly says to ask, request,
+prompt, confirm with, or iterate with the user.** Do NOT create
+REQUEST_INPUT for vague or implicit interaction patterns. If the source only
+mentions showing, presenting, delivering, or sending already-produced
+artifacts to the user, use DISPLAY_MESSAGE.
+
+When a behavior span says a user/requestor/customer provides, submits, gives,
+or supplies required information, create a REQUEST_INPUT step that receives
+that information. Map the received values to existing SymbolTable variables in
+`outputs`; do not mark the span as unmapped just because those variables are
+declared as input variables.
 
 **Critical distinction — REQUEST_INPUT vs DISPLAY_MESSAGE**:
-- DISPLAY_MESSAGE: the agent sends something to the user.
-  "Ask the user clarifying questions" → the agent is DISPLAYING questions.
-  output variable = the questions shown (e.g. clarifying_questions)
-- REQUEST_INPUT: the agent receives something back from the user.
-  "Get the user's answer to clarifying questions" → the agent is
-  RECEIVING input.
-  output variable = the user's answer (e.g. user_answers)
+- REQUEST_INPUT: the agent asks the user for information or waits for a
+  user response; use it to receive input from the user.
+  "Ask the user clarifying questions" → REQUEST_INPUT.
+  "Iterate with the user on specific sections" → REQUEST_INPUT.
+- DISPLAY_MESSAGE: the agent only presents already-produced information to
+  the user and does not expect an answer in this step.
+  "Deliver the polished draft" → DISPLAY_MESSAGE.
 
-Many prompts describe a single interaction turn as one step. In that
-case, prefer DISPLAY_MESSAGE if the step text is about generating and
-showing questions, even if implicitly the user will respond later.
+Many prompts describe a single interaction turn as one step. In that case,
+prefer REQUEST_INPUT when the step text contains ask, request, prompt,
+clarify, confirm, or iterate with the user.
+
+**DISPLAY_MESSAGE output contract**:
+- DISPLAY_MESSAGE may read existing variables in `inputs`.
+- DISPLAY_MESSAGE must always use `"outputs": []`.
+- If a step produces, updates, or sets any variable or status flag, it is
+  not DISPLAY_MESSAGE; use GENERAL_COMMAND.
 
 ## Variable Assignment Rules
 

@@ -6,7 +6,11 @@ Does NOT call the LLM — output is fully deterministic.
 
 from __future__ import annotations
 
+from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
+from nl2spl.compiler.irs.feedback_projector import (
+    ConstructSatisfactionFeedbackProjector,
+)
 from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
 
 
@@ -21,6 +25,7 @@ def render_report(
     diagnostics: list[CompileDiagnostic] | None = None,
     assumptions: list[CompileAssumption] | None = None,
     traces: list[TraceRecord] | None = None,
+    construct_satisfaction: dict[str, list[ConstructSatisfactionReport]] | None = None,
     adapter_warnings: list[str] | None = None,
     validation_errors: list[str] | None = None,
     validation_warnings: list[str] | None = None,
@@ -33,6 +38,7 @@ def render_report(
         diagnostics: CompileDiagnostic records from all stages.
         assumptions: CompileAssumption records (not rendered in SPL).
         traces: Provenance TraceRecords.
+        construct_satisfaction: Stage-local IRS reports grouped by stage.
         adapter_warnings: Input adapter warnings.
         validation_errors: SPL syntax/reference errors.
         validation_warnings: SPL validation warnings.
@@ -79,6 +85,15 @@ def render_report(
     # ── Traces ──
     if trcs:
         lines.extend(_render_traces(trcs))
+        lines.append(_SECTION_SEP)
+
+    # Construct satisfaction is an IRS report projection.  It renders
+    # already-computed reports and does not create diagnostics.
+    construct_lines = ConstructSatisfactionFeedbackProjector().project(
+        construct_satisfaction
+    )
+    if construct_lines:
+        lines.extend(construct_lines)
         lines.append(_SECTION_SEP)
 
     # ── Validation ──

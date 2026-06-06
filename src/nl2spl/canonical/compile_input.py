@@ -32,6 +32,8 @@ class RawSection:
     order: int
     start_offset: int | None = None
     end_offset: int | None = None
+    structure_type: str = "paragraph"
+    list_items: list[str] | None = None
 
 
 @dataclass
@@ -77,16 +79,6 @@ class VariableFact:
 
 
 @dataclass
-class FailureModeFact:
-    """Failure mode fact extracted from input structure."""
-
-    name: str
-    text: str
-    source_section_id: str
-    evidence: list[EvidenceRef] = field(default_factory=list)
-
-
-@dataclass
 class DelegationIntentFact:
     """Non-executable delegation intent extracted from input structure.
 
@@ -109,7 +101,6 @@ class HardFacts:
 
     inputs: list[VariableFact] = field(default_factory=list)
     outputs: list[VariableFact] = field(default_factory=list)
-    failure_modes: list[FailureModeFact] = field(default_factory=list)
     delegation_intents: list[DelegationIntentFact] = field(default_factory=list)
 
 
@@ -198,11 +189,9 @@ class CanonicalCompileInputValidator:
 
         input_names = [fact.name for fact in canonical_input.hard_facts.inputs]
         output_names = [fact.name for fact in canonical_input.hard_facts.outputs]
-        failure_names = [fact.name for fact in canonical_input.hard_facts.failure_modes]
         intent_names = [fact.name for fact in canonical_input.hard_facts.delegation_intents]
         errors.extend(cls._duplicates(input_names, "HardFacts.inputs.name"))
         errors.extend(cls._duplicates(output_names, "HardFacts.outputs.name"))
-        errors.extend(cls._duplicates(failure_names, "HardFacts.failure_modes.name"))
         errors.extend(cls._duplicates(intent_names, "HardFacts.delegation_intents.name"))
 
         packet_by_id = {
@@ -212,7 +201,6 @@ class CanonicalCompileInputValidator:
         for fact in [
             *canonical_input.hard_facts.inputs,
             *canonical_input.hard_facts.outputs,
-            *canonical_input.hard_facts.failure_modes,
             *canonical_input.hard_facts.delegation_intents,
         ]:
             sid = getattr(fact, 'source_section_id', '')

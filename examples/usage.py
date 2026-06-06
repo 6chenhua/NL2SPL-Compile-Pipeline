@@ -19,79 +19,60 @@ def main() -> None:
         max_tokens=int(os.getenv("LLM_MAX_TOKENS", "16000")),
     )
 
-    # Sample input
     raw_text = """
-# Structural Requirement: Internal Communications Drafting
+# Internal Communications Drafting
 
 ## Task Family
 
 **Name:** internal communications drafting  
-**Scope:** Includes routine newsletters, announcements, update digests, and executive briefs; excludes crisis memos requiring legal review.  
-**Examples:** Internal newsletters, announcements, update digests, executive briefs, and related internal-comms artifacts.
+**Scope:** Includes recurring digests and executive memos; excludes crisis communications.  
+**Examples:**  
+- Internal newsletters  
+- Announcements  
+- Update digests  
+- Executive briefs  
+- Related internal-communications artifacts  
 
 ## Inputs for Each Run
 
-**Required:**
-- topic
-- audience
-- tone
-- key facts
-
-**Optional:** None
+**Required:**  
+- Topic summary  
+- Target audience  
+- Key dates or deadlines  
 
 ## Required Outputs
 
-- polished draft
-- revision history
-- assumptions log
-- evidence trail
-- readiness status
+- Finished draft (Word or Google Doc, 200–500 words, no approval marks)  
+- Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)  
 
 ## Reusable Process
 
-1. Receive and parse request (topic, audience, tone, key facts)
-2. Scope and ask clarifying questions for missing inputs
-3. Gather allowed evidence from approved internal sources
-4. Draft using organization-approved templates and brand tone
-5. Review for confidentiality, citations, no invented data, approvals
-6. Iterate with user on specific sections (max two rounds)
-7. Finalize with revision history, assumptions log, evidence trail, readiness status
-8. Deliver polished draft and artifacts
+1. Requestor provides topic/audience  
+2. IC writer drafts using the standard internal communications template (Appendix A of the style guide)  
+3. Routes to the relevant communications lead for review  
 
 ## Policies
 
-**Hard Rules:**
-- No external data
-- Cite all sources
-- Avoid legal/financial language
-- Preserve brand tone and confidentiality
-- Require approvals for sensitive topics
-
-**Soft Rules:** None
+**Hard:**  
+- Must use the approved template  
+- Must follow plain-language and inclusive tone guidelines  
+- Require final sign-off from the communications lead before flagging as approved  
 
 ## Failure Handling
 
-**Anticipated Failures:**
-- Missing inputs
-- Tone mismatch
-- Unverified facts
-- Source unavailability
-- Policy conflict
-
-**Blocking Failures:** None
+**Anticipated:**  
+- Topic summary too vague to draft from  
+- Template unavailable  
+- Communications lead unresponsive for over two days  
 
 ## Delegation Policy
 
-**Delegable Work:**
-- Drafting
-- Fact-checking
-- Formatting
-- Revision history
+**Delegable:**  
+- Initial drafting using template and topic summary  
 
-**Non‑Delegable Work:**
-- Approvals
-- Sensitivity checks
-- Final sign‑off
+**Non‑delegable:**  
+- Final review and approval by communications lead
+
 """
 
     # Load configuration
@@ -100,17 +81,7 @@ def main() -> None:
         log_level="INFO",
         save_intermediate=True,
         output_dir=Path(__file__).parent / "output",
-        run_name="internal-comms-3",
-        enable_worker_boundary_planner=True,
-        enable_worker_boundary_planner_split=True,
-        # --- v5 IRS flags (non-disruptive post-hoc checks) ---
-        # enable_irs_prompt_builder: Stage 4 (EXCEPTION_FLOW) +
-        #   Stage 7 (4 command types). Stage 3.5 uses dedicated prompt files.
-        enable_irs_prompt_builder=True,
-        enable_irs_stage4_exception_flow_check=True,
-        enable_irs_stage7_step_check=True,
-        enable_irs_diagnostic_consolidation=True,
-        adapter_llm_engine='all',
+        run_name="demo",
     )
 
     # Create orchestrator

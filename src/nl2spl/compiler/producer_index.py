@@ -139,6 +139,12 @@ class ProducerIndex:
             if step.command_type == "CALL_API":
                 continue
             if step.handoff_id is not None:
+                self._add_structured_handoff_producer(
+                    step,
+                    declared,
+                    extra,
+                    api_refs,
+                )
                 continue
             renderable = _step_is_renderable(step, self._handoff_index)
             kind = _step_origin(step)
@@ -215,6 +221,52 @@ class ProducerIndex:
     def find_unproduced(self, required_outputs: list[str]) -> list[str]:
         """Return required outputs that lack a renderable producer."""
         return [name for name in required_outputs if not self.is_produced(name)]
+
+    def _add_structured_handoff_producer(
+        self,
+        step: StepIR,
+        declared: set[str],
+        extra: set[str],
+        api_refs: dict[str, str],
+    ) -> None:
+        """Index a structured result that faithfully wraps handoff outputs."""
+        if not step.handoff_id:
+            return
+        handoff = self._handoff_index.get(step.handoff_id)
+        if handoff is None:
+            return
+
+        aggregation = step.metadata.get("structured_aggregation")
+        if not isinstance(aggregation, dict):
+            return
+
+        result_name = aggregation.get("result_name")
+        original_outputs = aggregation.get("original_outputs") or []
+        expected_outputs = [
+            binding.parent_variable
+            for binding in handoff.output_bindings
+        ]
+        if (
+            not result_name
+            or len(step.outputs) != 1
+            or step.outputs[0] != result_name
+            or list(original_outputs) != expected_outputs
+        ):
+            return
+
+        renderable = (
+            _step_is_renderable(step, self._handoff_index)
+            and self._handoff_renderable(handoff, declared, extra, api_refs)
+        )
+        self._producers[result_name].append(
+            ProducerRef(
+                variable_name=result_name,
+                producer_kind="handoff",
+                producer_ref=step.handoff_id,
+                source_span_ids=list(step.source_span_ids),
+                renderable=renderable,
+            )
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -85,6 +85,9 @@ Keywords: type, structure, schema, enum, status
 
 Rules:
 - Variable names must be snake_case
+- Variable descriptions must be concise English ASCII. Translate
+  non-English source wording into English; do not copy non-English text into
+  descriptions.
 - If no items of a category are found, return []
 - Do not extract schema, IR, JSON, diagnostic, span, flow, block, step,
   source_section, or source_packet fields as domain variables.

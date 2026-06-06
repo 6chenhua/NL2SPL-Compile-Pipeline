@@ -7,6 +7,46 @@ from typing import Any
 
 
 @dataclass
+class StructuralPrior:
+    """Deterministic structural evidence for semantic routing.
+
+    A ``StructuralPrior`` is **not** a final semantic routing decision.
+    It can guide the LLM semantic mapper and the validator, but
+    Stage 4/5/7 must not consume it as semantic truth.
+
+    Attributes:
+        span_id: The span this prior describes.
+        suggested_field: Weak field hint (not a final routing decision).
+        source_section_id: Adapter section provenance.
+        source_packet_id: Adapter packet provenance.
+        source_hint_ids: CompileHint ids that informed this prior.
+        prior_kind: Structural evidence type, e.g. ``neutral_context``,
+            ``weak_section_context``, ``exact_route_prior``,
+            ``runtime_input_contract``, ``required_output_contract``.
+        confidence: ``exact`` / ``structural`` / ``context`` / ``weak``.
+        reason: Human-readable explanation.
+        packet_type: Adapter packet type.
+        section_title: Original or canonical section title.
+        structural_tags: E.g. ``list_item``, ``colon_pair``,
+            ``section_context``.
+        metadata: Non-semantic附加信息 (must be JSON-primitives only).
+    """
+
+    span_id: str
+    suggested_field: str | None = None
+    source_section_id: str | None = None
+    source_packet_id: str | None = None
+    source_hint_ids: list[str] = field(default_factory=list)
+    prior_kind: str = "neutral_context"
+    confidence: str = "context"
+    reason: str | None = None
+    packet_type: str | None = None
+    section_title: str | None = None
+    structural_tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class RouteAnnotation:
     """Semantic route annotation for a span.
 
@@ -55,8 +95,11 @@ class FieldRouteIR:
         audience: Spans routed to audience field
         rules: Spans routed to rules field
         domain: Spans routed to domain field
-        integrations: Spans routed to integrations field
+        integrations: Spans routed to integration field
         behavior: Spans routed to behavior field
+        annotations: Final semantic routing decisions consumed by Stage 4/5/7.
+        structural_priors: Deterministic structural evidence for LLM/validator.
+            Stage 4/5/7 must NOT consume these as semantic truth.
     """
 
     identity: list[str] = field(default_factory=list)
@@ -66,6 +109,7 @@ class FieldRouteIR:
     integrations: list[str] = field(default_factory=list)
     behavior: list[str] = field(default_factory=list)
     annotations: list[RouteAnnotation] = field(default_factory=list)
+    structural_priors: list[StructuralPrior] = field(default_factory=list)
     route_diagnostics: list[str] = field(default_factory=list)
     # Structured route diagnostics for compile-diagnostic conversion.
     # Each dict has: span_id, kind, message.
@@ -153,12 +197,21 @@ class FieldRouteIR:
         E.g. failure_mode conditions or delegation intents without contracts.
         Returns empty list when no annotations exist.
         Preserves ``self.behavior`` ordering where applicable.
+
+        Defensive guard: a span with an executable behavior annotation is
+        excluded from the non-executable set even if a stale non-executable
+        annotation also exists (executable wins).
         """
+        exec_set = {
+            a.span_id
+            for a in self.annotations
+            if a.executable and a.field == "behavior"
+        }
         non_exec_set = {
             a.span_id
             for a in self.annotations
             if not a.executable and a.field == "behavior"
-        }
+        } - exec_set
         result: list[str] = []
         seen: set[str] = set()
         for sid in self.behavior:

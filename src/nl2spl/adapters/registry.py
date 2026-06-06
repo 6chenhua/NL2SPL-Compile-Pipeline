@@ -11,33 +11,17 @@ from nl2spl.canonical import AdapterDetectionResult, CanonicalCompileInput
 class InputAdapterRegistry:
     """Select and run the best available adapter for raw text."""
 
-    VALID_ENGINE_MODES = {"off", "generic_only", "structural_enrich", "all"}
-
     def __init__(
         self,
         adapters: list[InputAdapter] | None = None,
-        llm_client: object | None = None,
-        adapter_llm_engine: str = "off",
     ) -> None:
         if adapters is not None:
             self.adapters = adapters
             return
 
-        if adapter_llm_engine not in self.VALID_ENGINE_MODES:
-            raise ValueError(
-                "adapter_llm_engine must be one of: "
-                + ", ".join(sorted(self.VALID_ENGINE_MODES))
-            )
-
-        structural_client = (
-            llm_client if adapter_llm_engine in {"structural_enrich", "all"} else None
-        )
-        generic_client = (
-            llm_client if adapter_llm_engine in {"generic_only", "all"} else None
-        )
         self.adapters = [
-            StructuralNLAdapter(llm_client=structural_client),
-            GenericNLAdapter(llm_client=generic_client),
+            StructuralNLAdapter(),
+            GenericNLAdapter(),
         ]
 
     def detect_all(self, raw_text: str) -> list[AdapterDetectionResult]:

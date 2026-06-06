@@ -1,7 +1,7 @@
 """Semantic conflict analyzer -- protocol, NoOp, LLM, and evidence verifier.
 
-Phase 6 MVP: LLM analyzer is guarded by ``enable_llm_conflict_analyzer``.
-All emitted ``semantic_conflict`` diagnostics must pass the evidence verifier.
+The production orchestrator currently uses the no-op analyzer. All emitted
+``semantic_conflict`` diagnostics must pass the evidence verifier.
 """
 
 from __future__ import annotations
@@ -135,7 +135,6 @@ class LLMSemanticConflictAnalyzer:
                 stage_name="semantic_conflict_analyzer",
                 system_prompt=self.PROMPT,
                 user_prompt=user_prompt,
-                max_tokens=2048,
             )
         except Exception:
             _logger.warning(

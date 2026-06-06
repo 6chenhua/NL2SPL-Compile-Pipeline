@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Any, Literal
+from typing import Literal
 
 from nl2spl.adapters.morphology import ShapeGrammar
 from nl2spl.adapters.base import InputAdapter
@@ -13,15 +13,12 @@ from nl2spl.canonical.compile_input import (
     AdapterWarning,
     CanonicalCompileInput,
     CompileHints,
-    DelegationIntentFact,
     EvidenceRef,
-    FailureModeFact,
     HardFacts,
     RawSection,
     SemanticPacket,
     VariableFact,
 )
-from nl2spl.llm.prompts import load_prompt
 
 VARIABLE_NAME_ALIASES = {
     "a user request": "user_request",
@@ -50,32 +47,12 @@ VARIABLE_NAME_ALIASES = {
 
 
 def _is_empty_marker(text: str) -> bool:
-    """检查文本是否为空值标记（如 'None', 'N/A'）。
-    
-    用于识别用户用来表示"无内容"的占位符，避免将其当作有效的
-    failure condition、constraint 或 process step。
-    
-    Args:
-        text: 待检查的文本
-    
-    Returns:
-        True 如果文本是空值标记
-    
-    Examples:
-        >>> _is_empty_marker("None")
-        True
-        >>> _is_empty_marker("** None")
-        True
-        >>> _is_empty_marker("N/A")
-        True
-        >>> _is_empty_marker("Missing inputs")
-        False
-    """
+    """Return True when text is an explicit empty marker."""
     candidate = text.strip()
     candidate = re.sub(r"^\s*[-*+]\s+", "", candidate)
     candidate = re.sub(r"^\s*\d+\.\s+", "", candidate)
-    if ":" in candidate or "：" in candidate:
-        _label, candidate = re.split(r"[:：]", candidate, maxsplit=1)
+    if ":" in candidate or "\uff1a" in candidate:
+        _label, candidate = re.split(r"[:\uff1a]", candidate, maxsplit=1)
     candidate = candidate.replace("**", "").replace("__", "")
     normalized = re.sub(r"[^\w\s]", "", candidate.lower()).strip()
     
@@ -93,16 +70,17 @@ def _is_empty_marker(text: str) -> bool:
 class StructuralNLAdapter(InputAdapter):
     """Parse known structural NL section headings into canonical input.
 
-    When *llm_client* is provided and enrichment is enabled, the adapter
-    may use the LLM engine to add missing descriptions or discover
-    additional facts.  Deterministic section facts always take priority.
+    The adapter reads structure and provenance only.  It does not call an LLM
+    and does not decide open semantic roles such as process, failure, handler,
+    or delegation.  The optional ``llm_client`` parameter is accepted for
+    compatibility with older callers but is intentionally ignored.
     """
 
     name = "structural_nl"
     schema_version = "1.0"
 
     def __init__(self, llm_client: object | None = None) -> None:
-        self._llm_client = llm_client
+        _ = llm_client
 
     def detect(self, raw_text: str) -> AdapterDetectionResult:
         """Detect structural_nl by section evidence."""
@@ -112,7 +90,10 @@ class StructuralNLAdapter(InputAdapter):
         matched_unique = list(dict.fromkeys(matched_titles))
         duplicate_sections = sorted(title for title, count in counts.items() if count > 1)
         empty_sections = [
-            section.original_title for section in sections if not section.text.strip()
+            section.original_title
+            for section in sections
+            if not section.text.strip()
+            and not self._is_document_title_section(section, sections, raw_text)
         ]
         missing_sections = []
         
@@ -140,46 +121,23 @@ class StructuralNLAdapter(InputAdapter):
         hard_facts = HardFacts()
         compile_hints = CompileHints()
         warnings = self._warnings_from_detection(detection)
-        
         for section in sections:
-            # Unconditionally output neutral structural packets
-            items = self._split_list_items(section.text)
-            has_lists = self._has_list_shape(section.text)
-
-            if has_lists:
-                for item in items:
+            # Output neutral structural packets with no semantic decisions.
+            if section.structure_type == "list" and section.list_items:
+                for item_idx, item in enumerate(section.list_items):
                     clean = self._clean_item(item)
-                    if clean:
-                        # 跳过空标记
-                        if _is_empty_marker(clean):
-                            continue
-                        
-                        packet = self._packet(
-                            "list_item",
-                            section,
-                            clean,
-                            "hint",
-                            [],
-                        )
-                        # Neutral structural unit: no executable commitment.
-                        # Stage 2 LLM/RoutePrior determines executability.
-                        packet.metadata.setdefault("executable", False)
-                        semantic_packets.append(packet)
+                    if not clean or _is_empty_marker(clean):
+                        continue
+                    packet = self._packet("list_item", section, clean, "hint", [])
+                    packet.metadata.setdefault("executable", False)
+                    packet.metadata["failure_item_index"] = item_idx
+                    semantic_packets.append(packet)
             else:
                 for text in self._split_sentences(section.text):
                     if text.strip():
-                        # 跳过空标记
                         if _is_empty_marker(text.strip()):
                             continue
-                        
-                        packet = self._packet(
-                            "sentence",
-                            section,
-                            text,
-                            "hint",
-                            [],
-                        )
-                        # Neutral structural unit: no executable commitment.
+                        packet = self._packet("sentence", section, text, "hint", [])
                         packet.metadata.setdefault("executable", False)
                         semantic_packets.append(packet)
 
@@ -189,46 +147,12 @@ class StructuralNLAdapter(InputAdapter):
                 inputs = self._extract_variables(section, source="input")
                 for fact in inputs:
                     fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
-                    # No construct_target generated here.
                 hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
             elif title in ("required outputs", "required_outputs"):
                 outputs = self._extract_variables(section, source="output")
                 for fact in outputs:
                     fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
-                    # No construct_target generated here.
                 hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
-            elif title in ("failure handling", "anticipated failures", "blocking failures"):
-                # Extract failure modes for bridge fallback
-                failure_modes = self._extract_failure_modes(section)
-                hard_facts.failure_modes.extend(failure_modes)
-            elif title in ("delegation policy", "delegable work", "non-delegable work"):
-                # Extract delegation intents for bridge fallback
-                delegation_intents = self._extract_delegation_intents(section)
-                hard_facts.delegation_intents.extend(delegation_intents)
-
-        from nl2spl.adapters.section_semantic_mapper import SectionSemanticMapper
-        mapper = SectionSemanticMapper(self._llm_client)
-        route_priors, mapper_warnings = mapper.map_sections(sections, semantic_packets)
-        warnings.extend(mapper_warnings)
-
-        # Optional LLM enrichment (Phase 7)
-        if self._llm_client is not None:
-            try:
-                hard_facts, llm_warns = self._enrich_with_llm(
-                    raw_text, sections, semantic_packets, hard_facts,
-                )
-                warnings.extend(llm_warns)
-            except Exception as exc:
-                warnings.append(
-                    AdapterWarning(
-                        code="LLM_ENRICHMENT_FAILED",
-                        message=(
-                            f"LLM enrichment failed: {exc}. "
-                            f"Deterministic facts preserved."
-                        ),
-                        severity="warning",
-                    )
-                )
 
         return CanonicalCompileInput(
             source_schema=self.name,
@@ -240,53 +164,8 @@ class StructuralNLAdapter(InputAdapter):
             compile_hints=compile_hints,
             warnings=warnings,
             detection=detection,
-            route_priors=route_priors,
+            route_priors=[],
         )
-
-    def _enrich_with_llm(
-        self,
-        raw_text: str,
-        sections: list[Any],
-        packets: list[Any],
-        deterministic: Any,
-    ) -> tuple[Any, list[Any]]:
-        """Run LLM enrichment and merge with deterministic facts."""
-        import json as _json
-
-        from nl2spl.adapters.fact_verifier import FactVerifier
-        from nl2spl.adapters.llm_engine import parse_llm_fact_json
-
-        section_ids = {s.section_id for s in sections}
-        packet_by_id = {p.packet_id: p for p in packets}
-
-        packet_lines = []
-        for p in packets:
-            packet_lines.append(
-                f"  {p.packet_id} ({p.packet_type}, "
-                f"section={p.source_section_id}): {p.text}"
-            )
-
-        user_prompt = (
-            "Enrich the following structural input with additional "
-            "facts if any are missing. Cite the appropriate "
-            "source_section_id and source_packet_id for every fact.\n\n"
-            "Available packets:\n" + "\n".join(packet_lines) + "\n\n"
-            f"Raw text:\n{raw_text}"
-        )
-
-        system_prompt = load_prompt("input_adapter_fact_extractor")
-        result_dict = self._llm_client.call_json(  # type: ignore[union-attr]
-            stage_name="structural_enrich",
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            max_tokens=4096,
-        )
-
-        extraction = parse_llm_fact_json(
-            _json.dumps(result_dict), section_ids, packet_by_id,
-        )
-        verifier = FactVerifier()
-        return verifier.verify_and_merge(deterministic, extraction)
 
     def _parse_sections(self, raw_text: str) -> tuple[list[RawSection], list[str]]:
         lines = raw_text.splitlines(keepends=True)
@@ -304,18 +183,19 @@ class StructuralNLAdapter(InputAdapter):
                 "",
             )
             if self._looks_like_heading(stripped):
-                original_title = stripped.lstrip("#").strip().rstrip(":：").strip()
+                original_title = self._clean_heading_title(stripped)
                 canonical_title = self.normalize_heading(stripped)
             elif (
                 ShapeGrammar.KEY_VALUE.match(stripped)
                 and not self._looks_like_heading(previous_nonempty)
+                and not re.match(r"^[-*+]\s+", stripped)
+                and not re.match(r"^\d+\.\s+", stripped)
             ):
-                title, inline_text = re.split(r"[:：]", stripped, maxsplit=1)
-                original_title = title.strip()
+                title, inline_text = re.split(r"[:\uff1a]", stripped, maxsplit=1)
+                original_title = self._clean_heading_title(title)
                 canonical_title = self.normalize_heading(f"{original_title}:")
-                # 清理 inline_text：移除 bold 标记（** 或 __）
                 inline_text = inline_text.strip()
-                # 移除开头的 bold 标记，如 "**Anticipated Failures:** ..." 中的 "**"
+                # Strip leading bold markup from inline section content.
                 inline_text = re.sub(r'^\*\*\s*', '', inline_text)
                 inline_text = re.sub(r'^__\s*', '', inline_text)
             else:
@@ -342,6 +222,9 @@ class StructuralNLAdapter(InputAdapter):
             following_text = raw_text[line_end:next_start].strip()
             text = "\n".join(part for part in [inline_text, following_text] if part).strip()
             section_id = self._section_id(canonical_title, order, headings)
+            has_list = self._has_list_shape(text)
+            structure_type = "list" if has_list else "paragraph"
+            list_items = self._split_list_items(text) if has_list else None
             sections.append(
                 RawSection(
                     section_id=section_id,
@@ -351,6 +234,8 @@ class StructuralNLAdapter(InputAdapter):
                     order=order + 1,
                     start_offset=line_end,
                     end_offset=next_start,
+                    structure_type=structure_type,
+                    list_items=list_items,
                 )
             )
         return sections, unexpected
@@ -358,12 +243,41 @@ class StructuralNLAdapter(InputAdapter):
     @staticmethod
     def normalize_heading(line: str) -> str:
         """Normalize a potential heading."""
-        line = line.strip().lstrip("#").strip().rstrip(":：").lower()
+        line = StructuralNLAdapter._clean_heading_title(line).lower()
         return " ".join(line.split())
+
+    @staticmethod
+    def _clean_heading_title(line: str) -> str:
+        """Strip structural heading punctuation and Markdown emphasis markers."""
+        title = line.strip().lstrip("#").strip().rstrip(":\uff1a").strip()
+        changed = True
+        while changed:
+            changed = False
+            for marker in ("**", "__"):
+                if title.startswith(marker):
+                    title = title[len(marker):].strip()
+                    changed = True
+                if title.endswith(marker):
+                    title = title[:-len(marker)].strip()
+                    changed = True
+            title = title.rstrip(":\uff1a").strip()
+        return title
 
     @staticmethod
     def _looks_like_heading(line: str) -> bool:
         return ShapeGrammar.is_heading(line)
+
+    @staticmethod
+    def _is_document_title_section(
+        section: RawSection,
+        sections: list[RawSection],
+        raw_text: str,
+    ) -> bool:
+        """Return True for an empty leading H1 title before real sections."""
+        if section.order != 1 or len(sections) <= 1:
+            return False
+        first_line = raw_text.lstrip().splitlines()[0].strip() if raw_text.strip() else ""
+        return first_line.startswith("# ") and not first_line.startswith("## ")
 
     def _is_unexpected_heading(
         self,
@@ -380,7 +294,8 @@ class StructuralNLAdapter(InputAdapter):
         order: int,
         headings: list[tuple[int, int, int, str, str, str]],
     ) -> str:
-        safe_title = canonical_title.replace(" ", "_")
+        safe_title = re.sub(r"[^\w]+", "_", canonical_title, flags=re.UNICODE)
+        safe_title = safe_title.strip("_") or f"section_{order + 1}"
         same_before = sum(1 for heading in headings[:order] if heading[4] == canonical_title)
         if same_before:
             return f"sec_{safe_title}_{same_before + 1}"
@@ -461,39 +376,6 @@ class StructuralNLAdapter(InputAdapter):
             existing.required = existing.required or fact.required
         return list(merged.values())
 
-    def _extract_failure_modes(self, section: RawSection) -> list[FailureModeFact]:
-        """Extract failure modes from a section, filtering empty markers."""
-        modes = []
-        for item in self._split_list_items(section.text):
-            clean = self._clean_item(item)
-            if clean and not _is_empty_marker(clean):  # 过滤空标记
-                modes.append(
-                    FailureModeFact(
-                        name=self._variable_name(clean),
-                        text=clean[:1].upper() + clean[1:],
-                        source_section_id=section.section_id,
-                        evidence=[self._make_evidence(section)],
-                    )
-                )
-        return modes
-
-    def _extract_delegation_intents(self, section: RawSection) -> list[DelegationIntentFact]:
-        """Extract delegation intents from a section."""
-        intents = []
-        for item in self._split_list_items(section.text):
-            clean = self._clean_item(item)
-            if clean and not _is_empty_marker(clean):
-                intents.append(
-                    DelegationIntentFact(
-                        name=self._variable_name(clean),
-                        text=clean[:1].upper() + clean[1:],
-                        evidence=[self._make_evidence(section)],
-                    )
-                )
-        return intents
-
-
-
     @staticmethod
     def _packet(
         packet_type: str,
@@ -534,58 +416,33 @@ class StructuralNLAdapter(InputAdapter):
 
     @staticmethod
     def _split_list_items(text: str) -> list[str]:
-        """拆分列表项（markdown bullets、有序列表或逗号分隔）。
-        
-        策略：
-        1. 清理文本中的 bold 标记
-        2. 优先尝试 markdown bullet 拆分 (-, *, +)
-        3. 尝试有序列表拆分 (1. 2. 3.)
-        4. 如果没有 bullets，回退到逗号拆分
-        5. Header 行（如 "**Anticipated Failures:**"）不包含在结果中
-        
-        Args:
-            text: 可能包含 markdown bullets、有序列表或逗号分隔列表的文本
-        
-        Returns:
-            拆分后的 item 文本列表（不包含 header）
-        """
-        # 清理 bold 标记（** 或 __）和 heading 标记
-        # 移除类似 "**Failures:**" 这样的 bold heading
-        text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)  # **Heading:** 格式
-        text = re.sub(r'__[^_]+:__\s*', '', text)      # __Heading:__ 格式
-        
-        # 优先尝试 markdown bullet 拆分（只匹配顶层，不匹配缩进的）
-        lines = text.split('\n')
-        bullet_pattern = re.compile(r'^[-*+]\s+(.+)$')  # 不匹配开头有空格的
-        
-        markdown_items = []
+        """Split markdown, ordered, or comma-separated list items."""
+        text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)
+        text = re.sub(r'__[^_]+:__\s*', '', text)
+
+        lines = text.splitlines()
+        markdown_items: list[str] = []
+        bullet_pattern = re.compile(r'^[-*+]\s+(.+)$')
         for line in lines:
-            match = bullet_pattern.match(line)
+            match = bullet_pattern.match(line.strip())
             if match:
                 markdown_items.append(match.group(1).strip())
-        
-        # 如果找到 markdown bullets，返回 items（不包含 header）
         if markdown_items:
             return markdown_items
-        
-        # 尝试有序列表拆分 (1. 2. 3.)
-        ordered_pattern = re.compile(r'^\d+\.\s+(.+)$')  # 不匹配开头有空格的
-        
-        ordered_items = []
+
+        ordered_items: list[str] = []
+        ordered_pattern = re.compile(r'^\d+\.\s+(.+)$')
         for line in lines:
-            match = ordered_pattern.match(line)
+            match = ordered_pattern.match(line.strip())
             if match:
                 ordered_items.append(match.group(1).strip())
-        
-        # 如果找到有序列表，返回 items
         if ordered_items:
             return ordered_items
-        
-        # 回退到逗号拆分（现有逻辑）
-        normalized = text.strip().rstrip(".")
-        normalized = re.sub(r",\s+and\s+", ", ", normalized, flags=re.IGNORECASE)  # "x, and y" → "x, y"
-        normalized = re.sub(r"\s+and\s+a\s+", ", a ", normalized, flags=re.IGNORECASE)  # "x and a y" → "x, a y"
-        return [item.strip() for item in normalized.split(",") if item.strip()]
+
+        normalized = text.strip().rstrip('.')
+        normalized = re.sub(r',\s+and\s+', ', ', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\s+and\s+a\s+', ', a ', normalized, flags=re.IGNORECASE)
+        return [item.strip() for item in normalized.split(',') if item.strip()]
 
     @staticmethod
     def _has_list_shape(text: str) -> bool:

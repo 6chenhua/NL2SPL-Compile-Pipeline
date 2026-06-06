@@ -92,6 +92,10 @@ class SlotSatisfaction:
     relation: Literal["direct", "normalized", "inferred", "assumed"] | None = None
     diagnostic_kind: str | None = None
     explanation: str | None = None
+    diagnostic_target_ref: str | None = None
+    diagnostic_required_for: str | None = None
+    diagnostic_blocks_rendering: bool | None = None
+    suggested_resolution: str | None = None
 
 
 @dataclass
@@ -438,6 +442,7 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="input_contract",
+                    required_for_partial=True,
                     required_for_complete=True,
                     renderable_without=False,
                     evidence_kinds=["input_contract", "parent_binding"],
@@ -445,6 +450,7 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="output_contract",
+                    required_for_partial=True,
                     required_for_complete=True,
                     renderable_without=False,
                     evidence_kinds=["output_contract", "returned_result"],
@@ -526,8 +532,9 @@ class SPLConstructRegistry:
             slots=[
                 SlotSpec(
                     slot_name="promotion_input_contract",
+                    required_for_partial=True,
                     required_for_complete=True,
-                    renderable_without=True,
+                    renderable_without=False,
                     evidence_kinds=["input_contract", "possible_inputs"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
@@ -537,8 +544,9 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="promotion_output_contract",
+                    required_for_partial=True,
                     required_for_complete=True,
-                    renderable_without=True,
+                    renderable_without=False,
                     evidence_kinds=["output_contract", "possible_outputs"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
@@ -548,8 +556,9 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="promotion_invocation_point",
+                    required_for_partial=True,
                     required_for_complete=True,
-                    renderable_without=True,
+                    renderable_without=False,
                     evidence_kinds=["invocation_point", "handoff_point"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
@@ -559,8 +568,9 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="promotion_result_handoff",
+                    required_for_partial=True,
                     required_for_complete=True,
-                    renderable_without=True,
+                    renderable_without=False,
                     evidence_kinds=["result_handoff", "output_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
