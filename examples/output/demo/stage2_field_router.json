@@ -1,0 +1,1168 @@
+{
+  "stage": "stage2_field_router",
+  "timestamp": "2026-06-07T16:32:28.196232",
+  "metadata": {},
+  "result": {
+    "routes": {
+      "identity": [],
+      "audience": [],
+      "rules": [
+        "s16",
+        "s17",
+        "s18",
+        "s23"
+      ],
+      "domain": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+        "s7"
+      ],
+      "integrations": [],
+      "behavior": [
+        "s13",
+        "s14",
+        "s15"
+      ],
+      "annotations": [
+        {
+          "span_id": "s1",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_sentence_name_internal_communications_drafting",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s2",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_scope",
+          "source_packet_id": "p_sentence_includes_recurring_digests_and_executive_memos_excludes_crisis_communications",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s3",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_internal_newsletters",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s4",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_announcements",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s5",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_update_digests",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s6",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_executive_briefs",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s7",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_related_internal_communications_artifacts",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_topic_summary",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s9",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_target_audience",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s10",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_key_dates_or_deadlines",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s11",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s12",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_status_flag_values_drafting_ready_for_review_approved",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s13",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_requestor_provides_topic_audience",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s14",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_ic_writer_drafts_using_the_standard_internal_communications_template_appendix_a_of_the_style_guide",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s15",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_routes_to_the_relevant_communications_lead_for_review",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s16",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_must_use_the_approved_template",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s17",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_must_follow_plain_language_and_inclusive_tone_guidelines",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s18",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_require_final_sign_off_from_the_communications_lead_before_flagging_as_approved",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s19",
+          "field": "behavior",
+          "semantic_role": "failure_mode",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_topic_summary_too_vague_to_draft_from",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "condition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s20",
+          "field": "behavior",
+          "semantic_role": "failure_mode",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_template_unavailable",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "condition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s21",
+          "field": "behavior",
+          "semantic_role": "failure_mode",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_communications_lead_unresponsive_for_over_two_days",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "condition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s22",
+          "field": "behavior",
+          "semantic_role": "delegation_intent",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_initial_drafting_using_template_and_topic_summary",
+          "source_hint_ids": [],
+          "construct_target": "WORKER_HANDOFF",
+          "slot_target": "target",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s23",
+          "field": "rules",
+          "semantic_role": "delegation_prohibition",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_non_delegable",
+          "source_packet_id": "p_list_item_final_review_and_approval_by_communications_lead",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "prohibition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        }
+      ],
+      "structural_priors": [
+        {
+          "span_id": "s1",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_sentence_name_internal_communications_drafting",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s2",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_scope",
+          "source_packet_id": "p_sentence_includes_recurring_digests_and_executive_memos_excludes_crisis_communications",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s3",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_internal_newsletters",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s4",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_announcements",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s5",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_update_digests",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s6",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_executive_briefs",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s7",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_examples",
+          "source_packet_id": "p_list_item_related_internal_communications_artifacts",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_topic_summary",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s9",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_target_audience",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s10",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_key_dates_or_deadlines",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s11",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s12",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_status_flag_values_drafting_ready_for_review_approved",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s13",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_requestor_provides_topic_audience",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s14",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_ic_writer_drafts_using_the_standard_internal_communications_template_appendix_a_of_the_style_guide",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s15",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_routes_to_the_relevant_communications_lead_for_review",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s16",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_must_use_the_approved_template",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s17",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_must_follow_plain_language_and_inclusive_tone_guidelines",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s18",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_require_final_sign_off_from_the_communications_lead_before_flagging_as_approved",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s19",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_topic_summary_too_vague_to_draft_from",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s20",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_template_unavailable",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s21",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_communications_lead_unresponsive_for_over_two_days",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s22",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_initial_drafting_using_template_and_topic_summary",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s23",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_non_delegable",
+          "source_packet_id": "p_list_item_final_review_and_approval_by_communications_lead",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        }
+      ],
+      "route_diagnostics": [
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's7'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's7'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's7'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'",
+        "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'",
+        "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'",
+        "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's12'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's15'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's15'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's16'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's17'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's18'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's19'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'",
+        "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires route_family='delegation_boundary', got None for span 's23'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires construct_target='CONSTRAINT', got 'WORKER_HANDOFF' for span 's23'",
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation.",
+        "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract.",
+        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field.",
+        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract.",
+        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract.",
+        "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract.",
+        "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step.",
+        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+      ],
+      "structured_route_diagnostics": [
+        {
+          "span_id": "s1",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's1'"
+        },
+        {
+          "span_id": "s1",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's1'"
+        },
+        {
+          "span_id": "s1",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's1'"
+        },
+        {
+          "span_id": "s2",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's2'"
+        },
+        {
+          "span_id": "s2",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's2'"
+        },
+        {
+          "span_id": "s2",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's2'"
+        },
+        {
+          "span_id": "s3",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's3'"
+        },
+        {
+          "span_id": "s3",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's3'"
+        },
+        {
+          "span_id": "s3",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's3'"
+        },
+        {
+          "span_id": "s4",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's4'"
+        },
+        {
+          "span_id": "s4",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's4'"
+        },
+        {
+          "span_id": "s4",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's4'"
+        },
+        {
+          "span_id": "s5",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's5'"
+        },
+        {
+          "span_id": "s5",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's5'"
+        },
+        {
+          "span_id": "s5",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's5'"
+        },
+        {
+          "span_id": "s6",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's6'"
+        },
+        {
+          "span_id": "s6",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's6'"
+        },
+        {
+          "span_id": "s6",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's6'"
+        },
+        {
+          "span_id": "s7",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's7'"
+        },
+        {
+          "span_id": "s7",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's7'"
+        },
+        {
+          "span_id": "s7",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's7'"
+        },
+        {
+          "span_id": "s8",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'"
+        },
+        {
+          "span_id": "s9",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'"
+        },
+        {
+          "span_id": "s9",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'"
+        },
+        {
+          "span_id": "s10",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'"
+        },
+        {
+          "span_id": "s11",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'"
+        },
+        {
+          "span_id": "s12",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's12'"
+        },
+        {
+          "span_id": "s13",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's13'"
+        },
+        {
+          "span_id": "s13",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's13'"
+        },
+        {
+          "span_id": "s13",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's13'"
+        },
+        {
+          "span_id": "s14",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'"
+        },
+        {
+          "span_id": "s14",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's14'"
+        },
+        {
+          "span_id": "s14",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'"
+        },
+        {
+          "span_id": "s15",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'"
+        },
+        {
+          "span_id": "s15",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's15'"
+        },
+        {
+          "span_id": "s15",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's15'"
+        },
+        {
+          "span_id": "s16",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's16'"
+        },
+        {
+          "span_id": "s17",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's17'"
+        },
+        {
+          "span_id": "s18",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's18'"
+        },
+        {
+          "span_id": "s19",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's19'"
+        },
+        {
+          "span_id": "s20",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'"
+        },
+        {
+          "span_id": "s21",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'"
+        },
+        {
+          "span_id": "s22",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'"
+        },
+        {
+          "span_id": "s23",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'"
+        },
+        {
+          "span_id": "s23",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'delegation_prohibition' requires route_family='delegation_boundary', got None for span 's23'"
+        },
+        {
+          "span_id": "s23",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'delegation_prohibition' requires construct_target='CONSTRAINT', got 'WORKER_HANDOFF' for span 's23'"
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+        }
+      ]
+    },
+    "ambiguity_updates": [],
+    "overlaps": [],
+    "adapter_consumed_spans": [],
+    "llm_refinement": {
+      "used": true,
+      "route_diagnostics": [
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's1'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's2'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's3'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's4'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's5'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's6'",
+        "LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's7'",
+        "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's7'",
+        "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's7'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'",
+        "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'",
+        "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'",
+        "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'",
+        "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's12'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's13'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'",
+        "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's15'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's15'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's16'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's17'",
+        "LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's18'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's19'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'",
+        "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'",
+        "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires route_family='delegation_boundary', got None for span 's23'",
+        "LLM refinement corrected: role 'delegation_prohibition' requires construct_target='CONSTRAINT', got 'WORKER_HANDOFF' for span 's23'",
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation.",
+        "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract.",
+        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field.",
+        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract.",
+        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract.",
+        "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract.",
+        "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint.",
+        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step.",
+        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+      ],
+      "split_recommendations": []
+    }
+  }
+}

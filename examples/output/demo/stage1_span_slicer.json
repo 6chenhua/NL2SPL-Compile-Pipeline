@@ -1,0 +1,265 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-06-07T16:16:39.938103",
+  "metadata": {},
+  "result": {
+    "source_schema": "structural_nl",
+    "raw_text_length": 1376,
+    "spans_count": 23,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "**Name:** internal communications drafting",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_sentence_name_internal_communications_drafting"
+      },
+      {
+        "span_id": "s2",
+        "text": "Includes recurring digests and executive memos; excludes crisis communications",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_scope",
+        "source_packet_id": "p_sentence_includes_recurring_digests_and_executive_memos_excludes_crisis_communications"
+      },
+      {
+        "span_id": "s3",
+        "text": "Internal newsletters",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_examples",
+        "source_packet_id": "p_list_item_internal_newsletters"
+      },
+      {
+        "span_id": "s4",
+        "text": "Announcements",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_examples",
+        "source_packet_id": "p_list_item_announcements"
+      },
+      {
+        "span_id": "s5",
+        "text": "Update digests",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_examples",
+        "source_packet_id": "p_list_item_update_digests"
+      },
+      {
+        "span_id": "s6",
+        "text": "Executive briefs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_examples",
+        "source_packet_id": "p_list_item_executive_briefs"
+      },
+      {
+        "span_id": "s7",
+        "text": "Related internal-communications artifacts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_examples",
+        "source_packet_id": "p_list_item_related_internal_communications_artifacts"
+      },
+      {
+        "span_id": "s8",
+        "text": "Topic summary",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_topic_summary"
+      },
+      {
+        "span_id": "s9",
+        "text": "Target audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_target_audience"
+      },
+      {
+        "span_id": "s10",
+        "text": "Key dates or deadlines",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_key_dates_or_deadlines"
+      },
+      {
+        "span_id": "s11",
+        "text": "Finished draft (Word or Google Doc, 200–500 words, no approval marks)",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_finished_draft_word_or_google_doc_200_500_words_no_approval_marks"
+      },
+      {
+        "span_id": "s12",
+        "text": "Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_status_flag_values_drafting_ready_for_review_approved"
+      },
+      {
+        "span_id": "s13",
+        "text": "Requestor provides topic/audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_requestor_provides_topic_audience"
+      },
+      {
+        "span_id": "s14",
+        "text": "IC writer drafts using the standard internal communications template (Appendix A of the style guide)",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_ic_writer_drafts_using_the_standard_internal_communications_template_appendix_a_of_the_style_guide"
+      },
+      {
+        "span_id": "s15",
+        "text": "Routes to the relevant communications lead for review",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_routes_to_the_relevant_communications_lead_for_review"
+      },
+      {
+        "span_id": "s16",
+        "text": "Must use the approved template",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_must_use_the_approved_template"
+      },
+      {
+        "span_id": "s17",
+        "text": "Must follow plain-language and inclusive tone guidelines",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_must_follow_plain_language_and_inclusive_tone_guidelines"
+      },
+      {
+        "span_id": "s18",
+        "text": "Require final sign-off from the communications lead before flagging as approved",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_require_final_sign_off_from_the_communications_lead_before_flagging_as_approved"
+      },
+      {
+        "span_id": "s19",
+        "text": "Topic summary too vague to draft from",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_topic_summary_too_vague_to_draft_from"
+      },
+      {
+        "span_id": "s20",
+        "text": "Template unavailable",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_template_unavailable"
+      },
+      {
+        "span_id": "s21",
+        "text": "Communications lead unresponsive for over two days",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_communications_lead_unresponsive_for_over_two_days"
+      },
+      {
+        "span_id": "s22",
+        "text": "Initial drafting using template and topic summary",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_initial_drafting_using_template_and_topic_summary"
+      },
+      {
+        "span_id": "s23",
+        "text": "Final review and approval by communications lead",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_non_delegable",
+        "source_packet_id": "p_list_item_final_review_and_approval_by_communications_lead"
+      }
+    ]
+  }
+}

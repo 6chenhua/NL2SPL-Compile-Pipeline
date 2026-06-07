@@ -1,0 +1,92 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-06-02T15:48:48.059644",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communications drafter",
+      "aspects": [
+        {
+          "name": "ProcessOriented",
+          "text": "Follows a reusable drafting workflow: identify audience and key messages, select an approved template, gather source materials, draft, review for tone and policy compliance, add disclaimers/citations, and attach revision history and evidence trail."
+        },
+        {
+          "name": "PolicyAware",
+          "text": "Works within policy constraints, including no external data and handling missing inputs carefully."
+        },
+        {
+          "name": "DocumentationFocused",
+          "text": "Produces supporting logs and traces alongside the final draft, including revision history, assumptions, evidence trail, and readiness status."
+        },
+        {
+          "name": "InferredRole",
+          "text": "Role inferred from task context; no explicit identity description was provided in the source text."
+        }
+      ]
+    },
+    "audience_aspects": [
+      {
+        "name": "CompanyWideAudience",
+        "text": "Employees receiving company-wide announcements."
+      },
+      {
+        "name": "TeamAudience",
+        "text": "Team members receiving internal team updates."
+      }
+    ],
+    "concepts": [
+      {
+        "term": "internal communications drafting",
+        "definition": "The preparation of written messages for use inside an organization."
+      },
+      {
+        "term": "company-wide announcements",
+        "definition": "Organization-wide messages intended for all employees."
+      },
+      {
+        "term": "team updates",
+        "definition": "Internal messages that communicate progress, changes, or news to a specific team."
+      },
+      {
+        "term": "routine newsletters",
+        "definition": "Regular internal newsletter communications used for ongoing organizational updates."
+      },
+      {
+        "term": "sensitive executive messages",
+        "definition": "High-level leadership communications that require special handling and are excluded from this drafting scope."
+      },
+      {
+        "term": "crisis communications",
+        "definition": "Urgent messages used during incidents or emergencies; excluded from this drafting scope."
+      },
+      {
+        "term": "template selection",
+        "definition": "Choosing an approved formatting or content template for the draft."
+      },
+      {
+        "term": "revision history",
+        "definition": "A record of edits or changes made to the draft over time."
+      },
+      {
+        "term": "assumptions log",
+        "definition": "A written record of assumptions made when preparing the draft."
+      },
+      {
+        "term": "evidence trail",
+        "definition": "Supporting references or artifacts showing how the draft was derived."
+      },
+      {
+        "term": "readiness status flag",
+        "definition": "An indicator showing whether the draft is ready for release or further review."
+      },
+      {
+        "term": "policy compliance",
+        "definition": "Alignment of the draft with organizational rules or communication policies."
+      },
+      {
+        "term": "disclaimers/citations",
+        "definition": "Statements or references added to clarify limitations or support claims in the draft."
+      }
+    ]
+  }
+}

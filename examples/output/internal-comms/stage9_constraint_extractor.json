@@ -1,0 +1,64 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-05-24T19:38:22.207885",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "Do not invent links or unseen facts",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s19"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Require evidence for sourced claims",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s20"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Limit questions per turn",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s21"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Prefer tool evidence over unnecessary user questioning",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s22"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "Deny finalization if critical slots are missing or provenance fails",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s23"
+        ]
+      }
+    ]
+  }
+}

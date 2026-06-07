@@ -1,0 +1,43 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-06-06T04:29:13.704951",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "Must use the approved template",
+        "kind": "requirement",
+        "targets": [
+          "step:st_2"
+        ],
+        "source_span_ids": [
+          "s16"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Must follow plain-language and inclusive tone guidelines",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s17"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Require final sign-off from the communications lead before flagging as approved",
+        "kind": "approval",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s18",
+          "s23"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-05-24T19:30:17.854684",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_retrieve_sources",
+        "source_span_ids": [
+          "s14",
+          "s15"
+        ],
+        "task_text": "Retrieve sources using approved source recipes and maintain provenance for externally sourced facts.",
+        "purpose": "To gather necessary external information and ensure its provenance is tracked.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "external_integration",
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_produce_draft",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "Produce a draft when enough required information is available.",
+        "purpose": "To create an initial version of the communication artifact.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      }
+    ]
+  }
+}

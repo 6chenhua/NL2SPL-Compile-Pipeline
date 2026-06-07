@@ -1,0 +1,34 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-05-24T22:03:07.057102",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Procurement process manager",
+      "aspects": []
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Standard purchase requests",
+        "definition": "Requests for routine purchases that follow established procedures and guidelines."
+      },
+      {
+        "term": "Software and services procurement",
+        "definition": "The process of acquiring software licenses and professional services."
+      },
+      {
+        "term": "Equipment purchases",
+        "definition": "The acquisition of physical assets or tools required for operations."
+      },
+      {
+        "term": "Vendor renewals",
+        "definition": "The process of extending or renewing contracts with existing vendors."
+      },
+      {
+        "term": "Exception-handled procurement cases",
+        "definition": "Procurement scenarios that deviate from standard procedures and require special handling or approvals."
+      }
+    ]
+  }
+}

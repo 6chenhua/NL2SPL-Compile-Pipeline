@@ -1,0 +1,194 @@
+{
+  "stage": "stage3_5_worker_boundary_planner",
+  "timestamp": "2026-06-06T02:38:01.024809",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s13",
+          "s14",
+          "s15"
+        ],
+        "input_contract": [
+          {
+            "name": "topic_summary",
+            "data_type": "text",
+            "required": true,
+            "description": "Topic summary",
+            "source": "input"
+          },
+          {
+            "name": "target_audience",
+            "data_type": "text",
+            "required": true,
+            "description": "Target audience",
+            "source": "input"
+          },
+          {
+            "name": "key_dates_or_deadlines",
+            "data_type": "text",
+            "required": true,
+            "description": "Key dates or deadlines",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+            "data_type": "text",
+            "required": true,
+            "description": "Finished draft (Word or Google Doc, 200–500 words, no approval marks)",
+            "source": "output"
+          },
+          {
+            "name": "status_flag_values_drafting_ready_for_review_approved",
+            "data_type": "text",
+            "required": true,
+            "description": "Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_draft_internal_communications",
+        "source_span_ids": [
+          "s13",
+          "s14"
+        ],
+        "task_text": "Draft an internal communications piece from the provided topic and audience using the standard internal communications template.",
+        "purpose": "Produce a template-based internal communications draft from caller-provided content inputs.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "topic_summary",
+            "data_type": "text",
+            "required": true,
+            "description": "Topic summary provided by the requestor.",
+            "source": "input"
+          },
+          {
+            "name": "target_audience",
+            "data_type": "text",
+            "required": true,
+            "description": "Target audience provided by the requestor.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+            "data_type": "text",
+            "required": true,
+            "description": "Finished draft in Word or Google Doc format, 200–500 words, with no approval marks.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "explicit_delegation",
+          "bounded_io",
+          "multi_step_process",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "ordinary_sequential_step",
+          "policy_or_constraint"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_to_communications_lead",
+        "source_span_ids": [
+          "s15"
+        ],
+        "task_text": "Route the drafted internal communications piece to the relevant communications lead for review.",
+        "purpose": "Hand off the draft to the appropriate reviewer for final review workflow.",
+        "candidate_kind": "explicit_delegation",
+        "possible_inputs": [
+          {
+            "name": "finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+            "data_type": "text",
+            "required": true,
+            "description": "Draft to be sent for review.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "status_flag_values_drafting_ready_for_review_approved",
+            "data_type": "text",
+            "required": true,
+            "description": "Updated status indicating the draft has been routed for review.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "explicit_delegation"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "ordinary_sequential_step",
+          "insufficient_semantic_boundary"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_draft_internal_communications",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_route_to_communications_lead",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "explicit_delegation",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_draft_internal_communications",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_route_to_communications_lead",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "explicit_delegation",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,473 @@
+NL2SPL Compile Report
+============================================================
+
+Status: partial
+
+Summary:
+  SPL draft generated: yes
+  Adapter warnings: 10
+  Diagnostics: 23 warning(s)
+  Validation errors: 0
+  Validation warnings: 4
+  Assumptions (not rendered): 17
+  Trace records: 47
+
+------------------------------------------------------------
+
+Adapter Warnings
+----------------------------------------
+  - EMPTY_SECTION: Section 'Internal Communications Drafting' is present but empty.
+  - LLM_DUPLICATE_FACT: LLM input fact 'target_audience' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'final_draft' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'revision_history' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'assumptions_log' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'evidence_trail' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'readiness_status_flag' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'missing_inputs' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM delegation_intent fact 'initial_drafting' duplicates deterministic fact -- rejected.
+  - LLM_UNCERTAIN: Could not determine source packet IDs for some facts inferred from the raw text.
+
+------------------------------------------------------------
+
+Diagnostics
+----------------------------------------
+
+  [WARNING] [missing_handler] diag_post_norm_0000
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Source spans: s23, s23
+    Exception flow 'exc_adapter_01' ('- missing inputs') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for '- missing inputs', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0001
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Source spans: s23, s23
+    Exception flow 'exc_adapter_01' ('policy violations') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'policy violations', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0002
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Source spans: s23
+    Exception flow 'exc_adapter_02' ('template mismatches') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'template mismatches', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0003
+    Target: worker:worker_main.exception_flow:exc_adapter_03
+    Source spans: s23
+    Exception flow 'exc_adapter_03' ('tone mismatches') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'tone mismatches', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0004
+    Target: worker:worker_main.exception_flow:exc_adapter_04
+    Source spans: s23
+    Exception flow 'exc_adapter_04' ('unverified facts') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'unverified facts', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0005
+    Target: worker:worker_main.exception_flow:exc_adapter_05
+    Source spans: s23
+    Exception flow 'exc_adapter_05' ('approval gaps') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'approval gaps', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_output_producer] diag_post_norm_0006
+    Target: worker:worker_main.output:assumptions_log
+    Required output 'assumptions_log' (Assumptions log) has no source-backed producer step.
+    Suggested: Add a step that produces 'assumptions_log', e.g. 'Record assumptions for unresolved items'. If the source requirement does not specify how to produce this output, mark it as optional or remove it from the output contract.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_000
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s2': Prior labeled this as profile_domain, but the text is a scope constraint about inclusion.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_001
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s3': Prior labeled this as profile_domain, but the text is a scope constraint about inclusion.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_002
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s4': Prior labeled this as constraint; refined to a scope boundary constraint over allowed and excluded content.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_003
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_confirmed] span='s23': Failure condition matches the prior.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_004
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s24': Prior labeled this as delegation_intent under a boundary family; normalized to the allowed WORKER_HANDOFF construct with non-executable intent semantics.
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_005
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s25': Prior labeled this as delegation_intent, but the text is a prohibition on delegating approvals.
+
+  [WARNING] [type_or_contract_ambiguity] diag_d10_0000
+    Target: delegation_intent:s24
+    Source spans: s24
+    Delegation intent '- Initial drafting' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated from this span.  [sec_delegation_policy/p_list_item_initial_drafting]
+
+  [WARNING] [type_or_contract_ambiguity] diag_d10_0001
+    Target: delegation_intent:s25
+    Source spans: s25
+    Delegation intent 'approvals' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated from this span.  [sec_-_**non-delegable_work/p_list_item_approvals]
+
+  [WARNING] [type_or_contract_ambiguity] diag_d10_0002
+    Target: delegation_intent:s24
+    Source spans: s24
+    Delegation intent '- Initial drafting' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated from this span.  [sec_delegation_policy/p_list_item_initial_drafting]
+
+  [WARNING] [type_or_contract_ambiguity] irs_2444e5a5c547
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Source spans: s13, s15, s16, s17, s18, s19, s20
+    Missing clear output contract [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_output_contract]
+    (blocks rendering of affected element)
+    Missing: promotion_output_contract (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_4767aada0c3b
+    Target: worker_promotion:candidate_select_approved_template
+    Source spans: s14
+    Missing clear output contract [construct=worker_promotion:candidate_select_approved_template, slot=promotion_output_contract]
+    (blocks rendering of affected element)
+    Missing: promotion_output_contract (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_4789433061ec
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Source spans: s13, s15, s16, s17, s18, s19, s20
+    Missing clear input contract [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_input_contract]
+    (blocks rendering of affected element)
+    Missing: promotion_input_contract (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_839fb9f649c0
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Source spans: s13, s15, s16, s17, s18, s19, s20
+    Missing matching handoff with output bindings [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_result_handoff]
+    (blocks rendering of affected element)
+    Missing: promotion_result_handoff (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_a4385a7dba3c
+    Target: worker_promotion:candidate_select_approved_template
+    Source spans: s14
+    Missing matching handoff with output bindings [construct=worker_promotion:candidate_select_approved_template, slot=promotion_result_handoff]
+    (blocks rendering of affected element)
+    Missing: promotion_result_handoff (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_cf49c448d747
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Source spans: s13, s15, s16, s17, s18, s19, s20
+    Missing accepted decision or matching handoff with invocation hint [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_invocation_point]
+    (blocks rendering of affected element)
+    Missing: promotion_invocation_point (required for complete)
+
+  [WARNING] [type_or_contract_ambiguity] irs_d2b05c5a69a7
+    Target: worker_promotion:candidate_select_approved_template
+    Source spans: s14
+    Missing accepted decision or matching handoff with invocation hint [construct=worker_promotion:candidate_select_approved_template, slot=promotion_invocation_point]
+    (blocks rendering of affected element)
+    Missing: promotion_invocation_point (required for complete)
+
+------------------------------------------------------------
+
+Assumptions / Suggestions
+----------------------------------------
+
+  [ASM_0000] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_prepare_internal_comm_draft: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_4789433061ec — Missing clear input contract [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_input_con
+
+  [ASM_0001] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_prepare_internal_comm_draft: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_2444e5a5c547 — Missing clear output contract [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=promotion_output_c
+
+  [ASM_0002] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_prepare_internal_comm_draft: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_cf49c448d747 — Missing accepted decision or matching handoff with invocation hint [construct=worker_promotion:candidate_prepare_interna
+
+  [ASM_0003] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_prepare_internal_comm_draft
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_prepare_internal_comm_draft: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_839fb9f649c0 — Missing matching handoff with output bindings [construct=worker_promotion:candidate_prepare_internal_comm_draft, slot=pr
+
+  [ASM_0004] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_select_approved_template
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_select_approved_template: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_4767aada0c3b — Missing clear output contract [construct=worker_promotion:candidate_select_approved_template, slot=promotion_output_cont
+
+  [ASM_0005] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_select_approved_template
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_select_approved_template: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_d2b05c5a69a7 — Missing accepted decision or matching handoff with invocation hint [construct=worker_promotion:candidate_select_approved
+
+  [ASM_0006] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: worker_promotion:candidate_select_approved_template
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For worker_promotion:candidate_select_approved_template: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] irs_a4385a7dba3c — Missing matching handoff with output bindings [construct=worker_promotion:candidate_select_approved_template, slot=promo
+
+  [ASM_0007] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_01' ('- missing inputs') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_01: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0000 — Exception flow 'exc_adapter_01' ('- missing inputs') has no handler step in worker 'worker_main'.
+
+  [ASM_0008] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_01' ('policy violations') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_01: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0001 — Exception flow 'exc_adapter_01' ('policy violations') has no handler step in worker 'worker_main'.
+
+  [ASM_0009] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_02' ('template mismatches') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_02: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0002 — Exception flow 'exc_adapter_02' ('template mismatches') has no handler step in worker 'worker_main'.
+
+  [ASM_0010] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_03
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_03' ('tone mismatches') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_03: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0003 — Exception flow 'exc_adapter_03' ('tone mismatches') has no handler step in worker 'worker_main'.
+
+  [ASM_0011] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_04
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_04' ('unverified facts') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_04: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0004 — Exception flow 'exc_adapter_04' ('unverified facts') has no handler step in worker 'worker_main'.
+
+  [ASM_0012] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_05
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_05' ('approval gaps') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_05: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0005 — Exception flow 'exc_adapter_05' ('approval gaps') has no handler step in worker 'worker_main'.
+
+  [ASM_0013] Required output has no source-backed producer. The compiler suggests adding a step that explicitly produces this output.
+    Target: worker:worker_main.output:assumptions_log
+    Reason: The source requires this output but does not describe how it should be produced.  The output is kept in the OUTPUTS contract, but no producer step was rendered.
+    Action: Add a source-backed step that produces worker:worker_main.output:assumptions_log. If the source does not specify how to produce it, mark it as optional or remove it from the required output contract.
+    Related diagnostic: [missing_output_producer] diag_post_norm_0006 — Required output 'assumptions_log' (Assumptions log) has no source-backed producer step.
+
+  [ASM_0014] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: delegation_intent:s24
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For delegation_intent:s24: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] diag_d10_0000 — Delegation intent '- Initial drafting' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be 
+
+  [ASM_0015] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: delegation_intent:s25
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For delegation_intent:s25: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] diag_d10_0001 — Delegation intent 'approvals' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated
+
+  [ASM_0016] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: delegation_intent:s24
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For delegation_intent:s24: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] diag_d10_0002 — Delegation intent '- Initial drafting' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be 
+
+------------------------------------------------------------
+
+Provenance Traces
+----------------------------------------
+  [direct] constraint:c_1 spans=s4 section=sec_-_**scope packet=p_list_item_routine_newsletters_exclude_sensitive_executive_messages_and_crisis_communications
+    Constraint 'c_1' (delegation_boundary): The draft is limited to routine newsletters; exclude sensitive executive message
+  [direct] constraint:c_2 spans=s22 section=sec_policies packet=p_list_item_no_external_data
+    Constraint 'c_2' (prohibition): Do not use external data.
+  [inferred] delegation_intent:initial_drafting spans=s24 section=sec_delegation_policy
+    Delegation intent 'initial_drafting': - Initial drafting
+  [direct] flow:exc_adapter_01 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_01': - missing inputs
+  [direct] flow:exc_adapter_01 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_01': policy violations
+  [direct] flow:exc_adapter_02 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_02': template mismatches
+  [direct] flow:exc_adapter_03 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_03': tone mismatches
+  [direct] flow:exc_adapter_04 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_04': unverified facts
+  [direct] flow:exc_adapter_05 spans=s23 section=sec_failure_handling packet=p_list_item_missing_inputs
+    Exception flow 'exc_adapter_05': approval gaps
+  [direct] flow:main spans=s13, s14, s15, s16, s17, s18, s19, s20, s24, s25 section=sec_reusable_process packet=p_list_item_identify_audience_and_key_messages
+    Main flow with 1 block(s).
+  [inferred] profile:audience_0
+    Audience: CompanyWideAudience
+  [inferred] profile:audience_1
+    Audience: TeamAudience
+  [normalized] profile:concept_0
+    Concept: internal communications drafting -- The preparation of written messages for use inside an organization.
+  [normalized] profile:concept_1
+    Concept: company-wide announcements -- Organization-wide messages intended for all employees.
+  [normalized] profile:concept_10
+    Concept: readiness status flag -- An indicator showing whether the draft is ready for release or further review.
+  [normalized] profile:concept_11
+    Concept: policy compliance -- Alignment of the draft with organizational rules or communication policies.
+  [normalized] profile:concept_12
+    Concept: disclaimers/citations -- Statements or references added to clarify limitations or support claims in the draft.
+  [normalized] profile:concept_2
+    Concept: team updates -- Internal messages that communicate progress, changes, or news to a specific team.
+  [normalized] profile:concept_3
+    Concept: routine newsletters -- Regular internal newsletter communications used for ongoing organizational updates.
+  [normalized] profile:concept_4
+    Concept: sensitive executive messages -- High-level leadership communications that require special handling and are excluded from this drafting scope.
+  [normalized] profile:concept_5
+    Concept: crisis communications -- Urgent messages used during incidents or emergencies; excluded from this drafting scope.
+  [normalized] profile:concept_6
+    Concept: template selection -- Choosing an approved formatting or content template for the draft.
+  [normalized] profile:concept_7
+    Concept: revision history -- A record of edits or changes made to the draft over time.
+  [normalized] profile:concept_8
+    Concept: assumptions log -- A written record of assumptions made when preparing the draft.
+  [normalized] profile:concept_9
+    Concept: evidence trail -- Supporting references or artifacts showing how the draft was derived.
+  [inferred] profile:persona
+    Persona: Internal communications drafter
+  [direct] step:st_1 spans=s13 section=sec_reusable_process packet=p_list_item_identify_audience_and_key_messages
+    Step 'st_1' maps to source span(s).
+  [direct] step:st_2 spans=s14 section=sec_reusable_process packet=p_list_item_select_approved_template
+    Step 'st_2' maps to source span(s).
+  [direct] step:st_3 spans=s15 section=sec_reusable_process packet=p_list_item_gather_source_materials
+    Step 'st_3' maps to source span(s).
+  [direct] step:st_4 spans=s16 section=sec_reusable_process packet=p_list_item_draft_content
+    Step 'st_4' maps to source span(s).
+  [direct] step:st_5 spans=s17 section=sec_reusable_process packet=p_list_item_review_for_tone_and_policy_compliance
+    Step 'st_5' maps to source span(s).
+  [direct] step:st_6 spans=s18 section=sec_reusable_process packet=p_list_item_insert_disclaimers_citations
+    Step 'st_6' maps to source span(s).
+  [direct] step:st_7 spans=s19 section=sec_reusable_process packet=p_list_item_attach_revision_history_and_evidence_trail
+    Step 'st_7' maps to source span(s).
+  [direct] step:st_8 spans=s20 section=sec_reusable_process packet=p_list_item_flag_readiness
+    Step 'st_8' maps to source span(s).
+  [normalized] variable:assumptions_log section=sec_required_outputs
+    Variable 'assumptions_log' is declared by adapter hard fact in section 'sec_required_outputs'.
+  [normalized] variable:evidence_trail section=sec_required_outputs
+    Variable 'evidence_trail' is declared by adapter hard fact in section 'sec_required_outputs'.
+  [direct] variable:final_draft spans=s16 section=sec_reusable_process packet=p_list_item_draft_content
+    Variable 'final_draft' is produced by source-backed step 'st_4'.
+  [normalized] variable:key_messages section=sec_inputs_for_each_run
+    Variable 'key_messages' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:readiness_status_flag spans=s20 section=sec_reusable_process packet=p_list_item_flag_readiness
+    Variable 'readiness_status_flag' is produced by source-backed step 'st_8'.
+  [normalized] variable:revision_history section=sec_required_outputs
+    Variable 'revision_history' is declared by adapter hard fact in section 'sec_required_outputs'.
+  [normalized] variable:target_audience section=sec_inputs_for_each_run
+    Variable 'target_audience' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:template_selection section=sec_-_**optional
+    Variable 'template_selection' is declared by adapter hard fact in section 'sec_-_**optional'.
+  [normalized] variable:tone section=sec_inputs_for_each_run
+    Variable 'tone' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:topic section=sec_inputs_for_each_run
+    Variable 'topic' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:worker_main_st_6_result_structured spans=s18 section=sec_reusable_process packet=p_list_item_insert_disclaimers_citations
+    Variable 'worker_main_st_6_result_structured' is produced by source-backed step 'st_6'.
+  [direct] variable:worker_main_st_7_result_structured spans=s19 section=sec_reusable_process packet=p_list_item_attach_revision_history_and_evidence_trail
+    Variable 'worker_main_st_7_result_structured' is produced by source-backed step 'st_7'.
+  [direct] worker:MainWorker spans=s13, s14, s15, s16, s17, s18, s19, s20, s23, s24, s25 section=sec_reusable_process packet=p_list_item_identify_audience_and_key_messages
+    Main worker 'MainWorker' assembled from flow and step IRs.
+
+------------------------------------------------------------
+
+Validation
+----------------------------------------
+
+  Warnings (4):
+    - Aggregated multi-output step st_6 into worker_main_st_6_result_structured without unpack steps.
+    - Aggregated multi-output step st_7 into worker_main_st_7_result_structured without unpack steps.
+    - Unused variable declared: revision_history
+    - Unused variable declared: evidence_trail
+
+------------------------------------------------------------
+
+Generated SPL
+----------------------------------------
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
+    [DEFINE_PERSONA:]
+        ROLE: Internal communications drafter
+        ProcessOriented: Follows a reusable drafting workflow: identify audience and key messages, select an approved template, gather source materials, draft, review for tone and policy compliance, add disclaimers/citations, and attach revision history and evidence trail.
+        PolicyAware: Works within policy constraints, including no external data and handling missing inputs carefully.
+        DocumentationFocused: Produces supporting logs and traces alongside the final draft, including revision history, assumptions, evidence trail, and readiness status.
+        InferredRole: Role inferred from task context; no explicit identity description was provided in the source text.
+    [END_PERSONA]
+    [DEFINE_AUDIENCE:]
+        CompanyWideAudience: Employees receiving company-wide announcements.
+        TeamAudience: Team members receiving internal team updates.
+    [END_AUDIENCE]
+    [DEFINE_CONCEPTS:]
+        Internalcommunicationsdrafting: The preparation of written messages for use inside an organization.
+        Companywideannouncements: Organization-wide messages intended for all employees.
+        Teamupdates: Internal messages that communicate progress, changes, or news to a specific team.
+        Routinenewsletters: Regular internal newsletter communications used for ongoing organizational updates.
+        Sensitiveexecutivemessages: High-level leadership communications that require special handling and are excluded from this drafting scope.
+        Crisiscommunications: Urgent messages used during incidents or emergencies; excluded from this drafting scope.
+        Templateselection: Choosing an approved formatting or content template for the draft.
+        Revisionhistory: A record of edits or changes made to the draft over time.
+        Assumptionslog: A written record of assumptions made when preparing the draft.
+        Evidencetrail: Supporting references or artifacts showing how the draft was derived.
+        Readinessstatusflag: An indicator showing whether the draft is ready for release or further review.
+        Policycompliance: Alignment of the draft with organizational rules or communication policies.
+        Disclaimerscitations: Statements or references added to clarify limitations or support claims in the draft.
+    [END_CONCEPTS]
+    [DEFINE_CONSTRAINTS:]
+        DelegationBoundary: The draft is limited to routine newsletters; exclude sensitive executive messages and crisis communications.
+        Prohibition: Do not use external data.
+    [END_CONSTRAINTS]
+    [DEFINE_VARIABLES:]
+        "- target audience" target_audience: text
+        "Topic of the internal communications draft." topic: text
+        "Desired tone for the internal communications draft." tone: text
+        "Key messages to be included in the internal communications draft." key_messages: text
+        "Optional template selection for the draft." template_selection: text
+        "Final draft" final_draft: text
+        "Revision history" revision_history: text
+        "Assumptions log" assumptions_log: text
+        "Evidence trail" evidence_trail: text
+        "Readiness status flag" readiness_status_flag: text
+        "Structured result for st_6." worker_main_st_6_result_structured: worker_main_st_6_result_structured_type
+        "Structured result for st_7." worker_main_st_7_result_structured: worker_main_st_7_result_structured_type
+    [END_VARIABLES]
+    [DEFINE_TYPES:]
+        worker_main_st_6_result_structured_type = { final_draft: text, evidence_trail: text }
+        worker_main_st_7_result_structured_type = { revision_history: text, evidence_trail: text }
+    [END_TYPES]
+    [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
+        [INPUTS]
+            REQUIRED <REF>target_audience</REF>
+            REQUIRED <REF>topic</REF>
+            REQUIRED <REF>tone</REF>
+            REQUIRED <REF>key_messages</REF>
+            OPTIONAL <REF>template_selection</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>worker_main_st_6_result_structured</REF>
+            REQUIRED <REF>worker_main_st_7_result_structured</REF>
+            REQUIRED <REF>assumptions_log</REF>
+            REQUIRED <REF>readiness_status_flag</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [COMMAND Identify the target audience and key messages based on <REF>target_audience</REF> and <REF>key_messages</REF>]
+                COMMAND-2 [COMMAND Select the approved template based on <REF>template_selection</REF>]
+                COMMAND-3 [COMMAND Gather source materials based on <REF>topic</REF>]
+                COMMAND-4 [COMMAND Draft the content based on <REF>topic</REF>, <REF>target_audience</REF>, <REF>tone</REF>, <REF>key_messages</REF>, and <REF>template_selection</REF> RESULT final_draft: text SET]
+                COMMAND-5 [COMMAND Review the draft for tone and policy compliance based on <REF>final_draft</REF> and <REF>tone</REF>]
+                COMMAND-6 [COMMAND Insert disclaimers and citations based on <REF>final_draft</REF> RESULT worker_main_st_6_result_structured: worker_main_st_6_result_structured_type SET]
+                COMMAND-7 [COMMAND Attach the revision history and evidence trail based on <REF>worker_main_st_6_result_structured</REF> RESULT worker_main_st_7_result_structured: worker_main_st_7_result_structured_type SET]
+                COMMAND-8 [COMMAND Flag readiness based on <REF>worker_main_st_6_result_structured</REF> and <REF>worker_main_st_7_result_structured</REF> RESULT readiness_status_flag: text SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: - missing inputs]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: policy violations]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: template mismatches]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: tone mismatches]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: unverified facts]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: approval gaps]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+[END_AGENT]

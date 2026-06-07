@@ -1,0 +1,79 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-05-31T19:12:28.617842",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [
+          "s15",
+          "s17",
+          "s18"
+        ],
+        "alternative_flows": [
+          {
+            "flow_id": "alt_1",
+            "condition_text": "the user asks for revision",
+            "spans": [
+              "s18"
+            ]
+          }
+        ],
+        "exception_flows": [
+          {
+            "flow_id": "exc_adapter_06",
+            "condition_text": "Missing timeframe",
+            "spans": [
+              "s24"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_07",
+            "condition_text": "conflicting instructions",
+            "spans": [
+              "s25"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_08",
+            "condition_text": "insufficient source access",
+            "spans": [
+              "s26"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_09",
+            "condition_text": "evidence shortage",
+            "spans": [
+              "s27"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_10",
+            "condition_text": "user refusal to answer",
+            "spans": [
+              "s28"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_11",
+            "condition_text": "provenance failure",
+            "spans": [
+              "s29"
+            ]
+          }
+        ],
+        "delegation_candidates": []
+      },
+      "source_retrieval": {
+        "main_flow_spans": [
+          "s16"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": []
+  }
+}

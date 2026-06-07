@@ -1,0 +1,65 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-05-31T19:12:32.420634",
+  "metadata": {},
+  "result": {
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s15"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "IF",
+            "condition_text": "sources are needed and available",
+            "spans": [
+              "s17"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {
+          "alt_1": [
+            {
+              "block_id": "b_3",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s18"
+              ]
+            }
+          ]
+        },
+        "exception_flow_blocks": {
+          "exc_adapter_06": [],
+          "exc_adapter_07": [],
+          "exc_adapter_08": [],
+          "exc_adapter_09": [],
+          "exc_adapter_10": [],
+          "exc_adapter_11": []
+        }
+      },
+      "source_retrieval": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s16"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      }
+    },
+    "control_complexity_regions": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-05-24T22:02:42.734148",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_normalize_request",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "Normalize the request and determine procurement category",
+        "purpose": "Ensure the request is standardized and the procurement category is identified for downstream processing.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "purchase_request",
+            "data_type": "text",
+            "required": true,
+            "description": "Purchase request",
+            "source": "input"
+          },
+          {
+            "name": "requested_item_or_service",
+            "data_type": "text",
+            "required": true,
+            "description": "Requested item or service",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "procurement_category",
+            "data_type": "text",
+            "required": true,
+            "description": "Procurement category",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "reuse_potential"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_identify_vendor_pool",
+        "source_span_ids": [
+          "s17"
+        ],
+        "task_text": "Identify eligible vendor pool",
+        "purpose": "Determine the set of vendors eligible for the procurement process.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "vendor_eligibility_context",
+            "data_type": "text",
+            "required": true,
+            "description": "Vendor eligibility context",
+            "source": "input"
+          },
+          {
+            "name": "any_initial_vendor_suggestions",
+            "data_type": "text",
+            "required": true,
+            "description": "Any initial vendor suggestions",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [],
+        "signals": [
+          "bounded_io",
+          "explicit_delegation",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_solicit_quotes",
+        "source_span_ids": [
+          "s18"
+        ],
+        "task_text": "Solicit quotes or equivalent offers according to policy",
+        "purpose": "Gather quotes or offers from eligible vendors in compliance with procurement policies.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "explicit_delegation",
+          "external_integration",
+          "multi_step_process"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_evaluate_budget_compliance",
+        "source_span_ids": [
+          "s19"
+        ],
+        "task_text": "Evaluate budget, compliance, and vendor eligibility",
+        "purpose": "Assess the budget, compliance, and eligibility of vendors to ensure they meet procurement requirements.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "multi_step_process",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_bounded_renegotiation",
+        "source_span_ids": [
+          "s20"
+        ],
+        "task_text": "If over budget, attempt bounded renegotiation or broaden vendor set",
+        "purpose": "Handle over-budget scenarios by attempting renegotiation or expanding the vendor pool.",
+        "candidate_kind": "failure_recovery_protocol",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "independent_failure_policy",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_non_compliance_handling",
+        "source_span_ids": [
+          "s21"
+        ],
+        "task_text": "If non-compliance occurs, route remediation, waiver, or restart sourcing according to policy",
+        "purpose": "Address non-compliance by routing to appropriate remediation, waiver, or restarting the sourcing process.",
+        "candidate_kind": "failure_recovery_protocol",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "independent_failure_policy",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_route_approval",
+        "source_span_ids": [
+          "s22"
+        ],
+        "task_text": "Route approval based on thresholds and category",
+        "purpose": "Route the procurement request for approval based on predefined thresholds and category.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "approval_record",
+            "data_type": "text",
+            "required": true,
+            "description": "Approval record",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process"
+        ],
+        "risks": [
+          "no_clear_input_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_issue_po",
+        "source_span_ids": [
+          "s23"
+        ],
+        "task_text": "Issue PO only after all gates pass",
+        "purpose": "Generate and issue a purchase order after all approval gates are cleared.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "po_or_equivalent_issuance_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "PO or equivalent issuance artifact",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_archive_audit_evidence",
+        "source_span_ids": [
+          "s24"
+        ],
+        "task_text": "Archive evidence for audit",
+        "purpose": "Store all relevant evidence to ensure audit readiness.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "audit_evidence_bundle",
+            "data_type": "text",
+            "required": true,
+            "description": "Audit evidence bundle",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_input_contract"
+        ]
+      }
+    ]
+  }
+}

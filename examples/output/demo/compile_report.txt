@@ -1,0 +1,410 @@
+NL2SPL Compile Report
+============================================================
+
+Status: partial
+
+Summary:
+  SPL draft generated: yes
+  Adapter warnings: 0
+  Diagnostics: 28 warning(s)
+  Validation errors: 0
+  Validation warnings: 10
+  Assumptions (not rendered): 4
+  Trace records: 31
+
+------------------------------------------------------------
+
+Diagnostics
+----------------------------------------
+
+  [WARNING] [missing_handler] diag_post_norm_0000
+    Target: worker:worker_main.exception_flow:exc_adapter_00
+    Source spans: s21
+    Exception flow 'exc_adapter_00' ('Communications lead unresponsive for over two days') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Communications lead unresponsive for over two days', or mark this exception as acknowledged without handling.
+    Missing: handler_action (required for exc_adapter_00)
+
+  [WARNING] [missing_handler] diag_post_norm_0001
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Source spans: s20
+    Exception flow 'exc_adapter_01' ('Template unavailable') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Template unavailable', or mark this exception as acknowledged without handling.
+    Missing: handler_action (required for exc_adapter_01)
+
+  [WARNING] [missing_handler] diag_post_norm_0002
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Source spans: s19
+    Exception flow 'exc_adapter_02' ('Topic summary too vague to draft from') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Topic summary too vague to draft from', or mark this exception as acknowledged without handling.
+    Missing: handler_action (required for exc_adapter_02)
+
+  [WARNING] [route_refinement_corrected] diag_rf_000
+    Target: stage2:field_route:s1
+    Source spans: s1
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's1'
+
+  [WARNING] [route_refinement_corrected] diag_rf_003
+    Target: stage2:field_route:s2
+    Source spans: s2
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's2'
+
+  [WARNING] [route_refinement_corrected] diag_rf_006
+    Target: stage2:field_route:s3
+    Source spans: s3
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's3'
+
+  [WARNING] [route_refinement_corrected] diag_rf_009
+    Target: stage2:field_route:s4
+    Source spans: s4
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's4'
+
+  [WARNING] [route_refinement_corrected] diag_rf_012
+    Target: stage2:field_route:s5
+    Source spans: s5
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's5'
+
+  [WARNING] [route_refinement_corrected] diag_rf_015
+    Target: stage2:field_route:s6
+    Source spans: s6
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's6'
+
+  [WARNING] [route_refinement_corrected] diag_rf_018
+    Target: stage2:field_route:s7
+    Source spans: s7
+    LLM refinement corrected: role 'profile_domain' requires route_family='profile', got None for span 's7'
+
+  [WARNING] [route_refinement_corrected] diag_rf_021
+    Target: stage2:field_route:s8
+    Source spans: s8
+    LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'
+
+  [WARNING] [route_refinement_corrected] diag_rf_022
+    Target: stage2:field_route:s9
+    Source spans: s9
+    LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'
+
+  [WARNING] [route_refinement_corrected] diag_rf_024
+    Target: stage2:field_route:s10
+    Source spans: s10
+    LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'
+
+  [WARNING] [route_refinement_corrected] diag_rf_025
+    Target: stage2:field_route:s11
+    Source spans: s11
+    LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'
+
+  [WARNING] [route_refinement_corrected] diag_rf_026
+    Target: stage2:field_route:s12
+    Source spans: s12
+    LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's12'
+
+  [WARNING] [route_refinement_corrected] diag_rf_027
+    Target: stage2:field_route:s13
+    Source spans: s13
+    LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's13'
+
+  [WARNING] [route_refinement_corrected] diag_rf_030
+    Target: stage2:field_route:s14
+    Source spans: s14
+    LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'
+
+  [WARNING] [route_refinement_corrected] diag_rf_033
+    Target: stage2:field_route:s15
+    Source spans: s15
+    LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'
+
+  [WARNING] [route_refinement_corrected] diag_rf_036
+    Target: stage2:field_route:s16
+    Source spans: s16
+    LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's16'
+
+  [WARNING] [route_refinement_corrected] diag_rf_037
+    Target: stage2:field_route:s17
+    Source spans: s17
+    LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's17'
+
+  [WARNING] [route_refinement_corrected] diag_rf_038
+    Target: stage2:field_route:s18
+    Source spans: s18
+    LLM refinement corrected: role 'constraint' requires route_family='constraint', got None for span 's18'
+
+  [WARNING] [route_refinement_corrected] diag_rf_039
+    Target: stage2:field_route:s19
+    Source spans: s19
+    LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's19'
+
+  [WARNING] [route_refinement_corrected] diag_rf_040
+    Target: stage2:field_route:s20
+    Source spans: s20
+    LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'
+
+  [WARNING] [route_refinement_corrected] diag_rf_041
+    Target: stage2:field_route:s21
+    Source spans: s21
+    LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'
+
+  [WARNING] [route_refinement_corrected] diag_rf_042
+    Target: stage2:field_route:s22
+    Source spans: s22
+    LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'
+
+  [WARNING] [route_refinement_corrected] diag_rf_043
+    Target: stage2:field_route:s23
+    Source spans: s23
+    LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'
+
+  [WARNING] [route_refinement_diagnostic] diag_rf_045
+    Target: stage2:field_route:
+    LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested behavior, but the text is domain/scoping content rather than an executable step.
+
+  [WARNING] [type_or_contract_ambiguity] diag_d10_0000
+    Target: delegation_intent:s22
+    Source spans: s22
+    Delegation intent 'Initial drafting using template and topic summary' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated from this span.  [sec_delegation_policy/p_list_item_initial_drafting_using_template_and_topic_summary]
+
+------------------------------------------------------------
+
+Assumptions / Suggestions
+----------------------------------------
+
+  [ASM_0000] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_00
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_00' ('Communications lead unresponsive for over two days') has no handler step in worker 'wo)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_00: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0000 — Exception flow 'exc_adapter_00' ('Communications lead unresponsive for over two days') has no handler step in worker 'wo
+
+  [ASM_0001] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_01' ('Template unavailable') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_01: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0001 — Exception flow 'exc_adapter_01' ('Template unavailable') has no handler step in worker 'worker_main'.
+
+  [ASM_0002] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_02' ('Topic summary too vague to draft from') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_02: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0002 — Exception flow 'exc_adapter_02' ('Topic summary too vague to draft from') has no handler step in worker 'worker_main'.
+
+  [ASM_0003] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: delegation_intent:s22
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For delegation_intent:s22: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] diag_d10_0000 — Delegation intent 'Initial drafting using template and topic summary' lacks a valid worker/API handoff contract.  No INV
+
+------------------------------------------------------------
+
+Provenance Traces
+----------------------------------------
+  [direct] constraint:c_1 spans=s16 section=sec_policies packet=p_list_item_must_use_the_approved_template
+    Constraint 'c_1' (requirement): Must use the approved template
+  [direct] constraint:c_2 spans=s17 section=sec_policies packet=p_list_item_must_follow_plain_language_and_inclusive_tone_guidelines
+    Constraint 'c_2' (requirement): Must follow plain-language and inclusive tone guidelines
+  [direct] constraint:c_3 spans=s18, s23 section=sec_policies packet=p_list_item_require_final_sign_off_from_the_communications_lead_before_flagging_as_approved
+    Constraint 'c_3' (approval): Require final sign-off from the communications lead before flagging as approved
+  [direct] flow:exc_adapter_00 spans=s21 section=sec_failure_handling packet=p_list_item_communications_lead_unresponsive_for_over_two_days
+    Exception flow 'exc_adapter_00': Communications lead unresponsive for over two days
+  [direct] flow:exc_adapter_01 spans=s20 section=sec_failure_handling packet=p_list_item_template_unavailable
+    Exception flow 'exc_adapter_01': Template unavailable
+  [direct] flow:exc_adapter_02 spans=s19 section=sec_failure_handling packet=p_list_item_topic_summary_too_vague_to_draft_from
+    Exception flow 'exc_adapter_02': Topic summary too vague to draft from
+  [direct] flow:main spans=s13, s14, s15 section=sec_reusable_process packet=p_list_item_requestor_provides_topic_audience
+    Main flow with 1 block(s).
+  [normalized] profile:concept_0
+    Concept: Internal communications drafting -- The creation of internal company communications such as newsletters, announcements, update digests, and executive briefs.
+  [normalized] profile:concept_1
+    Concept: Recurring digests -- Regularly scheduled summary communications that compile updates over time.
+  [normalized] profile:concept_10
+    Concept: Inclusive tone guidelines -- Guidelines for writing in a respectful, inclusive manner.
+  [normalized] profile:concept_11
+    Concept: Status flag -- A field indicating workflow state, with values such as drafting, ready for review, or approved.
+  [normalized] profile:concept_2
+    Concept: Executive memos -- Internal memoranda intended for executive-level readers.
+  [normalized] profile:concept_3
+    Concept: Crisis communications -- Urgent communications used during a crisis; explicitly out of scope for this task family.
+  [normalized] profile:concept_4
+    Concept: Internal newsletters -- Newsletter-style communications distributed within the organization.
+  [normalized] profile:concept_5
+    Concept: Update digests -- Brief summary updates that collect recent information into a digest format.
+  [normalized] profile:concept_6
+    Concept: Executive briefs -- Concise briefing documents prepared for executives.
+  [normalized] profile:concept_7
+    Concept: Communications lead -- The person responsible for reviewing the draft and providing final sign-off.
+  [normalized] profile:concept_8
+    Concept: Approved template -- The required standard document format that must be used for drafting.
+  [normalized] profile:concept_9
+    Concept: Plain-language guidelines -- Rules requiring clear, simple wording that is easy to understand.
+  [inferred] profile:persona
+    Persona: Internal communications drafting specialist
+  [direct] step:st_1 spans=s13 section=sec_reusable_process packet=p_list_item_requestor_provides_topic_audience
+    Step 'st_1' maps to source span(s).
+  [direct] step:st_2 spans=s14 section=sec_reusable_process packet=p_list_item_ic_writer_drafts_using_the_standard_internal_communications_template_appendix_a_of_the_style_guide
+    Step 'st_2' maps to source span(s).
+  [direct] step:st_3 spans=s15 section=sec_reusable_process packet=p_list_item_routes_to_the_relevant_communications_lead_for_review
+    Step 'st_3' maps to source span(s).
+  [normalized] variable:finished_draft_word_or_google_doc_200_500_words_no_approval_marks section=sec_required_outputs
+    Variable 'finished_draft_word_or_google_doc_200_500_words_no_approval_marks' is declared by adapter hard fact in section 'sec_required_outputs'.
+  [normalized] variable:key_dates_or_deadlines section=sec_inputs_for_each_run
+    Variable 'key_dates_or_deadlines' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:status_flag_values_drafting_ready_for_review_approved spans=s15 section=sec_reusable_process packet=p_list_item_routes_to_the_relevant_communications_lead_for_review
+    Variable 'status_flag_values_drafting_ready_for_review_approved' is produced by source-backed step 'st_3'.
+  [normalized] variable:target_audience section=sec_inputs_for_each_run
+    Variable 'target_audience' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:topic_summary section=sec_inputs_for_each_run
+    Variable 'topic_summary' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:worker_main_st_1_result_structured spans=s13 section=sec_reusable_process packet=p_list_item_requestor_provides_topic_audience
+    Variable 'worker_main_st_1_result_structured' is produced by source-backed step 'st_1'.
+  [direct] variable:worker_main_st_2_result_structured spans=s14 section=sec_reusable_process packet=p_list_item_ic_writer_drafts_using_the_standard_internal_communications_template_appendix_a_of_the_style_guide
+    Variable 'worker_main_st_2_result_structured' is produced by source-backed step 'st_2'.
+  [direct] worker:MainWorker spans=s13, s14, s15 section=sec_reusable_process packet=p_list_item_requestor_provides_topic_audience
+    Main worker 'MainWorker' assembled from flow and step IRs.
+
+------------------------------------------------------------
+
+Construct Satisfaction
+----------------------------------------
+
+Stage: stage3_5
+  - WORKER_CANDIDATE worker_candidate:candidate_draft_internal_communications: complete; renderable=false
+    frontier: leaf
+    path: worker_plan / candidates / candidate_draft_internal_communications
+    source spans: s13, s14
+  - WORKER_CANDIDATE worker_candidate:candidate_route_to_communications_lead: complete; renderable=false
+    frontier: leaf
+    path: worker_plan / candidates / candidate_route_to_communications_lead
+    source spans: s15
+  - WORKER_PROMOTION worker_promotion:candidate_draft_internal_communications: partial; renderable=false
+    frontier: cutline_blocked
+    cutline: missing_promotion_contract
+    path: worker_plan / promotion / candidate_draft_internal_communications
+    source spans: s13, s14
+    missing / assumed slots:
+      - promotion_input_contract: missing (Missing clear input contract)
+      - promotion_invocation_point: missing (Missing accepted decision or matching handoff with invocation hint)
+      - promotion_output_contract: missing (Missing clear output contract)
+      - promotion_result_handoff: missing (Missing matching handoff with output bindings)
+  - WORKER_PROMOTION worker_promotion:candidate_route_to_communications_lead: partial; renderable=false
+    frontier: cutline_blocked
+    cutline: missing_promotion_contract
+    path: worker_plan / promotion / candidate_route_to_communications_lead
+    source spans: s15
+    missing / assumed slots:
+      - promotion_input_contract: missing (Missing clear input contract)
+      - promotion_invocation_point: missing (Missing accepted decision or matching handoff with invocation hint)
+      - promotion_output_contract: missing (Missing clear output contract)
+      - promotion_result_handoff: missing (Missing matching handoff with output bindings)
+
+Stage: stage4
+  - EXCEPTION_FLOW worker:worker_main.exception_flow:exc_adapter_00: partial; renderable=true
+    frontier: cutline_partial
+    cutline: missing_required_for_complete
+    path: worker_flow_plan / worker_main / exception_flows / exc_adapter_00
+    source spans: s21
+  - EXCEPTION_FLOW worker:worker_main.exception_flow:exc_adapter_01: partial; renderable=true
+    frontier: cutline_partial
+    cutline: missing_required_for_complete
+    path: worker_flow_plan / worker_main / exception_flows / exc_adapter_01
+    source spans: s20
+  - EXCEPTION_FLOW worker:worker_main.exception_flow:exc_adapter_02: partial; renderable=true
+    frontier: cutline_partial
+    cutline: missing_required_for_complete
+    path: worker_flow_plan / worker_main / exception_flows / exc_adapter_02
+    source spans: s19
+
+Stage: stage7
+  - GENERAL_COMMAND worker:worker_main.step:st_2: complete; renderable=true
+    frontier: leaf
+    path: worker_step_plan / worker_main / steps / st_2
+    source spans: s14
+  - GENERAL_COMMAND worker:worker_main.step:st_3: complete; renderable=true
+    frontier: leaf
+    path: worker_step_plan / worker_main / steps / st_3
+    source spans: s15
+  - REQUEST_INPUT worker:worker_main.step:st_1: complete; renderable=true
+    frontier: leaf
+    path: worker_step_plan / worker_main / steps / st_1
+    source spans: s13
+
+------------------------------------------------------------
+
+Validation
+----------------------------------------
+
+  Warnings (10):
+    - ConstructPlan: condition span s21 for exc_demand_00 has unowned; attached to main worker worker_main.
+    - ConstructPlan: condition span s20 for exc_demand_01 has unowned; attached to main worker worker_main.
+    - ConstructPlan: condition span s19 for exc_demand_02 has unowned; attached to main worker worker_main.
+    - ConstructPlan: condition span s21 for exc_demand_00 has unowned; attached to main worker worker_main.
+    - ConstructPlan: condition span s20 for exc_demand_01 has unowned; attached to main worker worker_main.
+    - ConstructPlan: condition span s19 for exc_demand_02 has unowned; attached to main worker worker_main.
+    - Aggregated multi-output step st_1 into worker_main_st_1_result_structured without unpack steps.
+    - Aggregated multi-output step st_2 into worker_main_st_2_result_structured without unpack steps.
+    - Unused variable declared: finished_draft_word_or_google_doc_200_500_words_no_approval_marks
+    - Unused variable declared: status_flag_values_drafting_ready_for_review_approved
+
+------------------------------------------------------------
+
+Generated SPL
+----------------------------------------
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
+    [DEFINE_PERSONA:]
+        ROLE: Internal communications drafting specialist
+        TemplateDriven: Uses the approved internal communications template and follows the standard style guide.
+        PlainLanguageFocused: Writes using plain-language and inclusive tone guidelines.
+        ReviewOriented: Routes drafts to the relevant communications lead for review and waits for final sign-off before approval.
+    [END_PERSONA]
+    [DEFINE_CONCEPTS:]
+        Internalcommunicationsdrafting: The creation of internal company communications such as newsletters, announcements, update digests, and executive briefs.
+        Recurringdigests: Regularly scheduled summary communications that compile updates over time.
+        Executivememos: Internal memoranda intended for executive-level readers.
+        Crisiscommunications: Urgent communications used during a crisis; explicitly out of scope for this task family.
+        Internalnewsletters: Newsletter-style communications distributed within the organization.
+        Updatedigests: Brief summary updates that collect recent information into a digest format.
+        Executivebriefs: Concise briefing documents prepared for executives.
+        Communicationslead: The person responsible for reviewing the draft and providing final sign-off.
+        Approvedtemplate: The required standard document format that must be used for drafting.
+        Plainlanguageguidelines: Rules requiring clear, simple wording that is easy to understand.
+        Inclusivetoneguidelines: Guidelines for writing in a respectful, inclusive manner.
+        Statusflag: A field indicating workflow state, with values such as drafting, ready for review, or approved.
+    [END_CONCEPTS]
+    [DEFINE_CONSTRAINTS:]
+        Requirement: Must use the approved template
+        Requirement: Must follow plain-language and inclusive tone guidelines
+        Approval: Require final sign-off from the communications lead before flagging as approved
+    [END_CONSTRAINTS]
+    [DEFINE_VARIABLES:]
+        "Topic summary" topic_summary: text
+        "Target audience" target_audience: text
+        "Key dates or deadlines" key_dates_or_deadlines: text
+        "Finished draft word or google doc 200 500 words no approval marks" finished_draft_word_or_google_doc_200_500_words_no_approval_marks: text
+        "Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)" status_flag_values_drafting_ready_for_review_approved: text
+        "Structured result for st_1." worker_main_st_1_result_structured: worker_main_st_1_result_structured_type
+        "Structured result for st_2." worker_main_st_2_result_structured: worker_main_st_2_result_structured_type
+    [END_VARIABLES]
+    [DEFINE_TYPES:]
+        worker_main_st_1_result_structured_type = { topic_summary: text, target_audience: text }
+        worker_main_st_2_result_structured_type = { finished_draft_word_or_google_doc_200_500_words_no_approval_marks: text, status_flag_values_drafting_ready_for_review_approved: text }
+    [END_TYPES]
+    [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
+        [INPUTS]
+            REQUIRED <REF>topic_summary</REF>
+            REQUIRED <REF>target_audience</REF>
+            REQUIRED <REF>key_dates_or_deadlines</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>worker_main_st_2_result_structured</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [INPUT Receive topic and audience information VALUE worker_main_st_1_result_structured: worker_main_st_1_result_structured_type SET]
+                COMMAND-2 [COMMAND Draft the internal communications message using the standard template based on <REF>worker_main_st_1_result_structured</REF> RESULT worker_main_st_2_result_structured: worker_main_st_2_result_structured_type SET]
+                COMMAND-3 [COMMAND Route the draft to the relevant communications lead for review based on <REF>worker_main_st_2_result_structured</REF> RESULT status_flag_values_drafting_ready_for_review_approved: text SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: Communications lead unresponsive for over two days]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Template unavailable]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Topic summary too vague to draft from]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+[END_AGENT]

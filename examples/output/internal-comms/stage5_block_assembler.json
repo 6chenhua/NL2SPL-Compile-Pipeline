@@ -1,0 +1,89 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-05-24T19:37:00.472535",
+  "metadata": {},
+  "result": {
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s11",
+              "s12",
+              "s13",
+              "s30"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {
+          "alt_1": [
+            {
+              "block_id": "b_2",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s17"
+              ]
+            }
+          ]
+        },
+        "exception_flow_blocks": {
+          "exc_adapter_00": [],
+          "exc_adapter_01": [],
+          "exc_adapter_02": [],
+          "exc_adapter_03": [],
+          "exc_adapter_04": [],
+          "exc_adapter_05": []
+        }
+      },
+      "retrieve_sources": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "IF",
+            "condition_text": "sources are needed and available",
+            "spans": [
+              "s14"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s15"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      },
+      "produce_draft": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s16"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
+      }
+    },
+    "control_complexity_regions": [],
+    "warnings": [
+      "D3: failure condition span 's24' (Missing timeframe) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's25' (Conflicting instructions) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's26' (Insufficient source access) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's27' (Evidence\nshortage) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's28' (User refusal to answer) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's29' (Provenance failure) is not owned by any worker; attached to main worker 'worker_main'."
+    ]
+  }
+}

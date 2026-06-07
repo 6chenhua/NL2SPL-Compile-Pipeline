@@ -1,0 +1,313 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-05-31T19:12:24.435381",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s15",
+          "s17",
+          "s18",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30"
+        ],
+        "input_contract": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          },
+          {
+            "name": "known_topics",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Optional known topics",
+            "source": "input"
+          },
+          {
+            "name": "timeframe",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional timeframe",
+            "source": "input"
+          },
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          },
+          {
+            "name": "format_preferences",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional format preferences",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          },
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          },
+          {
+            "name": "assumptions_log",
+            "data_type": "List [text]",
+            "required": true,
+            "description": "A short assumptions log for any unresolved items",
+            "source": "output"
+          },
+          {
+            "name": "completion_status",
+            "data_type": "text",
+            "required": true,
+            "description": "A completion status",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      },
+      {
+        "worker_id": "source_retrieval",
+        "worker_name": "Worker_source_retrieval",
+        "kind": "child",
+        "purpose": "To gather necessary information from approved sources while maintaining provenance.",
+        "owned_span_ids": [
+          "s16"
+        ],
+        "input_contract": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": [
+          "bounded_io",
+          "explicit_delegation",
+          "provenance_or_audit"
+        ],
+        "reason": "The task of gathering necessary information from approved sources while maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract with 'connectors_or_source_repositories' and a clear output contract with 'source_evidence_set'. The task is explicitly delegated as a bounded subtask in the source, and it maintains provenance, which is a critical aspect of the task."
+      }
+    ],
+    "handoffs": [
+      {
+        "handoff_id": "handoff_source_retrieval",
+        "from_worker": "worker_main",
+        "to_worker": "source_retrieval",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "To gather necessary information from approved sources while maintaining provenance.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "connectors_or_source_repositories",
+            "child_input": "connectors_or_source_repositories",
+            "required": false,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "source_evidence_set",
+            "parent_variable": "source_evidence_set",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s15",
+          "before_span_id": "s17",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_source_retrieval fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_id": "candidate_source_retrieval",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "retrieve sources using approved source recipes and maintain provenance",
+        "purpose": "To gather necessary information from approved sources while maintaining provenance.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_draft_production",
+        "source_span_ids": [
+          "s17"
+        ],
+        "task_text": "produce a draft communication artifact",
+        "purpose": "To create an initial draft of the communication artifact.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_revision_process",
+        "source_span_ids": [
+          "s18"
+        ],
+        "task_text": "revise the draft while rechecking constraints",
+        "purpose": "To revise the draft communication artifact and ensure all constraints are met.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_source_retrieval",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "The task of gathering necessary information from approved sources while maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract with 'connectors_or_source_repositories' and a clear output contract with 'source_evidence_set'. The task is explicitly delegated as a bounded subtask in the source, and it maintains provenance, which is a critical aspect of the task.",
+        "evidence": [
+          "bounded_io",
+          "explicit_delegation",
+          "provenance_or_audit"
+        ]
+      },
+      {
+        "candidate_id": "candidate_draft_production",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Producing a draft is a normal step in the main process and directly follows the retrieval of necessary information. It does not have an independent value as a separate worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_revision_process",
+        "decision": "needs_repair_or_warning",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The revision process lacks a clear input and output contract, as indicated by the risks. It cannot be expressed losslessly as a separate worker without further clarification.",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_draft_production",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Producing a draft is a normal step in the main process and directly follows the retrieval of necessary information. It does not have an independent value as a separate worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_revision_process",
+        "decision": "needs_repair_or_warning",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The revision process lacks a clear input and output contract, as indicated by the risks. It cannot be expressed losslessly as a separate worker without further clarification.",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

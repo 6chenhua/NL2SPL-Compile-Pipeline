@@ -13,6 +13,7 @@ __pycache__/
 .pytest_deps/
 .pytest_tmp*/
 output/
+!examples/output/
 
 # Project instructions (not code)
 CLAUDE.md

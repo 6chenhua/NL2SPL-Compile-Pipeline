@@ -1,0 +1,355 @@
+NL2SPL Compile Report
+============================================================
+
+Status: partial
+
+Summary:
+  SPL draft generated: yes
+  Adapter warnings: 21
+  Diagnostics: 8 warning(s)
+  Validation errors: 0
+  Validation warnings: 17
+  Assumptions (not rendered): 8
+  Trace records: 43
+
+------------------------------------------------------------
+
+Adapter Warnings
+----------------------------------------
+  - LLM_DUPLICATE_FACT: LLM input fact 'purchase_request' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'requested_item_or_service' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'budget_owner' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'cost_center' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'urgency' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'procurement_category' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'policy_profile' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'vendor_eligibility_context' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM input fact 'any_initial_vendor_suggestions' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'sourcing_evaluation_record' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'selected_vendor_decision_or_rejection_outcome' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'approval_record' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'po_or_equivalent_issuance_artifact' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM output fact 'audit_evidence_bundle' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'insufficient_quotes' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'over_budget_proposals' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'vendor_ineligibility' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'approval_denial' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'missing_documents' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'compliance_failure' duplicates deterministic fact -- rejected.
+  - LLM_DUPLICATE_FACT: LLM failure_mode fact 'waiver_rejection' duplicates deterministic fact -- rejected.
+
+------------------------------------------------------------
+
+Diagnostics
+----------------------------------------
+
+  [WARNING] [missing_handler] diag_post_norm_0000
+    Target: worker:worker_main.exception_flow:exc_adapter_00
+    Source spans: s30
+    Exception flow 'exc_adapter_00' ('Insufficient quotes') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Insufficient quotes', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0001
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Source spans: s31
+    Exception flow 'exc_adapter_01' ('Over-budget proposals') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Over-budget proposals', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0002
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Source spans: s32
+    Exception flow 'exc_adapter_02' ('Vendor ineligibility') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Vendor ineligibility', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0003
+    Target: worker:worker_main.exception_flow:exc_adapter_03
+    Source spans: s33
+    Exception flow 'exc_adapter_03' ('Approval denial') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Approval denial', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0004
+    Target: worker:worker_main.exception_flow:exc_adapter_04
+    Source spans: s34
+    Exception flow 'exc_adapter_04' ('Missing
+documents') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Missing
+documents', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0005
+    Target: worker:worker_main.exception_flow:exc_adapter_05
+    Source spans: s35
+    Exception flow 'exc_adapter_05' ('Compliance failure') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Compliance failure', or mark this exception as acknowledged without handling.
+
+  [WARNING] [missing_handler] diag_post_norm_0006
+    Target: worker:worker_main.exception_flow:exc_adapter_06
+    Source spans: s36
+    Exception flow 'exc_adapter_06' ('Waiver rejection') has no handler step in worker 'worker_main'.
+    Suggested: Add a handler step for 'Waiver rejection', or mark this exception as acknowledged without handling.
+
+  [WARNING] [type_or_contract_ambiguity] diag_d10_0000
+    Target: delegation_intent:s37
+    Source spans: s37
+    Delegation intent 'Bounded sourcing or quote-comparison subtasks may be delegated, but vendor
+decis' lacks a valid worker/API handoff contract.  No INVOKE_WORKER or CALL_API will be generated from this span.  [sec_delegation_policy/p_delegation_rule_bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts]
+    Suggested: Provide a valid worker/API handoff contract with input/output/API bindings covering span 's37'. hints=hint_delegation_0_sec_delegation_policy
+
+------------------------------------------------------------
+
+Assumptions / Suggestions
+----------------------------------------
+
+  [ASM_0000] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_00
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_00' ('Insufficient quotes') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_00: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0000 — Exception flow 'exc_adapter_00' ('Insufficient quotes') has no handler step in worker 'worker_main'.
+
+  [ASM_0001] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_01
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_01' ('Over-budget proposals') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_01: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0001 — Exception flow 'exc_adapter_01' ('Over-budget proposals') has no handler step in worker 'worker_main'.
+
+  [ASM_0002] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_02
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_02' ('Vendor ineligibility') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_02: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0002 — Exception flow 'exc_adapter_02' ('Vendor ineligibility') has no handler step in worker 'worker_main'.
+
+  [ASM_0003] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_03
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_03' ('Approval denial') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_03: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0003 — Exception flow 'exc_adapter_03' ('Approval denial') has no handler step in worker 'worker_main'.
+
+  [ASM_0004] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_04
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_04' ('Missing
+documents') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_04: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0004 — Exception flow 'exc_adapter_04' ('Missing
+documents') has no handler step in worker 'worker_main'.
+
+  [ASM_0005] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_05
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_05' ('Compliance failure') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_05: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0005 — Exception flow 'exc_adapter_05' ('Compliance failure') has no handler step in worker 'worker_main'.
+
+  [ASM_0006] Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
+    Target: worker:worker_main.exception_flow:exc_adapter_06
+    Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_06' ('Waiver rejection') has no handler step in worker 'worker_main'.)
+    Action: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_06: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
+    Related diagnostic: [missing_handler] diag_post_norm_0006 — Exception flow 'exc_adapter_06' ('Waiver rejection') has no handler step in worker 'worker_main'.
+
+  [ASM_0007] Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+    Target: delegation_intent:s37
+    Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+    Action: For delegation_intent:s37: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+    Related diagnostic: [type_or_contract_ambiguity] diag_d10_0000 — Delegation intent 'Bounded sourcing or quote-comparison subtasks may be delegated, but vendor
+decis' lacks a valid worke
+
+------------------------------------------------------------
+
+Provenance Traces
+----------------------------------------
+  [direct] constraint:c_1 spans=s25 section=sec_policies packet=p_policy_require_minimum_quote_count_unless_exception_approved
+    Constraint 'c_1' (requirement): Require minimum quote count unless exception approved
+  [direct] constraint:c_2 spans=s26 section=sec_policies packet=p_policy_do_not_proceed_with_ineligible_vendors
+    Constraint 'c_2' (prohibition): Do not proceed with ineligible vendors
+  [direct] constraint:c_3 spans=s27 section=sec_policies packet=p_policy_require_category_specific_approval_thresholds
+    Constraint 'c_3' (requirement): Require category-specific approval thresholds
+  [direct] constraint:c_4 spans=s28 section=sec_policies packet=p_policy_record_justification_for_sole_source_or_waiver_cases
+    Constraint 'c_4' (requirement): Record justification for sole source or waiver cases
+  [direct] constraint:c_5 spans=s29 section=sec_policies packet=p_policy_deny_issuance_without_audit_complete_evidence
+    Constraint 'c_5' (gate): Deny issuance without audit-complete evidence
+  [inferred] delegation_intent:bounded_sourcing_or_quote_comparison_delegation spans=s37 section=sec_delegation_policy packet=p_delegation_rule_bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts
+    Delegation intent 'bounded_sourcing_or_quote_comparison_delegation': Bounded sourcing or quote-comparison subtasks may be delegated, but vendor decision promotion requires normalized quote 
+  [inferred] delegation_intent:bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts spans=s37 section=sec_delegation_policy packet=p_delegation_rule_bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts
+    Delegation intent 'bounded_sourcing_or_quote_comparison_subtasks_may_be_delegated_but_vendor_decision_promotion_requires_normalized_quote_and_compliance_artifacts': Bounded sourcing or quote-comparison subtasks may be delegated, but vendor
+decision promotion requires normalized quote 
+  [direct] flow:exc_adapter_00 spans=s30 section=sec_failure_handling packet=p_failure_mode_insufficient_quotes
+    Exception flow 'exc_adapter_00': Insufficient quotes
+  [direct] flow:exc_adapter_01 spans=s31 section=sec_failure_handling packet=p_failure_mode_over_budget_proposals
+    Exception flow 'exc_adapter_01': Over-budget proposals
+  [direct] flow:exc_adapter_02 spans=s32 section=sec_failure_handling packet=p_failure_mode_vendor_ineligibility
+    Exception flow 'exc_adapter_02': Vendor ineligibility
+  [direct] flow:exc_adapter_03 spans=s33 section=sec_failure_handling packet=p_failure_mode_approval_denial
+    Exception flow 'exc_adapter_03': Approval denial
+  [direct] flow:exc_adapter_04 spans=s34 section=sec_failure_handling packet=p_failure_mode_missing_documents
+    Exception flow 'exc_adapter_04': Missing
+documents
+  [direct] flow:exc_adapter_05 spans=s35 section=sec_failure_handling packet=p_failure_mode_compliance_failure
+    Exception flow 'exc_adapter_05': Compliance failure
+  [direct] flow:exc_adapter_06 spans=s36 section=sec_failure_handling packet=p_failure_mode_waiver_rejection
+    Exception flow 'exc_adapter_06': Waiver rejection
+  [direct] flow:main spans=s16, s17, s18, s19, s22, s23, s24 section=sec_reusable_process packet=p_process_step_normalize_the_request_and_determine_procurement_category
+    Main flow with 1 block(s).
+  [normalized] profile:concept_0
+    Concept: Standard purchase requests -- Requests for routine purchases that follow established procedures and guidelines.
+  [normalized] profile:concept_1
+    Concept: Software and services procurement -- The process of acquiring software licenses and professional services.
+  [normalized] profile:concept_2
+    Concept: Equipment purchases -- The acquisition of physical assets or tools required for operations.
+  [normalized] profile:concept_3
+    Concept: Vendor renewals -- The process of extending or renewing contracts with existing vendors.
+  [normalized] profile:concept_4
+    Concept: Exception-handled procurement cases -- Procurement scenarios that deviate from standard procedures and require special handling or approvals.
+  [inferred] profile:persona
+    Persona: Procurement process manager
+  [direct] step:st_1 spans=s16 section=sec_reusable_process packet=p_process_step_normalize_the_request_and_determine_procurement_category
+    Step 'st_1' maps to source span(s).
+  [direct] step:st_2 spans=s17 section=sec_reusable_process packet=p_process_step_identify_eligible_vendor_pool
+    Step 'st_2' maps to source span(s).
+  [direct] step:st_3 spans=s18 section=sec_reusable_process packet=p_process_step_solicit_quotes_or_equivalent_offers_according_to_policy
+    Step 'st_3' maps to source span(s).
+  [direct] step:st_4 spans=s19 section=sec_reusable_process packet=p_process_step_evaluate_budget_compliance_and_vendor_eligibility
+    Step 'st_4' maps to source span(s).
+  [direct] step:st_5 spans=s22 section=sec_reusable_process packet=p_process_step_route_approval_based_on_thresholds_and_category
+    Step 'st_5' maps to source span(s).
+  [direct] step:st_6 spans=s23 section=sec_reusable_process packet=p_process_step_issue_po_only_after_all_gates_pass
+    Step 'st_6' maps to source span(s).
+  [direct] step:st_7 spans=s24 section=sec_reusable_process packet=p_process_step_archive_evidence_for_audit
+    Step 'st_7' maps to source span(s).
+  [normalized] variable:any_initial_vendor_suggestions section=sec_inputs_for_each_run
+    Variable 'any_initial_vendor_suggestions' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:approval_record spans=s22 section=sec_reusable_process packet=p_process_step_route_approval_based_on_thresholds_and_category
+    Variable 'approval_record' is produced by source-backed step 'st_5'.
+  [direct] variable:audit_evidence_bundle spans=s24 section=sec_reusable_process packet=p_process_step_archive_evidence_for_audit
+    Variable 'audit_evidence_bundle' is produced by source-backed step 'st_7'.
+  [normalized] variable:budget_owner section=sec_inputs_for_each_run
+    Variable 'budget_owner' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:cost_center section=sec_inputs_for_each_run
+    Variable 'cost_center' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:po_or_equivalent_issuance_artifact spans=s23 section=sec_reusable_process packet=p_process_step_issue_po_only_after_all_gates_pass
+    Variable 'po_or_equivalent_issuance_artifact' is produced by source-backed step 'st_6'.
+  [normalized] variable:policy_profile section=sec_inputs_for_each_run
+    Variable 'policy_profile' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:procurement_category spans=s16 section=sec_reusable_process packet=p_process_step_normalize_the_request_and_determine_procurement_category
+    Variable 'procurement_category' is produced by source-backed step 'st_1'.
+  [normalized] variable:purchase_request section=sec_inputs_for_each_run
+    Variable 'purchase_request' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:requested_item_or_service section=sec_inputs_for_each_run
+    Variable 'requested_item_or_service' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] variable:selected_vendor_decision_or_rejection_outcome spans=s19 section=sec_reusable_process packet=p_process_step_evaluate_budget_compliance_and_vendor_eligibility
+    Variable 'selected_vendor_decision_or_rejection_outcome' is produced by source-backed step 'st_4'.
+  [direct] variable:sourcing_evaluation_record spans=s17 section=sec_reusable_process packet=p_process_step_identify_eligible_vendor_pool
+    Variable 'sourcing_evaluation_record' is produced by source-backed step 'st_2'.
+  [normalized] variable:urgency section=sec_inputs_for_each_run
+    Variable 'urgency' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [normalized] variable:vendor_eligibility_context section=sec_inputs_for_each_run
+    Variable 'vendor_eligibility_context' is declared by adapter hard fact in section 'sec_inputs_for_each_run'.
+  [direct] worker:MainWorker spans=s16, s17, s18, s19, s20, s21, s22, s23, s24, s37 section=sec_reusable_process packet=p_process_step_normalize_the_request_and_determine_procurement_category
+    Main worker 'MainWorker' assembled from flow and step IRs.
+
+------------------------------------------------------------
+
+Validation
+----------------------------------------
+
+  Warnings (17):
+    - Candidate candidate_normalize_request accepted but contract fields are not source-backed; rejecting.
+    - D3: failure condition span 's30' (Insufficient quotes) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's31' (Over-budget proposals) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's32' (Vendor ineligibility) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's33' (Approval denial) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's34' (Missing
+documents) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's35' (Compliance failure) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's36' (Waiver rejection) is not owned by any worker; attached to main worker 'worker_main'.
+    - Candidate candidate_normalize_request accepted but contract fields are not source-backed; rejecting.
+    - D3: failure condition span 's30' (Insufficient quotes) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's31' (Over-budget proposals) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's32' (Vendor ineligibility) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's33' (Approval denial) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's34' (Missing
+documents) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's35' (Compliance failure) is not owned by any worker; attached to main worker 'worker_main'.
+    - D3: failure condition span 's36' (Waiver rejection) is not owned by any worker; attached to main worker 'worker_main'.
+    - Worker worker_main: variable 'sourcing_evaluation_record' produced by multiple steps
+
+------------------------------------------------------------
+
+Generated SPL
+----------------------------------------
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
+    [DEFINE_PERSONA:]
+        ROLE: Procurement process manager
+    [END_PERSONA]
+    [DEFINE_CONCEPTS:]
+        Standardpurchaserequests: Requests for routine purchases that follow established procedures and guidelines.
+        Softwareandservicesprocurement: The process of acquiring software licenses and professional services.
+        Equipmentpurchases: The acquisition of physical assets or tools required for operations.
+        Vendorrenewals: The process of extending or renewing contracts with existing vendors.
+        Exceptionhandledprocurementcases: Procurement scenarios that deviate from standard procedures and require special handling or approvals.
+    [END_CONCEPTS]
+    [DEFINE_CONSTRAINTS:]
+        Requirement: Require minimum quote count unless exception approved
+        Prohibition: Do not proceed with ineligible vendors
+        Requirement: Require category-specific approval thresholds
+        Requirement: Record justification for sole source or waiver cases
+        Gate: Deny issuance without audit-complete evidence
+    [END_CONSTRAINTS]
+    [DEFINE_VARIABLES:]
+        "Purchase request" purchase_request: text
+        "Requested item or service" requested_item_or_service: text
+        "Budget owner" budget_owner: text
+        "Cost center" cost_center: text
+        "Urgency" urgency: text
+        "Procurement category" procurement_category: text
+        "Policy profile" policy_profile: text
+        "Vendor eligibility context" vendor_eligibility_context: text
+        "Any initial vendor suggestions (LLM note: Any initial vendor suggestions (LLM note: Any initial vendor suggestions))" any_initial_vendor_suggestions: text
+        "A sourcing/evaluation record" sourcing_evaluation_record: text
+        "Selected vendor decision or rejection outcome" selected_vendor_decision_or_rejection_outcome: text
+        "Approval record (LLM note: Approval record (LLM note: Approval record))" approval_record: text
+        "PO or equivalent issuance artifact" po_or_equivalent_issuance_artifact: text
+        "Audit evidence bundle" audit_evidence_bundle: text
+    [END_VARIABLES]
+    [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
+        [INPUTS]
+            REQUIRED <REF>purchase_request</REF>
+            REQUIRED <REF>requested_item_or_service</REF>
+            REQUIRED <REF>budget_owner</REF>
+            REQUIRED <REF>cost_center</REF>
+            REQUIRED <REF>urgency</REF>
+            REQUIRED <REF>procurement_category</REF>
+            REQUIRED <REF>policy_profile</REF>
+            REQUIRED <REF>vendor_eligibility_context</REF>
+            REQUIRED <REF>any_initial_vendor_suggestions</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>sourcing_evaluation_record</REF>
+            REQUIRED <REF>selected_vendor_decision_or_rejection_outcome</REF>
+            REQUIRED <REF>approval_record</REF>
+            REQUIRED <REF>po_or_equivalent_issuance_artifact</REF>
+            REQUIRED <REF>audit_evidence_bundle</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [COMMAND Normalize the request and determine procurement category based on <REF>purchase_request</REF> and <REF>requested_item_or_service</REF> RESULT <REF>procurement_category</REF> SET]
+                COMMAND-2 [COMMAND Identify eligible vendor pool based on <REF>procurement_category</REF>, <REF>vendor_eligibility_context</REF>, and <REF>any_initial_vendor_suggestions</REF> RESULT sourcing_evaluation_record: text SET]
+                COMMAND-3 [COMMAND Solicit quotes or equivalent offers according to policy based on <REF>sourcing_evaluation_record</REF> and <REF>policy_profile</REF> RESULT <REF>sourcing_evaluation_record</REF> SET]
+                COMMAND-4 [COMMAND Evaluate budget, compliance, and vendor eligibility based on <REF>sourcing_evaluation_record</REF>, <REF>budget_owner</REF>, <REF>cost_center</REF>, <REF>urgency</REF>, and <REF>policy_profile</REF> RESULT selected_vendor_decision_or_rejection_outcome: text SET]
+                COMMAND-5 [COMMAND Route approval based on thresholds and category based on <REF>selected_vendor_decision_or_rejection_outcome</REF> and <REF>policy_profile</REF> RESULT approval_record: text SET]
+                COMMAND-6 [COMMAND Issue PO only after all gates pass based on <REF>approval_record</REF> RESULT po_or_equivalent_issuance_artifact: text SET]
+                COMMAND-7 [COMMAND Archive evidence for audit based on <REF>po_or_equivalent_issuance_artifact</REF> RESULT audit_evidence_bundle: text SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: Insufficient quotes]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Over-budget proposals]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Vendor ineligibility]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Approval denial]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Missing documents]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Compliance failure]
+        [END_EXCEPTION_FLOW]
+        [EXCEPTION_FLOW: Waiver rejection]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+[END_AGENT]

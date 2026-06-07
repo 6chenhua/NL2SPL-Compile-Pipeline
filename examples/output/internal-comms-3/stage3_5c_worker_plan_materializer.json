@@ -1,0 +1,277 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-06-02T15:48:28.535757",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s13",
+          "s14",
+          "s15",
+          "s16",
+          "s17",
+          "s18",
+          "s19",
+          "s20",
+          "s23",
+          "s24",
+          "s25"
+        ],
+        "input_contract": [
+          {
+            "name": "target_audience",
+            "data_type": "text",
+            "required": true,
+            "description": "- target audience",
+            "source": "input"
+          },
+          {
+            "name": "topic",
+            "data_type": "text",
+            "required": true,
+            "description": "Topic of the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "tone",
+            "data_type": "text",
+            "required": true,
+            "description": "Desired tone for the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "key_messages",
+            "data_type": "text",
+            "required": true,
+            "description": "Key messages to be included in the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "template_selection",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional template selection for the draft.",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "final_draft",
+            "data_type": "text",
+            "required": true,
+            "description": "Final draft",
+            "source": "output"
+          },
+          {
+            "name": "revision_history",
+            "data_type": "text",
+            "required": true,
+            "description": "Revision history",
+            "source": "output"
+          },
+          {
+            "name": "assumptions_log",
+            "data_type": "text",
+            "required": true,
+            "description": "Assumptions log",
+            "source": "output"
+          },
+          {
+            "name": "evidence_trail",
+            "data_type": "text",
+            "required": true,
+            "description": "Evidence trail",
+            "source": "output"
+          },
+          {
+            "name": "readiness_status_flag",
+            "data_type": "text",
+            "required": true,
+            "description": "Readiness status flag",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_prepare_internal_comm_draft",
+        "source_span_ids": [
+          "s13",
+          "s15",
+          "s16",
+          "s17",
+          "s18",
+          "s19",
+          "s20"
+        ],
+        "task_text": "Prepare an internal communications draft from the provided topic, target audience, tone, and key messages, including source-material grounding, policy/tone review, disclaimers/citations, revision history, evidence trail, and readiness flagging.",
+        "purpose": "Produce a compliant, ready-to-review internal communications draft package.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "target_audience",
+            "data_type": "text",
+            "required": true,
+            "description": "Target audience for the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "topic",
+            "data_type": "text",
+            "required": true,
+            "description": "Topic of the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "tone",
+            "data_type": "text",
+            "required": true,
+            "description": "Desired tone for the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "key_messages",
+            "data_type": "text",
+            "required": true,
+            "description": "Key messages to be included in the internal communications draft.",
+            "source": "input"
+          },
+          {
+            "name": "template_selection",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional template selection for the draft.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "final_draft",
+            "data_type": "text",
+            "required": true,
+            "description": "Final draft.",
+            "source": "output"
+          },
+          {
+            "name": "revision_history",
+            "data_type": "text",
+            "required": true,
+            "description": "Revision history.",
+            "source": "output"
+          },
+          {
+            "name": "evidence_trail",
+            "data_type": "text",
+            "required": true,
+            "description": "Evidence trail.",
+            "source": "output"
+          },
+          {
+            "name": "readiness_status_flag",
+            "data_type": "text",
+            "required": true,
+            "description": "Readiness status flag.",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "external_integration",
+          "complex_control",
+          "testability",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "insufficient_semantic_boundary"
+        ]
+      },
+      {
+        "candidate_id": "candidate_select_approved_template",
+        "source_span_ids": [
+          "s14"
+        ],
+        "task_text": "Select an approved template for the internal communications draft when template selection is available.",
+        "purpose": "Provide a template choice that can be applied to drafting.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "template_selection",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional template selection for the draft.",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [],
+        "signals": [
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_output_contract",
+          "insufficient_semantic_boundary",
+          "ordinary_sequential_step"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_prepare_internal_comm_draft",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_select_approved_template",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_prepare_internal_comm_draft",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_select_approved_template",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

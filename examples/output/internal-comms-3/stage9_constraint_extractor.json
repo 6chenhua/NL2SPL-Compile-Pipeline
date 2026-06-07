@@ -1,0 +1,31 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-06-02T15:48:50.423118",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "The draft is limited to routine newsletters; exclude sensitive executive messages and crisis communications.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s4"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Do not use external data.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s22"
+        ]
+      }
+    ]
+  }
+}

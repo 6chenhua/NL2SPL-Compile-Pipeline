@@ -1,0 +1,287 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-06-02T15:48:05.899963",
+  "metadata": {},
+  "result": {
+    "source_schema": "structural_nl",
+    "raw_text_length": 1526,
+    "spans_count": 25,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "internal communications drafting",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_internal_communications_drafting"
+      },
+      {
+        "span_id": "s2",
+        "text": "Include company-wide announcements",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**scope",
+        "source_packet_id": "p_list_item_include_company_wide_announcements"
+      },
+      {
+        "span_id": "s3",
+        "text": "team updates",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**scope",
+        "source_packet_id": "p_list_item_team_updates"
+      },
+      {
+        "span_id": "s4",
+        "text": "routine newsletters; exclude sensitive executive messages and crisis communications",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**scope",
+        "source_packet_id": "p_list_item_routine_newsletters_exclude_sensitive_executive_messages_and_crisis_communications"
+      },
+      {
+        "span_id": "s5",
+        "text": "Internal newsletters",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**examples",
+        "source_packet_id": "p_list_item_internal_newsletters"
+      },
+      {
+        "span_id": "s6",
+        "text": "- target audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_target_audience"
+      },
+      {
+        "span_id": "s7",
+        "text": "template selection",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**optional",
+        "source_packet_id": "p_list_item_template_selection"
+      },
+      {
+        "span_id": "s8",
+        "text": "final draft",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_final_draft"
+      },
+      {
+        "span_id": "s9",
+        "text": "revision history",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_revision_history"
+      },
+      {
+        "span_id": "s10",
+        "text": "assumptions log",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_assumptions_log"
+      },
+      {
+        "span_id": "s11",
+        "text": "evidence trail",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_evidence_trail"
+      },
+      {
+        "span_id": "s12",
+        "text": "readiness status flag",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_readiness_status_flag"
+      },
+      {
+        "span_id": "s13",
+        "text": "Identify audience and key messages",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_identify_audience_and_key_messages"
+      },
+      {
+        "span_id": "s14",
+        "text": "Select approved template",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_select_approved_template"
+      },
+      {
+        "span_id": "s15",
+        "text": "Gather source materials",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_gather_source_materials"
+      },
+      {
+        "span_id": "s16",
+        "text": "Draft content",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_draft_content"
+      },
+      {
+        "span_id": "s17",
+        "text": "Review for tone and policy compliance",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_review_for_tone_and_policy_compliance"
+      },
+      {
+        "span_id": "s18",
+        "text": "Insert disclaimers/citations",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_insert_disclaimers_citations"
+      },
+      {
+        "span_id": "s19",
+        "text": "Attach revision history and evidence trail",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_attach_revision_history_and_evidence_trail"
+      },
+      {
+        "span_id": "s20",
+        "text": "Flag readiness",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_flag_readiness"
+      },
+      {
+        "span_id": "s21",
+        "text": "Output final draft and logs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_output_final_draft_and_logs"
+      },
+      {
+        "span_id": "s22",
+        "text": "- No external data",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_no_external_data"
+      },
+      {
+        "span_id": "s23",
+        "text": "- missing inputs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_missing_inputs"
+      },
+      {
+        "span_id": "s24",
+        "text": "- Initial drafting",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_initial_drafting"
+      },
+      {
+        "span_id": "s25",
+        "text": "approvals",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_-_**non-delegable_work",
+        "source_packet_id": "p_list_item_approvals"
+      }
+    ]
+  }
+}

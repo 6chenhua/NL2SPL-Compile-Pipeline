@@ -1,0 +1,89 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-05-31T19:12:20.657211",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_source_retrieval",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "retrieve sources using approved source recipes and maintain provenance",
+        "purpose": "To gather necessary information from approved sources while maintaining provenance.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_draft_production",
+        "source_span_ids": [
+          "s17"
+        ],
+        "task_text": "produce a draft communication artifact",
+        "purpose": "To create an initial draft of the communication artifact.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_revision_process",
+        "source_span_ids": [
+          "s18"
+        ],
+        "task_text": "revise the draft while rechecking constraints",
+        "purpose": "To revise the draft communication artifact and ensure all constraints are met.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      }
+    ]
+  }
+}

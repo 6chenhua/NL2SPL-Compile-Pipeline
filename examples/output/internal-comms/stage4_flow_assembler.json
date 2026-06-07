@@ -1,0 +1,96 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-05-24T19:36:41.156661",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [
+          "s11",
+          "s12",
+          "s13",
+          "s30"
+        ],
+        "alternative_flows": [
+          {
+            "flow_id": "alt_1",
+            "condition_text": "If the user asks for revision",
+            "spans": [
+              "s17"
+            ]
+          }
+        ],
+        "exception_flows": [
+          {
+            "flow_id": "exc_adapter_00",
+            "condition_text": "Missing timeframe",
+            "spans": [
+              "s24"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_01",
+            "condition_text": "Conflicting instructions",
+            "spans": [
+              "s25"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_02",
+            "condition_text": "Insufficient source access",
+            "spans": [
+              "s26"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_03",
+            "condition_text": "Evidence\nshortage",
+            "spans": [
+              "s27"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_04",
+            "condition_text": "User refusal to answer",
+            "spans": [
+              "s28"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_05",
+            "condition_text": "Provenance failure",
+            "spans": [
+              "s29"
+            ]
+          }
+        ],
+        "delegation_candidates": []
+      },
+      "retrieve_sources": {
+        "main_flow_spans": [
+          "s14",
+          "s15"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      },
+      "produce_draft": {
+        "main_flow_spans": [
+          "s16"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": [
+      "D3: failure condition span 's24' (Missing timeframe) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's25' (Conflicting instructions) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's26' (Insufficient source access) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's27' (Evidence\nshortage) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's28' (User refusal to answer) is not owned by any worker; attached to main worker 'worker_main'.",
+      "D3: failure condition span 's29' (Provenance failure) is not owned by any worker; attached to main worker 'worker_main'."
+    ]
+  }
+}

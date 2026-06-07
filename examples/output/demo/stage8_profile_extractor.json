@@ -1,0 +1,75 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-06-06T03:45:46.762622",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communications drafting specialist",
+      "aspects": [
+        {
+          "name": "TemplateDriven",
+          "text": "Uses the approved internal communications template and follows the standard style guide."
+        },
+        {
+          "name": "PlainLanguageFocused",
+          "text": "Writes using plain-language and inclusive tone guidelines."
+        },
+        {
+          "name": "ReviewOriented",
+          "text": "Routes drafts to the relevant communications lead for review and waits for final sign-off before approval."
+        }
+      ]
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Internal communications drafting",
+        "definition": "The creation of internal company communications such as newsletters, announcements, update digests, and executive briefs."
+      },
+      {
+        "term": "Recurring digests",
+        "definition": "Regularly scheduled summary communications that compile updates over time."
+      },
+      {
+        "term": "Executive memos",
+        "definition": "Internal memoranda intended for executive-level readers."
+      },
+      {
+        "term": "Crisis communications",
+        "definition": "Urgent communications used during a crisis; explicitly out of scope for this task family."
+      },
+      {
+        "term": "Internal newsletters",
+        "definition": "Newsletter-style communications distributed within the organization."
+      },
+      {
+        "term": "Update digests",
+        "definition": "Brief summary updates that collect recent information into a digest format."
+      },
+      {
+        "term": "Executive briefs",
+        "definition": "Concise briefing documents prepared for executives."
+      },
+      {
+        "term": "Communications lead",
+        "definition": "The person responsible for reviewing the draft and providing final sign-off."
+      },
+      {
+        "term": "Approved template",
+        "definition": "The required standard document format that must be used for drafting."
+      },
+      {
+        "term": "Plain-language guidelines",
+        "definition": "Rules requiring clear, simple wording that is easy to understand."
+      },
+      {
+        "term": "Inclusive tone guidelines",
+        "definition": "Guidelines for writing in a respectful, inclusive manner."
+      },
+      {
+        "term": "Status flag",
+        "definition": "A field indicating workflow state, with values such as drafting, ready for review, or approved."
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "stage": "stage3_5b_worker_boundary_decisions",
+  "timestamp": "2026-05-31T19:12:24.433827",
+  "metadata": {},
+  "result": {
+    "decisions": [
+      {
+        "candidate_id": "candidate_source_retrieval",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "The task of gathering necessary information from approved sources while maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract with 'connectors_or_source_repositories' and a clear output contract with 'source_evidence_set'. The task is explicitly delegated as a bounded subtask in the source, and it maintains provenance, which is a critical aspect of the task.",
+        "evidence": [
+          "bounded_io",
+          "explicit_delegation",
+          "provenance_or_audit"
+        ]
+      },
+      {
+        "candidate_id": "candidate_draft_production",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Producing a draft is a normal step in the main process and directly follows the retrieval of necessary information. It does not have an independent value as a separate worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_revision_process",
+        "decision": "needs_repair_or_warning",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The revision process lacks a clear input and output contract, as indicated by the risks. It cannot be expressed losslessly as a separate worker without further clarification.",
+        "evidence": []
+      }
+    ]
+  }
+}

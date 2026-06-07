@@ -1,0 +1,94 @@
+{
+  "stage": "stage3_5b_worker_boundary_decisions",
+  "timestamp": "2026-05-24T22:02:49.481840",
+  "metadata": {},
+  "result": {
+    "decisions": [
+      {
+        "candidate_id": "candidate_normalize_request",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "The task has a clear input contract, output contract, and invocation point. It performs a coherent, nameable job of normalizing the request and determining the procurement category, which is reusable and bounded.",
+        "evidence": [
+          "bounded_io",
+          "multi_step_process",
+          "reuse_potential"
+        ]
+      },
+      {
+        "candidate_id": "candidate_identify_vendor_pool",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "The task lacks a clear output contract, making it unsuitable as an independently callable worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_solicit_quotes",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The task lacks a clear input and output contract, preventing it from being an independently callable worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_evaluate_budget_compliance",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The task lacks a clear input and output contract, and its role appears to be part of the main process rather than an independently callable worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_bounded_renegotiation",
+        "decision": "compile_as_exception_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "exception_flow",
+        "rejection_reason": "exception_flow",
+        "reason": "This task handles over-budget scenarios, which is a failure recovery protocol and fits as an exception flow rather than an independent worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_non_compliance_handling",
+        "decision": "compile_as_exception_flow",
+        "boundary_strength": "weak",
+        "boundary_kind": "exception_flow",
+        "rejection_reason": "exception_flow",
+        "reason": "This task addresses non-compliance scenarios, which is a failure recovery protocol and fits as an exception flow rather than an independent worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_route_approval",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The task lacks a clear input contract and appears to be part of the main process rather than an independently callable worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_issue_po",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The task lacks a clear input contract and appears to be part of the main process rather than an independently callable worker.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_archive_audit_evidence",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "The task lacks a clear input contract and appears to be part of the main process rather than an independently callable worker.",
+        "evidence": []
+      }
+    ]
+  }
+}

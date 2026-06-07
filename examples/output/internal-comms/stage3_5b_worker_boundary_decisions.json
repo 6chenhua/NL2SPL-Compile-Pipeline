@@ -1,0 +1,32 @@
+{
+  "stage": "stage3_5b_worker_boundary_decisions",
+  "timestamp": "2026-05-24T19:30:23.451494",
+  "metadata": {},
+  "result": {
+    "decisions": [
+      {
+        "candidate_id": "candidate_retrieve_sources",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "integration_wrapper",
+        "rejection_reason": null,
+        "reason": "The task of retrieving sources and maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract ('connectors_or_source_repositories') and output contract ('source_evidence_set') backed by the source. The invocation point is explicitly described in the process ('If sources are needed and available, retrieve them using approved source recipes'). The task is independently valuable as it integrates external data and ensures provenance, which is critical for the parent task.",
+        "evidence": [
+          "external_integration",
+          "bounded_io"
+        ]
+      },
+      {
+        "candidate_id": "candidate_produce_draft",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "The task of producing a draft communication artifact is a coherent, nameable, and callable job. It has a clear input contract ('user_request') and output contract ('draft_communication_artifact') backed by the source. The invocation point is explicitly described in the process ('When enough required information is available, produce a draft'). The task is independently valuable as it creates a key deliverable for the parent task.",
+        "evidence": [
+          "bounded_io"
+        ]
+      }
+    ]
+  }
+}

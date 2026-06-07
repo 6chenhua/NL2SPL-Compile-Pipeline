@@ -1,0 +1,64 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-05-24T22:03:09.561779",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "Require minimum quote count unless exception approved",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s25"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Do not proceed with ineligible vendors",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s26"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Require category-specific approval thresholds",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s27"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Record justification for sole source or waiver cases",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s28"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "Deny issuance without audit-complete evidence",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s29"
+        ]
+      }
+    ]
+  }
+}

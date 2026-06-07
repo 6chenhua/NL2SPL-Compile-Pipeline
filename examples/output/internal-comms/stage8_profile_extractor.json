@@ -1,0 +1,34 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-05-24T19:38:18.944765",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communications specialist",
+      "aspects": []
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Internal newsletters",
+        "definition": "Periodic publications intended for internal distribution within an organization to share updates, news, and information."
+      },
+      {
+        "term": "Announcements",
+        "definition": "Official statements or notifications shared within an organization to inform employees about important updates or events."
+      },
+      {
+        "term": "Update digests",
+        "definition": "Summarized collections of updates or information, typically shared periodically within an organization."
+      },
+      {
+        "term": "Executive briefs",
+        "definition": "Concise documents or summaries prepared for executives, providing key information or updates on specific topics."
+      },
+      {
+        "term": "Internal-comms artifacts",
+        "definition": "Documents or materials created for the purpose of internal communication within an organization, such as newsletters, announcements, or briefs."
+      }
+    ]
+  }
+}

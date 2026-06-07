@@ -1,0 +1,337 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-05-24T19:30:23.459333",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s11",
+          "s12",
+          "s13",
+          "s17",
+          "s18",
+          "s30"
+        ],
+        "input_contract": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          },
+          {
+            "name": "known_topics",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Optional known topics",
+            "source": "input"
+          },
+          {
+            "name": "timeframe",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional timeframe",
+            "source": "input"
+          },
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or\nsource repositories",
+            "source": "input"
+          },
+          {
+            "name": "format_preferences",
+            "data_type": "text",
+            "required": false,
+            "description": "Optional format preferences",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          },
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          },
+          {
+            "name": "assumptions_log",
+            "data_type": "List [text]",
+            "required": true,
+            "description": "A short assumptions log for any\nunresolved items",
+            "source": "output"
+          },
+          {
+            "name": "completion_status",
+            "data_type": "text",
+            "required": true,
+            "description": "A completion status",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      },
+      {
+        "worker_id": "retrieve_sources",
+        "worker_name": "Worker_retrieve_sources",
+        "kind": "child",
+        "purpose": "To gather necessary external information and ensure its provenance is tracked.",
+        "owned_span_ids": [
+          "s14",
+          "s15"
+        ],
+        "input_contract": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "integration_wrapper",
+        "decision_evidence": [
+          "external_integration",
+          "bounded_io"
+        ],
+        "reason": "The task of retrieving sources and maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract ('connectors_or_source_repositories') and output contract ('source_evidence_set') backed by the source. The invocation point is explicitly described in the process ('If sources are needed and available, retrieve them using approved source recipes'). The task is independently valuable as it integrates external data and ensures provenance, which is critical for the parent task."
+      },
+      {
+        "worker_id": "produce_draft",
+        "worker_name": "Worker_produce_draft",
+        "kind": "child",
+        "purpose": "To create an initial version of the communication artifact.",
+        "owned_span_ids": [
+          "s16"
+        ],
+        "input_contract": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "bounded_subtask",
+        "decision_evidence": [
+          "bounded_io"
+        ],
+        "reason": "The task of producing a draft communication artifact is a coherent, nameable, and callable job. It has a clear input contract ('user_request') and output contract ('draft_communication_artifact') backed by the source. The invocation point is explicitly described in the process ('When enough required information is available, produce a draft'). The task is independently valuable as it creates a key deliverable for the parent task."
+      }
+    ],
+    "handoffs": [
+      {
+        "handoff_id": "handoff_retrieve_sources",
+        "from_worker": "worker_main",
+        "to_worker": "retrieve_sources",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "To gather necessary external information and ensure its provenance is tracked.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "connectors_or_source_repositories",
+            "child_input": "connectors_or_source_repositories",
+            "required": false,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "source_evidence_set",
+            "parent_variable": "source_evidence_set",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s13",
+          "before_span_id": "s17",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_retrieve_sources fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      },
+      {
+        "handoff_id": "handoff_produce_draft",
+        "from_worker": "worker_main",
+        "to_worker": "produce_draft",
+        "api_ref": null,
+        "mode": "invoke",
+        "condition_text": "To create an initial version of the communication artifact.",
+        "ordering": "after",
+        "input_bindings": [
+          {
+            "parent_variable": "user_request",
+            "child_input": "user_request",
+            "required": true,
+            "default_value": null
+          }
+        ],
+        "output_bindings": [
+          {
+            "child_output": "draft_communication_artifact",
+            "parent_variable": "draft_communication_artifact",
+            "required": true,
+            "merge_strategy": "set"
+          }
+        ],
+        "invoke_location_hint": {
+          "flow_kind": "main",
+          "flow_id": null,
+          "after_span_id": "s13",
+          "before_span_id": "s17",
+          "block_hint": "sequential"
+        },
+        "failure_policy": {
+          "policy_kind": "propagate_exception",
+          "description": "If Worker_produce_draft fails, propagate to parent.",
+          "source_span_ids": []
+        }
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_id": "candidate_retrieve_sources",
+        "source_span_ids": [
+          "s14",
+          "s15"
+        ],
+        "task_text": "Retrieve sources using approved source recipes and maintain provenance for externally sourced facts.",
+        "purpose": "To gather necessary external information and ensure its provenance is tracked.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "connectors_or_source_repositories",
+            "data_type": "List [text]",
+            "required": false,
+            "description": "Available connectors or source repositories",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "source_evidence_set",
+            "data_type": "text",
+            "required": true,
+            "description": "A source/evidence set",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "external_integration",
+          "bounded_io"
+        ],
+        "risks": []
+      },
+      {
+        "candidate_id": "candidate_produce_draft",
+        "source_span_ids": [
+          "s16"
+        ],
+        "task_text": "Produce a draft when enough required information is available.",
+        "purpose": "To create an initial version of the communication artifact.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "user_request",
+            "data_type": "text",
+            "required": true,
+            "description": "A user request",
+            "source": "input"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact",
+            "source": "output"
+          }
+        ],
+        "signals": [
+          "bounded_io"
+        ],
+        "risks": []
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_retrieve_sources",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "integration_wrapper",
+        "rejection_reason": null,
+        "reason": "The task of retrieving sources and maintaining provenance is a coherent, nameable, and callable job. It has a clear input contract ('connectors_or_source_repositories') and output contract ('source_evidence_set') backed by the source. The invocation point is explicitly described in the process ('If sources are needed and available, retrieve them using approved source recipes'). The task is independently valuable as it integrates external data and ensures provenance, which is critical for the parent task.",
+        "evidence": [
+          "external_integration",
+          "bounded_io"
+        ]
+      },
+      {
+        "candidate_id": "candidate_produce_draft",
+        "decision": "extract_child_worker",
+        "boundary_strength": "strong",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": null,
+        "reason": "The task of producing a draft communication artifact is a coherent, nameable, and callable job. It has a clear input contract ('user_request') and output contract ('draft_communication_artifact') backed by the source. The invocation point is explicitly described in the process ('When enough required information is available, produce a draft'). The task is independently valuable as it creates a key deliverable for the parent task.",
+        "evidence": [
+          "bounded_io"
+        ]
+      }
+    ],
+    "rejected_candidates": [],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}
