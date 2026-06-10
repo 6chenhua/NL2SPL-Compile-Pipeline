@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from nl2spl.ir.worker_plan_ir import HandoffContractIR
@@ -137,6 +137,7 @@ class WorkerScopedResourceIR:
     global_resources: ResourceRegistryIR = field(default_factory=ResourceRegistryIR)
     worker_resources: dict[str, ResourceRegistryIR] = field(default_factory=dict)
     handoff_contracts: dict[str, "HandoffContractIR"] = field(default_factory=dict)
+    resource_contract_bindings: list[Any] = field(default_factory=list)
 
     def get_all_variables(self) -> list[VariableSpec]:
         """Get all variables across all scopes.

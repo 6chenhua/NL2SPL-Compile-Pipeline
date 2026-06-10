@@ -57,13 +57,31 @@ Risk = Literal[
 
 @dataclass
 class ContractFieldIR:
-    """Worker input or output contract field."""
+    """Worker input or output contract field.
+
+    Attributes:
+        name: Field name (snake_case).
+        data_type: Data type.
+        required: Whether the field is required.
+        description: Human-readable description.
+        source: Origin (input/output/state/derived).
+        contract_demand_id: Back-reference to ``ResourceContractDemandIR``
+            when this field is materialized from a resource contract plan.
+        source_span_ids: Resolved span IDs that carry this contract evidence.
+        source_section_id: Adapter section provenance.
+        source_packet_id: Adapter packet provenance.
+    """
 
     name: str
     data_type: str
     required: bool
     description: str
     source: Literal["input", "output", "state", "derived"]
+    contract_demand_id: str | None = None
+    source_span_ids: list[str] = field(default_factory=list)
+    source_section_id: str | None = None
+    source_packet_id: str | None = None
+    resource_kind: Literal["variable", "file", "api", "type"] | None = None
 
 
 @dataclass
