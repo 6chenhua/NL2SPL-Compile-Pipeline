@@ -48,9 +48,6 @@ from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
-from nl2spl.pipeline.stages.stage3_2_resource_contract_planner import (
-    ResourceContractPlanner,
-)
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
     _span_sort_key,
@@ -178,21 +175,33 @@ class PipelineOrchestrator:
         resolved_spans, resolved_routes = self._run_stage3(spans, routes, ambiguity_updates)
         intermediate["stage3_resolved"] = {"spans": resolved_spans, "routes": resolved_routes}
 
-        # Stage 3.2: Resource Contract Planning
-        self.logger.info("Stage 3.2: Resource Contract Planning")
-        resource_contract_plan = ResourceContractPlanner().plan(
-            resolved_spans,
-            resolved_routes,
-            canonical_input,
+        # Phase D: build canonical DemandView from Stage 2 confirmed annotations.
+        # This replaces the old Stage 3.2 ResourceContractPlanner as the
+        # production source of truth for resource contract demands.
+        from nl2spl.compiler.resource_contract_demand_view.builder import (
+            DemandViewBuilder,
         )
-        intermediate["resource_contract_plan"] = resource_contract_plan
-        intermediate["resource_contract_plan_payload"] = resource_contract_plan.to_payload()
+        from nl2spl.compiler.resource_contract_demand_view.projector import (
+            ViewDiagnosticProjector,
+        )
+        demand_view = DemandViewBuilder().build(resolved_spans, resolved_routes)
+
+        # Phase D: DemandView diagnostics enter compile diagnostics.
+        view_diagnostics = ViewDiagnosticProjector.project(demand_view)
+
+        # Save DemandView payload for checkpoint / debugging.
+        intermediate["resource_contract_demand_view"] = demand_view
+        intermediate["resource_contract_demand_view_payload"] = demand_view.to_payload()
         if self.config.save_intermediate:
             save_intermediate_result(
-                stage_name="stage3_2_resource_contract_plan",
-                result=resource_contract_plan.to_payload(),
+                stage_name="stage3_2_demand_view",
+                result=demand_view.to_payload(),
                 output_dir=self.config.run_dir,
             )
+
+        # Phase E: ResourceContractPlanner and ResourceContractPlanIR are
+        # no longer part of the production path.  DemandView is the sole
+        # authority.  Old intermediate keys removed.
 
         # Stage 3.25: Construct demand planning
         self.logger.info("Stage 3.25: Construct Demand Planning")
@@ -215,7 +224,7 @@ class PipelineOrchestrator:
             resolved_spans,
             resolved_routes,
             canonical_input,
-            intermediate.get("resource_contract_plan"),
+            demand_view=demand_view,
         )
         pre_repair_validation = WorkerPlanValidator().validate(
             worker_plan,
@@ -331,6 +340,39 @@ class PipelineOrchestrator:
 
         # Stage 6: Resource Extraction
         self.logger.info("Stage 6: Resource Extraction")
+        # Phase D: reuse the canonical DemandView built after Stage 3.
+
+        # Phase C: coverage audit using the same canonical DemandView.
+        coverage_diagnostics: list[Any] = []
+        if canonical_input is not None:
+            from nl2spl.compiler.resource_contract_demand_view.coverage_validator import (
+                ResourceContractAnnotationCoverageValidator,
+            )
+            from nl2spl.compiler.resource_contract_demand_view.projector import (
+                ViewDiagnosticProjector,
+            )
+            validator = ResourceContractAnnotationCoverageValidator()
+            cov_diags = validator.validate(
+                canonical_input, resolved_spans, resolved_routes, demand_view,
+            )
+            coverage_diagnostics = ViewDiagnosticProjector.project_list(
+                list(cov_diags)
+            )
+            intermediate["resource_contract_coverage_diagnostics"] = [
+                {
+                    "kind": d.kind, "severity": d.severity, "message": d.message,
+                    "span_ids": sorted(d.span_ids),
+                }
+                for d in cov_diags
+            ]
+            intermediate["resource_contract_coverage_summary"] = {
+                "total_hard_facts": (
+                    len(canonical_input.hard_facts.inputs)
+                    + len(canonical_input.hard_facts.outputs)
+                ),
+                "unmatched_count": len(cov_diags),
+            }
+
         worker_scoped_resources, symbol_table, filter_warns = self._run_stage6_worker_scoped(
             resolved_spans,
             resolved_routes,
@@ -338,7 +380,7 @@ class PipelineOrchestrator:
             worker_block_plan,
             worker_plan,
             canonical_input,
-            intermediate.get("resource_contract_plan"),
+            demand_view=demand_view,
         )
         resources = worker_scoped_resources.global_resources
         intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
@@ -451,7 +493,7 @@ class PipelineOrchestrator:
             worker_scoped_resources=intermediate.get(
                 "stage6_worker_scoped_resources"
             ),
-            resource_contract_plan=intermediate.get("resource_contract_plan"),
+            demand_view=demand_view,
         )
         irs_store.put_post_normalize_diagnostics(post_norm_diags)
 
@@ -613,6 +655,12 @@ class PipelineOrchestrator:
             )
         )
         all_diagnostics = consolidation.final_diagnostics
+        # Phase D: merge DemandView + coverage diagnostics into final output
+        all_diagnostics = (
+            list(all_diagnostics)
+            + list(view_diagnostics)
+            + coverage_diagnostics
+        )
         intermediate["suppressed_stage_local_diagnostics"] = (
             consolidation.suppressed_stage_local_diagnostics
         )
@@ -675,9 +723,14 @@ class PipelineOrchestrator:
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None = None,
         resource_contract_plan: Any = None,
+        demand_view: Any = None,
     ) -> WorkerPlanIR:
         """Stage 3.5: Worker Boundary Planning."""
         stage = WorkerBoundaryPlanner(self.config, self.client)
+        if demand_view is not None:
+            return stage.execute(
+                (spans, routes, canonical_input, demand_view)
+            )
         if resource_contract_plan is not None:
             return stage.execute(
                 (spans, routes, canonical_input, resource_contract_plan)
@@ -721,12 +774,13 @@ class PipelineOrchestrator:
         worker_plan: WorkerPlanIR,
         canonical_input: CanonicalCompileInput | None = None,
         resource_contract_plan: Any = None,
+        demand_view: Any = None,
     ) -> tuple[WorkerScopedResourceIR, SymbolTable, list[str]]:
         """Stage 6: Worker-scoped Resource Extraction."""
         stage = ResourceExtractor(self.config, self.client)
         worker_scoped_resources, symbols = stage.execute_worker_scoped(
             spans, routes, worker_flow_plan, worker_block_plan, worker_plan,
-            canonical_input, resource_contract_plan,
+            canonical_input, resource_contract_plan, demand_view=demand_view,
         )
         filter_warnings = getattr(stage, "resource_filter_warnings", [])
         return worker_scoped_resources, symbols, list(filter_warnings)
