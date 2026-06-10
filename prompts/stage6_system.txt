@@ -82,6 +82,10 @@ examine each demand and decide its resource kind based on the evidence text.
   corresponding demand for traceability.
 - Do NOT materialize output contracts that look like document artifacts
   as plain variables — use `resource_kind: "file"` with `path: "< >"`.
+- **Do NOT decide requiredness.**  Copy the `requiredness` value verbatim
+  from the "Resource contract demands" section.  Valid values are
+  `required`, `optional`, and `unspecified`.  If the demand section says
+  `unspecified`, output `unspecified` — do not guess.
 
 ## Output Format
 
@@ -112,6 +116,7 @@ examine each demand and decide its resource kind based on the evidence text.
       "resource_kind": "variable | file | api | type",
       "direction": "input | output",
       "data_type": "text | number | boolean | List[text]",
+      "requiredness": "required | optional | unspecified",
       "required": true,
       "description": "one-line description in English",
       "path": "< > (only when resource_kind is file, use '< >' for runtime)",

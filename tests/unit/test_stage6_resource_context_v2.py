@@ -52,8 +52,8 @@ class TestBuildResourceContext:
         assert "RetrieveSources" in result
         assert "Retrieve source material" in result
         assert "Authoritative contract" in result
-        assert "query: text, required" in result
-        assert "results: List[text], required" in result
+        assert "query: text, unspecified" in result
+        assert "results: List[text], unspecified" in result
 
     def test_global_scope_with_canonical_hard_facts(self) -> None:
         canonical = CanonicalCompileInput(
@@ -324,7 +324,7 @@ class TestStage6V2ConfigIntegration:
         assert "worker_id: worker_test" in user_prompt
         assert "TestWorker" in user_prompt
         assert "Authoritative contract" in user_prompt
-        assert "query: text, required" in user_prompt
+        assert "query: text, unspecified" in user_prompt
         # Old format must be absent
         assert "worker context" not in user_prompt
         assert "请从以下文本中提取资源" not in user_prompt

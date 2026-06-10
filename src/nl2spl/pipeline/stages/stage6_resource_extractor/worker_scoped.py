@@ -58,6 +58,7 @@ class WorkerScopedMixin:
         worker_plan: WorkerPlanIR,
         canonical_input: CanonicalCompileInput | None = None,
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        demand_view: object | None = None,  # ResourceContractDemandView
     ) -> tuple[WorkerScopedResourceIR, SymbolTable]:
         """对每个 worker 独立执行 LLM 资源提取，互不干扰。
 
@@ -99,6 +100,7 @@ class WorkerScopedMixin:
                 symbol_table=symbol_table,
                 canonical_input=canonical_input,
                 scope_kind="global",
+                demand_view=demand_view,
                 scope_id=None,
                 worker_spec=main_worker_spec,
                 resource_contract_plan=resource_contract_plan,
@@ -131,7 +133,9 @@ class WorkerScopedMixin:
                              if a.span_id in worker_span_ids],
             )
 
-            # child worker 不传 canonical_input——它的变量来源是 contract，不是原始输入
+            # child worker 不传 canonical_input——它的变量来源是 contract，不是原始输入。
+            # 也不传 demand_view——child worker 通过 worker_spec.input_contract/
+            # output_contract 获取已分配的 contract fields，不需要全局 DemandView。
             worker_resources, symbol_table = self._extract_resources_for_scope(
                 spans=worker_spans,
                 routes=worker_routes,
@@ -142,6 +146,7 @@ class WorkerScopedMixin:
                 scope_kind="worker",
                 scope_id=worker_id,
                 worker_spec=worker,
+                demand_view=None,
             )
             worker_scoped_resources.worker_resources[worker_id] = worker_resources
 
@@ -176,6 +181,7 @@ class WorkerScopedMixin:
         scope_id: str | None = None,
         worker_spec: WorkerSpecIR | None = None,
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        demand_view: object | None = None,
     ) -> tuple[ResourceRegistryIR, SymbolTable]:
         """对单个 scope 执行 LLM 资源提取：build prompt → LLM → 解析 JSON → 过滤 → 合并。"""
         system_prompt = load_prompt("stage6")
@@ -190,6 +196,7 @@ class WorkerScopedMixin:
             scope_kind=scope_kind,
             scope_id=scope_id,
             resource_contract_plan=resource_contract_plan,
+            demand_view=demand_view,
         )
 
         try:
@@ -309,8 +316,50 @@ class WorkerScopedMixin:
                         "Skipping resource_contract with unknown kind: %s", rc_kind
                     )
                     continue
+                # B4: resolve authoritative requiredness BEFORE any side effects.
+                # DemandView is the authority when present; LLM is fallback.
+                authoritative_rq: str | None = None
+                authoritative_req: bool | None = None
+                if demand_view is not None:
+                    dv_demands = getattr(demand_view, "valid_demands",
+                                         lambda: getattr(demand_view, "demands", ()))()
+                    found = False
+                    for d in dv_demands:
+                        if getattr(d, "demand_id", None) == rc_data["demand_id"]:
+                            authoritative_rq = getattr(d, "requiredness", None)
+                            authoritative_req = getattr(d, "required", None)
+                            found = True
+                            break
+                    if not found:
+                        self.logger.warning(
+                            "Unknown demand_id %s in LLM resource_contracts "
+                            "output; DemandView present but no match. Skipping.",
+                            rc_data["demand_id"],
+                        )
+                        continue  # reject — no binding, no field, no resource
+                    llm_rq = rc_data.get("requiredness")
+                    if llm_rq is not None and llm_rq != authoritative_rq:
+                        self.logger.warning(
+                            "LLM requiredness %s disagrees with DemandView %s "
+                            "for demand %s; using DemandView.",
+                            llm_rq, authoritative_rq, rc_data["demand_id"],
+                        )
+                else:
+                    authoritative_rq = rc_data.get("requiredness", "unspecified")
+                    authoritative_req = rc_data.get("required")
+
+                # Validate requiredness value
+                if authoritative_rq not in ("required", "optional", "unspecified"):
+                    self.logger.warning(
+                        "Invalid requiredness '%s' for demand %s; "
+                        "falling back to unspecified.",
+                        authoritative_rq, rc_data["demand_id"],
+                    )
+                    authoritative_rq = "unspecified"
+                    authoritative_req = None
+
                 # Create binding
-                binding = ResourceContractBindingIR(
+                self._contract_bindings.append(ResourceContractBindingIR(
                     contract_demand_id=rc_data["demand_id"],
                     resource_name=rc_data["name"],
                     resource_kind=rc_kind,  # type: ignore[arg-type]
@@ -320,8 +369,8 @@ class WorkerScopedMixin:
                     source_span_ids=rc_data.get("source_span_ids", []),
                     source_section_id=rc_data.get("source_section_id"),
                     source_packet_id=rc_data.get("source_packet_id"),
-                )
-                self._contract_bindings.append(binding)
+                ))
+
                 resource_contract_fields.append(
                     ResourceContractFieldIR(
                         demand_id=rc_data["demand_id"],
@@ -329,7 +378,8 @@ class WorkerScopedMixin:
                         resource_kind=rc_kind,  # type: ignore[arg-type]
                         direction=rc_data.get("direction", "output"),
                         data_type=rc_data.get("data_type", "text"),
-                        required=rc_data.get("required", False),
+                        required=authoritative_req,
+                        requiredness=authoritative_rq,  # type: ignore[arg-type]
                         description=rc_data.get("description", ""),
                         path=rc_data.get("path"),
                         source_span_ids=rc_data.get("source_span_ids", []),
@@ -532,6 +582,7 @@ class WorkerScopedMixin:
                 field.name = materialized.name
                 field.data_type = materialized.data_type
                 field.required = materialized.required
+                field.requiredness = materialized.requiredness
                 field.description = materialized.description or field.description
                 field.source_span_ids = list(materialized.source_span_ids)
                 field.source_section_id = materialized.source_section_id
