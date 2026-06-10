@@ -1,0 +1,110 @@
+{
+  "stage": "stage3_2_resource_contract_plan",
+  "timestamp": "2026-06-09T14:25:08.479384",
+  "metadata": {},
+  "result": {
+    "demands": [
+      {
+        "demand_id": "rcd_input_s10",
+        "direction": "input",
+        "required": true,
+        "evidence_text": "Key dates or deadlines",
+        "source_span_ids": [
+          "s10"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_key_dates_or_deadlines",
+        "route_annotation_ids": [
+          "s10"
+        ],
+        "evidence_sources": [
+          "list_item_packet",
+          "route_annotation",
+          "section_title"
+        ],
+        "metadata": {}
+      },
+      {
+        "demand_id": "rcd_input_s8",
+        "direction": "input",
+        "required": true,
+        "evidence_text": "Topic summary",
+        "source_span_ids": [
+          "s8"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_topic_summary",
+        "route_annotation_ids": [
+          "s8"
+        ],
+        "evidence_sources": [
+          "list_item_packet",
+          "route_annotation",
+          "section_title"
+        ],
+        "metadata": {}
+      },
+      {
+        "demand_id": "rcd_input_s9",
+        "direction": "input",
+        "required": true,
+        "evidence_text": "Target audience",
+        "source_span_ids": [
+          "s9"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_target_audience",
+        "route_annotation_ids": [
+          "s9"
+        ],
+        "evidence_sources": [
+          "list_item_packet",
+          "route_annotation",
+          "section_title"
+        ],
+        "metadata": {}
+      },
+      {
+        "demand_id": "rcd_output_s11",
+        "direction": "output",
+        "required": true,
+        "evidence_text": "Finished draft (Word or Google Doc, 200–500 words, no approval marks)",
+        "source_span_ids": [
+          "s11"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_finished_draft_word_or_google_doc_200_500_words_no_approval_marks",
+        "route_annotation_ids": [
+          "s11"
+        ],
+        "evidence_sources": [
+          "list_item_packet",
+          "route_annotation",
+          "section_title"
+        ],
+        "metadata": {}
+      },
+      {
+        "demand_id": "rcd_output_s12",
+        "direction": "output",
+        "required": true,
+        "evidence_text": "Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)",
+        "source_span_ids": [
+          "s12"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_status_flag_values_drafting_ready_for_review_approved",
+        "route_annotation_ids": [
+          "s12"
+        ],
+        "evidence_sources": [
+          "list_item_packet",
+          "route_annotation",
+          "section_title"
+        ],
+        "metadata": {}
+      }
+    ],
+    "warnings": []
+  }
+}

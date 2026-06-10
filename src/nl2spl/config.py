@@ -58,6 +58,9 @@ class PipelineConfig:
     max_retries: int = 3
     retry_delay: float = 1.0
 
+    # Resource contract migration flags
+    enable_adapter_hard_facts: bool = False
+
     # IRS (Information Requirements Specification) settings
     irs: IRSRuntimeConfig = field(default_factory=IRSRuntimeConfig)
 

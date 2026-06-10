@@ -6,6 +6,15 @@ from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation, StructuralPrior
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
+from nl2spl.ir.resource_contract_ir import (
+    ContractDirection,
+    ResourceContractBindingIR,
+    ResourceContractDemandIR,
+    ResourceContractFieldIR,
+    ResourceContractPlanIR,
+    ResourceKind,
+    ResourceScopeKind,
+)
 from nl2spl.ir.resource_registry_ir import (
     APIFunction,
     APISpec,
@@ -59,6 +68,13 @@ __all__ = [
     "StepRenderInfo",
     "TraceRecord",
     "ConstraintIR",
+    "ResourceContractDemandIR",
+    "ResourceContractPlanIR",
+    "ResourceContractFieldIR",
+    "ResourceContractBindingIR",
+    "ResourceKind",
+    "ResourceScopeKind",
+    "ContractDirection",
     "ResourceRegistryIR",
     "VariableSpec",
     "FileSpec",
