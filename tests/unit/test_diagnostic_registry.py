@@ -108,13 +108,13 @@ class TestDefaultRegistry:
         kinds = self.registry.list_kinds()
         assert "missing_handler" in kinds
         assert "redundant_requirement" in kinds  # reserved but still listed
-        assert len(kinds) == 11  # 7 enabled + 4 reserved
+        assert len(kinds) == 14  # 10 enabled + 4 reserved (B5: +3 resource contract)
 
     def test_list_kinds_enabled_only(self):
         kinds = self.registry.list_kinds(enabled_only=True)
         assert "missing_handler" in kinds
         assert "redundant_requirement" not in kinds
-        assert len(kinds) == 7
+        assert len(kinds) == 10  # B5: +3 resource contract demand diagnostics
 
     # -- validation ----------------------------------------------------------
 

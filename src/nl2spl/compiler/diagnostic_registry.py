@@ -163,4 +163,40 @@ class DiagnosticRegistry:
             enabled=False,
         ))
 
+        # -- B5: resource contract demand diagnostics --
+
+        registry.register(DiagnosticSpec(
+            kind="missing_resource_contract",
+            default_severity="warning",
+            blocks_completion=True,
+            description=(
+                "A source-demanded resource contract has no materialized "
+                "resource binding in Stage 6."
+            ),
+            allowed_targets=["resource_contract_demand"],
+        ))
+
+        registry.register(DiagnosticSpec(
+            kind="resource_kind_mismatch",
+            default_severity="warning",
+            blocks_completion=True,
+            description=(
+                "A resource contract binding points to a resource kind that "
+                "does not exist in the materialized ResourceRegistryIR."
+            ),
+            allowed_targets=["resource_contract_demand"],
+        ))
+
+        registry.register(DiagnosticSpec(
+            kind="unspecified_output_missing_producer",
+            default_severity="info",
+            blocks_completion=False,
+            description=(
+                "A source-demanded output with requiredness=unspecified has "
+                "no renderable producer.  Review whether this output should "
+                "be declared optional or a producer should be added."
+            ),
+            allowed_targets=["resource_contract_demand"],
+        ))
+
         return registry

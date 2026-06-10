@@ -127,6 +127,7 @@ class IRSSubsystem:
         *,
         worker_scoped_resources: WorkerScopedResourceIR | None = None,
         resource_contract_plan: Any = None,
+        demand_view: Any = None,
     ) -> list[CompileDiagnostic]:
         """Run post-normalize IRS — final construct-level authority.
 
@@ -140,6 +141,7 @@ class IRSSubsystem:
             symbol_table: Symbol table with producer/consumer links.
             resources: Global resource registry.
             worker_scoped_resources: Worker-scoped resources for merged view.
+            demand_view: B5 DemandView (preferred over resource_contract_plan).
 
         Returns:
             List of authoritative compile diagnostics.
@@ -157,6 +159,7 @@ class IRSSubsystem:
             metadata={
                 "worker_scoped_resources": worker_scoped_resources,
                 "resource_contract_plan": resource_contract_plan,
+                "demand_view": demand_view,
             },
         )
 
