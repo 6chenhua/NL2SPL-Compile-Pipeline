@@ -162,7 +162,7 @@ CHILD_WORKER, WORKER_CANDIDATE, REQUIRED_OUTPUT ...
 
 Each slot specifies: whether it's syntax-required, required for partial/complete rendering, what evidence kinds prove it, what diagnostic kind to emit when missing, and whether it can be inferred or suggested.
 
-**2. Final authority** (`stage9_5_normalizer/final_irs_checker.py`) — After normalized worker-scoped IR is assembled, post-normalize IRS emits authoritative construct diagnostics such as `missing_handler`, `missing_output_producer`, `type_or_contract_ambiguity`, and `assumed_command_not_renderable`.
+**2. Final authority** (`compiler/irs/checkers/post_normalize.py`) — After normalized worker-scoped IR is assembled, post-normalize IRS emits authoritative construct diagnostics through `IRSRunner` and `DiagnosticProjector`, such as `missing_handler`, `missing_output_producer`, `type_or_contract_ambiguity`, and `assumed_command_not_renderable`.
 
 Output feeds into the Executable Gate (below), provenance aggregation, and the final compile report.
 

@@ -131,7 +131,7 @@ LLM semantic mapper 失败时，系统应暴露错误:
 3. 合成 missing output producer
 4. 恢复 flat legacy semantic repair path
 
-missing output producer 等最终 construct 诊断由 PostNormalizeIRSChecker 负责。
+missing output producer 等最终 construct 诊断由 post-normalize IRS 负责。
 
 ## 8. 验收标准
 
