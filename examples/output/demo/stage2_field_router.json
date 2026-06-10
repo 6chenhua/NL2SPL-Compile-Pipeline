@@ -1,6 +1,6 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-06-07T16:32:28.196232",
+  "timestamp": "2026-06-09T14:25:08.477067",
   "metadata": {},
   "result": {
     "routes": {
@@ -753,7 +753,6 @@
         "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's7'",
         "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's7'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'",
-        "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'",
         "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'",
@@ -763,7 +762,7 @@
         "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's13'",
         "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'",
         "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's14'",
-        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's14'",
         "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'",
         "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's15'",
         "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's15'",
@@ -774,23 +773,16 @@
         "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'",
         "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'",
         "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'",
+        "LLM refinement corrected: role 'delegation_intent' requires slot_target='target', got 'boundary' for span 's22'",
         "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'",
         "LLM refinement corrected: role 'delegation_prohibition' requires route_family='delegation_boundary', got None for span 's23'",
         "LLM refinement corrected: role 'delegation_prohibition' requires construct_target='CONSTRAINT', got 'WORKER_HANDOFF' for span 's23'",
-        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation.",
-        "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract.",
-        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field.",
-        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract.",
-        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract.",
-        "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract.",
-        "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step.",
-        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested route_prior/domain; confirmed as profile_domain on the text evidence.",
+        "LLM route diagnostic [prior_overridden] span='s13': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s14': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s15': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; text supports a delegation_intent description.",
+        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior suggested behavior with no route prior; text supports delegation_prohibition in a non-delegable section."
       ],
       "structured_route_diagnostics": [
         {
@@ -906,11 +898,6 @@
         {
           "span_id": "s9",
           "kind": "route_refinement_corrected",
-          "message": "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'"
-        },
-        {
-          "span_id": "s9",
-          "kind": "route_refinement_corrected",
           "message": "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'"
         },
         {
@@ -956,7 +943,7 @@
         {
           "span_id": "s14",
           "kind": "route_refinement_corrected",
-          "message": "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'"
+          "message": "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's14'"
         },
         {
           "span_id": "s15",
@@ -1009,6 +996,11 @@
           "message": "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'"
         },
         {
+          "span_id": "s22",
+          "kind": "route_refinement_corrected",
+          "message": "LLM refinement corrected: role 'delegation_intent' requires slot_target='target', got 'boundary' for span 's22'"
+        },
+        {
           "span_id": "s23",
           "kind": "route_refinement_corrected",
           "message": "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'"
@@ -1026,72 +1018,32 @@
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation."
+          "message": "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested route_prior/domain; confirmed as profile_domain on the text evidence."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract."
+          "message": "LLM route diagnostic [prior_overridden] span='s13': Structural prior suggested process_step; text supports an executable process_step."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field."
+          "message": "LLM route diagnostic [prior_overridden] span='s14': Structural prior suggested process_step; text supports an executable process_step."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract."
+          "message": "LLM route diagnostic [prior_overridden] span='s15': Structural prior suggested process_step; text supports an executable process_step."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract."
+          "message": "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; text supports a delegation_intent description."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step."
-        },
-        {
-          "span_id": "",
-          "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+          "message": "LLM route diagnostic [prior_overridden] span='s23': Neutral prior suggested behavior with no route prior; text supports delegation_prohibition in a non-delegable section."
         }
       ]
     },
@@ -1123,7 +1075,6 @@
         "LLM refinement corrected: role 'profile_domain' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's7'",
         "LLM refinement corrected: role 'profile_domain' requires slot_target=None, got 'input' for span 's7'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's8'",
-        "LLM refinement corrected: role 'input_contract' requires field='resources', got 'audience' for span 's9'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's9'",
         "LLM refinement corrected: role 'input_contract' requires route_family='resource_contract', got None for span 's10'",
         "LLM refinement corrected: role 'output_contract' requires route_family='resource_contract', got None for span 's11'",
@@ -1133,7 +1084,7 @@
         "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's13'",
         "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's14'",
         "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's14'",
-        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's14'",
+        "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'input' for span 's14'",
         "LLM refinement corrected: role 'process_step' requires route_family='flow_relevant', got None for span 's15'",
         "LLM refinement corrected: role 'process_step' requires construct_target=None, got 'RESOURCE_CONTRACT' for span 's15'",
         "LLM refinement corrected: role 'process_step' requires slot_target=None, got 'output' for span 's15'",
@@ -1144,23 +1095,16 @@
         "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's20'",
         "LLM refinement corrected: role 'failure_mode' requires route_family='flow_relevant', got None for span 's21'",
         "LLM refinement corrected: role 'delegation_intent' requires route_family='delegation_boundary', got None for span 's22'",
+        "LLM refinement corrected: role 'delegation_intent' requires slot_target='target', got 'boundary' for span 's22'",
         "LLM refinement corrected: role 'delegation_prohibition' requires field='rules', got 'behavior' for span 's23'",
         "LLM refinement corrected: role 'delegation_prohibition' requires route_family='delegation_boundary', got None for span 's23'",
         "LLM refinement corrected: role 'delegation_prohibition' requires construct_target='CONSTRAINT', got 'WORKER_HANDOFF' for span 's23'",
-        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain field; confirmed as a profile_domain annotation.",
-        "LLM route diagnostic [prior_overridden] span='s8': Structural prior suggested resources; confirmed as input_contract.",
-        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested resources; confirmed as input_contract with audience field.",
-        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested resources; confirmed as input_contract.",
-        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested resources; confirmed as output_contract.",
-        "LLM route diagnostic [prior_overridden] span='s12': Structural prior suggested resources; confirmed as output_contract.",
-        "LLM route diagnostic [prior_overridden] span='s16': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s17': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested rules; confirmed as constraint.",
-        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a process/behavior route; confirmed as failure_mode.",
-        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; confirmed as delegation_intent. The span is a policy description rather than an executable step.",
-        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior was treated as non-delegable policy; text supports a delegation_prohibition."
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested route_prior/domain; confirmed as profile_domain on the text evidence.",
+        "LLM route diagnostic [prior_overridden] span='s13': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s14': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s15': Structural prior suggested process_step; text supports an executable process_step.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested delegation_intent; text supports a delegation_intent description.",
+        "LLM route diagnostic [prior_overridden] span='s23': Neutral prior suggested behavior with no route prior; text supports delegation_prohibition in a non-delegable section."
       ],
       "split_recommendations": []
     }

@@ -1,56 +1,55 @@
 [DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
     [DEFINE_PERSONA:]
         ROLE: Internal communications drafting specialist
-        TemplateDriven: Uses the approved internal communications template and follows the standard style guide.
-        PlainLanguageFocused: Writes using plain-language and inclusive tone guidelines.
-        ReviewOriented: Routes drafts to the relevant communications lead for review and waits for final sign-off before approval.
+        TemplateDriven: Uses the approved internal communications template and follows the standard internal communications style guide.
+        PlainLanguageAndInclusiveTone: Writes in plain language and maintains an inclusive tone.
+        ReviewOriented: Routes drafts to the relevant communications lead for review and waits for final sign-off before marking them approved.
     [END_PERSONA]
     [DEFINE_CONCEPTS:]
-        Internalcommunicationsdrafting: The creation of internal company communications such as newsletters, announcements, update digests, and executive briefs.
-        Recurringdigests: Regularly scheduled summary communications that compile updates over time.
-        Executivememos: Internal memoranda intended for executive-level readers.
-        Crisiscommunications: Urgent communications used during a crisis; explicitly out of scope for this task family.
-        Internalnewsletters: Newsletter-style communications distributed within the organization.
-        Updatedigests: Brief summary updates that collect recent information into a digest format.
-        Executivebriefs: Concise briefing documents prepared for executives.
-        Communicationslead: The person responsible for reviewing the draft and providing final sign-off.
-        Approvedtemplate: The required standard document format that must be used for drafting.
-        Plainlanguageguidelines: Rules requiring clear, simple wording that is easy to understand.
-        Inclusivetoneguidelines: Guidelines for writing in a respectful, inclusive manner.
-        Statusflag: A field indicating workflow state, with values such as drafting, ready for review, or approved.
+        InternalCommunicationsDrafting: The task family of creating internal organizational content such as newsletters, announcements, digests, and executive briefs.
+        RecurringDigests: Regularly scheduled summary updates compiled for internal audiences.
+        ExecutiveMemos: Formal internal messages intended for executives.
+        CrisisCommunications: Emergency or incident-related communications that are explicitly outside the scope of this drafting task.
+        InternalCommunicationsArtifacts: Documents or communication outputs produced as part of internal communications work.
+        ApprovedTemplate: The required standard format that must be used when drafting internal communications.
+        CommunicationsLead: The reviewer responsible for final review and approval of the draft.
+        StatusFlag: A label indicating draft state, with allowed values such as drafting, ready for review, and approved.
     [END_CONCEPTS]
     [DEFINE_CONSTRAINTS:]
         Requirement: Must use the approved template
         Requirement: Must follow plain-language and inclusive tone guidelines
-        Approval: Require final sign-off from the communications lead before flagging as approved
+        Gate: Require final sign-off from the communications lead before flagging the draft as approved
     [END_CONSTRAINTS]
     [DEFINE_VARIABLES:]
-        "Topic summary" topic_summary: text
-        "Target audience" target_audience: text
-        "Key dates or deadlines" key_dates_or_deadlines: text
-        "Finished draft word or google doc 200 500 words no approval marks" finished_draft_word_or_google_doc_200_500_words_no_approval_marks: text
-        "Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)" status_flag_values_drafting_ready_for_review_approved: text
+        "Key dates or deadlines provided by the user." key_dates_or_deadlines: List [text]
+        "Summary of the topic to draft about." topic_summary: text
+        "Intended audience for the draft." target_audience: text
+        "Status of the draft with allowed values drafting, ready for review, or approved." status_flag: text
+        "Finished draft content in Word or Google Doc form, 200 to 500 words, with no approval marks." finished_draft: text
         "Structured result for st_1." worker_main_st_1_result_structured: worker_main_st_1_result_structured_type
         "Structured result for st_2." worker_main_st_2_result_structured: worker_main_st_2_result_structured_type
     [END_VARIABLES]
+    [DEFINE_FILES:]
+        "Finished draft as a Word or Google Doc document." finished_draft < >: text
+    [END_FILES]
     [DEFINE_TYPES:]
         worker_main_st_1_result_structured_type = { topic_summary: text, target_audience: text }
-        worker_main_st_2_result_structured_type = { finished_draft_word_or_google_doc_200_500_words_no_approval_marks: text, status_flag_values_drafting_ready_for_review_approved: text }
+        worker_main_st_2_result_structured_type = { finished_draft: text, status_flag: text }
     [END_TYPES]
     [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
         [INPUTS]
+            REQUIRED <REF>key_dates_or_deadlines</REF>
             REQUIRED <REF>topic_summary</REF>
             REQUIRED <REF>target_audience</REF>
-            REQUIRED <REF>key_dates_or_deadlines</REF>
         [END_INPUTS]
         [OUTPUTS]
             REQUIRED <REF>worker_main_st_2_result_structured</REF>
         [END_OUTPUTS]
         [MAIN_FLOW]
             [SEQUENTIAL_BLOCK]
-                COMMAND-1 [INPUT Receive topic and audience information VALUE worker_main_st_1_result_structured: worker_main_st_1_result_structured_type SET]
-                COMMAND-2 [COMMAND Draft the internal communications message using the standard template based on <REF>worker_main_st_1_result_structured</REF> RESULT worker_main_st_2_result_structured: worker_main_st_2_result_structured_type SET]
-                COMMAND-3 [COMMAND Route the draft to the relevant communications lead for review based on <REF>worker_main_st_2_result_structured</REF> RESULT status_flag_values_drafting_ready_for_review_approved: text SET]
+                COMMAND-1 [INPUT Request topic and audience from the requestor VALUE worker_main_st_1_result_structured: worker_main_st_1_result_structured_type SET]
+                COMMAND-2 [COMMAND Draft the internal communications piece using the standard template based on <REF>worker_main_st_1_result_structured</REF> RESULT worker_main_st_2_result_structured: worker_main_st_2_result_structured_type SET]
+                COMMAND-3 [COMMAND Route the draft to the relevant communications lead for review based on <REF>worker_main_st_2_result_structured</REF> RESULT status_flag: text SET]
             [END_SEQUENTIAL_BLOCK]
         [END_MAIN_FLOW]
         [EXCEPTION_FLOW: Communications lead unresponsive for over two days]

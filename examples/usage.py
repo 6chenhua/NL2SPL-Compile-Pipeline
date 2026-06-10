@@ -126,11 +126,6 @@ def main() -> None:
     # ── Save outputs ───────────────────────────────────────────────
     run_dir = config.run_dir
 
-    # compile_report.txt
-    report_path = run_dir / "compile_report.txt"
-    report_path.write_text(result.readable_report, encoding="utf-8")
-    print(f"\nCompile report saved: {report_path}")
-
     # feedback_report.md
     feedback = render_feedback_report(
         spl_text=result.spl_text,
@@ -151,7 +146,6 @@ def main() -> None:
     print(f"Final SPL saved:      {spl_path}")
 
     print(f"\nOpen {feedback_path} for the human-readable feedback report.")
-    print(f"Open {report_path} for the deterministic compile report.")
 
 
 if __name__ == "__main__":

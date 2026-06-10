@@ -24,11 +24,10 @@ completeness: partial
 
 ```text
 final_spl.txt
-compile_report.txt
 feedback_report.md
 ```
 
-其中 `compile_report.txt` 是紧凑编译摘要，`feedback_report.md` 是面向用户/评审的解释性反馈报告。
+MVP 阶段只生成 `feedback_report.md` 作为 human-readable report；内部 compiler diagnostics 保留在 stage checkpoint JSON / intermediate results 中。
 
 ---
 
@@ -317,7 +316,7 @@ Failure conditions are represented as partial exception flows when source-backed
 No invented handler commands.
 No synthetic required-output producer commands.
 Incomplete delegation remains diagnostic/report-only.
-Diagnostics, traces, assumptions, compile_report, and feedback_report are generated.
+Diagnostics, traces, assumptions, and feedback_report are generated. Internal compiler diagnostics remain in checkpoint JSON / intermediate results.
 ```
 
 失败条件：
@@ -330,4 +329,3 @@ System emits executable INVOKE_WORKER without accepted handoff.
 Report does not explain why result is partial.
 Provenance is missing for major materialized elements.
 ```
-

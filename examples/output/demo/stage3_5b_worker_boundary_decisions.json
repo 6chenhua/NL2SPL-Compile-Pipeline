@@ -1,11 +1,11 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-06-06T02:37:47.043440",
+  "timestamp": "2026-06-09T14:25:12.353701",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_draft_internal_communications",
+        "candidate_id": "candidate_initial_drafting_using_template_and_topic_summary",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
@@ -14,12 +14,12 @@
         "evidence": []
       },
       {
-        "candidate_id": "candidate_route_to_communications_lead",
+        "candidate_id": "candidate_route_for_comm_lead_review",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "explicit_delegation",
-        "rejection_reason": "no_clear_output_contract",
-        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_input_contract",
         "evidence": []
       }
     ]

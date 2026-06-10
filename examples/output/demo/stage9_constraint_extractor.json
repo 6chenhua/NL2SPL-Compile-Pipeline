@@ -1,6 +1,6 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-06-06T04:29:13.704951",
+  "timestamp": "2026-06-09T14:25:29.755522",
   "metadata": {},
   "result": {
     "constraints": [
@@ -9,7 +9,7 @@
         "text": "Must use the approved template",
         "kind": "requirement",
         "targets": [
-          "step:st_2"
+          "global"
         ],
         "source_span_ids": [
           "s16"
@@ -28,8 +28,8 @@
       },
       {
         "constraint_id": "c_3",
-        "text": "Require final sign-off from the communications lead before flagging as approved",
-        "kind": "approval",
+        "text": "Require final sign-off from the communications lead before flagging the draft as approved",
+        "kind": "gate",
         "targets": [
           "global"
         ],
