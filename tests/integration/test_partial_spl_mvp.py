@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.compiler.completeness import compute_completeness
-from nl2spl.compiler.diagnostic_analyzer import AnalyzeInput, DiagnosticAnalyzer
-from nl2spl.compiler.producer_index import ProducerIndex
+from nl2spl.compiler.irs.factory import build_irs_subsystem
+from nl2spl.compiler.irs.policy import IRSRuntimeConfig
 from nl2spl.compiler.report_renderer import render_report
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
@@ -60,11 +60,7 @@ def _run_post_compile(
     worker = assembler.assemble(n_flow, n_blocks, n_steps, resources, n_symbols, None)
 
     # Post-normalize IRS check
-    from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
-        PostNormalizeIRSChecker,
-    )
-    post_norm_checker = PostNormalizeIRSChecker()
-    post_norm_diags = post_norm_checker.check(
+    post_norm_diags = build_irs_subsystem(IRSRuntimeConfig()).run_post_normalize(
         worker=worker, resources=resources, symbol_table=n_symbols,
     )
 
@@ -90,15 +86,7 @@ def _run_post_compile(
         resources=resources, symbol_table=n_symbols, spans=spans,
     )
 
-    # Post-compile analysis
     all_diags = list(post_norm_diags) + gate_diags + provenance_diags
-    analyzer = DiagnosticAnalyzer()
-    analyzer_diags = analyzer.analyze(AnalyzeInput(
-        worker=worker, resources=resources, symbol_table=n_symbols,
-        producer_index=ProducerIndex(steps=n_steps),
-        steps=n_steps,
-    ))
-    all_diags.extend(analyzer_diags)
 
     completeness = compute_completeness(
         validation_errors=n_errors + spl_errors,
@@ -344,13 +332,6 @@ def test_complete_delegation() -> None:
     )
 
     all_diags = gate_diags + provenance_diags
-    analyzer = DiagnosticAnalyzer()
-    analyzer_diags = analyzer.analyze(AnalyzeInput(
-        worker=worker, resources=resources, symbol_table=symbols,
-        producer_index=ProducerIndex(steps=prov_steps, handoffs=worker_plan.handoffs),
-        steps=prov_steps,
-    ))
-    all_diags.extend(analyzer_diags)
 
     validation_errors = spl_errors
     assert validation_errors == [], (
@@ -441,11 +422,7 @@ def test_incomplete_delegation() -> None:
     )
 
     # Post-normalize IRS check runs before gate.
-    from nl2spl.pipeline.stages.stage9_5_normalizer.final_irs_checker import (
-        PostNormalizeIRSChecker,
-    )
-    post_norm_checker = PostNormalizeIRSChecker()
-    post_norm_diags = post_norm_checker.check(
+    post_norm_diags = build_irs_subsystem(IRSRuntimeConfig()).run_post_normalize(
         worker=worker, worker_plan=worker_plan,
     )
 
@@ -470,11 +447,6 @@ def test_incomplete_delegation() -> None:
     )
 
     all_diags = post_norm_diags + gate_diags + provenance_diags
-    analyzer = DiagnosticAnalyzer()
-    analyzer_diags = analyzer.analyze(AnalyzeInput(
-        worker=worker, steps=prov_steps,
-    ))
-    all_diags.extend(analyzer_diags)
 
     completeness = compute_completeness(
         validation_errors=spl_errors,

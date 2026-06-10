@@ -1,18 +1,22 @@
 """Regression fixtures for the current adapter boundary.
 
 The input adapter preserves structure and provenance only. Semantic delegation
-diagnostics are produced from final RouteAnnotations, not from adapter hard-fact
-bridges.
+diagnostics are produced from final RouteAnnotations through IRS, not from
+adapter hard-fact bridges.
 """
 
 from __future__ import annotations
 
 from nl2spl.adapters import InputAdapterRegistry
 from nl2spl.config import PipelineConfig
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
+from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.projector import DiagnosticProjector
+from nl2spl.compiler.irs.registry import IRSCheckerRegistry
+from nl2spl.compiler.irs.runner import IRSRunner
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
-from nl2spl.pipeline.delegation_diagnostics import (
-    diagnose_delegation_intents_from_routes,
-)
+from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 
 
@@ -30,6 +34,24 @@ def _adapt_and_slice(text: str) -> tuple:
     slicer = SpanSlicer(cfg, _MagicLLM())
     spans = slicer.execute(canonical)
     return spans, canonical
+
+
+def _run_stage3_5_irs(routes: FieldRouteIR):
+    registry = IRSCheckerRegistry()
+    registry.register(WorkerDelegationIRSChecker())
+    runner = IRSRunner(
+        registry=registry,
+        construct_registry=SPLConstructRegistry.default(),
+        projector=DiagnosticProjector(),
+    )
+    return runner.run_stage(
+        "stage3_5",
+        IRSCheckContext(
+            stage_name="stage3_5",
+            routes=routes,
+            worker_plan=WorkerPlanIR(main_worker_id="worker_main"),
+        ),
+    )
 
 
 def test_adapter_preserves_delegation_policy_without_bridge_facts() -> None:
@@ -69,9 +91,11 @@ def test_adapter_preserves_delegation_policy_without_bridge_facts() -> None:
         ],
     )
 
-    diags = diagnose_delegation_intents_from_routes(routes, spans)
+    result = _run_stage3_5_irs(routes)
+    diags = result.diagnostics
 
     assert len(diags) == 1
+    assert diags[0].diagnostic_id.startswith("irs_")
     assert diags[0].kind == "type_or_contract_ambiguity"
     assert diags[0].target_ref == f"delegation_intent:{del_span.span_id}"
     assert diags[0].source_span_ids == [del_span.span_id]

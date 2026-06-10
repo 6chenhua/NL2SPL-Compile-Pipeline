@@ -558,3 +558,59 @@ class TestEdgeCases:
         r2 = ProducerRef("b", "step", "st2")
         r1.source_span_ids.append("s1")
         assert r2.source_span_ids == []
+
+    def test_producer_ref_file_resource_kind(self) -> None:
+        """ProducerRef can carry resource_kind=file."""
+        ref = ProducerRef(
+            "finished_draft", "step", "st_draft",
+            source_span_ids=["s14"],
+            renderable=True,
+            resource_kind="file",
+        )
+        assert ref.resource_kind == "file"
+        assert ref.variable_name == "finished_draft"
+
+    def test_is_produced_with_resource_kind_filter(self) -> None:
+        """is_produced with resource_kind filter only counts matching kinds."""
+        step = StepIR(
+            step_id="st1",
+            text="Draft document",
+            source_span_ids=["s14"],
+            command_type="GENERAL_COMMAND",
+            inputs=[],
+            outputs=["finished_draft"],
+            kind="normal",
+        )
+        index = ProducerIndex(steps=[step])
+        # Without filter: variable kind default → no match for file filtering
+        assert index.is_produced("finished_draft")
+        assert not index.is_produced("finished_draft", resource_kind="file")
+
+    def test_step_output_bound_to_file_counts_as_file_producer(self) -> None:
+        """A source-backed step output can produce a file resource via binding."""
+        from nl2spl.ir.resource_contract_ir import ResourceContractBindingIR
+
+        step = StepIR(
+            step_id="st1",
+            text="Draft document",
+            source_span_ids=["s14"],
+            command_type="GENERAL_COMMAND",
+            outputs=["finished_draft"],
+            kind="normal",
+        )
+        binding = ResourceContractBindingIR(
+            contract_demand_id="rcd_output_s11",
+            resource_name="finished_draft",
+            resource_kind="file",
+            direction="output",
+            scope_kind="global",
+            scope_id=None,
+        )
+        index = ProducerIndex(
+            steps=[step],
+            resource_contract_bindings=[binding],
+        )
+
+        assert index.is_produced("finished_draft")
+        assert index.is_produced("finished_draft", resource_kind="file")
+        assert not index.is_produced("finished_draft", resource_kind="variable")

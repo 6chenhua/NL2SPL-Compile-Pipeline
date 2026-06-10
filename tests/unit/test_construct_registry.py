@@ -20,6 +20,7 @@ class TestDefaultRegistry:
         expected = {
             "EXCEPTION_FLOW",
             "REQUIRED_OUTPUT",
+            "RESOURCE_CONTRACT_DEMAND",
             "GENERAL_COMMAND",
             "REQUEST_INPUT",
             "CALL_API",
@@ -28,6 +29,7 @@ class TestDefaultRegistry:
             "WORKER_CANDIDATE",
             "WORKER_PROMOTION",
             "WORKER_HANDOFF",
+            "DELEGATION_INTENT",
         }
         assert set(registry.list_constructs()) == expected
 

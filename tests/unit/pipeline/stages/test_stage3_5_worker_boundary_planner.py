@@ -878,7 +878,7 @@ class TestStage35PromptInjection:
         executor.client = MagicMock()
         executor.logger = MagicMock()
         executor.name = "test"
-        executor._build_candidate_prompt = lambda s, r, c: "test prompt"
+        executor._build_candidate_prompt = lambda s, r, c, rcp=None: "test prompt"
 
         spans = [SpanIR("s1", "Determine type")]
         routes = FieldRouteIR(behavior=["s1"])
@@ -913,7 +913,7 @@ class TestStage35PromptInjection:
         executor.client = MagicMock()
         executor.logger = MagicMock()
         executor.name = "test"
-        executor._build_decision_prompt = lambda s, r, c, cands: "test prompt"
+        executor._build_decision_prompt = lambda s, r, c, cands, rcp=None: "test prompt"
 
         spans = [SpanIR("s1", "Determine type")]
         routes = FieldRouteIR(behavior=["s1"])
@@ -947,7 +947,7 @@ class TestStage35PromptInjection:
         executor.client = MagicMock()
         executor.logger = MagicMock()
         executor.name = "test"
-        executor._build_decision_prompt = lambda s, r, c, cands: "test prompt"
+        executor._build_decision_prompt = lambda s, r, c, cands, rcp=None: "test prompt"
 
         spans = [SpanIR("s1", "Determine type")]
         routes = FieldRouteIR(behavior=["s1"])

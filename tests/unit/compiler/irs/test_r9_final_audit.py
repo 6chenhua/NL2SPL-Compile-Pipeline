@@ -108,9 +108,7 @@ class TestR9TestHygiene:
     # R9 plan specified file scope
     IRS_TEST_FILES = [
         "tests/unit/compiler/irs",
-        "tests/unit/test_irs_v6_r0_baseline.py",
         "tests/unit/test_irs_v6_r1_report_schema.py",
-        "tests/unit/pipeline/stages/test_final_irs_checker.py",
         "tests/unit/test_executable_gate.py",
     ]
 
@@ -347,17 +345,17 @@ class TestR9TestMatrixCoverage:
     # Mappings verified against 07_irs_v6_refactor_tasks.md test matrix.
     SCENARIOS = [
         # failure condition only: source-backed condition, no handler → missing_handler
-        ("failure condition only", "test_final_irs_checker", "exception_flow_without_handler_emits_missing_handler"),
+        ("failure condition only", "test_r10_irs_subsystem_foundation", "missing_handler"),
         # failure condition + handler evidence: handler not misinterpreted as condition
         ("failure condition + handler evidence", "test_flow_assembler", "handler_action_not_materialized_as_condition"),
-        ("required output no producer", "test_irs_v6_r0_baseline", "required_output_without_producer"),
+        ("required output no producer", "test_post_normalize_resource_contract_irs", "missing_output_producer"),
         # incomplete delegation: R4/R9 blocked promotion (not stale R0 baseline)
         ("incomplete delegation", "test_r9_final_audit", "test_worker_promotion_blocked_explained"),
         ("worker candidate only", "test_r4_worker_delegation", "promotion"),
         ("complete source-backed delegation", "test_r4_worker_delegation", "complete"),
-        ("REQUEST_INPUT without ask signal", "test_irs_v6_r0_baseline", "request_input_without_source"),
-        ("CALL_API with repository mention only", "test_irs_v6_r0_baseline", "call_api_requires_integration"),
-        ("assumed command", "test_irs_v6_r0_baseline", "general_command_without_source"),
+        ("REQUEST_INPUT without ask signal", "test_r6_step_checker", "REQUEST_INPUT"),
+        ("CALL_API with repository mention only", "test_r6_step_checker", "CALL_API"),
+        ("assumed command", "test_r6_step_checker", "source_evidence"),
         ("compiler unpack without renderable producer", "test_executable_gate", "compiler_unpack_blocked"),
         ("gate-filtered handler", "test_executable_gate", "vague_handler_gate_chain"),
     ]

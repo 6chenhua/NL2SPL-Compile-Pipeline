@@ -7,6 +7,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.adapters import GenericNLAdapter, StructuralNLAdapter
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.feedback_report_renderer import render_feedback_report
+from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
+from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.projector import DiagnosticProjector
+from nl2spl.compiler.irs.registry import IRSCheckerRegistry
+from nl2spl.compiler.irs.runner import IRSRunner
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
@@ -14,6 +21,7 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
@@ -80,7 +88,9 @@ def test_stage6_seeds_hard_fact_variables_and_keeps_output_producer_empty(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(
+        mock_client, enable_hard_facts=True,
+    ).adapt(STRUCTURAL_TEXT)
     mock_client.call_json.return_value = {
         "variables": [
             {
@@ -748,18 +758,36 @@ def test_d5_stage9_delegation_boundary_rule_survives(
 
 
 # ===========================================================================
-# D10: Route-driven delegation diagnostics
+# Route-driven delegation IRS diagnostics
 # ===========================================================================
 
 
-def test_d10_route_driven_delegation_diagnostic_from_annotation(
+def _run_delegation_irs(
+    routes: FieldRouteIR,
+    worker_plan: WorkerPlanIR | None = None,
+):
+    registry = IRSCheckerRegistry()
+    registry.register(WorkerDelegationIRSChecker())
+    runner = IRSRunner(
+        registry=registry,
+        construct_registry=SPLConstructRegistry.default(),
+        projector=DiagnosticProjector(),
+    )
+    return runner.run_stage(
+        "stage3_5",
+        IRSCheckContext(
+            stage_name="stage3_5",
+            routes=routes,
+            worker_plan=worker_plan or WorkerPlanIR(main_worker_id="worker_main"),
+        ),
+    )
+
+
+def test_irs_route_driven_delegation_diagnostic_from_annotation(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: route-driven delegation intent annotation emits diagnostic."""
-    from nl2spl.pipeline.delegation_diagnostics import (
-        diagnose_delegation_intents_from_routes,
-    )
+    """Route delegation intent annotation emits IRS diagnostic."""
 
     canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -770,25 +798,27 @@ def test_d10_route_driven_delegation_diagnostic_from_annotation(
     del_anns = routes.get_annotations_by_role("delegation_intent")
     assert len(del_anns) >= 1, "F0_STRUCTURAL_TEXT must have delegation annotation"
 
-    diags = diagnose_delegation_intents_from_routes(routes, spans)
+    result = _run_delegation_irs(routes)
+    diags = [
+        d for d in result.diagnostics
+        if (d.target_ref or "").startswith("delegation_intent:")
+    ]
     assert len(diags) >= 1
     for d in diags:
+        assert d.diagnostic_id.startswith("irs_")
         assert d.kind == "type_or_contract_ambiguity"
         assert d.source_span_ids
-        # D10: provenance evidence in message
-        assert "no-section" in d.message or "sec_" in d.message
+        assert d.missing_slot is not None
+        assert d.missing_slot.slot_name == "handoff_contract"
 
 
-def test_d10_no_delegation_annotation_emits_no_bridge_diagnostic(
+def test_irs_no_delegation_annotation_emits_no_bridge_diagnostic(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: hard-fact-only delegation no longer triggers bridge fallback."""
+    """Hard-fact-only delegation no longer triggers delegation IRS diagnostic."""
     from nl2spl.canonical import (
         CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts, RawSection,
-    )
-    from nl2spl.pipeline.delegation_diagnostics import (
-        diagnose_delegation_intents_from_routes,
     )
 
     section = RawSection(
@@ -813,16 +843,19 @@ def test_d10_no_delegation_annotation_emits_no_bridge_diagnostic(
 
     assert routes.get_annotations_by_role("delegation_intent") == []
 
-    diags = diagnose_delegation_intents_from_routes(routes, spans)
-    assert diags == []
+    result = _run_delegation_irs(routes)
+    assert [
+        d for d in result.diagnostics
+        if (d.target_ref or "").startswith("delegation_intent:")
+    ] == []
 
 
-def test_d10_orchestrator_run_delegation_diagnostics(
+def test_orchestrator_promotes_delegation_irs_diagnostics(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: _run_delegation_diagnostics uses final RouteAnnotations only."""
-    from nl2spl.pipeline.orchestrator import PipelineOrchestrator
+    """Promoted IRS helper uses final RouteAnnotation diagnostics only."""
+    from nl2spl.compiler.irs.result_store import IRSResultStore, IRSStageResult
 
     text = (
         "Task family: Test.\n\nInputs for each run:\nA request.\n\n"
@@ -835,22 +868,26 @@ def test_d10_orchestrator_run_delegation_diagnostics(
     mock_client.call_json.return_value = _route_annotations_for_spans(spans)
     routes, _ = FieldRouter(pipeline_config, mock_client).execute((spans, canonical))
 
-    # Run _run_delegation_diagnostics directly
-    diags = PipelineOrchestrator._run_delegation_diagnostics(
-        routes, spans, canonical, None, set(), {"test_api"},
-    )
+    result = _run_delegation_irs(routes)
+    store = IRSResultStore()
+    store.put_stage_result(IRSStageResult(
+        stage_name="stage3_5",
+        diagnostics=tuple(result.diagnostics),
+    ))
+    diags = PipelineOrchestrator._promoted_irs_diagnostics(store)
     # Route delegation annotation exists → route-driven diagnostics present
     del_anns = routes.get_annotations_by_role("delegation_intent")
     assert len(del_anns) >= 1
     assert len(diags) >= 1
+    assert all(d.diagnostic_id.startswith("irs_") for d in diags)
     assert all(d.kind == "type_or_contract_ambiguity" for d in diags)
 
 
-def test_d10_only_route_annotations_drive_delegation_diagnostics(
+def test_only_route_annotations_drive_delegation_irs_diagnostics(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """D10: unrelated hard facts in the same section do not create diagnostics."""
+    """Unrelated hard facts in the same section do not create diagnostics."""
     from nl2spl.canonical import (
         CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts,
         RawSection,
@@ -902,9 +939,11 @@ def test_d10_only_route_annotations_drive_delegation_diagnostics(
     # Force behavior list so the annotation span is accessible
     routes.behavior = [a.span_id for a in routes.annotations]
 
-    diags = PipelineOrchestrator._run_delegation_diagnostics(
-        routes, spans, canonical, None, set(), set(),
-    )
+    result = _run_delegation_irs(routes)
+    diags = [
+        d for d in result.diagnostics
+        if (d.target_ref or "").startswith("delegation_intent:")
+    ]
     refs = {d.target_ref for d in diags}
     assert len(diags) == 1, f"Got {len(diags)} with refs {refs}"
     assert refs == {f"delegation_intent:{routes.annotations[0].span_id}"}
@@ -1050,11 +1089,11 @@ def test_d5_worker_scoped_stage6_child_failure_guard(
         assert "child_var" in child_vars, "Legitimate child variable must survive"
 
 
-def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
+def test_stage2_route_diagnostics_stay_internal(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """Stage 2 route diagnostics become CompileDiagnostic in orchestrator output."""
+    """Stage 2 route diagnostics stay in route IR and do not enter feedback."""
 
     canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1144,37 +1183,34 @@ def test_stage2_route_diagnostics_flow_to_compile_diagnostics(
 
     result = orchestrator.run(STRUCTURAL_TEXT)
 
-    # Stage 2 route diagnostics must appear as CompileDiagnostic
-    # 1. Intermediate: must be CompileDiagnostic objects, not strings
-    s2_diags_raw = result.intermediate_results.get("stage_local_diagnostics", {}).get("stage2", [])
-    assert len(s2_diags_raw) >= 1, (
-        f"Expected CompileDiagnostic objects in stage2, got {s2_diags_raw}"
-    )
-    from nl2spl.ir.diagnostics import CompileDiagnostic as CD
-    for d in s2_diags_raw:
-        assert isinstance(d, CD), f"Expected CompileDiagnostic, got {type(d)}: {d}"
-        assert d.kind.startswith("route_refinement_")
-        assert d.severity == "warning"
-        assert d.blocks_completion is False
-
-    # 2. compile_diagnostics: route diagnostics must be present
-    assert len(result.compile_diagnostics) >= 1, (
-        f"Expected compile_diagnostics, got {result.compile_diagnostics}"
-    )
-    assert all(isinstance(d, CD) for d in result.compile_diagnostics), (
-        "All compile_diagnostics must be CompileDiagnostic objects"
-    )
+    # Stage 2 route diagnostics remain available for debugging.
+    stage2_routes = result.intermediate_results["stage2_routes"]
+    route_diags = stage2_routes.structured_route_diagnostics
     assert any(
+        d["kind"].startswith("route_refinement_")
+        for d in route_diags
+    ), f"Expected route refinement diagnostics in stage2_routes, got {route_diags}"
+    assert any(
+        "Failure condition may need handler text" in d["message"]
+        for d in route_diags
+    ), f"Expected LLM diagnostic message in stage2 route diagnostics: {route_diags}"
+
+    # They must not become final user-facing requirement diagnostics.
+    assert not any(
         d.kind.startswith("route_refinement_")
         for d in result.compile_diagnostics
-    ), f"No route_refinement_* in compile_diagnostics: {result.compile_diagnostics}"
-    assert not any(
-        isinstance(d, str) for d in result.compile_diagnostics
-    ), "No bare strings in compile_diagnostics"
+    ), f"route_refinement_* leaked into compile_diagnostics: {result.compile_diagnostics}"
 
-    # 3. Readable report: contains the LLM diagnostic message
-    report = result.readable_report or ""
-    assert "Failure condition may need handler text" in report, (
-        f"LLM diagnostic message must appear in readable report. "
-        f"Report length: {len(report)}"
+    feedback = render_feedback_report(
+        spl_text=result.spl_text,
+        completeness=result.completeness,
+        diagnostics=result.compile_diagnostics,
+        assumptions=result.assumptions,
+        traces=result.traces,
+        adapter_warnings=result.adapter_warnings,
+        validation_errors=result.validation_errors,
+        validation_warnings=result.validation_warnings,
     )
+    assert "route_refinement_" not in feedback
+    assert "Failure condition may need handler text" not in feedback
+    assert result.readable_report == ""

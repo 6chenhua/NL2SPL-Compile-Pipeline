@@ -25,9 +25,12 @@ from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.projector import DiagnosticProjector
 from nl2spl.compiler.irs.registry import IRSCheckerRegistry
 from nl2spl.compiler.irs.runner import IRSRunner
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
+    InputBindingIR,
     InvokeLocationHintIR,
+    OutputBindingIR,
     WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
@@ -82,6 +85,18 @@ class TestR4ConstructRegistry:
         assert irs.get_slot("responsibility") is not None
         assert irs.get_slot("delegation_signal") is not None
         assert irs.get_slot("source_evidence") is not None
+
+    def test_registry_contains_delegation_intent(self):
+        """DELEGATION_INTENT construct spec exists for route demands."""
+        registry = SPLConstructRegistry.default()
+        assert registry.has("DELEGATION_INTENT")
+
+        irs = registry.get("DELEGATION_INTENT")
+        assert irs.construct_type == "DELEGATION_INTENT"
+        assert irs.get_slot("delegation_signal") is not None
+        contract = irs.get_slot("handoff_contract")
+        assert contract is not None
+        assert contract.missing_diagnostic == "type_or_contract_ambiguity"
 
 
 # ===========================================================================
@@ -208,6 +223,161 @@ class TestR4CheckerExtraction:
         assert instances[0].construct_type == "WORKER_HANDOFF"
         assert instances[0].construct_id == "worker_handoff:handoff_1"
         assert instances[0].materialized is True
+
+    def test_delegation_intent_extraction_from_routes(self):
+        """Route delegation annotations produce DELEGATION_INTENT instances."""
+        routes = FieldRouteIR(
+            behavior=["s_delegate"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                )
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=routes)
+
+        instances = checker.extract_instances(context)
+
+        assert len(instances) == 1
+        assert instances[0].construct_type == "DELEGATION_INTENT"
+        assert instances[0].construct_id == "delegation_intent:s_delegate"
+
+
+class TestR4DelegationIntentIRS:
+    """Route-level delegation intent diagnostics come from IRS projection."""
+
+    def _runner(self) -> IRSRunner:
+        registry = IRSCheckerRegistry()
+        registry.register(WorkerDelegationIRSChecker())
+        return IRSRunner(
+            registry=registry,
+            construct_registry=SPLConstructRegistry.default(),
+            projector=DiagnosticProjector(),
+        )
+
+    def _routes(self) -> FieldRouteIR:
+        return FieldRouteIR(
+            behavior=["s_delegate"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                    source_section_id="sec_delegation_policy",
+                    source_packet_id="pkt_delegate",
+                )
+            ],
+        )
+
+    def test_missing_handoff_contract_projects_irs_diagnostic(self):
+        """Missing delegation contract projects type_or_contract_ambiguity."""
+        plan = WorkerPlanIR(main_worker_id="worker_main", workers=[], handoffs=[])
+        result = self._runner().run_stage(
+            "stage3_5",
+            IRSCheckContext(
+                stage_name="stage3_5",
+                routes=self._routes(),
+                worker_plan=plan,
+            ),
+        )
+
+        diags = [
+            d for d in result.diagnostics
+            if d.target_ref == "delegation_intent:s_delegate"
+        ]
+        assert len(diags) == 1
+        diag = diags[0]
+        assert diag.diagnostic_id.startswith("irs_")
+        assert diag.kind == "type_or_contract_ambiguity"
+        assert diag.source_span_ids == ["s_delegate"]
+        assert diag.missing_slot is not None
+        assert diag.missing_slot.slot_name == "handoff_contract"
+
+    def test_valid_handoff_contract_suppresses_delegation_intent_diagnostic(self):
+        """A valid invoke handoff covering the span satisfies the IRS slot."""
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="worker_main",
+                    worker_name="MainWorker",
+                    kind="main",
+                    purpose="Main",
+                    boundary_kind="main_worker",
+                ),
+                WorkerSpecIR(
+                    worker_id="worker_child",
+                    worker_name="ChildWorker",
+                    kind="child",
+                    purpose="Child",
+                    boundary_kind="child_worker",
+                ),
+            ],
+            handoffs=[
+                WorkerHandoffIR(
+                    handoff_id="handoff_1",
+                    from_worker="worker_main",
+                    to_worker="worker_child",
+                    api_ref=None,
+                    mode="invoke",
+                    condition_text=None,
+                    ordering="after",
+                    input_bindings=[
+                        InputBindingIR(
+                            parent_variable="request",
+                            child_input="request",
+                            required=True,
+                        )
+                    ],
+                    output_bindings=[
+                        OutputBindingIR(
+                            child_output="result",
+                            parent_variable="result",
+                            required=True,
+                            merge_strategy="set",
+                        )
+                    ],
+                    invoke_location_hint=InvokeLocationHintIR(
+                        flow_kind="main",
+                        flow_id=None,
+                        after_span_id="s_delegate",
+                        before_span_id=None,
+                        block_hint="sequential",
+                    ),
+                )
+            ],
+        )
+
+        result = self._runner().run_stage(
+            "stage3_5",
+            IRSCheckContext(
+                stage_name="stage3_5",
+                routes=self._routes(),
+                worker_plan=plan,
+            ),
+        )
+
+        assert all(
+            d.target_ref != "delegation_intent:s_delegate"
+            for d in result.diagnostics
+        )
+        reports = [
+            r for r in result.reports
+            if r.construct_id == "delegation_intent:s_delegate"
+        ]
+        assert reports
+        handoff_slot = next(
+            slot for slot in reports[0].slots
+            if slot.slot_name == "handoff_contract"
+        )
+        assert handoff_slot.status == "satisfied"
 
 
 # ===========================================================================

@@ -46,7 +46,9 @@ def test_structural_adapter_ignores_llm_client() -> None:
 
 
 def test_structural_adapter_preserves_only_deterministic_variable_facts() -> None:
-    result = StructuralNLAdapter(llm_client=_FailingLLM()).adapt(STRUCTURAL_TEXT)
+    result = StructuralNLAdapter(
+        llm_client=_FailingLLM(), enable_hard_facts=True,
+    ).adapt(STRUCTURAL_TEXT)
 
     input_names = {fact.name for fact in result.hard_facts.inputs}
     output_names = {fact.name for fact in result.hard_facts.outputs}

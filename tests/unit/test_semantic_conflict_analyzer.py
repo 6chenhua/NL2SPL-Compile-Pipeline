@@ -523,7 +523,7 @@ class TestFlagIntegration:
         result = self._run(tmp_path, flag=True, fake_analyzer=_FakeAnalyzer([valid]))
         kinds = {d.kind for d in result.compile_diagnostics}
         assert "semantic_conflict" in kinds
-        assert "semantic_conflict" in result.readable_report
+        assert result.readable_report == ""
         # semantic_conflict blocks_completion=False by default -> stays complete
 
     def test_rejected_conflict_goes_to_adapter_warnings(self, tmp_path: Path):

@@ -572,6 +572,6 @@ def test_worker_scoped_does_not_record_required_output_producer_findings() -> No
     assert len(main_steps) == 1
     assert main_steps[0].step_id == "st1"
 
-    # Final diagnostics are produced by PostNormalizeIRSChecker, not Stage 9.5.
+    # Final diagnostics are produced by post-normalize IRS, not Stage 9.5.
     findings = getattr(normalizer, "construct_findings", {})
     assert findings.get("missing_output_producer") in (None, [])

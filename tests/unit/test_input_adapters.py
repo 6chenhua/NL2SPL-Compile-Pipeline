@@ -122,7 +122,9 @@ def test_registry_constructs_structure_only_adapters() -> None:
 
 def test_structural_adapter_extracts_hard_facts_and_hints(mock_client) -> None:
     """F0 Baseline: adapter populates canonical input structure correctly with compat mode."""
-    canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)
+    canonical = StructuralNLAdapter(
+        mock_client, enable_hard_facts=True,
+    ).adapt(F0_STRUCTURAL_TEXT)
 
     input_names = {fact.name for fact in canonical.hard_facts.inputs}
     output_names = {fact.name for fact in canonical.hard_facts.outputs}

@@ -285,7 +285,7 @@ class TestGateFiltering:
         assert blocked[0].step_id == "st_synth"
         assert blocked[0].origin == "assumed"
         # Gate no longer emits diagnostics for blocked steps; that is
-        # PostNormalizeIRSChecker's responsibility.
+        # post-normalize IRS responsibility.
 
     def test_compiler_unpack_passes_through(self) -> None:
         gate = ExecutableElementGate()
@@ -451,7 +451,7 @@ class TestGateFiltering:
         assert any(i.step_id == "st_fail" and i.origin == "assumed" for i in blocked)
 
         # Gate no longer emits assumed_command_not_renderable;
-        # that is PostNormalizeIRSChecker's responsibility.
+        # that is post-normalize IRS responsibility.
         # The step is filtered from worker.steps and recorded in render_info.
 
         # Post-gate missing_handler is emitted because the assumed handler
@@ -624,7 +624,7 @@ class TestGateFiltering:
         ), f"Expected st_delegate blocked as assumed, got {[(i.step_id, i.origin) for i in blocked]}"
 
         # Gate no longer emits assumed_command_not_renderable;
-        # that is PostNormalizeIRSChecker's responsibility.
+        # that is post-normalize IRS responsibility.
         # The step is filtered from worker.steps and recorded in render_info.
 
 
@@ -731,7 +731,7 @@ class TestGateApplyWithGuards:
             i.step_id == "st_invoke" and i.origin == "source_backed"
             for i in blocked
         ), f"st_invoke should be source_backed but blocked, got {[(i.step_id, i.origin, i.renderable) for i in blocked]}"
-        # Step is filtered and in render_info; diagnostics come from PostNormalizeIRSChecker
+        # Step is filtered and in render_info; diagnostics come from post-normalize IRS.
 
     def test_source_backed_call_api_without_ref_blocked_in_apply(self) -> None:
         """Source-backed CALL_API without integration_ref -> blocked."""
@@ -747,7 +747,7 @@ class TestGateApplyWithGuards:
         )
         filtered, infos, diags = gate.apply(worker)
         assert len(filtered.steps) == 1
-        # Step is filtered; diagnostics come from PostNormalizeIRSChecker
+        # Step is filtered; diagnostics come from post-normalize IRS.
         blocked = [i for i in infos if not i.renderable]
         assert any(i.step_id == "st_api" for i in blocked)
 
@@ -817,7 +817,7 @@ class TestGateApplyWithGuards:
 
 
 class TestR7GateBoundary:
-    """R7.5: Verify Gate does not emit PostNormalizeIRSChecker diagnostics."""
+    """Verify Gate does not emit post-normalize IRS diagnostics."""
 
     def test_gate_does_not_emit_assumed_command_not_renderable(self) -> None:
         """Gate filters assumed steps but does NOT emit assumed_command_not_renderable."""

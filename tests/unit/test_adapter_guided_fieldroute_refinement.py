@@ -188,7 +188,9 @@ def _adapt_slice_route(
     The adapter uses mock_client for LLM semantic mapping. Stage 2 LLM
     refinement also uses mock_client.
     """
-    canonical = StructuralNLAdapter(mock_client).adapt(text)
+    canonical = StructuralNLAdapter(
+        mock_client, enable_hard_facts=True,
+    ).adapt(text)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
     router = FieldRouter(pipeline_config, mock_client)
     routes, ambiguity_updates = router.execute((spans, canonical))

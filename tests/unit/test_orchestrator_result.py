@@ -30,7 +30,7 @@ from nl2spl.pipeline.provenance import ProvenanceAggregator
 
 
 class TestPipelineResultMvpFields:
-    """PipelineResult must expose completeness, assumptions, readable_report."""
+    """PipelineResult must expose completeness and feedback diagnostics."""
 
     def test_result_has_completeness(self) -> None:
         r = PipelineResult("spl", [], [])
@@ -82,7 +82,7 @@ class TestPipelineResultMvpFields:
         assert r.readable_report == ""
         assert r.diagnostics == []
 
-    def test_readable_report_written(self) -> None:
+    def test_readable_report_compat_field_can_be_populated(self) -> None:
         diags = [
             CompileDiagnostic("D1", "missing_handler", "warning", "No handler."),
         ]
@@ -110,7 +110,7 @@ class TestPipelineResultMvpFields:
 # ---------------------------------------------------------------------------
 
 class TestOrchestratorRunPath:
-    """Verify run() fills completeness, assumptions, readable_report."""
+    """Verify run() fills completeness, assumptions, and diagnostics."""
 
     def _worker_plan(self, owned_span_ids: list[str]) -> WorkerPlanIR:
         return WorkerPlanIR(
@@ -213,8 +213,7 @@ class TestOrchestratorRunPath:
         result = PipelineOrchestrator(config).run("Do work.")
         assert result.completeness == "partial"
         assert len(result.assumptions) > 0
-        assert "NL2SPL Compile Report" in result.readable_report
-        assert "Status: partial" in result.readable_report
+        assert result.readable_report == ""
 
     def test_clean_run_is_complete(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from nl2spl.config import LLMConfig, PipelineConfig
@@ -230,9 +229,9 @@ class TestOrchestratorRunPath:
         result = PipelineOrchestrator(config).run("Do work.")
         assert result.completeness == "complete"
         assert result.assumptions == []
-        assert "Status: complete" in result.readable_report
+        assert result.readable_report == ""
 
-    def test_structural_spans_produce_section_in_report(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_structural_spans_produce_section_in_traces(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from nl2spl.config import LLMConfig, PipelineConfig
 
         config = PipelineConfig(llm=LLMConfig(api_key="sk-fake"), output_dir=Path("output"), run_name="test_section_prov")
@@ -251,15 +250,21 @@ class TestOrchestratorRunPath:
 
         monkeypatch.setattr(ProvenanceAggregator, "aggregate", _spy_aggregate)
         result = PipelineOrchestrator(config).run("Do work.")
-        assert "section=sec_reusable_process" in result.readable_report
-        assert "packet=p_process_1" in result.readable_report
+        assert any(
+            trace.source_section_id == "sec_reusable_process"
+            for trace in result.traces
+        )
+        assert any(
+            trace.source_packet_id == "p_process_1"
+            for trace in result.traces
+        )
         assert result.completeness == "complete"
         assert "variable_facts" in captured_kwargs
         assert captured_kwargs["variable_facts"] == []
 # ---------------------------------------------------------------------------
 
 class TestCliReportFile:
-    """Verify main.py writes report artifacts to run_dir."""
+    """Verify main.py writes only the MVP user-facing report artifact."""
 
     def test_report_files_written(self, tmp_path: Path) -> None:
         from nl2spl import main as main_module
@@ -306,10 +311,7 @@ class TestCliReportFile:
                 main_module.main()
 
         report_path = tmp_path / "compile_report.txt"
-        assert report_path.exists(), f"compile_report.txt missing in {tmp_path}"
-        content = report_path.read_text(encoding="utf-8")
-        assert "NL2SPL Compile Report" in content
-        assert "Status: partial" in content
+        assert not report_path.exists()
 
         feedback_path = tmp_path / "feedback_report.md"
         assert feedback_path.exists(), f"feedback_report.md missing in {tmp_path}"

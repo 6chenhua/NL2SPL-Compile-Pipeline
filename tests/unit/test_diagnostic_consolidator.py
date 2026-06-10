@@ -140,7 +140,7 @@ def test_diagnostic_order_is_deterministic_by_authority_group() -> None:
             post_normalize_diagnostics=[_diag("post", target_ref="target:post")],
             gate_diagnostics=[_diag("gate", target_ref="target:gate")],
             provenance_diagnostics=[_diag("prov", target_ref="target:prov")],
-            delegation_diagnostics=[_diag("deleg", target_ref="target:deleg")],
+            irs_promoted_diagnostics=[_diag("irs_deleg", target_ref="target:deleg")],
             conflict_diagnostics=[_diag("conf", target_ref="target:conf")],
         )
     )
@@ -150,7 +150,7 @@ def test_diagnostic_order_is_deterministic_by_authority_group() -> None:
         "gate",
         "prov",
         "stage2",
-        "deleg",
+        "irs_deleg",
         "conf",
         "stage7",
     ]
