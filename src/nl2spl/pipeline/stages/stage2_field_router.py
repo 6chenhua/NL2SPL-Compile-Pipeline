@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict
 from typing import Any
 
@@ -419,6 +420,15 @@ Output valid JSON:"""
             except StageError as exc:
                 self._save_adapter_guided_failure_checkpoint(exc)
                 raise
+
+        # 3b. Enrich resource contract annotations with requiredness.
+        # Must run AFTER LLM refinement because in the default structural
+        # path, resource contract annotations come from the LLM, not from
+        # deterministic priors.  Enrichment uses adapter-confirmed
+        # SemanticPacket.required via provenance-aligned packet_id match.
+        self._enrich_contract_requiredness(
+            priors, spans, canonical_input,
+        )
 
         # 4. Attach annotations, structural priors, and route diagnostics
         routes.annotations = priors
@@ -1274,6 +1284,77 @@ Output valid JSON:"""
         )
         return annotation
 
+    @staticmethod
+    def _enrich_contract_requiredness(
+        annotations: list[RouteAnnotation],
+        spans: list[SpanIR],
+        canonical_input: CanonicalCompileInput,
+    ) -> None:
+        """Set ``metadata["requiredness"]`` on resource contract annotations.
+
+        Primary source: ``SemanticPacket.required`` on the packet backing
+        each span.  The Structural Adapter writes ``required`` on list-item
+        packets under known input/output sections — this is the adapter's
+        own deterministic logic, not a downstream fallback.
+
+        Fallback: ``VariableFact.required`` from hard_facts (when enabled).
+        Enrichment only applies when provenance aligns (packet or hard_fact
+        matches by identity, not by text normalisation).
+
+        B2: no LLM prompt change, no downstream section-title inference,
+        no evidence-text parsing.  Requiredness is adapter-confirmed
+        structural metadata carried via ``SemanticPacket``.
+        """
+        # Primary source: packet-level required (always available)
+        packets = {
+            pkt.packet_id: pkt
+            for pkt in canonical_input.semantic_packets
+        }
+
+        # Fallback source: hard_facts (when enable_adapter_hard_facts=True)
+        hard_fact_lookup: dict[str, dict[str, bool]] | None = None
+
+        span_by_id = {s.span_id: s for s in spans}
+
+        for ann in annotations:
+            if ann.semantic_role not in ("input_contract", "output_contract"):
+                continue
+            span = span_by_id.get(ann.span_id)
+            if span is None:
+                continue
+
+            # 1. Provenance-aligned packet match (primary)
+            if span.source_packet_id:
+                pkt = packets.get(span.source_packet_id)
+                if pkt is not None and pkt.required is not None:
+                    ann.metadata["requiredness"] = (
+                        "required" if pkt.required else "optional"
+                    )
+                    continue
+
+            # 2. Hard-fact fallback (provenance-aligned via evidence packet_id)
+            if hard_fact_lookup is None:
+                hard_fact_lookup = {}
+                for direction, facts in (
+                    ("input_contract", canonical_input.hard_facts.inputs),
+                    ("output_contract", canonical_input.hard_facts.outputs),
+                ):
+                    hf_map: dict[str, bool] = {}
+                    for fact in facts:
+                        for ev in fact.evidence:
+                            pid = getattr(ev, "source_packet_id", None)
+                            if pid:
+                                hf_map[pid] = fact.required
+                    hard_fact_lookup[direction] = hf_map
+            if span.source_packet_id:
+                hf_map = hard_fact_lookup[ann.semantic_role]
+                required = hf_map.get(span.source_packet_id)
+                if required is not None:
+                    ann.metadata["requiredness"] = (
+                        "required" if required else "optional"
+                    )
+            # else: leave unset → DemandView interprets as unspecified
+
     def _build_section_annotation(
         self,
         span: SpanIR,
@@ -1440,4 +1521,45 @@ def _build_structured_diagnostics(
                 }
             )
 
+    return result
+
+
+# =============================================================================
+# B2: requiredness enrichment helpers
+# =============================================================================
+
+
+def _normalize_to_variable_name(text: str) -> str:
+    """Normalise span text to a snake_case variable name.
+
+    Uses the same algorithm as ``StructuralAdapter._variable_name()`` so that
+    span texts can be matched against hard-fact ``VariableFact.name`` entries.
+
+    Does NOT parse evidence text for semantics — this is a pure text normaliser.
+    """
+    normalized = text.strip().lower().rstrip(".")
+    normalized = re.sub(r"\s+", " ", normalized)
+    normalized = re.sub(r"^(a|an|the)\s+", "", normalized)
+    normalized = re.sub(r"^optional\s+", "", normalized)
+    normalized = normalized.replace("/", " ")
+    normalized = re.sub(r"[^a-z0-9]+", "_", normalized)
+    return normalized.strip("_")
+
+
+def _build_hard_fact_required_lookup(
+    facts: list[object],  # list[VariableFact]  — lazy import to avoid circularity
+) -> dict[str, bool]:
+    """Build a lookup from evidence packet_id → required: bool.
+
+    Provenance-aligned: matches by ``EvidenceRef.source_packet_id``,
+    not by name normalisation.
+    """
+    result: dict[str, bool] = {}
+    for fact in facts:
+        required = getattr(fact, "required", True)
+        evidence_list = getattr(fact, "evidence", []) or []
+        for ev in evidence_list:
+            pid = getattr(ev, "source_packet_id", None)
+            if pid:
+                result[pid] = required
     return result

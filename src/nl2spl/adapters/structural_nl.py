@@ -67,6 +67,32 @@ def _is_empty_marker(text: str) -> bool:
     return normalized in empty_markers
 
 
+_INPUT_TITLES = frozenset({"inputs for each run", "inputs_for_each_run"})
+_OUTPUT_TITLES = frozenset({"required outputs", "required_outputs"})
+
+
+def _compute_packet_required(section: "RawSection", clean_text: str) -> bool | None:
+    """Compute the requiredness bool for a list-item packet from structural
+    section evidence.
+
+    This is the adapter's own deterministic logic — NOT a downstream
+    fallback on section titles or evidence text.  It uses the adapter's
+    known section canonical_title to decide direction, then applies the
+    same logic the adapter uses for hard_facts extraction.
+
+    * Required Outputs → always ``True``
+    * Inputs for each run → ``True`` unless the item text starts with
+      "optional " (case-insensitive)
+    * Unknown sections → ``None``
+    """
+    title = section.canonical_title
+    if title in _OUTPUT_TITLES:
+        return True
+    if title in _INPUT_TITLES:
+        return not clean_text.lower().startswith("optional ")
+    return None
+
+
 class StructuralNLAdapter(InputAdapter):
     """Parse known structural NL section headings into canonical input.
 
@@ -134,7 +160,11 @@ class StructuralNLAdapter(InputAdapter):
                     clean = self._clean_item(item)
                     if not clean or _is_empty_marker(clean):
                         continue
-                    packet = self._packet("list_item", section, clean, "hint", [])
+                    required = _compute_packet_required(section, clean)
+                    packet = self._packet(
+                        "list_item", section, clean, "hint", [],
+                        required=required,
+                    )
                     packet.metadata.setdefault("executable", False)
                     packet.metadata["failure_item_index"] = item_idx
                     semantic_packets.append(packet)
