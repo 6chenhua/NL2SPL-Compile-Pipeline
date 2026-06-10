@@ -19,6 +19,22 @@ from nl2spl.pipeline.stages.stage11_spl_renderer.text_utils import TextUtilsMixi
 from nl2spl.validator.static_validator import StaticValidator
 
 
+def _required_keyword(required: bool | None) -> str:
+    """Return SPL REQUIRED/OPTIONAL keyword or empty string for None.
+
+    Before B1 this was a truthiness check: ``"REQUIRED" if x.required else "OPTIONAL"``.
+    Now it is a tri-state branch:
+      - ``True`` → ``"REQUIRED"``
+      - ``False`` → ``"OPTIONAL"``
+      - ``None`` → ``""`` (unspecified — render nothing)
+    """
+    if required is True:
+        return "REQUIRED"
+    if required is False:
+        return "OPTIONAL"
+    return ""
+
+
 class SPLRenderer(
     BlockRendererMixin,
     ClauseBuilderMixin,
@@ -181,14 +197,14 @@ class SPLRenderer(
         # 12. INPUTS
         parts.append("    [INPUTS]")
         for inp in worker.inputs:
-            req = "REQUIRED" if inp.required else "OPTIONAL"
+            req = _required_keyword(inp.required)
             parts.append(f"        {req} <REF>{inp.name}</REF>")
         parts.append("    [END_INPUTS]")
 
         # 13. OUTPUTS
         parts.append("    [OUTPUTS]")
         for out in worker.outputs:
-            req = "REQUIRED" if out.required else "OPTIONAL"
+            req = _required_keyword(out.required)
             parts.append(f"        {req} <REF>{out.name}</REF>")
         parts.append("    [END_OUTPUTS]")
 
@@ -264,14 +280,14 @@ class SPLRenderer(
         # INPUTS
         lines.append("    [INPUTS]")
         for inp in worker.inputs:
-            req = "REQUIRED" if inp.required else "OPTIONAL"
+            req = _required_keyword(inp.required)
             lines.append(f"        {req} <REF>{inp.name}</REF>")
         lines.append("    [END_INPUTS]")
 
         # OUTPUTS
         lines.append("    [OUTPUTS]")
         for out in worker.outputs:
-            req = "REQUIRED" if out.required else "OPTIONAL"
+            req = _required_keyword(out.required)
             lines.append(f"        {req} <REF>{out.name}</REF>")
         lines.append("    [END_OUTPUTS]")
 

@@ -8,6 +8,7 @@ from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation, StructuralPr
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.resource_contract_ir import (
     ContractDirection,
+    ContractRequiredness,
     ResourceContractBindingIR,
     ResourceContractDemandIR,
     ResourceContractFieldIR,
@@ -75,6 +76,7 @@ __all__ = [
     "ResourceKind",
     "ResourceScopeKind",
     "ContractDirection",
+    "ContractRequiredness",
     "ResourceRegistryIR",
     "VariableSpec",
     "FileSpec",

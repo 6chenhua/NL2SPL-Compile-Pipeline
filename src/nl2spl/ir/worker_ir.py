@@ -57,11 +57,13 @@ class WorkerInput:
 
     Attributes:
         name: Variable name
-        required: Whether input is required
+        required: Compatibility boolean (True/False/None, default True)
+        requiredness: Tri-state requiredness (required/optional/unspecified)
     """
 
     name: str
-    required: bool = True
+    required: bool | None = True  # default True for backward compat; check requiredness
+    requiredness: str = "unspecified"  # B1: canonical tri-state; placed last for compat
 
 
 @dataclass
@@ -70,11 +72,13 @@ class WorkerOutput:
 
     Attributes:
         name: Variable name
-        required: Whether output is required
+        required: Compatibility boolean (True/False/None, default True)
+        requiredness: Tri-state requiredness (required/optional/unspecified)
     """
 
     name: str
-    required: bool = True
+    required: bool | None = True  # default True for backward compat; check requiredness
+    requiredness: str = "unspecified"  # B1: canonical tri-state; placed last for compat
 
 
 @dataclass

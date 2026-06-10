@@ -111,7 +111,12 @@ class PostNormalizeIRSCheckerV6:
         if worker_plan is not None:
             for spec in worker_plan.workers:
                 for field in spec.output_contract:
-                    if not field.required:
+                    if field.required is False:  # explicitly optional → skip
+                        continue
+                    rq = getattr(field, "requiredness", None)
+                    if rq == "unspecified" and field.required is not True:
+                        # B5: unspecified + not-legacy-required → skip
+                        # legacy ContractFieldIR(required=True) → still check producer
                         continue
                     instances.append(ConstructInstance(
                         construct_id=self._required_output_construct_id(
@@ -134,7 +139,7 @@ class PostNormalizeIRSCheckerV6:
         else:
             resources = self._merged_resources(context)
             for variable in resources.variables:
-                if not (variable.required and variable.source == "output"):
+                if variable.required is False or variable.source != "output":
                     continue
                 instances.append(ConstructInstance(
                     construct_id=f"variable:{variable.name}",
@@ -150,27 +155,35 @@ class PostNormalizeIRSCheckerV6:
                 ))
 
         # Resource contract demands: check materialization against source demands.
-        resource_contract_plan = context.metadata.get("resource_contract_plan")
-        if isinstance(resource_contract_plan, ResourceContractPlanIR):
-            bindings = self._get_bindings(context)
-            for demand in resource_contract_plan.demands:
-                matching_bindings = [
-                    b for b in bindings if b.contract_demand_id == demand.demand_id
-                ]
-                instances.append(ConstructInstance(
-                    construct_id=f"resource_contract_demand:{demand.demand_id}",
-                    construct_type="RESOURCE_CONTRACT_DEMAND",
-                    materialized=len(matching_bindings) > 0,
-                    source_demanded=True,
-                    primary_parent_id=None,
-                    construct_path=("resource_contract", demand.demand_id),
-                    source_span_ids=list(demand.source_span_ids),
-                    metadata={
-                        "kind": "resource_contract_demand",
-                        "demand": demand,
-                        "matching_bindings": matching_bindings,
-                    },
-                ))
+        # B5: prefer DemandView; fall back to ResourceContractPlanIR (migration shim).
+        demand_view = context.metadata.get("demand_view")
+        demands: list[object] = []
+        if demand_view is not None:
+            demands = list(getattr(demand_view, "valid_demands", lambda: [])())
+        else:
+            resource_contract_plan = context.metadata.get("resource_contract_plan")
+            if isinstance(resource_contract_plan, ResourceContractPlanIR):
+                demands = list(resource_contract_plan.demands)
+        bindings = self._get_bindings(context)
+        for demand in demands:
+            demand_id = getattr(demand, "demand_id", "")
+            matching_bindings = [
+                b for b in bindings if b.contract_demand_id == demand_id
+            ]
+            instances.append(ConstructInstance(
+                construct_id=f"resource_contract_demand:{demand_id}",
+                construct_type="RESOURCE_CONTRACT_DEMAND",
+                materialized=len(matching_bindings) > 0,
+                source_demanded=True,
+                primary_parent_id=None,
+                construct_path=("resource_contract", demand_id),
+                source_span_ids=list(getattr(demand, "source_span_ids", [])),
+                metadata={
+                    "kind": "resource_contract_demand",
+                    "demand": demand,
+                    "matching_bindings": matching_bindings,
+                },
+            ))
 
         # Steps: main worker + child workers.
         for step in worker.steps:
@@ -372,13 +385,24 @@ class PostNormalizeIRSCheckerV6:
     # Resource contract demands
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _demand_attr(demand: object, attr: str, default: object = None) -> object:
+        """Read an attribute from either ResourceContractDemandIR or DemandViewDemand."""
+        return getattr(demand, attr, default)
+
     def _check_resource_contract_demand(
         self,
         instance: ConstructInstance,
         irs: ConstructIRS,
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
-        demand: ResourceContractDemandIR = instance.metadata["demand"]
+        demand: object = instance.metadata["demand"]
+        demand_id = str(self._demand_attr(demand, "demand_id", ""))
+        direction = str(self._demand_attr(demand, "direction", "output"))
+        requiredness = str(self._demand_attr(demand, "requiredness", "unspecified"))
+        demand_required = self._demand_attr(demand, "required", None)
+        evidence_text = str(self._demand_attr(demand, "evidence_text", ""))
+        source_span_ids = list(self._demand_attr(demand, "source_span_ids", []))
         matching_bindings: list[ResourceContractBindingIR] = instance.metadata[
             "matching_bindings"
         ]
@@ -402,22 +426,21 @@ class PostNormalizeIRSCheckerV6:
                     mat_spec.missing_diagnostic
                     if mat_spec else "missing_resource_contract"
                 ),
-                diagnostic_required_for=demand.demand_id,
+                diagnostic_required_for=demand_id,
                 diagnostic_blocks_rendering=False,
                 explanation=(
-                    f"Resource contract demand '{demand.demand_id}' "
-                    f"({demand.direction}, required={demand.required}) "
+                    f"Resource contract demand '{demand_id}' "
+                    f"({direction}, requiredness={requiredness}) "
                     f"has no materialized resource. "
-                    f"Evidence: \"{demand.evidence_text[:120]}\""
+                    f"Evidence: \"{evidence_text[:120]}\""
                 ),
                 suggested_resolution=(
                     "Ensure a Stage 6 resource_contracts entry references "
-                    f"demand_id '{demand.demand_id}'."
+                    f"demand_id '{demand_id}'."
                 ),
             )
 
-        # Slot 2: registry consistency — does each binding point to the
-        # declared resource kind in ResourceRegistryIR?
+        # Slot 2: registry consistency
         registry_spec = (
             irs.get_slot("resource_registry")
             or irs.get_slot("resource_kind")
@@ -434,10 +457,10 @@ class PostNormalizeIRSCheckerV6:
                     registry_spec.missing_diagnostic
                     if registry_spec else "resource_kind_mismatch"
                 ),
-                diagnostic_required_for=demand.demand_id,
+                diagnostic_required_for=demand_id,
                 diagnostic_blocks_rendering=False,
                 explanation=(
-                    f"Resource contract demand '{demand.demand_id}' has "
+                    f"Resource contract demand '{demand_id}' has "
                     "binding(s) whose resource_kind/name do not match the "
                     "materialized ResourceRegistryIR: "
                     + ", ".join(
@@ -458,15 +481,13 @@ class PostNormalizeIRSCheckerV6:
                 relation="direct",
             )
 
-        # Slot 3: producer — required output demands need a renderable
-        # producer of the same resource kind.  A declaration alone is not a
-        # producer.
+        # Slot 3: producer — tri-state requiredness (B5).
         producer_spec = irs.get_slot("producer")
         producer = SlotSatisfaction(
             slot_name="producer",
             status="satisfied",
         )
-        if demand.direction == "output" and demand.required and matching_bindings:
+        if direction == "output" and requiredness == "required" and matching_bindings:
             index = ProducerIndex(
                 steps=self._all_steps(worker),
                 handoffs=worker_plan.handoffs if worker_plan else None,
@@ -491,17 +512,55 @@ class PostNormalizeIRSCheckerV6:
                         producer_spec.missing_diagnostic
                         if producer_spec else "missing_output_producer"
                     ),
-                    diagnostic_required_for=demand.demand_id,
+                    diagnostic_required_for=demand_id,
                     diagnostic_blocks_rendering=False,
                     explanation=(
-                        f"Required resource contract output "
-                        f"'{demand.demand_id}' has materialized resource(s) "
-                        f"{', '.join(b.resource_name for b in matching_bindings)} "
-                        "but no renderable producer of the matching resource kind."
+                        f"Resource contract output '{demand_id}' "
+                        f"(requiredness={requiredness}) has materialized "
+                        f"resource(s) {', '.join(b.resource_name for b in matching_bindings)} "
+                        "but no renderable producer."
                     ),
                     suggested_resolution=(
                         "Add a source-backed step or handoff that produces the "
                         "materialized resource name with the same resource kind."
+                    ),
+                )
+        elif direction == "output" and requiredness == "unspecified" and matching_bindings:
+            # B5: unspecified output → check producers, warn if missing.
+            index = ProducerIndex(
+                steps=self._all_steps(worker),
+                handoffs=worker_plan.handoffs if worker_plan else None,
+                declared_apis={api.api_name for api in resources.apis},
+                extra_api_names=self._collect_extra_api_names(worker_plan),
+                api_handoff_refs=self._build_api_handoff_refs(worker_plan),
+                known_child_worker_ids=self._child_worker_ids(worker_plan),
+                resource_contract_bindings=self._get_bindings(context),
+            )
+            produced_bindings = [
+                binding for binding in matching_bindings
+                if index.is_produced(
+                    binding.resource_name,
+                    resource_kind=binding.resource_kind,
+                )
+            ]
+            if not produced_bindings:
+                # B5: unspecified output without producer → satisfied slot
+                # but with a warning diagnostic.
+                producer = SlotSatisfaction(
+                    slot_name="producer",
+                    status="satisfied",
+                    diagnostic_kind="unspecified_output_missing_producer",
+                    diagnostic_required_for=demand_id,
+                    diagnostic_blocks_rendering=False,
+                    explanation=(
+                        f"Resource contract output '{demand_id}' "
+                        f"has requiredness=unspecified and no renderable producer. "
+                        f"Review whether this output should be declared optional "
+                        f"or a producer step should be added."
+                    ),
+                    suggested_resolution=(
+                        "Either add a producer step, or mark this output as "
+                        "optional in the source requirement."
                     ),
                 )
 
@@ -516,7 +575,7 @@ class PostNormalizeIRSCheckerV6:
             renderable=True,
             primary_parent_id=instance.primary_parent_id,
             construct_path=instance.construct_path,
-            source_span_ids=list(demand.source_span_ids),
+            source_span_ids=list(source_span_ids),
             frontier_status="leaf",
             metadata=dict(instance.metadata),
         )

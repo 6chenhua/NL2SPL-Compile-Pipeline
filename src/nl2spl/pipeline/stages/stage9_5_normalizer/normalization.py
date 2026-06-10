@@ -176,7 +176,7 @@ class NormalizationMixin:
             ContractFieldIR(
                 name=result_name,
                 data_type=type_name,
-                required=any(field.required for field in removed),
+                required=any(field.required is not False for field in removed),
                 description=f"Structured result for {step_id}.",
                 source="output",
             ),
@@ -188,7 +188,7 @@ class NormalizationMixin:
         )
         if resource_var is not None:
             resource_var.source = "output"
-            resource_var.required = any(field.required for field in removed)
+            resource_var.required = any(field.required is not False for field in removed)
 
         symbol = symbol_table.variables.get(result_name)
         if symbol is not None:

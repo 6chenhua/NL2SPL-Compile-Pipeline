@@ -74,7 +74,7 @@ class ContractFieldIR:
 
     name: str
     data_type: str
-    required: bool
+    required: bool | None  # B1: type widened to bool|None; no default for positional compat
     description: str
     source: Literal["input", "output", "state", "derived"]
     contract_demand_id: str | None = None
@@ -82,6 +82,7 @@ class ContractFieldIR:
     source_section_id: str | None = None
     source_packet_id: str | None = None
     resource_kind: Literal["variable", "file", "api", "type"] | None = None
+    requiredness: str = "unspecified"  # B1: canonical tri-state
 
 
 @dataclass

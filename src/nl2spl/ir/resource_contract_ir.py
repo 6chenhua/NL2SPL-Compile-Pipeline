@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 ContractDirection = Literal["input", "output"]
+ContractRequiredness = Literal["required", "optional", "unspecified"]
 
 
 @dataclass
@@ -22,8 +23,10 @@ class ResourceContractDemandIR:
         demand_id: Stable identifier (``rcd_input_<span_id>`` or
             ``rcd_output_<span_id>``).
         direction: ``input`` or ``output``.
-        required: Whether the source marks this as required.
+        required: Whether the source marks this as required
+            (B1: ``bool | None`` — compat projection).
         evidence_text: Original source text backing this demand.
+        requiredness: Tri-state (B1: canonical semantics).
         source_span_ids: Resolved span IDs that carry this evidence.
         source_section_id: Adapter section provenance.
         source_packet_id: Adapter packet provenance.
@@ -37,7 +40,7 @@ class ResourceContractDemandIR:
 
     demand_id: str
     direction: ContractDirection
-    required: bool
+    required: bool | None  # B1: type widened; NO default for positional compat
     evidence_text: str
     source_span_ids: list[str] = field(default_factory=list)
     source_section_id: str | None = None
@@ -45,12 +48,27 @@ class ResourceContractDemandIR:
     route_annotation_ids: list[str] = field(default_factory=list)
     evidence_sources: list[str] = field(default_factory=list)
     metadata: dict[str, object] = field(default_factory=dict)
+    requiredness: ContractRequiredness = "unspecified"
+
+    def __post_init__(self) -> None:
+        """Hydrate requiredness from legacy bool required when not explicitly set.
+
+        B1 compat: when old code constructs ``ResourceContractDemandIR(..., required=True)``
+        without passing ``requiredness``, auto-set ``requiredness`` to match.
+        When ``requiredness`` is explicitly passed it takes priority.
+        """
+        if self.requiredness == "unspecified" and self.required is not None:
+            object.__setattr__(
+                self, "requiredness",
+                "required" if self.required else "optional",
+            )
 
     def to_payload(self) -> dict[str, Any]:
         """Return deterministic JSON-serializable payload."""
         return {
             "demand_id": self.demand_id,
             "direction": self.direction,
+            "requiredness": self.requiredness,
             "required": self.required,
             "evidence_text": self.evidence_text,
             "source_span_ids": sorted(self.source_span_ids),
@@ -122,14 +140,23 @@ class ResourceContractFieldIR:
     resource_kind: ResourceKind
     direction: ContractDirection
     data_type: str
-    required: bool
+    required: bool | None  # B1: type widened; NO default for positional compat
     description: str
+    requiredness: ContractRequiredness = "unspecified"
     path: str | None = None
     source_span_ids: list[str] = field(default_factory=list)
     source_section_id: str | None = None
     source_packet_id: str | None = None
     evidence_text: str | None = None
     justification: str | None = None
+
+    def __post_init__(self) -> None:
+        """Hydrate requiredness from legacy bool required when not explicitly set."""
+        if self.requiredness == "unspecified" and self.required is not None:
+            object.__setattr__(
+                self, "requiredness",
+                "required" if self.required else "optional",
+            )
 
 
 @dataclass

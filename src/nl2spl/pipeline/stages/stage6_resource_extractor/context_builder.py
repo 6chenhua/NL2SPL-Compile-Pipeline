@@ -11,6 +11,9 @@ from __future__ import annotations
 from typing import Literal
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.compiler.resource_contract_demand_view.model import (
+    ResourceContractDemandView,
+)
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
@@ -29,6 +32,38 @@ EXTRACTION_POLICY = """\
 - Return JSON only with variables, files, apis, and types."""
 
 
+def _field_requiredness_label(field: object) -> str:
+    """Return requiredness label for a ContractFieldIR-like object.
+
+    Uses ``field.requiredness`` when present (B1 tri-state); falls back to
+    ``field.required`` (bool/None) only when ``requiredness`` is absent
+    (e.g. VariableSpec).  ``requiredness="unspecified"`` is rendered as-is
+    — it is NOT overridden by the legacy bool.
+    """
+    rq = getattr(field, "requiredness", None)
+    if rq is not None and rq != "":
+        return str(rq)
+    req = getattr(field, "required", None)
+    return _requiredness_label(req)
+
+
+def _requiredness_label(required: bool | None) -> str:
+    """Tri-state requiredness label for prompt display.
+
+    * ``True`` → ``"required"``
+    * ``False`` → ``"optional"``
+    * ``None`` → ``"unspecified"``
+
+    B1: replaces the old ``'required' if f.required else 'optional'`` pattern
+    which silently collapsed ``None`` to ``"optional"``.
+    """
+    if required is True:
+        return "required"
+    if required is False:
+        return "optional"
+    return "unspecified"
+
+
 def build_resource_context(
     spans: list[SpanIR],
     routes: FieldRouteIR,
@@ -40,6 +75,7 @@ def build_resource_context(
     scope_kind: Literal["global", "worker", "handoff"] = "global",
     scope_id: str | None = None,
     resource_contract_plan: ResourceContractPlanIR | None = None,
+    demand_view: ResourceContractDemandView | None = None,
 ) -> str:
     """Build a semi-structured resource extraction prompt context.
 
@@ -55,13 +91,16 @@ def build_resource_context(
         worker_spec: WorkerSpecIR for contract IO (worker-scoped path).
         scope_kind: "global", "worker", or "handoff".
         scope_id: Worker ID when scope_kind is "worker".
+        demand_view: B4 DemandView (preferred over resource_contract_plan).
     """
     sections: list[str] = [
         "Extract resource declarations for this scope.",
         "",
         _build_scope_section(worker_spec, scope_kind, scope_id),
         _build_contract_section(worker_spec, canonical_input),
-        _build_resource_contract_plan_section(resource_contract_plan),
+        _build_demand_view_contract_section(demand_view)
+        if demand_view is not None
+        else _build_resource_contract_plan_section(resource_contract_plan),
         _build_source_spans_section(spans, routes),
         _build_flow_summary_section(flow),
         _build_block_summary_section(blocks),
@@ -102,16 +141,20 @@ def _build_contract_section(
         if worker_spec.input_contract:
             lines.append("- Inputs:")
             for f in worker_spec.input_contract:
-                lines.append(f"  - {f.name}: {f.data_type}, "
-                             f"{'required' if f.required else 'optional'}"
-                             f"{f' - {f.description}' if f.description else ''}")
+                lines.append(
+                    f"  - {f.name}: {f.data_type}, "
+                    f"{_field_requiredness_label(f)}"
+                    f"{f' - {f.description}' if f.description else ''}"
+                )
             has_inputs = True
         if worker_spec.output_contract:
             lines.append("- Outputs:")
             for f in worker_spec.output_contract:
-                lines.append(f"  - {f.name}: {f.data_type}, "
-                             f"{'required' if f.required else 'optional'}"
-                             f"{f' - {f.description}' if f.description else ''}")
+                lines.append(
+                    f"  - {f.name}: {f.data_type}, "
+                    f"{_field_requiredness_label(f)}"
+                    f"{f' - {f.description}' if f.description else ''}"
+                )
             has_outputs = True
 
     if canonical_input is not None and not has_inputs and not has_outputs:
@@ -121,20 +164,64 @@ def _build_contract_section(
             lines.append("- Inputs:")
             for vf in hf_inputs:
                 lines.append(f"  - {vf.name}: {vf.data_type}, "
-                             f"{'required' if vf.required else 'optional'}"
+                             f"{_requiredness_label(vf.required)}"
                              f"{f' - {vf.description}' if vf.description else ''}")
             has_inputs = True
         if hf_outputs:
             lines.append("- Outputs:")
             for vf in hf_outputs:
                 lines.append(f"  - {vf.name}: {vf.data_type}, "
-                             f"{'required' if vf.required else 'optional'}"
+                             f"{_requiredness_label(vf.required)}"
                              f"{f' - {vf.description}' if vf.description else ''}")
             has_outputs = True
 
     if not has_inputs and not has_outputs:
         lines.append("- none")
 
+    return "\n".join(lines)
+
+
+def _build_demand_view_contract_section(
+    demand_view: ResourceContractDemandView | None,
+) -> str:
+    """Build the resource contract demands section from DemandView (B4).
+
+    Uses ``valid_demands()`` to exclude invalid demands.
+    Displays ``requiredness`` tri-state, not legacy bool ``required``.
+    """
+    if demand_view is None:
+        return "Resource contract demands\n- none"
+
+    valid = demand_view.valid_demands()
+    if not valid:
+        return "Resource contract demands\n- none"
+
+    lines = [
+        "Resource contract demands",
+        "You MUST examine each demand and output a resource_contracts array.",
+        "For output demands that describe document/file artifacts",
+        "(Word, Google Doc, PDF, file upload, document), use resource_kind=file",
+        "with path='< >'. For ordinary text/data outputs, use resource_kind=variable.",
+        "Include the demand_id in each resource_contracts entry for traceability.",
+        "",
+        "IMPORTANT: Do NOT decide requiredness.  The requiredness field below",
+        "is the authoritative value — copy it verbatim into the output.",
+        "Valid values: required, optional, unspecified.",
+        "",
+    ]
+    for demand in valid:
+        prov = ", ".join(
+            p for p in [
+                f"span={','.join(demand.source_span_ids)}" if demand.source_span_ids else "",
+                f"section={demand.source_section_id}" if demand.source_section_id else "",
+                f"packet={demand.source_packet_id}" if demand.source_packet_id else "",
+            ] if p
+        ) or "no provenance"
+        lines.append(f"- demand_id: {demand.demand_id}")
+        lines.append(f"  direction: {demand.direction}")
+        lines.append(f"  requiredness: {demand.requiredness}")
+        lines.append(f"  evidence: \"{demand.evidence_text[:200]}\"")
+        lines.append(f"  provenance: {prov}")
     return "\n".join(lines)
 
 
@@ -166,7 +253,7 @@ def _build_resource_contract_plan_section(
             f"- demand_id: {demand.demand_id}"
         )
         lines.append(f"  direction: {demand.direction}")
-        lines.append(f"  required: {demand.required}")
+        lines.append(f"  requiredness: {demand.requiredness}")
         lines.append(f"  evidence: \"{demand.evidence_text[:200]}\"")
         lines.append(f"  provenance: {provenance}")
     return "\n".join(lines)

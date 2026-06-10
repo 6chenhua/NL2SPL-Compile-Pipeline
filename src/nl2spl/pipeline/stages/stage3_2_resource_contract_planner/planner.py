@@ -108,10 +108,12 @@ class ResourceContractPlanner:
             if key in demands_by_key:
                 self._merge_annotation_evidence(demands_by_key[key], ann)
                 continue
+            req = _compute_required(direction, evidence_text)
             demand = ResourceContractDemandIR(
                 demand_id=self._demand_id(direction, ann.span_id),
                 direction=direction,
-                required=_compute_required(direction, evidence_text),
+                requiredness="required" if req else "optional",
+                required=req,
                 evidence_text=evidence_text,
                 source_span_ids=[ann.span_id],
                 source_section_id=ann.source_section_id,
@@ -148,10 +150,12 @@ class ResourceContractPlanner:
                         existing.evidence_sources.append(tag)
                 continue
 
+            req = _compute_required(direction, span.text)
             demand = ResourceContractDemandIR(
                 demand_id=self._demand_id(direction, span.span_id),
                 direction=direction,
-                required=_compute_required(direction, span.text),
+                requiredness="required" if req else "optional",
+                required=req,
                 evidence_text=span.text,
                 source_span_ids=[span.span_id],
                 source_section_id=section_id,

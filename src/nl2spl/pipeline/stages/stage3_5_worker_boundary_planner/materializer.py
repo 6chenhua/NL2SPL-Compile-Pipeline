@@ -502,11 +502,18 @@ class WorkerPlanMaterializer:
         child-owned spans for location hints.
         """
         input_bindings = [
-            InputBindingIR(f.name, f.name, f.required)
+            InputBindingIR(
+                f.name, f.name,
+                f.required is not False,  # B1: None → True for handoff safety
+            )
             for f in worker.input_contract
         ]
         output_bindings = [
-            OutputBindingIR(f.name, f.name, f.required, "set")
+            OutputBindingIR(
+                f.name, f.name,
+                f.required is not False,  # B1: None → True for handoff safety
+                "set",
+            )
             for f in worker.output_contract
         ]
 

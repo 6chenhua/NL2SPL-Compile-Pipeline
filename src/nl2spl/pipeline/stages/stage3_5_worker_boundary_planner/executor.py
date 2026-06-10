@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.compiler.resource_contract_demand_view.model import DemandViewDemand
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
@@ -62,7 +63,7 @@ class ExecutorMixin:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
-        resource_contract_plan: ResourceContractPlanIR | None = None,
+        resource_contract_plan: ResourceContractPlanIR | object | None = None,
     ) -> WorkerPlanIR:
         """Run Stage 3.5a/3.5b/3.5c as separate compiler sub-stages."""
         hard_inputs, hard_outputs = self._hard_fact_contracts(canonical_input)
@@ -101,8 +102,31 @@ class ExecutorMixin:
                 "stage3_5b_worker_boundary_decisions",
                 {"decisions": [asdict(decision) for decision in decisions]},
             )
-            demand_inputs, demand_outputs = self._resource_contract_demand_contracts(
-                resource_contract_plan,
+            # Phase D: extract demands from DemandView (production) or
+            # ResourceContractPlanIR (legacy compat).
+            demand_view_demands: list[DemandViewDemand] = []
+            if resource_contract_plan is not None:
+                if hasattr(resource_contract_plan, "valid_demands"):
+                    demand_view_demands = list(
+                        getattr(resource_contract_plan, "valid_demands")()
+                    )
+                else:
+                    # legacy compat path — intentionally kept for ResourceContractPlanIR callers
+                    for d in resource_contract_plan.demands:
+                        demand_view_demands.append(DemandViewDemand(
+                            demand_id=d.demand_id,
+                            direction=d.direction,
+                            requiredness=d.requiredness,
+                            required=d.required,
+                            evidence_text=d.evidence_text,
+                            source_span_ids=tuple(d.source_span_ids),
+                            source_section_id=d.source_section_id,
+                            source_packet_id=d.source_packet_id,
+                            evidence_source="stage2_annotation",
+                            view_status="valid",
+                        ))
+            demand_inputs, demand_outputs = self._demand_view_contracts(
+                demand_view_demands,
             )
             materializer = WorkerPlanMaterializer()
             plan, materialize_warnings = materializer.materialize(
@@ -311,24 +335,26 @@ class ExecutorMixin:
         ]
         return hard_inputs, hard_outputs
 
-    def _resource_contract_demand_contracts(
-        self,
-        resource_contract_plan: ResourceContractPlanIR | None,
+    @staticmethod
+    def _demand_view_contracts(
+        demands: list[DemandViewDemand],
     ) -> tuple[list[ContractFieldIR], list[ContractFieldIR]]:
-        """Build ContractFieldIR entries from ResourceContractPlanIR demands.
+        """Build ContractFieldIR entries from DemandView demands (B3).
 
-        These are demand-level references — name and data_type are empty
-        because Stage 3.5 only confirms source-backed demand existence.
-        Stage 6 is responsible for full resource kind/name/type modeling.
+        Only demands with ``view_status == "valid"`` are materialized.
+        Invalid demands (e.g. ``invalid_requiredness``) are silently
+        excluded — the corresponding diagnostic has already been emitted
+        by DemandView builder.
         """
-        if resource_contract_plan is None:
-            return [], []
         demand_inputs: list[ContractFieldIR] = []
         demand_outputs: list[ContractFieldIR] = []
-        for demand in resource_contract_plan.demands:
+        for demand in demands:
+            if demand.view_status != "valid":
+                continue
             field = ContractFieldIR(
                 name="",
                 data_type="",
+                requiredness=demand.requiredness,
                 required=demand.required,
                 description=demand.evidence_text,
                 source="input" if demand.direction == "input" else "output",
@@ -343,6 +369,7 @@ class ExecutorMixin:
             else:
                 demand_outputs.append(field)
         return demand_inputs, demand_outputs
+
 
     def _save_substage_checkpoint(self, stage_name: str, result: dict[str, Any]) -> None:
         if self.config.save_intermediate:

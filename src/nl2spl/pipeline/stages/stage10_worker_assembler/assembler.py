@@ -165,14 +165,22 @@ class WorkerAssembler(
 
     def _inputs_from_contract(self, fields: list[ContractFieldIR]) -> list[WorkerInput]:
         return [
-            WorkerInput(field.name, field.required)
+            WorkerInput(
+                name=field.name,
+                requiredness=field.requiredness,
+                required=field.required,
+            )
             for field in fields
             if field.name
         ]
 
     def _outputs_from_contract(self, fields: list[ContractFieldIR]) -> list[WorkerOutput]:
         return [
-            WorkerOutput(field.name, field.required)
+            WorkerOutput(
+                name=field.name,
+                requiredness=field.requiredness,
+                required=field.required,
+            )
             for field in fields
             if field.name
         ]
