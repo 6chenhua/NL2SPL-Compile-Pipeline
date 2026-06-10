@@ -123,6 +123,13 @@ class IRSResultStore:
         """Return a shallow copy of all stage results."""
         return dict(self._stage_results)
 
+    def get_stage_diagnostics(self, stage_name: str) -> list[CompileDiagnostic]:
+        """Return diagnostics for one stage-local IRS result."""
+        result = self.get_stage_result(stage_name)
+        if result is None:
+            return []
+        return list(result.diagnostics)
+
     # ------------------------------------------------------------------
     # Post-normalize
     # ------------------------------------------------------------------

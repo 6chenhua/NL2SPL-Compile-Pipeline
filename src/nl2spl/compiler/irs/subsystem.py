@@ -126,6 +126,7 @@ class IRSSubsystem:
         resources: ResourceRegistryIR | None = None,
         *,
         worker_scoped_resources: WorkerScopedResourceIR | None = None,
+        resource_contract_plan: Any = None,
     ) -> list[CompileDiagnostic]:
         """Run post-normalize IRS — final construct-level authority.
 
@@ -155,6 +156,7 @@ class IRSSubsystem:
             resources=resources,
             metadata={
                 "worker_scoped_resources": worker_scoped_resources,
+                "resource_contract_plan": resource_contract_plan,
             },
         )
 

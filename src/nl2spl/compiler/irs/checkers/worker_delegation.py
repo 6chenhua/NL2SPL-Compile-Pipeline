@@ -25,6 +25,7 @@ class WorkerDelegationIRSChecker:
     """IRS v6 checker for worker/delegation constructs.
     
     Supported constructs:
+        - DELEGATION_INTENT: Source-level delegation intent route annotations
         - WORKER_CANDIDATE: Identified task boundary candidates
         - WORKER_PROMOTION: Promotion readiness assessment
         - CHILD_WORKER: Materialized child workers
@@ -40,6 +41,7 @@ class WorkerDelegationIRSChecker:
     
     checker_id = "worker_delegation"
     supported_construct_types = (
+        "DELEGATION_INTENT",
         "WORKER_CANDIDATE",
         "WORKER_PROMOTION",
         "CHILD_WORKER",
@@ -58,11 +60,28 @@ class WorkerDelegationIRSChecker:
         """
         instances: list[ConstructInstance] = []
         
-        # No worker_plan means no instances
-        if context.worker_plan is None:
-            return instances
-        
         worker_plan = context.worker_plan
+
+        # Extract DELEGATION_INTENT directly from final RouteAnnotations.
+        # The source demand is represented as an IRS construct and projected
+        # through DiagnosticProjector.
+        if context.routes is not None:
+            for ann in context.routes.get_annotations_by_role("delegation_intent"):
+                instances.append(ConstructInstance(
+                    construct_id=f"delegation_intent:{ann.span_id}",
+                    construct_type="DELEGATION_INTENT",
+                    materialized=False,
+                    source_demanded=True,
+                    candidate_only=True,
+                    ir_ref=ann,
+                    source_span_ids=[ann.span_id],
+                    construct_path=("routes", "annotations", ann.span_id),
+                    metadata={"annotation": ann},
+                ))
+        
+        # The remaining worker/delegation constructs require WorkerPlanIR.
+        if worker_plan is None:
+            return instances
         
         # Extract WORKER_CANDIDATE and WORKER_PROMOTION from candidates
         # Only process worker/delegation boundary candidates, not constraint/exception/alternative/api_call
@@ -166,7 +185,9 @@ class WorkerDelegationIRSChecker:
         Returns:
             Satisfaction report with slot-level evidence
         """
-        if instance.construct_type == "WORKER_CANDIDATE":
+        if instance.construct_type == "DELEGATION_INTENT":
+            return self._check_delegation_intent(instance, irs, context)
+        elif instance.construct_type == "WORKER_CANDIDATE":
             return self._check_worker_candidate(instance, irs, context)
         elif instance.construct_type == "WORKER_PROMOTION":
             return self._check_worker_promotion(instance, irs, context)
@@ -176,6 +197,87 @@ class WorkerDelegationIRSChecker:
             return self._check_worker_handoff(instance, irs, context)
         else:
             raise ValueError(f"Unsupported construct type: {instance.construct_type}")
+
+    def _check_delegation_intent(
+        self,
+        instance: ConstructInstance,
+        irs: ConstructIRS,
+        context: IRSCheckContext,
+    ) -> ConstructSatisfactionReport:
+        """Check whether a delegation intent has a valid handoff contract."""
+        annotation = instance.metadata["annotation"]
+        span_id = annotation.span_id
+        handoff_satisfied = self._handoff_covers_span(
+            span_id,
+            context.worker_plan,
+        )
+
+        signal = SlotSatisfaction(
+            slot_name="delegation_signal",
+            status="satisfied",
+            source_span_ids=[span_id],
+            source_section_id=annotation.source_section_id,
+            source_packet_id=annotation.source_packet_id,
+            relation="direct",
+        )
+
+        handoff_spec = irs.get_slot("handoff_contract")
+        if handoff_satisfied:
+            handoff = SlotSatisfaction(
+                slot_name="handoff_contract",
+                status="satisfied",
+                source_span_ids=[span_id],
+                relation="direct",
+            )
+            completeness = "complete"
+            frontier_status = "leaf"
+            cutline_reason = None
+        else:
+            handoff = SlotSatisfaction(
+                slot_name="handoff_contract",
+                status="missing",
+                source_span_ids=[span_id],
+                source_section_id=annotation.source_section_id,
+                source_packet_id=annotation.source_packet_id,
+                diagnostic_kind=(
+                    handoff_spec.missing_diagnostic
+                    if handoff_spec else "type_or_contract_ambiguity"
+                ),
+                diagnostic_target_ref=f"delegation_intent:{span_id}",
+                diagnostic_required_for=span_id,
+                diagnostic_blocks_rendering=False,
+                explanation=(
+                    "Delegation intent lacks a valid worker/API handoff "
+                    "contract. No INVOKE_WORKER or CALL_API will be "
+                    "generated from this span."
+                ),
+                suggested_resolution=(
+                    "Provide a valid worker/API handoff contract with "
+                    "input/output/API bindings covering this delegation span."
+                ),
+            )
+            completeness = "partial"
+            frontier_status = "cutline_partial"
+            cutline_reason = "missing_handoff_contract"
+
+        return ConstructSatisfactionReport(
+            construct_id=instance.construct_id,
+            construct_type="DELEGATION_INTENT",
+            slots=[signal, handoff],
+            completeness=completeness,
+            renderable=False,
+            source_span_ids=[span_id],
+            source_section_id=annotation.source_section_id,
+            source_packet_id=annotation.source_packet_id,
+            construct_path=instance.construct_path,
+            frontier_status=frontier_status,
+            cutline_reason=cutline_reason,
+            metadata={
+                "span_id": span_id,
+                "route_family": annotation.route_family,
+                "semantic_role": annotation.semantic_role,
+            },
+        )
     
     def _matching_handoffs_for_candidate(self, candidate, worker_plan):
         """Find handoffs that structurally match the given candidate.
@@ -271,6 +373,52 @@ class WorkerDelegationIRSChecker:
         elif handoff.mode == "api_call":
             # For api_call mode, api_ref must be non-empty
             return bool(handoff.api_ref)
+        return False
+
+    def _handoff_covers_span(self, span_id: str, worker_plan) -> bool:
+        """Return True when a valid handoff contract covers *span_id*."""
+        if worker_plan is None or not worker_plan.handoffs:
+            return False
+
+        known_child_ids = {
+            worker.worker_id for worker in worker_plan.workers
+            if worker.worker_id != worker_plan.main_worker_id
+            and worker.boundary_kind != "main_worker"
+            and worker.boundary_kind != "not_a_worker"
+        }
+
+        for handoff in worker_plan.handoffs:
+            if not self._is_valid_handoff_contract(handoff, known_child_ids):
+                continue
+
+            hint_ids: list[str] = []
+            if handoff.invoke_location_hint:
+                if handoff.invoke_location_hint.after_span_id:
+                    hint_ids.append(handoff.invoke_location_hint.after_span_id)
+                if handoff.invoke_location_hint.before_span_id:
+                    hint_ids.append(handoff.invoke_location_hint.before_span_id)
+            if handoff.failure_policy:
+                hint_ids.extend(handoff.failure_policy.source_span_ids)
+
+            if span_id in hint_ids:
+                return True
+        return False
+
+    @staticmethod
+    def _is_valid_handoff_contract(handoff, known_child_ids: set[str]) -> bool:
+        """Check the contract fields needed to satisfy DELEGATION_INTENT."""
+        if handoff.mode == "invoke":
+            if not handoff.to_worker or handoff.to_worker not in known_child_ids:
+                return False
+            if not handoff.input_bindings:
+                return False
+            if not handoff.output_bindings:
+                return False
+            return True
+
+        if handoff.mode == "api_call":
+            return bool(handoff.api_ref)
+
         return False
     
     def _check_worker_candidate(

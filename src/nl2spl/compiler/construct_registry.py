@@ -641,4 +641,91 @@ class SPLConstructRegistry:
             ],
         ))
 
+        # -- DELEGATION_INTENT -----------------------------------------------
+        registry.register(ConstructIRS(
+            construct_type="DELEGATION_INTENT",
+            existence_policy="source_signal_required",
+            source_signals=["delegation_intent", "delegation_boundary"],
+            partial_rendering_allowed=False,
+            no_demand_behavior="do_not_generate",
+            description=(
+                "A source-level delegation intent route annotation. It is not "
+                "rendered as SPL by itself; it is complete only when a valid "
+                "worker/API handoff contract covers the source span."
+            ),
+            slots=[
+                SlotSpec(
+                    slot_name="delegation_signal",
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    evidence_kinds=["route_annotation", "source_span"],
+                ),
+                SlotSpec(
+                    slot_name="handoff_contract",
+                    required_for_complete=True,
+                    renderable_without=False,
+                    evidence_kinds=["worker_handoff", "api_handoff"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    notes=(
+                        "Satisfied when an invoke/API handoff has a valid "
+                        "target and contract bindings covering the delegation "
+                        "intent span."
+                    ),
+                ),
+            ],
+        ))
+
+        # -- RESOURCE_CONTRACT_DEMAND -----------------------------------------
+        registry.register(ConstructIRS(
+            construct_type="RESOURCE_CONTRACT_DEMAND",
+            existence_policy="source_signal_required",
+            source_signals=["input_contract", "output_contract", "resource_contract"],
+            partial_rendering_allowed=True,
+            description=(
+                "A source-demanded resource contract (input or output). "
+                "The demand itself is satisfied when a Stage 6 resource_contracts "
+                "entry materializes it with a matching demand_id."
+            ),
+            slots=[
+                SlotSpec(
+                    slot_name="materialization",
+                    syntax_required=True,
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    evidence_kinds=["resource_contract_binding"],
+                    missing_diagnostic="missing_resource_contract",
+                    notes=(
+                        "The demand must have at least one "
+                        "ResourceContractBindingIR with a matching demand_id."
+                    ),
+                ),
+                SlotSpec(
+                    slot_name="resource_registry",
+                    syntax_required=False,
+                    required_for_partial=False,
+                    required_for_complete=True,
+                    evidence_kinds=["resource_contract_field"],
+                    missing_diagnostic="resource_kind_mismatch",
+                    notes=(
+                        "Every ResourceContractBindingIR must point to a "
+                        "materialized resource in the matching registry "
+                        "collection (variables/files/apis/types)."
+                    ),
+                ),
+                SlotSpec(
+                    slot_name="producer",
+                    syntax_required=False,
+                    required_for_partial=False,
+                    required_for_complete=True,
+                    evidence_kinds=["producer_index"],
+                    missing_diagnostic="missing_output_producer",
+                    notes=(
+                        "Required output demands need a renderable producer "
+                        "of the same resource name and resource kind. "
+                        "Declarations alone do not count as producers."
+                    ),
+                ),
+            ],
+        ))
+
         return registry

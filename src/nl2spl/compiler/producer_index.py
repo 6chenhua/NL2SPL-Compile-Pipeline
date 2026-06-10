@@ -16,26 +16,27 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Literal
 
+from nl2spl.ir.resource_contract_ir import ResourceContractBindingIR, ResourceKind
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR
-
 
 ProducerKind = Literal["step", "handoff", "api", "compiler_scaffold"]
 
 
 @dataclass
 class ProducerRef:
-    """A single producer of a variable.
+    """A single producer of a resource.
 
     Attributes:
-        variable_name: The variable being produced.
-        producer_kind: How the variable is produced — step, handoff, API, or
+        variable_name: The resource being produced.
+        producer_kind: How the resource is produced — step, handoff, API, or
             deterministic compiler scaffolding.
         producer_ref: Identifier for the producer (step_id, handoff_id, or
             API name).
         source_span_ids: Source spans backing this producer.
         renderable: Whether this producer would pass the executable-element
             gate and be renderable in SPL.
+        resource_kind: ``variable`` or ``file`` (default ``variable``).
     """
 
     variable_name: str
@@ -43,6 +44,7 @@ class ProducerRef:
     producer_ref: str
     source_span_ids: list[str] = field(default_factory=list)
     renderable: bool = False
+    resource_kind: ResourceKind = "variable"
 
 
 def _step_is_renderable(
@@ -108,6 +110,7 @@ class ProducerIndex:
         extra_api_names: set[str] | None = None,
         api_handoff_refs: dict[str, str] | None = None,
         known_child_worker_ids: set[str] | None = None,
+        resource_contract_bindings: list[ResourceContractBindingIR] | None = None,
     ) -> None:
         """Build the producer index.
 
@@ -125,6 +128,9 @@ class ProducerIndex:
         self._producers: dict[str, list[ProducerRef]] = defaultdict(list)
         self._handoff_index = self._build_handoff_index(handoffs)
         self._known_child_worker_ids = known_child_worker_ids or set()
+        self._resource_kind_by_name = self._build_resource_kind_lookup(
+            resource_contract_bindings,
+        )
         steps = steps or []
         declared = declared_apis or set()
         extra = extra_api_names or set()
@@ -156,6 +162,7 @@ class ProducerIndex:
                         producer_ref=step.step_id,
                         source_span_ids=list(step.source_span_ids),
                         renderable=renderable,
+                        resource_kind=self._resource_kind_for_output(output),
                     )
                 )
 
@@ -174,6 +181,9 @@ class ProducerIndex:
                             producer_ref=handoff.handoff_id,
                             source_span_ids=[],
                             renderable=handoff_renderable,
+                            resource_kind=self._resource_kind_for_output(
+                                binding.parent_variable,
+                            ),
                         )
                     )
 
@@ -197,6 +207,7 @@ class ProducerIndex:
                             producer_ref=step.step_id,
                             source_span_ids=list(step.source_span_ids),
                             renderable=True,
+                            resource_kind=self._resource_kind_for_output(output),
                         )
                     )
 
@@ -204,9 +215,18 @@ class ProducerIndex:
     # Public query methods
     # ------------------------------------------------------------------
 
-    def is_produced(self, variable_name: str) -> bool:
-        """Return True when *variable_name* has at least one renderable producer."""
+    def is_produced(
+        self,
+        variable_name: str,
+        resource_kind: ResourceKind | None = None,
+    ) -> bool:
+        """Return True when *variable_name* has at least one renderable producer.
+
+        When *resource_kind* is provided, only count producers of that kind.
+        """
         refs = self._producers.get(variable_name, [])
+        if resource_kind is not None:
+            refs = [r for r in refs if r.resource_kind == resource_kind]
         return any(ref.renderable for ref in refs)
 
     def get_producers(self, variable_name: str) -> list[ProducerRef]:
@@ -265,6 +285,7 @@ class ProducerIndex:
                 producer_ref=step.handoff_id,
                 source_span_ids=list(step.source_span_ids),
                 renderable=renderable,
+                resource_kind=self._resource_kind_for_output(result_name),
             )
         )
 
@@ -279,6 +300,25 @@ class ProducerIndex:
         if handoffs is None:
             return {}
         return {h.handoff_id: h for h in handoffs}
+
+    @staticmethod
+    def _build_resource_kind_lookup(
+        bindings: list[ResourceContractBindingIR] | None,
+    ) -> dict[str, ResourceKind]:
+        result: dict[str, ResourceKind] = {}
+        conflicts: set[str] = set()
+        for binding in bindings or []:
+            existing = result.get(binding.resource_name)
+            if existing is not None and existing != binding.resource_kind:
+                conflicts.add(binding.resource_name)
+                continue
+            result[binding.resource_name] = binding.resource_kind
+        for name in conflicts:
+            result.pop(name, None)
+        return result
+
+    def _resource_kind_for_output(self, output_name: str) -> ResourceKind:
+        return self._resource_kind_by_name.get(output_name, "variable")
 
     def _handoff_renderable(
         self,

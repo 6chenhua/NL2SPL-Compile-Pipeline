@@ -1,9 +1,9 @@
 """Productized diagnostic consolidation for compiler outputs.
 
 The consolidator is the single place that merges diagnostics from
-post-normalize IRS, executable gate, provenance, route/delegation/conflict
-analysis, and stage-local IRS.  It does not create new diagnostics and does
-not inspect raw NL.
+post-normalize IRS, executable gate, provenance, promoted IRS demand
+diagnostics, conflict analysis, and stage-local IRS.  It does not create new
+diagnostics and does not inspect raw NL.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class DiagnosticConsolidationInput:
     post_normalize_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
     gate_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
     provenance_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
-    delegation_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
+    irs_promoted_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
     conflict_diagnostics: list[CompileDiagnostic] = field(default_factory=list)
     include_stage_local_diagnostics: bool = False
 
@@ -90,7 +90,7 @@ class DiagnosticConsolidator:
         add_group(data.provenance_diagnostics)
         add_group(data.stage2_diagnostics)
         add_group(data.construct_plan_diagnostics)
-        add_group(data.delegation_diagnostics)
+        add_group(data.irs_promoted_diagnostics)
         add_group(data.conflict_diagnostics)
         add_group(data.stage7_diagnostics)
 
