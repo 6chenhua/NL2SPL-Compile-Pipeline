@@ -73,11 +73,6 @@ def main() -> None:
         if result.final_spl_path:
             print(f"Final SPL saved to: {result.final_spl_path}", file=sys.stderr)
 
-        # Write compile report
-        report_path = config.run_dir / "compile_report.txt"
-        report_path.write_text(result.readable_report, encoding="utf-8")
-        print(f"Compile report saved to: {report_path}", file=sys.stderr)
-
         # Write user-facing feedback report
         feedback_report = render_feedback_report(
             spl_text=result.spl_text,

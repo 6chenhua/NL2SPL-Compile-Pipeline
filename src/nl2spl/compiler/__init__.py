@@ -29,7 +29,6 @@ from nl2spl.compiler.construct_registry import (
     SlotSatisfaction,
     SlotSpec,
 )
-from nl2spl.compiler.diagnostic_analyzer import AnalyzeInput, DiagnosticAnalyzer
 from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry, DiagnosticSpec
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
 from nl2spl.compiler.irs_prompt_builder import IRSDrivenPromptBuilder
@@ -39,7 +38,6 @@ from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 
 __all__ = [
-    "AnalyzeInput",
     "AssumptionBuilder",
     "ConflictAnalysisContext",
     "CompileAssumption",
@@ -49,7 +47,6 @@ __all__ = [
     "compute_completeness",
     "ConstructIRS",
     "ConstructSatisfactionReport",
-    "DiagnosticAnalyzer",
     "DiagnosticKind",
     "DiagnosticRegistry",
     "DiagnosticSpec",
