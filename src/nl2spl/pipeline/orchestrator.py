@@ -16,12 +16,15 @@ from nl2spl.compiler.analyzers.semantic_conflict import (
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
+from nl2spl.compiler.construct_plan import ConstructPlan, ConstructPlanner
 from nl2spl.compiler.diagnostic_consolidator import (
     DiagnosticConsolidationInput,
     DiagnosticConsolidator,
 )
-from nl2spl.compiler.construct_plan import ConstructPlan, ConstructPlanner
-from nl2spl.compiler.report_renderer import render_report
+from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.factory import build_irs_subsystem
+from nl2spl.compiler.irs.result_store import IRSResultStore
+from nl2spl.compiler.irs.subsystem import IRSSubsystem
 from nl2spl.config import PipelineConfig
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
@@ -42,12 +45,12 @@ from nl2spl.ir.worker_plan_ir import (
 )
 from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
-from nl2spl.pipeline.delegation_diagnostics import (
-    diagnose_delegation_intents_from_routes,
-)
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
+from nl2spl.pipeline.stages.stage3_2_resource_contract_planner import (
+    ResourceContractPlanner,
+)
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
     _span_sort_key,
@@ -59,16 +62,12 @@ from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
-from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.factory import build_irs_subsystem
-from nl2spl.compiler.irs.result_store import IRSResultStore
-from nl2spl.compiler.irs.subsystem import IRSSubsystem
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
 from nl2spl.utils.logger import setup_logger
-from nl2spl.utils.persistence import save_final_spl
+from nl2spl.utils.persistence import save_final_spl, save_intermediate_result
 
 
 @dataclass
@@ -85,7 +84,8 @@ class PipelineResult:
         adapter_warnings: Adapter-level warnings
         completeness: Overall compile status 鈥?complete, partial, or blocked
         assumptions: Compiler assumptions that were NOT rendered into SPL
-        readable_report: Human-readable compile report (deterministic, no LLM)
+        readable_report: Deprecated MVP compatibility field. Human-readable
+            compile reports are not generated in the MVP output path.
         intermediate_results: Intermediate stage results
         final_spl_path: Path to saved final SPL file
     """
@@ -172,25 +172,27 @@ class PipelineOrchestrator:
         self.logger.info("Stage 2: Field Routing")
         routes, ambiguity_updates = self._run_stage2(spans, canonical_input)
         intermediate["stage2_routes"] = routes
-        if routes.structured_route_diagnostics:
-            intermediate.setdefault("stage_local_diagnostics", {})
-            s2_diags: list[Any] = []
-            for sd in routes.structured_route_diagnostics:
-                s2_diags.append(CompileDiagnostic(
-                    diagnostic_id=f"diag_rf_{len(s2_diags):03d}",
-                    kind=sd.get("kind", "route_refinement_diagnostic"),
-                    severity="warning",
-                    message=sd.get("message", ""),
-                    target_ref=f"stage2:field_route:{sd.get('span_id', '')}",
-                    source_span_ids=[sd["span_id"]] if sd.get("span_id") else [],
-                    blocks_completion=False,
-                ))
-            intermediate["stage_local_diagnostics"]["stage2"] = s2_diags
 
         # Stage 3: Ambiguity Resolution
         self.logger.info("Stage 3: Ambiguity Resolution")
         resolved_spans, resolved_routes = self._run_stage3(spans, routes, ambiguity_updates)
         intermediate["stage3_resolved"] = {"spans": resolved_spans, "routes": resolved_routes}
+
+        # Stage 3.2: Resource Contract Planning
+        self.logger.info("Stage 3.2: Resource Contract Planning")
+        resource_contract_plan = ResourceContractPlanner().plan(
+            resolved_spans,
+            resolved_routes,
+            canonical_input,
+        )
+        intermediate["resource_contract_plan"] = resource_contract_plan
+        intermediate["resource_contract_plan_payload"] = resource_contract_plan.to_payload()
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                stage_name="stage3_2_resource_contract_plan",
+                result=resource_contract_plan.to_payload(),
+                output_dir=self.config.run_dir,
+            )
 
         # Stage 3.25: Construct demand planning
         self.logger.info("Stage 3.25: Construct Demand Planning")
@@ -209,7 +211,12 @@ class PipelineOrchestrator:
 
         # Stage 3.5/3.6: Worker Boundary Planning and validation
         self.logger.info("Stage 3.5: Worker Boundary Planning")
-        worker_plan = self._run_stage3_5(resolved_spans, resolved_routes, canonical_input)
+        worker_plan = self._run_stage3_5(
+            resolved_spans,
+            resolved_routes,
+            canonical_input,
+            intermediate.get("resource_contract_plan"),
+        )
         pre_repair_validation = WorkerPlanValidator().validate(
             worker_plan,
             {span.span_id for span in resolved_spans},
@@ -331,6 +338,7 @@ class PipelineOrchestrator:
             worker_block_plan,
             worker_plan,
             canonical_input,
+            intermediate.get("resource_contract_plan"),
         )
         resources = worker_scoped_resources.global_resources
         intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
@@ -443,6 +451,7 @@ class PipelineOrchestrator:
             worker_scoped_resources=intermediate.get(
                 "stage6_worker_scoped_resources"
             ),
+            resource_contract_plan=intermediate.get("resource_contract_plan"),
         )
         irs_store.put_post_normalize_diagnostics(post_norm_diags)
 
@@ -559,15 +568,7 @@ class PipelineOrchestrator:
             delegation_intents=prov_delegation_intents,
         )
 
-        # D10: route-driven delegation diagnostics.
-        delegation_diags = self._run_delegation_diagnostics(
-            resolved_routes,
-            resolved_spans,
-            canonical_input,
-            worker_plan,
-            prov_child_ids,
-            prov_declared_apis,
-        )
+        promoted_irs_diags = self._promoted_irs_diagnostics(irs_store)
 
         # Semantic conflict analysis (Phase 6) -- before consolidation.
         conflict_context = ConflictAnalysisContext(
@@ -595,19 +596,16 @@ class PipelineOrchestrator:
         # post_norm_diags replaces the old compile_diagnostics from Stage 9.5.
         # stage7_diags carries unmapped_behavior_span and other LLM-stage
         # diagnostics that are not covered by the post-normalize IRS pass.
-        stage2_diags = intermediate.get(
-            "stage_local_diagnostics", {}
-        ).get("stage2", [])
         consolidation = DiagnosticConsolidator().consolidate(
             DiagnosticConsolidationInput(
-                stage2_diagnostics=list(stage2_diags),
+                stage2_diagnostics=[],
                 construct_plan_diagnostics=list(construct_plan.diagnostics),
                 stage7_diagnostics=list(stage7_diags),
                 irs_store=irs_store,
                 post_normalize_diagnostics=list(post_norm_diags),
                 gate_diagnostics=list(gate_diags),
                 provenance_diagnostics=list(provenance_diags),
-                delegation_diagnostics=list(delegation_diags),
+                irs_promoted_diagnostics=list(promoted_irs_diags),
                 conflict_diagnostics=list(conflict_diags),
                 include_stage_local_diagnostics=(
                     self.config.irs.include_stage_local_diagnostics_in_compile
@@ -628,21 +626,7 @@ class PipelineOrchestrator:
         )
         assumption_builder = AssumptionBuilder()
         assumptions = assumption_builder.build(all_diagnostics)
-        readable_report = render_report(
-            spl_text=spl_text,
-            completeness=completeness,
-            diagnostics=all_diagnostics,
-            assumptions=assumptions,
-            traces=traces,
-            construct_satisfaction=(
-                intermediate.get("construct_satisfaction")
-                if self.config.irs.include_construct_satisfaction_in_feedback
-                else None
-            ),
-            adapter_warnings=adapter_warnings,
-            validation_errors=errors,
-            validation_warnings=warnings,
-        )
+        readable_report = ""
 
         return PipelineResult(
             spl_text=spl_text,
@@ -690,9 +674,14 @@ class PipelineOrchestrator:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None = None,
+        resource_contract_plan: Any = None,
     ) -> WorkerPlanIR:
         """Stage 3.5: Worker Boundary Planning."""
         stage = WorkerBoundaryPlanner(self.config, self.client)
+        if resource_contract_plan is not None:
+            return stage.execute(
+                (spans, routes, canonical_input, resource_contract_plan)
+            )
         return stage.execute((spans, routes, canonical_input))
 
     def _run_stage4(
@@ -731,11 +720,13 @@ class PipelineOrchestrator:
         worker_block_plan: WorkerBlockPlanIR,
         worker_plan: WorkerPlanIR,
         canonical_input: CanonicalCompileInput | None = None,
+        resource_contract_plan: Any = None,
     ) -> tuple[WorkerScopedResourceIR, SymbolTable, list[str]]:
         """Stage 6: Worker-scoped Resource Extraction."""
         stage = ResourceExtractor(self.config, self.client)
         worker_scoped_resources, symbols = stage.execute_worker_scoped(
-            spans, routes, worker_flow_plan, worker_block_plan, worker_plan, canonical_input
+            spans, routes, worker_flow_plan, worker_block_plan, worker_plan,
+            canonical_input, resource_contract_plan,
         )
         filter_warnings = getattr(stage, "resource_filter_warnings", [])
         return worker_scoped_resources, symbols, list(filter_warnings)
@@ -814,26 +805,16 @@ class PipelineOrchestrator:
         )
         return result
 
-    # -- D10 delegation diagnostics -------------------------------------------
-
     @staticmethod
-    def _run_delegation_diagnostics(
-        resolved_routes: FieldRouteIR,
-        resolved_spans: list[SpanIR],
-        canonical_input: CanonicalCompileInput,
-        worker_plan: WorkerPlanIR | None,
-        prov_child_ids: set[str],
-        prov_declared_apis: set[str],
+    def _promoted_irs_diagnostics(
+        irs_store: IRSResultStore,
     ) -> list[CompileDiagnostic]:
-        """Emit delegation diagnostics from final RouteAnnotations only."""
-        _ = canonical_input
-        _ = prov_child_ids
-        return diagnose_delegation_intents_from_routes(
-            resolved_routes,
-            resolved_spans,
-            worker_plan,
-            declared_apis=prov_declared_apis,
-        )
+        """Return stage-local IRS diagnostics allowed into final output."""
+        return [
+            diagnostic
+            for diagnostic in irs_store.get_stage_diagnostics("stage3_5")
+            if (diagnostic.target_ref or "").startswith("delegation_intent:")
+        ]
 
     def _run_stage10_worker_scoped(
         self,

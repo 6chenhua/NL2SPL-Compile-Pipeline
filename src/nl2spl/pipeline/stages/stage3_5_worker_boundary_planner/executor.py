@@ -8,6 +8,7 @@ from typing import Any
 from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
@@ -25,6 +26,12 @@ from nl2spl.utils.persistence import save_intermediate_result
 PlannerInput = (
     tuple[list[SpanIR], FieldRouteIR]
     | tuple[list[SpanIR], FieldRouteIR, CanonicalCompileInput | None]
+    | tuple[
+        list[SpanIR],
+        FieldRouteIR,
+        CanonicalCompileInput | None,
+        ResourceContractPlanIR | None,
+    ]
 )
 
 
@@ -43,16 +50,19 @@ class ExecutorMixin:
         Raises:
             StageError: If the planner call or WorkerPlanIR validation fails.
         """
-        spans, routes, canonical_input = self._unpack_input(input_data)
+        spans, routes, canonical_input, resource_contract_plan = self._unpack_input(
+            input_data
+        )
         self.logger.info("Starting worker boundary planning for %d spans", len(spans))
 
-        return self._execute_split(spans, routes, canonical_input)
+        return self._execute_split(spans, routes, canonical_input, resource_contract_plan)
 
     def _execute_split(
         self,
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> WorkerPlanIR:
         """Run Stage 3.5a/3.5b/3.5c as separate compiler sub-stages."""
         hard_inputs, hard_outputs = self._hard_fact_contracts(canonical_input)
@@ -60,7 +70,9 @@ class ExecutorMixin:
         known_span_ids = {span.span_id for span in spans}
 
         try:
-            candidates = self._run_candidate_extraction(spans, routes, canonical_input)
+            candidates = self._run_candidate_extraction(
+                spans, routes, canonical_input, resource_contract_plan,
+            )
             self._save_substage_checkpoint(
                 "stage3_5a_candidate_task_units",
                 {"candidates": [asdict(candidate) for candidate in candidates]},
@@ -76,6 +88,7 @@ class ExecutorMixin:
                     routes,
                     canonical_input,
                     eligible,
+                    resource_contract_plan,
                 )
                 decisions.extend(auto_rejected)
             else:
@@ -88,6 +101,9 @@ class ExecutorMixin:
                 "stage3_5b_worker_boundary_decisions",
                 {"decisions": [asdict(decision) for decision in decisions]},
             )
+            demand_inputs, demand_outputs = self._resource_contract_demand_contracts(
+                resource_contract_plan,
+            )
             materializer = WorkerPlanMaterializer()
             plan, materialize_warnings = materializer.materialize(
                 candidates=candidates,
@@ -97,6 +113,8 @@ class ExecutorMixin:
                 behavior_span_ids=behavior_span_ids,
                 behavior_span_order=list(routes.behavior),
                 annotations=routes.annotations if routes.annotations else None,
+                demand_inputs=demand_inputs,
+                demand_outputs=demand_outputs,
             )
             plan.warnings.extend(materialize_warnings)
             self._save_substage_checkpoint(
@@ -133,9 +151,12 @@ class ExecutorMixin:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> list[CandidateTaskUnitIR]:
         system_prompt = load_prompt("stage3_5a")
-        user_prompt = self._build_candidate_prompt(spans, routes, canonical_input)
+        user_prompt = self._build_candidate_prompt(
+            spans, routes, canonical_input, resource_contract_plan,
+        )
         result = self.client.call_json(
             stage_name="stage3_5a_candidate_task_units",
             system_prompt=system_prompt,
@@ -153,6 +174,7 @@ class ExecutorMixin:
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
         candidates: list[CandidateTaskUnitIR],
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> list[WorkerBoundaryDecisionIR]:
         system_prompt = load_prompt("stage3_5b")
         user_prompt = self._build_decision_prompt(
@@ -160,6 +182,7 @@ class ExecutorMixin:
             routes,
             canonical_input,
             candidates,
+            resource_contract_plan,
         )
         result = self.client.call_json(
             stage_name="stage3_5b_worker_boundary_decisions",
@@ -288,6 +311,39 @@ class ExecutorMixin:
         ]
         return hard_inputs, hard_outputs
 
+    def _resource_contract_demand_contracts(
+        self,
+        resource_contract_plan: ResourceContractPlanIR | None,
+    ) -> tuple[list[ContractFieldIR], list[ContractFieldIR]]:
+        """Build ContractFieldIR entries from ResourceContractPlanIR demands.
+
+        These are demand-level references — name and data_type are empty
+        because Stage 3.5 only confirms source-backed demand existence.
+        Stage 6 is responsible for full resource kind/name/type modeling.
+        """
+        if resource_contract_plan is None:
+            return [], []
+        demand_inputs: list[ContractFieldIR] = []
+        demand_outputs: list[ContractFieldIR] = []
+        for demand in resource_contract_plan.demands:
+            field = ContractFieldIR(
+                name="",
+                data_type="",
+                required=demand.required,
+                description=demand.evidence_text,
+                source="input" if demand.direction == "input" else "output",
+                contract_demand_id=demand.demand_id,
+                source_span_ids=list(demand.source_span_ids),
+                source_section_id=demand.source_section_id,
+                source_packet_id=demand.source_packet_id,
+                resource_kind=None,
+            )
+            if demand.direction == "input":
+                demand_inputs.append(field)
+            else:
+                demand_outputs.append(field)
+        return demand_inputs, demand_outputs
+
     def _save_substage_checkpoint(self, stage_name: str, result: dict[str, Any]) -> None:
         if self.config.save_intermediate:
             save_intermediate_result(
@@ -299,12 +355,20 @@ class ExecutorMixin:
     def _unpack_input(
         self,
         input_data: PlannerInput,
-    ) -> tuple[list[SpanIR], FieldRouteIR, CanonicalCompileInput | None]:
+    ) -> tuple[
+        list[SpanIR],
+        FieldRouteIR,
+        CanonicalCompileInput | None,
+        ResourceContractPlanIR | None,
+    ]:
         if len(input_data) == 2:
             spans, routes = input_data
-            return spans, routes, None
-        spans, routes, canonical_input = input_data
-        return spans, routes, canonical_input
+            return spans, routes, None, None
+        if len(input_data) == 3:
+            spans, routes, canonical_input = input_data
+            return spans, routes, canonical_input, None
+        spans, routes, canonical_input, resource_contract_plan = input_data
+        return spans, routes, canonical_input, resource_contract_plan
 
     def _str_list(self, value: Any) -> list[str]:
         if value is None:

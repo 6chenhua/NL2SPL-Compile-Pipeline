@@ -79,8 +79,14 @@ class StructuralNLAdapter(InputAdapter):
     name = "structural_nl"
     schema_version = "1.0"
 
-    def __init__(self, llm_client: object | None = None) -> None:
+    def __init__(
+        self,
+        llm_client: object | None = None,
+        *,
+        enable_hard_facts: bool = False,
+    ) -> None:
         _ = llm_client
+        self._hard_facts_enabled = enable_hard_facts
 
     def detect(self, raw_text: str) -> AdapterDetectionResult:
         """Detect structural_nl by section evidence."""
@@ -141,18 +147,21 @@ class StructuralNLAdapter(InputAdapter):
                         packet.metadata.setdefault("executable", False)
                         semantic_packets.append(packet)
 
-            # Legacy compatibility path for exact-schema inputs and outputs
+            # Legacy compatibility path for exact-schema inputs and outputs.
+            # Disabled by default since ResourceContractPlan took over.
+            # Re-enable via PipelineConfig.enable_adapter_hard_facts = True.
             title = section.canonical_title
-            if title in ("inputs for each run", "inputs_for_each_run"):
-                inputs = self._extract_variables(section, source="input")
-                for fact in inputs:
-                    fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
-                hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
-            elif title in ("required outputs", "required_outputs"):
-                outputs = self._extract_variables(section, source="output")
-                for fact in outputs:
-                    fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
-                hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
+            if self._hard_facts_enabled:
+                if title in ("inputs for each run", "inputs_for_each_run"):
+                    inputs = self._extract_variables(section, source="input")
+                    for fact in inputs:
+                        fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
+                    hard_facts.inputs.extend(self._merge_variable_facts(inputs, warnings))
+                elif title in ("required outputs", "required_outputs"):
+                    outputs = self._extract_variables(section, source="output")
+                    for fact in outputs:
+                        fact.source_packet_id = f"adapter_compat_exact_schema_{fact.name}"
+                    hard_facts.outputs.extend(self._merge_variable_facts(outputs, warnings))
 
         return CanonicalCompileInput(
             source_schema=self.name,

@@ -61,12 +61,21 @@ class WorkerPlanMaterializer:
         main_worker_id: str = "worker_main",
         main_worker_name: str = "MainWorker",
         annotations: list[RouteAnnotation] | None = None,
+        demand_inputs: list[ContractFieldIR] | None = None,
+        demand_outputs: list[ContractFieldIR] | None = None,
     ) -> tuple[WorkerPlanIR, list[str]]:
         """Materialize a WorkerPlanIR from decisions and candidates."""
         warnings: list[str] = []
         candidates_by_id = {c.candidate_id: c for c in candidates}
         hard_inputs = hard_fact_inputs or []
         hard_outputs = hard_fact_outputs or []
+        demand_in = demand_inputs or []
+        demand_out = demand_outputs or []
+        all_demand_ids: set[str] = {
+            f.contract_demand_id
+            for f in demand_in + demand_out
+            if f.contract_demand_id
+        }
         behavior_all = behavior_span_ids or set()
         span_order = behavior_span_order or []
 
@@ -79,13 +88,16 @@ class WorkerPlanMaterializer:
             }
 
         main_worker = self._build_main_worker(
-            main_worker_id, main_worker_name, hard_inputs, hard_outputs,
+            main_worker_id,
+            main_worker_name,
+            hard_inputs + demand_in,
+            hard_outputs + demand_out,
         )
 
         child_workers, handoffs, rejected, materialized_decisions, decision_warnings = (
             self._materialize_accepted(
                 decisions, candidates_by_id, hard_inputs, hard_outputs,
-                span_order, main_worker,
+                span_order, main_worker, all_demand_ids,
             )
         )
         warnings.extend(decision_warnings)
@@ -170,6 +182,7 @@ class WorkerPlanMaterializer:
         hard_outputs: list[ContractFieldIR],
         span_order: list[str],
         main_worker: WorkerSpecIR,
+        all_demand_ids: set[str] | None = None,
     ) -> tuple[
         list[WorkerSpecIR],
         list[WorkerHandoffIR],
@@ -183,6 +196,7 @@ class WorkerPlanMaterializer:
         materialized_decisions: list[WorkerBoundaryDecisionIR] = []
         warnings: list[str] = []
         main_owned = set(main_worker.owned_span_ids)
+        _ = all_demand_ids
         blocked_anchor_span_ids = self._blocked_handoff_anchor_spans(
             decisions,
             candidates_by_id,

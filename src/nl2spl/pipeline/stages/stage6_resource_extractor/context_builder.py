@@ -14,6 +14,7 @@ from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import WorkerSpecIR
@@ -38,6 +39,7 @@ def build_resource_context(
     worker_spec: WorkerSpecIR | None = None,
     scope_kind: Literal["global", "worker", "handoff"] = "global",
     scope_id: str | None = None,
+    resource_contract_plan: ResourceContractPlanIR | None = None,
 ) -> str:
     """Build a semi-structured resource extraction prompt context.
 
@@ -59,6 +61,7 @@ def build_resource_context(
         "",
         _build_scope_section(worker_spec, scope_kind, scope_id),
         _build_contract_section(worker_spec, canonical_input),
+        _build_resource_contract_plan_section(resource_contract_plan),
         _build_source_spans_section(spans, routes),
         _build_flow_summary_section(flow),
         _build_block_summary_section(blocks),
@@ -132,6 +135,40 @@ def _build_contract_section(
     if not has_inputs and not has_outputs:
         lines.append("- none")
 
+    return "\n".join(lines)
+
+
+def _build_resource_contract_plan_section(
+    resource_contract_plan: ResourceContractPlanIR | None,
+) -> str:
+    if resource_contract_plan is None or not resource_contract_plan.demands:
+        return "Resource contract demands\n- none"
+
+    lines = [
+        "Resource contract demands",
+        "You MUST examine each demand and output a resource_contracts array.",
+        "For output demands that describe document/file artifacts",
+        "(Word, Google Doc, PDF, file upload, document), use resource_kind=file",
+        "with path='< >'. For ordinary text/data outputs, use resource_kind=variable.",
+        "Include the demand_id in each resource_contracts entry for traceability.",
+        "",
+    ]
+    for demand in resource_contract_plan.demands:
+        provenance_parts = []
+        if demand.source_span_ids:
+            provenance_parts.append(f"span={','.join(demand.source_span_ids)}")
+        if demand.source_section_id:
+            provenance_parts.append(f"section={demand.source_section_id}")
+        if demand.source_packet_id:
+            provenance_parts.append(f"packet={demand.source_packet_id}")
+        provenance = ", ".join(provenance_parts) if provenance_parts else "no provenance"
+        lines.append(
+            f"- demand_id: {demand.demand_id}"
+        )
+        lines.append(f"  direction: {demand.direction}")
+        lines.append(f"  required: {demand.required}")
+        lines.append(f"  evidence: \"{demand.evidence_text[:200]}\"")
+        lines.append(f"  provenance: {provenance}")
     return "\n".join(lines)
 
 

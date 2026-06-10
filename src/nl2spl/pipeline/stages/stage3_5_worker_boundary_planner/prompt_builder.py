@@ -6,6 +6,7 @@ from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import CandidateTaskUnitIR
 
@@ -18,6 +19,7 @@ class PromptBuilderMixin:
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> str:
         return f"""Plan worker boundaries before flow assembly.
 
@@ -33,7 +35,7 @@ Field routes:
 
 Adapter metadata:
 ---
-{self._format_adapter_metadata(canonical_input)}
+{self._format_adapter_metadata(canonical_input, resource_contract_plan)}
 ---
 
 Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
@@ -43,6 +45,7 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         spans: list[SpanIR],
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> str:
         if routes.annotations:
             exec_ids = routes.get_executable_behavior_span_ids()
@@ -65,7 +68,7 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
                 f"{ctx_section}\n"
                 f"Non-behavior context:\n---\n{non_beh}\n---\n\n"
                 f"Adapter metadata:\n---\n"
-                f"{self._format_adapter_metadata(canonical_input)}\n---\n\n"
+                f"{self._format_adapter_metadata(canonical_input, resource_contract_plan)}\n---\n\n"
                 f"Return JSON only with a top-level \"candidates\" array.\n"
                 f"Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."
             )
@@ -83,7 +86,7 @@ Non-behavior context:
 
 Adapter metadata:
 ---
-{self._format_adapter_metadata(canonical_input)}
+{self._format_adapter_metadata(canonical_input, resource_contract_plan)}
 ---
 
 Return JSON only with a top-level "candidates" array.
@@ -95,6 +98,7 @@ Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
         candidates: list[CandidateTaskUnitIR],
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> str:
         if routes.annotations:
             exec_ids = routes.get_executable_behavior_span_ids()
@@ -117,7 +121,7 @@ Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
                 f"{exec_section}\n"
                 f"{ctx_section}\n"
                 f"Adapter metadata:\n---\n"
-                f"{self._format_adapter_metadata(canonical_input)}\n---\n\n"
+                f"{self._format_adapter_metadata(canonical_input, resource_contract_plan)}\n---\n\n"
                 f"Return JSON only with a top-level \"decisions\" array.\n"
                 f"Return exactly one decision for every candidate_id listed above.\n"
                 f"Do not output workers, handoffs, flow, blocks, steps, or SPL."
@@ -136,7 +140,7 @@ Behavior span context:
 
 Adapter metadata:
 ---
-{self._format_adapter_metadata(canonical_input)}
+{self._format_adapter_metadata(canonical_input, resource_contract_plan)}
 ---
 
 Return JSON only with a top-level "decisions" array.
@@ -193,7 +197,11 @@ Do not output workers, handoffs, flow, blocks, steps, or SPL."""
             )
         return "\n".join(lines)
 
-    def _format_adapter_metadata(self, canonical_input: CanonicalCompileInput | None) -> str:
+    def _format_adapter_metadata(
+        self,
+        canonical_input: CanonicalCompileInput | None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
+    ) -> str:
         if canonical_input is None:
             return "(none)"
 
@@ -220,6 +228,25 @@ Do not output workers, handoffs, flow, blocks, steps, or SPL."""
                 f"section={fact.source_section_id}, {fact.description}"
                 for fact in canonical_input.hard_facts.outputs
             )
+        if resource_contract_plan is not None and resource_contract_plan.demands:
+            lines.append("resource contract demands:")
+            for demand in resource_contract_plan.demands:
+                provenance_parts = []
+                if demand.source_span_ids:
+                    provenance_parts.append(
+                        f"span={','.join(demand.source_span_ids)}"
+                    )
+                if demand.source_section_id:
+                    provenance_parts.append(f"section={demand.source_section_id}")
+                if demand.source_packet_id:
+                    provenance_parts.append(f"packet={demand.source_packet_id}")
+                provenance = ", ".join(provenance_parts) if provenance_parts else "no provenance"
+                lines.append(
+                    f"- demand_id={demand.demand_id}, direction={demand.direction}, "
+                    f"required={demand.required}, "
+                    f"evidence=\"{demand.evidence_text[:200]}\", "
+                    f"{provenance}"
+                )
         self._append_hints(
             lines,
             "process hints",

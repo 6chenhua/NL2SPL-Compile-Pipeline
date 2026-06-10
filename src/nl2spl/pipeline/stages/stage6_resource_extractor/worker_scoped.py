@@ -9,6 +9,11 @@ from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.resource_contract_ir import (
+    ResourceContractBindingIR,
+    ResourceContractFieldIR,
+    ResourceContractPlanIR,
+)
 from nl2spl.ir.resource_registry_ir import (
     APIFunction,
     APISpec,
@@ -52,6 +57,7 @@ class WorkerScopedMixin:
         worker_block_plan: WorkerBlockPlanIR,
         worker_plan: WorkerPlanIR,
         canonical_input: CanonicalCompileInput | None = None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> tuple[WorkerScopedResourceIR, SymbolTable]:
         """对每个 worker 独立执行 LLM 资源提取，互不干扰。
 
@@ -62,6 +68,7 @@ class WorkerScopedMixin:
         symbol_table = SymbolTable()
         worker_scoped_resources = WorkerScopedResourceIR()
         self.resource_filter_warnings: list[str] = []
+        self._contract_bindings: list[ResourceContractBindingIR] = []
 
         # —— 阶段 1：提取 main worker 的全局资源 ——
         # main worker 传入 canonical_input，可以消费 adapter 提取的精确变量。
@@ -94,6 +101,7 @@ class WorkerScopedMixin:
                 scope_kind="global",
                 scope_id=None,
                 worker_spec=main_worker_spec,
+                resource_contract_plan=resource_contract_plan,
             )
             worker_scoped_resources.global_resources = global_resources
 
@@ -142,11 +150,16 @@ class WorkerScopedMixin:
             contract = self._build_handoff_contract(handoff, symbol_table)
             worker_scoped_resources.handoff_contracts[handoff.handoff_id] = contract
 
+        worker_scoped_resources.resource_contract_bindings = list(
+            self._contract_bindings
+        )
+
         self.logger.info(
-            "Extracted worker-scoped resources: %d global variables, %d workers, %d handoffs",
+            "Extracted worker-scoped resources: %d global variables, %d workers, %d handoffs, %d bindings",
             len(worker_scoped_resources.global_resources.variables),
             len(worker_scoped_resources.worker_resources),
             len(worker_scoped_resources.handoff_contracts),
+            len(worker_scoped_resources.resource_contract_bindings),
         )
 
         return worker_scoped_resources, symbol_table
@@ -162,6 +175,7 @@ class WorkerScopedMixin:
         scope_kind: Literal["global", "worker", "handoff"] = "global",
         scope_id: str | None = None,
         worker_spec: WorkerSpecIR | None = None,
+        resource_contract_plan: ResourceContractPlanIR | None = None,
     ) -> tuple[ResourceRegistryIR, SymbolTable]:
         """对单个 scope 执行 LLM 资源提取：build prompt → LLM → 解析 JSON → 过滤 → 合并。"""
         system_prompt = load_prompt("stage6")
@@ -175,6 +189,7 @@ class WorkerScopedMixin:
             worker_spec=worker_spec,
             scope_kind=scope_kind,
             scope_id=scope_id,
+            resource_contract_plan=resource_contract_plan,
         )
 
         try:
@@ -284,6 +299,108 @@ class WorkerScopedMixin:
             except (KeyError, ValueError, TypeError) as e:
                 self.logger.warning("Skipping invalid type: %s", e)
 
+        # —— resource_contracts：LLM 显式 materialize 的资源合约 ——
+        resource_contract_fields: list[ResourceContractFieldIR] = []
+        for rc_data in result.get("resource_contracts", []):
+            try:
+                rc_kind = rc_data.get("resource_kind", "variable")
+                if rc_kind not in ("variable", "file", "api", "type"):
+                    self.logger.warning(
+                        "Skipping resource_contract with unknown kind: %s", rc_kind
+                    )
+                    continue
+                # Create binding
+                binding = ResourceContractBindingIR(
+                    contract_demand_id=rc_data["demand_id"],
+                    resource_name=rc_data["name"],
+                    resource_kind=rc_kind,  # type: ignore[arg-type]
+                    direction=rc_data.get("direction", "output"),
+                    scope_kind=scope_kind,  # type: ignore[arg-type]
+                    scope_id=scope_id,
+                    source_span_ids=rc_data.get("source_span_ids", []),
+                    source_section_id=rc_data.get("source_section_id"),
+                    source_packet_id=rc_data.get("source_packet_id"),
+                )
+                self._contract_bindings.append(binding)
+                resource_contract_fields.append(
+                    ResourceContractFieldIR(
+                        demand_id=rc_data["demand_id"],
+                        name=rc_data["name"],
+                        resource_kind=rc_kind,  # type: ignore[arg-type]
+                        direction=rc_data.get("direction", "output"),
+                        data_type=rc_data.get("data_type", "text"),
+                        required=rc_data.get("required", False),
+                        description=rc_data.get("description", ""),
+                        path=rc_data.get("path"),
+                        source_span_ids=rc_data.get("source_span_ids", []),
+                        source_section_id=rc_data.get("source_section_id"),
+                        source_packet_id=rc_data.get("source_packet_id"),
+                        evidence_text=rc_data.get("evidence_text"),
+                        justification=rc_data.get("justification"),
+                    )
+                )
+
+                if rc_kind == "file":
+                    # Dedup: skip if a file with the same name already exists
+                    existing_names = {f.name for f in files}
+                    if rc_data["name"] not in existing_names:
+                        files.append(
+                            FileSpec(
+                                name=rc_data["name"],
+                                path=rc_data.get("path", "< >"),
+                                data_type=rc_data.get("data_type", "text"),
+                                description=rc_data.get("description", ""),
+                            )
+                        )
+                elif rc_kind == "variable":
+                    existing_var_names = {v.name for v in variables}
+                    if rc_data["name"] not in existing_var_names:
+                        var = VariableSpec(
+                            name=rc_data["name"],
+                            data_type=rc_data.get("data_type", "text"),
+                            required=rc_data.get("required", False),
+                            description=clean_resource_description(
+                                rc_data["name"], rc_data.get("description", "")
+                            ),
+                            source=rc_data.get("direction", "output"),
+                        )
+                        variables.append(var)
+                elif rc_kind == "api":
+                    existing_api_names = {api.api_name for api in apis}
+                    if rc_data["name"] not in existing_api_names:
+                        apis.append(
+                            APISpec(
+                                api_name=rc_data["name"],
+                                auth=rc_data.get("auth") or "none",
+                                description=rc_data.get("description", ""),
+                                functions=[],
+                            )
+                        )
+                elif rc_kind == "type":
+                    existing_type_names = {t.type_name for t in types}
+                    if rc_data["name"] not in existing_type_names:
+                        types.append(
+                            TypeSpec(
+                                type_name=rc_data["name"],
+                                type_kind=rc_data.get("data_type", "record"),
+                                definition=(
+                                    rc_data.get("definition")
+                                    or rc_data.get("description")
+                                    or rc_data.get("data_type", "record")
+                                ),
+                            )
+                        )
+            except (KeyError, ValueError, TypeError) as e:
+                self.logger.warning(
+                    "Skipping invalid resource_contract entry: %s", e
+                )
+
+        if worker_spec is not None and resource_contract_fields:
+            self._sync_resource_contract_fields_to_worker(
+                worker_spec,
+                resource_contract_fields,
+            )
+
         # —— 合并层：LLM 提取的变量与精确来源合并 ——
         # 合并优先顺序：hard facts（adapter） > contract（Stage 3.5） > LLM 推断
         merge_warnings: list[str] = []
@@ -345,6 +462,7 @@ class WorkerScopedMixin:
         contract_specs = [
             self._variable_from_contract(field)
             for field in worker_spec.input_contract + worker_spec.output_contract
+            if field.name and (field.resource_kind in (None, "variable"))
         ]
         merged: dict[str, VariableSpec] = {var.name: var for var in contract_specs}
         contract_names = set(merged)
@@ -388,6 +506,40 @@ class WorkerScopedMixin:
             description=clean_resource_description(field.name, field.description),
             source=field.source,
         )
+
+    @staticmethod
+    def _sync_resource_contract_fields_to_worker(
+        worker_spec: WorkerSpecIR,
+        fields: list[ResourceContractFieldIR],
+    ) -> None:
+        """Backfill worker contract fields from Stage 6 materialization.
+
+        Stage 3.5 records source demands by ``contract_demand_id`` before
+        Stage 6 knows the final resource name/kind/type.  Once Stage 6
+        materializes the demand, update the matching worker contract field so
+        Stage 10/11 render the resolved resource reference without adding any
+        renderer-side inference.
+        """
+        by_demand = {field.demand_id: field for field in fields}
+
+        def _sync(contract_fields: list[ContractFieldIR]) -> None:
+            for field in contract_fields:
+                if not field.contract_demand_id:
+                    continue
+                materialized = by_demand.get(field.contract_demand_id)
+                if materialized is None:
+                    continue
+                field.name = materialized.name
+                field.data_type = materialized.data_type
+                field.required = materialized.required
+                field.description = materialized.description or field.description
+                field.source_span_ids = list(materialized.source_span_ids)
+                field.source_section_id = materialized.source_section_id
+                field.source_packet_id = materialized.source_packet_id
+                field.resource_kind = materialized.resource_kind
+
+        _sync(worker_spec.input_contract)
+        _sync(worker_spec.output_contract)
 
     def _build_handoff_contract(
         self,

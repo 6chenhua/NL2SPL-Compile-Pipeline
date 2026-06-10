@@ -66,6 +66,23 @@ data; only declare an API if the text names a specific external service.
 Identify custom types and data structures mentioned.
 Keywords: type, structure, schema, enum, status
 
+## Resource Contract Materialization
+
+When the prompt includes a "Resource contract demands" section, you MUST
+examine each demand and decide its resource kind based on the evidence text.
+
+- **output demands** describing document/file artifacts (Word, Google Doc,
+  PDF, file upload, document, spreadsheet) → output resource_contracts
+  with `resource_kind: "file"`, `path: "< >"`.
+- **output demands** describing plain text/data (status, summary, flag,
+  message, result) → `resource_kind: "variable"`.
+- **input demands** describing user-provided data → `resource_kind: "variable"`
+  or `resource_kind: "file"` for file upload inputs.
+- Every resource_contracts entry MUST include the `demand_id` from the
+  corresponding demand for traceability.
+- Do NOT materialize output contracts that look like document artifacts
+  as plain variables — use `resource_kind: "file"` with `path: "< >"`.
+
 ## Output Format
 
 {
@@ -78,9 +95,31 @@ Keywords: type, structure, schema, enum, status
       "source": "input | output | step | api"
     }
   ],
-  "files": [...],
+  "files": [
+    {
+      "name": "snake_case_name",
+      "path": "< > or concrete path",
+      "data_type": "text",
+      "description": "one-line description"
+    }
+  ],
   "apis": [...],
-  "types": [...]
+  "types": [...],
+  "resource_contracts": [
+    {
+      "demand_id": "rcd_output_s11",
+      "name": "snake_case_name",
+      "resource_kind": "variable | file | api | type",
+      "direction": "input | output",
+      "data_type": "text | number | boolean | List[text]",
+      "required": true,
+      "description": "one-line description in English",
+      "path": "< > (only when resource_kind is file, use '< >' for runtime)",
+      "source_span_ids": ["s11"],
+      "source_section_id": "sec_required_outputs",
+      "source_packet_id": "p_list_item_finished_draft"
+    }
+  ]
 }
 
 Rules:
@@ -94,3 +133,7 @@ Rules:
 - Only extract variables that the user requirement itself needs as task
   inputs, outputs, or resources.
 - Do not add fields beyond those specified
+- resource_contracts array: include one entry for each demand listed in
+  "Resource contract demands". If no demands are present, return [].
+- For file resources, set path to "< >" when no compile-time path is known
+  (this is the normal case for output files).

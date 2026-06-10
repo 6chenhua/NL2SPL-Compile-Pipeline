@@ -164,10 +164,18 @@ class WorkerAssembler(
         return worker_plan.main_worker
 
     def _inputs_from_contract(self, fields: list[ContractFieldIR]) -> list[WorkerInput]:
-        return [WorkerInput(field.name, field.required) for field in fields]
+        return [
+            WorkerInput(field.name, field.required)
+            for field in fields
+            if field.name
+        ]
 
     def _outputs_from_contract(self, fields: list[ContractFieldIR]) -> list[WorkerOutput]:
-        return [WorkerOutput(field.name, field.required) for field in fields]
+        return [
+            WorkerOutput(field.name, field.required)
+            for field in fields
+            if field.name
+        ]
 
     def assemble_from_worker_scoped(
         self,

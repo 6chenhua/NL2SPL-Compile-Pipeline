@@ -85,7 +85,7 @@ class WorkerScopedMixin:
         )
 
         # 7. Required output producer diagnostics are emitted by
-        # PostNormalizeIRSChecker after Stage 10 assembly.
+        # post-normalize IRS after Stage 10 assembly.
         self._sync_symbol_table_from_steps(
             worker_step_plan.get_all_steps(),
             symbol_table,
@@ -182,8 +182,8 @@ class WorkerScopedMixin:
         errors: list[str] = []
         warnings: list[str] = []
 
-        # 构建 handoff_id -> [(worker_id, step)] 映射。
-        # D10: 不能只检查 handoff_id 是否存在，还必须检查 step shape。
+        # Build handoff_id -> [(worker_id, step)] map. A handoff id alone is
+        # not enough; the step shape must also match.
         handoff_steps: dict[str, list[tuple[str, StepIR]]] = {}
         for worker_id, steps in worker_step_plan.worker_steps.items():
             for step in steps:
