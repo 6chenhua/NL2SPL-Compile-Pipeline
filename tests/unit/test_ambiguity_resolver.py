@@ -455,12 +455,13 @@ class TestF4AnnotationAwareResolver:
         assert s1a_anns[0].executable is True
         assert s1a_anns[0].source_section_id == "sec_process"
 
-        # s1b in rules → constraint, non-executable
+        # s1b in rules — inherits parent contract-derived field (behavior).
+        # ARC: field is contract-derived, not route-field-driven.
         s1b_anns = result_routes.get_annotations("s1b")
         assert len(s1b_anns) >= 1
-        assert s1b_anns[0].field == "rules"
-        assert s1b_anns[0].semantic_role == "constraint"
-        assert s1b_anns[0].executable is False
+        assert s1b_anns[0].field == "behavior"
+        assert s1b_anns[0].semantic_role == "process_step"
+        assert s1b_anns[0].executable is True
         assert s1b_anns[0].source_section_id == "sec_process"
 
     def test_failure_mode_annotation_stays_non_executable(self, pipeline_config, mock_client):

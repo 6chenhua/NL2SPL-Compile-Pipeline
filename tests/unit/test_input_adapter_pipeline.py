@@ -799,17 +799,28 @@ def test_irs_route_driven_delegation_diagnostic_from_annotation(
     assert len(del_anns) >= 1, "F0_STRUCTURAL_TEXT must have delegation annotation"
 
     result = _run_delegation_irs(routes)
+    # R10 Phase 1: diagnostics now target worker_promotion:* (not delegation_intent:*)
     diags = [
         d for d in result.diagnostics
-        if (d.target_ref or "").startswith("delegation_intent:")
+        if (d.target_ref or "").startswith("worker_promotion:")
+        and d.kind == "type_or_contract_ambiguity"
     ]
-    assert len(diags) >= 1
+    assert len(diags) >= 1, (
+        f"Expected worker_promotion:* diagnostics, got "
+        f"{[(d.target_ref, d.kind) for d in result.diagnostics]}"
+    )
     for d in diags:
         assert d.diagnostic_id.startswith("irs_")
         assert d.kind == "type_or_contract_ambiguity"
         assert d.source_span_ids
         assert d.missing_slot is not None
-        assert d.missing_slot.slot_name == "handoff_contract"
+        assert d.missing_slot.slot_name.startswith("promotion_")
+
+    # R10: No delegation_intent:* diagnostics or reports
+    assert [
+        d for d in result.diagnostics
+        if (d.target_ref or "").startswith("delegation_intent:")
+    ] == []
 
 
 def test_irs_no_delegation_annotation_emits_no_bridge_diagnostic(
@@ -875,12 +886,19 @@ def test_orchestrator_promotes_delegation_irs_diagnostics(
         diagnostics=tuple(result.diagnostics),
     ))
     diags = PipelineOrchestrator._promoted_irs_diagnostics(store)
-    # Route delegation annotation exists → route-driven diagnostics present
+    # R10 Phase 4: delegation-sourced diagnostics ARE promoted
     del_anns = routes.get_annotations_by_role("delegation_intent")
     assert len(del_anns) >= 1
-    assert len(diags) >= 1
+    assert len(diags) >= 1, (
+        "R10 Phase 4: delegation-sourced worker_promotion:* diagnostics "
+        "must be promoted to final diagnostics"
+    )
     assert all(d.diagnostic_id.startswith("irs_") for d in diags)
     assert all(d.kind == "type_or_contract_ambiguity" for d in diags)
+    assert all(
+        d.metadata.get("original_semantic_role") == "delegation_intent"
+        for d in diags
+    )
 
 
 def test_only_route_annotations_drive_delegation_irs_diagnostics(
@@ -940,13 +958,21 @@ def test_only_route_annotations_drive_delegation_irs_diagnostics(
     routes.behavior = [a.span_id for a in routes.annotations]
 
     result = _run_delegation_irs(routes)
+    # R10 Phase 1: diagnostics target worker_promotion:* (not delegation_intent:*)
     diags = [
         d for d in result.diagnostics
-        if (d.target_ref or "").startswith("delegation_intent:")
+        if (d.target_ref or "").startswith("worker_promotion:")
+        and d.kind == "type_or_contract_ambiguity"
     ]
-    refs = {d.target_ref for d in diags}
-    assert len(diags) == 1, f"Got {len(diags)} with refs {refs}"
-    assert refs == {f"delegation_intent:{routes.annotations[0].span_id}"}
+    assert len(diags) >= 1, (
+        f"Expected worker_promotion:* diagnostics, got "
+        f"{[(d.target_ref, d.kind) for d in result.diagnostics]}"
+    )
+    # No delegation_intent:* diagnostics
+    assert [
+        d for d in result.diagnostics
+        if (d.target_ref or "").startswith("delegation_intent:")
+    ] == []
 
 def test_d5_stage8_profile_annotation_only_no_old_list(
     pipeline_config: MagicMock,
@@ -1093,7 +1119,7 @@ def test_stage2_route_diagnostics_stay_internal(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """Stage 2 route diagnostics stay in route IR and do not enter feedback."""
+    """ARC7: Stage 2 route diagnostics now project into compile_diagnostics."""
 
     canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1195,11 +1221,12 @@ def test_stage2_route_diagnostics_stay_internal(
         for d in route_diags
     ), f"Expected LLM diagnostic message in stage2 route diagnostics: {route_diags}"
 
-    # They must not become final user-facing requirement diagnostics.
-    assert not any(
+    # ARC7: Stage 2 route diagnostics now project into compile_diagnostics
+    # as structured CompileDiagnostic entries — visible in feedback.
+    assert any(
         d.kind.startswith("route_refinement_")
         for d in result.compile_diagnostics
-    ), f"route_refinement_* leaked into compile_diagnostics: {result.compile_diagnostics}"
+    ), f"ARC7: Stage 2 diagnostics must be visible in compile_diagnostics: {result.compile_diagnostics}"
 
     feedback = render_feedback_report(
         spl_text=result.spl_text,
@@ -1211,6 +1238,8 @@ def test_stage2_route_diagnostics_stay_internal(
         validation_errors=result.validation_errors,
         validation_warnings=result.validation_warnings,
     )
-    assert "route_refinement_" not in feedback
-    assert "Failure condition may need handler text" not in feedback
-    assert result.readable_report == ""
+    # ARC7: Stage 2 diagnostics now project into feedback and readable_report
+    assert "route_refinement_" in feedback, (
+        "Stage 2 diagnostics must appear in feedback report"
+    )
+    assert "Failure condition may need handler text" in feedback

@@ -47,6 +47,9 @@ from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
+from nl2spl.compiler.annotation_role_contract.projector import (
+    project_stage2_to_compile_diagnostics,
+)
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
@@ -640,7 +643,9 @@ class PipelineOrchestrator:
         # diagnostics that are not covered by the post-normalize IRS pass.
         consolidation = DiagnosticConsolidator().consolidate(
             DiagnosticConsolidationInput(
-                stage2_diagnostics=[],
+                stage2_diagnostics=project_stage2_to_compile_diagnostics(
+                    intermediate["stage2_routes"].structured_route_diagnostics
+                ),
                 construct_plan_diagnostics=list(construct_plan.diagnostics),
                 stage7_diagnostics=list(stage7_diags),
                 irs_store=irs_store,
@@ -863,11 +868,33 @@ class PipelineOrchestrator:
     def _promoted_irs_diagnostics(
         irs_store: IRSResultStore,
     ) -> list[CompileDiagnostic]:
-        """Return stage-local IRS diagnostics allowed into final output."""
+        """Return stage-local IRS diagnostics allowed into final output.
+
+        R10 Phase 4: promotion based on construct target + delegation
+        source-signal provenance, not on delegation_intent:* target_ref.
+        """
+        _PROMOTABLE_PREFIXES = (
+            "worker_promotion:",
+            "worker_handoff:",
+            "child_worker:",
+            "invoke_worker:",
+            "call_api:",
+        )
+
+        def _is_delegation_sourced_actionable(d: CompileDiagnostic) -> bool:
+            return (
+                d.kind == "type_or_contract_ambiguity"
+                and d.target_ref is not None
+                and d.target_ref.startswith(_PROMOTABLE_PREFIXES)
+                and bool(d.source_span_ids)
+                and d.metadata.get("original_semantic_role")
+                == "delegation_intent"
+            )
+
         return [
-            diagnostic
-            for diagnostic in irs_store.get_stage_diagnostics("stage3_5")
-            if (diagnostic.target_ref or "").startswith("delegation_intent:")
+            d
+            for d in irs_store.get_stage_diagnostics("stage3_5")
+            if _is_delegation_sourced_actionable(d)
         ]
 
     def _run_stage10_worker_scoped(

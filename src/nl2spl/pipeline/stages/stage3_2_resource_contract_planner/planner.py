@@ -199,18 +199,16 @@ class ResourceContractPlanner:
 
     @staticmethod
     def _contract_annotations(routes: FieldRouteIR) -> list[RouteAnnotation]:
-        """Return annotations that carry resource contract evidence."""
-        result: list[RouteAnnotation] = []
-        for ann in routes.annotations:
-            if ann.semantic_role in _CONTRACT_ROLES:
-                result.append(ann)
-                continue
-            if (
-                ann.route_family == "resource_contract"
-                or ann.construct_target == "RESOURCE_CONTRACT"
-            ):
-                result.append(ann)
-        return result
+        """Return annotations that carry resource contract semantics.
+
+        ARC5: demand existence is authorized ONLY by semantic_role in
+        {input_contract, output_contract}.  route_family and construct_target
+        are consistency evidence only and must not independently create demand.
+        """
+        return [
+            ann for ann in routes.annotations
+            if ann.semantic_role in _CONTRACT_ROLES
+        ]
 
     @staticmethod
     def _merge_annotation_evidence(

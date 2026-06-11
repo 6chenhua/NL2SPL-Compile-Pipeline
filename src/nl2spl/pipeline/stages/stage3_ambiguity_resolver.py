@@ -6,6 +6,12 @@ import json
 from dataclasses import asdict
 from typing import Any
 
+from nl2spl.compiler.annotation_role_contract.normalize import (
+    normalize_annotation_from_role,
+)
+from nl2spl.compiler.annotation_role_contract.registry import (
+    ROLE_CONTRACT_REGISTRY,
+)
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
@@ -27,10 +33,16 @@ def _derive_child_annotation(
     child_span_id: str,
     child_field: str,
 ) -> RouteAnnotation:
-    """Derive a child annotation from a parent, adjusting field/semantics."""
-    ann = RouteAnnotation(
+    """Derive a child annotation from a parent, preserving semantic_role.
+
+    ARC: ``semantic_role`` is the primary semantic authority.  Field-driven
+    overrides are removed.  The annotation's ``field`` is contract-derived
+    from the parent (not overwritten by ``child_field``, which only affects
+    legacy route lists).
+    """
+    return RouteAnnotation(
         span_id=child_span_id,
-        field=child_field,
+        field=parent_ann.field,  # contract-derived, not route field
         semantic_role=parent_ann.semantic_role,
         route_family=parent_ann.route_family,
         source_section_id=parent_ann.source_section_id,
@@ -43,29 +55,6 @@ def _derive_child_annotation(
         diagnostics=list(parent_ann.diagnostics),
         metadata=dict(parent_ann.metadata),
     )
-    # Apply field-derived overrides per F4 table
-    preserve_non_executable = (
-        parent_ann.executable is False
-        and (
-            parent_ann.semantic_role in ("failure_mode", "delegation_intent")
-            or parent_ann.route_family == "delegation_boundary"
-            or (
-                parent_ann.construct_target == "EXCEPTION_FLOW"
-                and parent_ann.slot_target == "condition"
-            )
-        )
-    )
-    if child_field == "rules":
-        ann.semantic_role = "constraint"
-        ann.executable = False
-    elif child_field == "behavior" and not preserve_non_executable:
-        ann.semantic_role = parent_ann.semantic_role or "process_step"
-        ann.executable = True
-    elif child_field == "domain":
-        ann.executable = False
-    elif child_field in ("identity", "audience", "integrations"):
-        ann.executable = False
-    return ann
 
 
 class AmbiguityResolver(
@@ -152,14 +141,20 @@ Output valid JSON:"""
         resolved_spans_data = result.get("resolved_spans", [])
         resolved_routes_data = result.get("resolved_routes", {})
 
-        # 4. Create new spans for resolved ambiguities, inheriting provenance
+        # 4. Only process children whose parent was marked ambiguous in Stage 2.
+        # LLM may return extra resolved_spans for non-ambiguous parents; skip them.
+        ambiguous_ids = {u.get("span_id") for u in ambiguity_updates if u.get("span_id")}
+
         new_spans = []
         for span_data in resolved_spans_data:
+            parent_id = span_data.get("parent_span_id")
+            parent = _find_parent_span(parent_id, spans)
+            # Only accept children whose parent was marked ambiguous in Stage 2.
+            # LLM may fabricate children for non-ambiguous parents; skip them.
+            if parent and parent_id and parent_id not in ambiguous_ids:
+                continue  # parent exists but not ambiguous — skip LLM extra child
             try:
-                parent_id = span_data.get("parent_span_id")
-                parent = _find_parent_span(parent_id, spans)
-
-                # ── Sub-span ID: suffix strategy (s5 → s5a, s5b, ...) ──────
+                # -- Sub-span ID: suffix strategy (s5 -> s5a, s5b, ...) -------
                 # Avoids collision with Stage 1's global renumbering.
                 if parent:
                     existing_children = sum(
@@ -173,17 +168,14 @@ Output valid JSON:"""
                 else:
                     child_id = span_data["span_id"]  # fallback: use LLM value
 
+                # System provenance is authoritative; LLM is fallback only.
+                child_sid = (parent.source_section_id if parent else None) or span_data.get("source_section_id")
+                child_pid = (parent.source_packet_id if parent else None) or span_data.get("source_packet_id")
                 span = SpanIR(
                     span_id=child_id,
                     text=span_data["text"],
-                    source_section_id=(
-                        span_data.get("source_section_id")
-                        or (parent.source_section_id if parent else None)
-                    ),
-                    source_packet_id=(
-                        span_data.get("source_packet_id")
-                        or (parent.source_packet_id if parent else None)
-                    ),
+                    source_section_id=child_sid,
+                    source_packet_id=child_pid,
                     # Inherit section_context and is_placeholder from parent
                     section_context=(
                         span_data.get("section_context")
@@ -202,7 +194,6 @@ Output valid JSON:"""
                 continue
 
         # 5. Merge spans: remove original ambiguous spans, add new resolved spans
-        ambiguous_ids = {u.get("span_id") for u in ambiguity_updates if u.get("span_id")}
         resolved_spans = []
         for span in spans:
             if span.span_id not in ambiguous_ids:
@@ -223,8 +214,39 @@ Output valid JSON:"""
         resolved_routes.annotations = [
             a for a in routes.annotations if a.span_id not in ambiguous_span_ids
         ]
-        # Derive annotations for split children from parent annotations
+        # Derive annotations for split children.
+        #
+        # Priority order (ARC contract):
+        #   1. PRIMARY: split recommendation segment's structured semantic_role
+        #      -> normalize_annotation_from_role() -> _derive_child_annotation()
+        #      Segment role is the LLM's authoritative judgment about what
+        #      each child IS.  Parent annotation is NOT authoritative for
+        #      children because the whole point of splitting is that the
+        #      parent contained mixed semantics.
+        #   2. FALLBACK: parent annotation inheritance --- only when the
+        #      corresponding segment has no usable semantic_role.
+        #      Diagnostic must be recorded.
         parent_by_span_id = {s.span_id: s for s in spans}
+
+        # Build split recommendation segment index.
+        # Maps parent_span_id -> segments[] from ambiguity_updates
+        # split_recommendation.
+        _split_by_parent: dict[str, list[dict[str, Any]]] = {}
+        for au in ambiguity_updates:
+            sr = au.get("split_recommendation", {})
+            if sr:
+                segments = sr.get("segments", [])
+                pid = sr.get("parent_span_id") or au.get("span_id")
+                if pid and segments:
+                    _split_by_parent[pid] = segments
+
+        # Positional segment index per parent (LLM produces children in
+        # the same order as split recommendation segments).
+        _parent_seg_index: dict[str, int] = {}
+
+        # Collect fallback diagnostics for route-level visibility (P2).
+        _fallback_diags: list[str] = []
+
         for child in new_spans:
             parent_span_id = next(
                 (sd.get("parent_span_id") for sd in resolved_spans_data
@@ -234,12 +256,98 @@ Output valid JSON:"""
             if not parent_span_id:
                 continue
             parent_anns = routes.get_annotations(parent_span_id)
-            if not parent_anns:
-                continue
             child_field = resolved_routes.get_field_for_span(child.span_id) or "behavior"
-            for parent_ann in parent_anns:
-                child_ann = _derive_child_annotation(parent_ann, child.span_id, child_field)
-                resolved_routes.annotations.append(child_ann)
+
+            # -- Step 1: try split segment semantic_role (PRIMARY) ----------
+            segments = _split_by_parent.get(parent_span_id)
+            seg_role: str | None = None
+            seg_raw: dict[str, Any] = {}
+            if segments:
+                idx = _parent_seg_index.get(parent_span_id, 0)
+                if idx < len(segments):
+                    seg_raw = segments[idx]
+                    _parent_seg_index[parent_span_id] = idx + 1
+                    seg_role = seg_raw.get("semantic_role")
+
+            if seg_role:
+                # Validate segment role before calling normalize.
+                resolved_role = ROLE_CONTRACT_REGISTRY.resolve_semantic_role(seg_role)
+                if resolved_role is None:
+                    # Unknown segment role --- diagnostic, try parent fallback.
+                    msg = (
+                        f"Stage 3: split child '{child.span_id}' "
+                        f"(parent '{parent_span_id}') segment has unknown "
+                        f"semantic_role '{seg_role}'; falling back to "
+                        f"parent annotation if available."
+                    )
+                    self.logger.warning(msg)
+                    _fallback_diags.append(msg)
+                    # Fall through to parent fallback below.
+                else:
+                    # PRIMARY PATH: canonical annotation from segment role.
+                    result = normalize_annotation_from_role(
+                        span_id=child.span_id,
+                        semantic_role=resolved_role,
+                        source_section_id=child.source_section_id,
+                        source_packet_id=child.source_packet_id,
+                        raw_construct_target=seg_raw.get("construct_target"),
+                        raw_slot_target=seg_raw.get("slot_target"),
+                        raw_executable=seg_raw.get("executable"),
+                    )
+                    # Use the normalized annotation directly --- the
+                    # canonical role contract already derived all fields.
+                    # child_field only affects legacy route lists, not
+                    # the annotation's canonical contract-derived field.
+                    child_ann = result.annotation
+                    child_ann = RouteAnnotation(
+                        span_id=child.span_id,
+                        field=child_ann.field,  # contract-derived
+                        semantic_role=child_ann.semantic_role,
+                        route_family=child_ann.route_family,
+                        source_section_id=child_ann.source_section_id,
+                        source_packet_id=child_ann.source_packet_id,
+                        source_hint_ids=list(child_ann.source_hint_ids),
+                        construct_target=child_ann.construct_target,
+                        slot_target=child_ann.slot_target,
+                        executable=child_ann.executable,
+                        primary=child_ann.primary,
+                        diagnostics=list(child_ann.diagnostics),
+                        metadata=dict(child_ann.metadata),
+                    )
+                    resolved_routes.annotations.append(child_ann)
+                    continue  # segment role used --- done for this child
+
+            # -- Step 2: parent annotation fallback -------------------------
+            # Only reached when:
+            #   - No split recommendation segments for this parent, OR
+            #   - Segment has no semantic_role, OR
+            #   - Segment semantic_role is unknown (not in registry).
+            if parent_anns:
+                msg = (
+                    f"Stage 3: split child '{child.span_id}' "
+                    f"(parent '{parent_span_id}') falling back to parent "
+                    f"annotation inheritance --- segment semantic_role is "
+                    f"missing, unknown, or unavailable."
+                )
+                self.logger.warning(msg)
+                _fallback_diags.append(msg)
+                for parent_ann in parent_anns:
+                    child_ann = _derive_child_annotation(
+                        parent_ann, child.span_id, child_field,
+                    )
+                    resolved_routes.annotations.append(child_ann)
+            else:
+                msg = (
+                    f"Stage 3: split child '{child.span_id}' "
+                    f"(parent '{parent_span_id}') has no segment "
+                    f"semantic_role and no parent annotations; skipping."
+                )
+                self.logger.warning(msg)
+                _fallback_diags.append(msg)
+
+        # P2: surface fallback diagnostics in route artifacts, not just logs.
+        if _fallback_diags:
+            resolved_routes.route_diagnostics.extend(_fallback_diags)
 
         # 7. Validate no overlap in resolved routes
         overlaps = resolved_routes.validate_no_overlap()

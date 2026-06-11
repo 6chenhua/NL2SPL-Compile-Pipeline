@@ -6,7 +6,7 @@ evidence, and deterministic annotations, produce refined route annotations.
 - **spans**: objects with span_id, text, and optional source_section_id / source_packet_id.
 - **structural_priors**: deterministic structural evidence (section context, packet type, provenance). These are NOT final semantic decisions — they are clues to help you decide. Only output a semantic annotation for a structural prior when the source text evidence supports it.
 - **deterministic_annotations**: already-accepted semantic routing decisions (e.g. runtime_input contracts, required_output contracts, exact route priors). Do not repeat these unless you are adding a different, allowed multi-label annotation for the same span.
-- **allowed_schema**: the valid values for field, semantic_role, construct_target, and slot_target.
+- **allowed_schema**: the valid values for semantic_role.
 
 ## What you produce
 
@@ -18,20 +18,26 @@ A single JSON object:
   "diagnostics": [{...}]
 }
 
-### annotation (required fields: span_id, field, executable)
+### annotation (required fields: span_id, semantic_role)
 
-| field         | type    | note |
-|---------------|---------|------|
-| span_id       | string  | must match an input span |
-| field         | string  | from allowed_schema.fields |
-| semantic_role | string  | from allowed_schema.semantic_roles |
-| construct_target | string | from allowed_schema.construct_targets |
-| slot_target   | string  | from allowed_schema.slot_targets |
-| executable    | boolean | true only when the text explicitly describes an action |
-| source_section_id | string | copy from span if provided |
-| source_packet_id  | string | copy from span if provided |
-| primary       | boolean | true for the main annotation on this span |
-| reason        | string  | brief explanation |
+Your job is to classify each span's **semantic_role**.  The compiler derives all
+other fields (field, route_family, construct_target, slot_target, executable)
+from the canonical role contract — you do NOT need to provide them.
+
+| field              | type    | note |
+|--------------------|---------|------|
+| span_id            | string  | **required** — must match an input span |
+| semantic_role      | string  | **required** — from allowed_schema.semantic_roles |
+| primary            | boolean | true for the main annotation on this span (default true) |
+| reason             | string  | brief explanation |
+| source_section_id  | string  | optional — copy from span if provided |
+| source_packet_id   | string  | optional — copy from span if provided |
+
+**Legacy fields (field, construct_target, slot_target, executable):**
+Older clients may still include these.  When present, they are treated as debug
+hints only.  The compiler normalizes them against the role contract — conflicts
+produce diagnostics but do NOT cause rejection.  Do not emit these fields in
+new responses.
 
 ### split_recommendation
 
@@ -57,53 +63,48 @@ Record every override with a diagnostic.
 When a span mixes condition and handler, policy and action, or delegation
 and API reference, emit multiple annotations — one per distinct semantic.
 
-### Only mark executable when there is an action
-False for conditions, constraints, contracts, delegation mentions.
-True only when the text says what to *do*.
-
 ### Preserve span provenance
 Copy source_section_id and source_packet_id from the span. Do not invent them.
 
 ### Role glossary
 
 **failure_mode**
-  A condition that triggers error handling.  Not an action.  executable=false.
+  A condition that triggers error handling.  Not an action.
 
 **exception_handler_action**
-  An explicit response to a failure condition.  executable=true.
+  An explicit response to a failure condition.
   Must be supported by action verbs in the text (ask, retry, notify, etc.).
 
 **process_step**
-  An action the agent performs.  executable=true.
+  An action the agent performs.
 
 **constraint**
-  A rule, requirement, or prohibition.  executable=false.
+  A rule, requirement, or prohibition.
 
 **delegation_intent**
   Mentions that work may be delegated.  Not an executable delegation.
-  executable=false.
 
 **delegation_boundary_constraint**
-  A condition on delegation ("Only delegate if …").  executable=false.
+  A condition on delegation ("Only delegate if ...").
 
 **delegation_prohibition**
-  An explicit ban on delegating something.  executable=false.
+  An explicit ban on delegating something.
 
 **worker_handoff_candidate**
-  A specific worker named as a delegation target.  executable=false.
+  A specific worker named as a delegation target.
 
 **api_candidate**
   A specific API, external system, connector, tool, service, database, or
-  integration endpoint named in the text.  executable=false.  Do NOT use this
+  integration endpoint named in the text.  Do NOT use this
   for document types, content examples, deliverable examples, business domains,
   audiences, or artifact categories.
 
 **input_contract / output_contract**
-  Declarations of what is received or produced.  executable=false.
+  Declarations of what is received or produced.
 
 **profile_domain**
   Domain context, task family, persona description, examples of supported
-  artifact/content types, or business vocabulary.  executable=false.
+  artifact/content types, or business vocabulary.
 
 **handoff_condition / integration_hint**
   Contextual clues about handoff boundaries or external integrations.
@@ -112,7 +113,7 @@ Copy source_section_id and source_packet_id from the span. Do not invent them.
   Do NOT classify examples such as newsletters, announcements, briefs,
   memos, drafts, reports, or other deliverable/content categories as
   integration_hint; classify them as profile_domain unless the text names an
-  external system or connector.  executable=false.
+  external system or connector.
 
 ## Examples
 
@@ -120,18 +121,16 @@ Copy source_section_id and source_packet_id from the span. Do not invent them.
 
 Input:
   span_id: s1  text: "Stock below threshold: alert the warehouse manager."
-  prior: { semantic_role: failure_mode, executable: false }
+  prior: { semantic_role: failure_mode }
 
 Output:
 {
   "annotations": [
-    { "span_id": "s1", "field": "behavior",
-      "semantic_role": "failure_mode", "construct_target": "EXCEPTION_FLOW",
-      "slot_target": "condition", "executable": false, "primary": true,
+    { "span_id": "s1", "semantic_role": "failure_mode",
+      "primary": true,
       "reason": "Names a failure condition." },
-    { "span_id": "s1", "field": "behavior",
-      "semantic_role": "exception_handler_action", "construct_target": "EXCEPTION_FLOW",
-      "slot_target": "handler", "executable": true, "primary": false,
+    { "span_id": "s1", "semantic_role": "exception_handler_action",
+      "primary": false,
       "reason": "Explicit handler action: alerting the warehouse manager." }
   ],
   "diagnostics": [
@@ -144,14 +143,13 @@ Output:
 
 Input:
   span_id: s2  text: "Payment gateway timeout."
-  prior: { semantic_role: failure_mode, executable: false }
+  prior: { semantic_role: failure_mode }
 
 Output:
 {
   "annotations": [
-    { "span_id": "s2", "field": "behavior",
-      "semantic_role": "failure_mode", "construct_target": "EXCEPTION_FLOW",
-      "slot_target": "condition", "executable": false, "primary": true,
+    { "span_id": "s2", "semantic_role": "failure_mode",
+      "primary": true,
       "reason": "Names a failure condition. No handler action present." }
   ]
 }
@@ -167,14 +165,14 @@ Input:
 Output:
 {
   "annotations": [
-    { "span_id": "s3", "field": "integrations", "semantic_role": "api_candidate",
-      "executable": false, "reason": "Names PricingAPI." },
-    { "span_id": "s4", "field": "behavior", "semantic_role": "worker_handoff_candidate",
-      "executable": false, "reason": "Names WarehouseWorker." },
-    { "span_id": "s5", "field": "rules", "semantic_role": "delegation_boundary_constraint",
-      "executable": false, "reason": "Condition on delegation." },
-    { "span_id": "s6", "field": "rules", "semantic_role": "delegation_prohibition",
-      "executable": false, "reason": "Explicit delegation prohibition." }
+    { "span_id": "s3", "semantic_role": "api_candidate",
+      "reason": "Names PricingAPI." },
+    { "span_id": "s4", "semantic_role": "worker_handoff_candidate",
+      "reason": "Names WarehouseWorker." },
+    { "span_id": "s5", "semantic_role": "delegation_boundary_constraint",
+      "reason": "Condition on delegation." },
+    { "span_id": "s6", "semantic_role": "delegation_prohibition",
+      "reason": "Explicit delegation prohibition." }
   ],
   "diagnostics": [
     { "span_id": "s4", "kind": "mixed_delegation_semantics",

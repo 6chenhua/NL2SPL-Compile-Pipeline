@@ -176,6 +176,33 @@ class DemandViewBuilder:
                 valid_anns.append(ann)
         contract_anns = valid_anns
 
+        # ── Stage 1c — suspicious non-contract annotations ─────────────
+        # Annotations with construct_target=RESOURCE_CONTRACT or
+        # route_family=resource_contract but whose semantic_role is NOT
+        # input_contract/output_contract are suspicious.  They do NOT
+        # generate demand but MUST produce a visible diagnostic.
+        for ann in resolved_routes.annotations:
+            if ann.semantic_role in _CONTRACT_ROLES:
+                continue  # already handled as contract annotation
+            suspicious = (
+                ann.construct_target == "RESOURCE_CONTRACT"
+                or ann.route_family == "resource_contract"
+            )
+            if suspicious:
+                kind = RESOURCE_CONTRACT_INVALID_ANNOTATION_CONTRACT
+                diagnostics.append(ViewDiagnostic(
+                    kind=kind,
+                    severity=severity_for_kind(kind),
+                    message=(
+                        f"Annotation for span {ann.span_id} has "
+                        f"construct_target={ann.construct_target!r}, "
+                        f"route_family={ann.route_family!r} but "
+                        f"semantic_role={ann.semantic_role!r}; "
+                        f"not a resource contract role; no demand generated."
+                    ),
+                    span_ids=(ann.span_id,),
+                ))
+
         # ── Stage 2 — per-annotation direction consistency check ───────
         # A single annotation with conflicting direction signals
         # (e.g. semantic_role=input + slot_target=output) is rejected.
@@ -430,15 +457,15 @@ class DemandViewBuilder:
     def _select_contract_annotations(
         routes: FieldRouteIR,
     ) -> list[RouteAnnotation]:
-        """Return annotations that carry resource contract semantics."""
-        result: list[RouteAnnotation] = []
-        for ann in routes.annotations:
-            if ann.semantic_role in _CONTRACT_ROLES:
-                result.append(ann)
-                continue
-            if (
-                ann.route_family == "resource_contract"
-                or ann.construct_target == "RESOURCE_CONTRACT"
-            ):
-                result.append(ann)
-        return result
+        """Return explicit resource contract annotations.
+
+        DemandView existence is authorized only by Stage 2's explicit
+        ``input_contract`` / ``output_contract`` semantic roles.  Other
+        fields such as ``route_family``, ``construct_target``, and
+        ``slot_target`` are consistency signals once an annotation is selected;
+        they must not independently create a resource contract demand.
+        """
+        return [
+            ann for ann in routes.annotations
+            if ann.semantic_role in _CONTRACT_ROLES
+        ]

@@ -2,13 +2,15 @@
 
 This module defines:
 
-- **Allowed schema constants**: closed sets of valid values for field,
-  semantic_role, construct_target, slot_target.
+- **Allowed schema constants**: derived from ``ROLE_CONTRACT_REGISTRY`` for
+  semantic_role validation, and retained for legacy compatibility with older
+  LLM responses that may still include compiler-facing fields.
 - **Output schema dataclasses**: Pydantic v2 dataclasses representing the
-  expected LLM output shape.  Used for validation in Step 4.
+  expected LLM output shape.  Used for validation.  ``field`` and ``executable``
+  are optional (ARC6: compiler derives them from role contract).
 - **Prompt builder**: constructs the user-prompt JSON payload from adapter
-  evidence (spans, sections, packets, hard facts, compile hints, deterministic
-  priors).
+  evidence.  The LLM payload only exposes ``semantic_roles`` in the
+  ``allowed_schema`` — compiler-facing fields are NOT sent to the LLM.
 """
 
 from __future__ import annotations
@@ -18,74 +20,50 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.compiler.annotation_role_contract.registry import (
+    ROLE_CONTRACT_REGISTRY,
+)
 from nl2spl.ir.field_route_ir import StructuralPrior
 from nl2spl.ir.span_ir import SpanIR
 
 
 # ===========================================================================
 # Allowed schema — closed sets for validation (Step 4)
+#
+# All constants are derived from the canonical AnnotationRoleContractRegistry.
+# Modifying the registry automatically updates these schema values.
 # ===========================================================================
 
-ALLOWED_FIELDS: frozenset[str] = frozenset({
-    "identity", "audience", "rules", "domain", "integrations", "behavior", "resources",
-})
+ALLOWED_FIELDS: frozenset[str] = ROLE_CONTRACT_REGISTRY.allowed_prompt_fields()
+"""All valid ``field`` values (contract-derived + legacy ``identity``/``audience``)."""
 
-ALLOWED_SEMANTIC_ROLES: frozenset[str] = frozenset({
-    "profile_domain",
-    "input_contract",
-    "output_contract",
-    "process_step",
-    "constraint",
-    "failure_mode",
-    "exception_handler_action",
-    "delegation_intent",
-    "delegation_boundary_constraint",
-    "delegation_prohibition",
-    "api_candidate",
-    "worker_handoff_candidate",
-    "handoff_condition",
-    "integration_hint",
-})
+ALLOWED_SEMANTIC_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_llm_semantic_roles()
+)
+"""LLM-visible canonical semantic roles.  Structural aliases and internal
+roles (e.g. ``failure_condition``) are excluded."""
 
-ALLOWED_CONSTRUCT_TARGETS: frozenset[str] = frozenset({
-    "EXCEPTION_FLOW",
-    "WORKER_HANDOFF",
-    "API_CALL",
-    "RESOURCE_CONTRACT",
-    "CONSTRAINT",
-})
+ALLOWED_CONSTRUCT_TARGETS: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_construct_targets()
+)
+"""All valid ``construct_target`` values across all canonical contracts."""
 
-ALLOWED_SLOT_TARGETS: frozenset[str] = frozenset({
-    "condition",
-    "handler",
-    "input",
-    "output",
-    "target",
-    "boundary",
-    "prohibition",
-})
+ALLOWED_SLOT_TARGETS: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_slot_targets()
+)
+"""All valid ``slot_target`` values across all canonical contracts."""
 
 # Semantic roles that MUST have executable=False regardless of LLM output
-NON_EXECUTABLE_ROLES: frozenset[str] = frozenset({
-    "input_contract",
-    "output_contract",
-    "constraint",
-    "failure_mode",
-    "delegation_intent",
-    "delegation_boundary_constraint",
-    "delegation_prohibition",
-    "api_candidate",
-    "worker_handoff_candidate",
-    "handoff_condition",
-    "integration_hint",
-    "profile_domain",
-})
+NON_EXECUTABLE_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.prompt_non_executable_roles()
+)
+"""LLM-visible roles whose contract specifies ``executable=False``."""
 
 # Semantic roles ALLOWED to have executable=True
-EXECUTABLE_ROLES: frozenset[str] = frozenset({
-    "process_step",
-    "exception_handler_action",
-})
+EXECUTABLE_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.prompt_executable_roles()
+)
+"""LLM-visible roles whose contract specifies ``executable=True``."""
 
 
 # ===========================================================================
@@ -97,9 +75,11 @@ EXECUTABLE_ROLES: frozenset[str] = frozenset({
 class RefinedAnnotation:
     """A single route-level annotation from LLM refinement.
 
-    ``field`` and ``executable`` are ``None`` when the LLM did not
-    provide them — the validator (Step 4) must reject or fix missing
-    required fields rather than silently defaulting to behavior/True.
+    ``field``, ``executable``, ``construct_target``, and ``slot_target``
+    are optional (ARC6): the compiler derives them from the canonical
+    role contract via ``_normalize_annotation_contract``.  ``semantic_role``
+    is the only required LLM decision — legacy fields are accepted as
+    debug hints but do not gate acceptance.
     """
 
     span_id: str
@@ -345,12 +325,7 @@ def build_adapter_guided_user_prompt(
             _prior_to_dict(a) for a in deterministic_annotations
         ],
         "allowed_schema": {
-            "fields": sorted(ALLOWED_FIELDS),
             "semantic_roles": sorted(ALLOWED_SEMANTIC_ROLES),
-            "construct_targets": sorted(ALLOWED_CONSTRUCT_TARGETS),
-            "slot_targets": sorted(ALLOWED_SLOT_TARGETS),
-            "non_executable_roles": sorted(NON_EXECUTABLE_ROLES),
-            "executable_roles": sorted(EXECUTABLE_ROLES),
         },
     }
 
@@ -380,19 +355,14 @@ def parse_refinement_result(data: dict[str, Any]) -> RouteRefinementResult:
                 field=f"annotations[{i}].span_id",
                 issue="missing required span_id",
             ))
-        field_val = raw.get("field")
-        if field_val is None:
-            parse_diags.append(ParseDiagnostic(
-                field=f"annotations[{i}].field",
-                issue="missing required field",
-            ))
+        # ARC6: field and executable are optional — the compiler derives
+        # them from the canonical role contract.  Missing values are NOT
+        # parse errors; they are filled in by normalize_annotation_from_role().
+        field_val = raw.get("field")  # optional, may be None
         executable_val = raw.get("executable")
         executable: bool | None = None
         if executable_val is None:
-            parse_diags.append(ParseDiagnostic(
-                field=f"annotations[{i}].executable",
-                issue="missing executable flag",
-            ))
+            pass  # acceptable — compiler fills this in
         elif isinstance(executable_val, bool):
             executable = executable_val
         else:

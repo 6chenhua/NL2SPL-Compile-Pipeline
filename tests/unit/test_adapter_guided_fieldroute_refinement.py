@@ -806,19 +806,20 @@ class TestAdapterGuidedPromptContract:
     def test_system_prompt_has_allowed_schema(
         self,
     ) -> None:
-        """System prompt defines allowed values for field, role, construct, slot."""
+        """System prompt defines role glossary and minimal output schema (ARC6)."""
         from nl2spl.llm.prompts import load_prompt
 
         prompt = load_prompt("stage2_adapter_guided")
 
+        # Required: semantic_role as the primary LLM decision
         assert "semantic_role" in prompt
-        assert "construct_target" in prompt
-        assert "slot_target" in prompt
-        assert "EXCEPTION_FLOW" in prompt
+        # Role glossary still mentions these roles
         assert "delegation_boundary_constraint" in prompt
         assert "delegation_prohibition" in prompt
         assert "api_candidate" in prompt
         assert "worker_handoff_candidate" in prompt
+        # ARC6: minimal schema — compiler derives fields from role contract
+        assert "Legacy" in prompt
 
     def test_system_prompt_contains_mixed_examples(
         self,
@@ -952,14 +953,15 @@ class TestOutputSchemaContract:
         assert len(result.diagnostics) == 0
 
     def test_parse_missing_field_and_executable_become_none(self) -> None:
-        """Missing field and executable → None (not defaulted to behavior/True)."""
+        """ARC6: Missing field and executable → None, no parse diagnostics.
+        The compiler derives these from the canonical role contract."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             parse_refinement_result,
         )
 
         data = {
             "annotations": [
-                {"span_id": "s1"},
+                {"span_id": "s1", "semantic_role": "profile_domain"},
             ],
         }
         result = parse_refinement_result(data)
@@ -968,15 +970,17 @@ class TestOutputSchemaContract:
         assert ann.span_id == "s1"
         assert ann.field is None, "Missing field must be None, not defaulted to 'behavior'"
         assert ann.executable is None, "Missing executable must be None, not defaulted to True"
-        # Parse diagnostics should record the missing fields
-        assert len(result.parse_diagnostics) >= 2, (
-            f"Expected parse diagnostics for missing field + executable, "
-            f"got {result.parse_diagnostics}"
-        )
+        # ARC6: missing field/executable are NOT parse errors
         field_diags = [d for d in result.parse_diagnostics if "field" in d.field]
         exec_diags = [d for d in result.parse_diagnostics if "executable" in d.field]
-        assert len(field_diags) >= 1
-        assert len(exec_diags) >= 1
+        assert len(field_diags) == 0, (
+            f"ARC6: missing field is acceptable — compiler fills from contract. "
+            f"Got: {field_diags}"
+        )
+        assert len(exec_diags) == 0, (
+            f"ARC6: missing executable is acceptable — compiler fills from contract. "
+            f"Got: {exec_diags}"
+        )
 
     def test_parse_missing_span_id_produces_parse_diagnostic(self) -> None:
         """Missing span_id → empty string + parse diagnostic."""
@@ -1264,7 +1268,7 @@ class TestFieldRouteLLMRefinement:
     def test_llm_malformed_field_rejected_prior_kept(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid field is rejected, structural prior survives."""
+        """ARC6: LLM annotation with invalid field for known role is diagnosed, structural prior survives."""
 
         canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1407,7 +1411,7 @@ class TestFieldRouteLLMRefinement:
     def test_llm_invalid_construct_target_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid construct_target is rejected, structural prior survives."""
+        """ARC6: Known role with invalid construct_target is diagnosed, structural prior survives."""
 
         canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1449,7 +1453,7 @@ class TestFieldRouteLLMRefinement:
     def test_llm_invalid_slot_target_rejected(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """LLM annotation with invalid slot_target is rejected, structural prior survives."""
+        """ARC6: Known role with invalid slot_target is diagnosed, structural prior survives."""
 
         canonical = StructuralNLAdapter(mock_client).adapt(CONDITION_ONLY_FAILURE_TEXT)
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1547,15 +1551,18 @@ class TestFieldRouteLLMRefinement:
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         span_id = spans[0].span_id
 
-        # LLM returns same role + span but different slot_target.
-        # 'constraint' role contract has no required construct/slot,
-        # so both annotations should be accepted.
+        # LLM returns same span but with TWO DISTINCT canonical roles
+        # that share the same construct_target=CONSTRAINT but differ in
+        # slot_target.  ARC3: 'constraint' role has explicit
+        # construct_target=None, slot_target=None — only
+        # delegation_boundary_constraint and delegation_prohibition
+        # carry CONSTRAINT construct.
         mock_client.call_json.return_value = {
             "annotations": [
                 {
                     "span_id": span_id,
                     "field": "rules",
-                    "semantic_role": "constraint",
+                    "semantic_role": "delegation_boundary_constraint",
                     "construct_target": "CONSTRAINT",
                     "slot_target": "boundary",
                     "executable": False,
@@ -1563,7 +1570,7 @@ class TestFieldRouteLLMRefinement:
                 {
                     "span_id": span_id,
                     "field": "rules",
-                    "semantic_role": "constraint",
+                    "semantic_role": "delegation_prohibition",
                     "construct_target": "CONSTRAINT",
                     "slot_target": "prohibition",
                     "executable": False,
@@ -1578,7 +1585,7 @@ class TestFieldRouteLLMRefinement:
 
         span_anns = routes.get_annotations(span_id)
         assert len(span_anns) >= 2, (
-            f"Same role with different slot must produce separate annotations, got {len(span_anns)}"
+            f"Two distinct canonical roles must produce separate annotations, got {len(span_anns)}"
         )
         slots = {a.slot_target for a in span_anns}
         assert "boundary" in slots
@@ -1808,8 +1815,8 @@ class TestRouteRefinementValidator:
         assert ann.source_section_id == "sec_process"
         assert ann.source_packet_id == "p_process_step_0"
 
-    def test_validator_rejects_executable_input_contract(self) -> None:
-        """Validator rejects input_contract with executable=True."""
+    def test_validator_accepts_executable_input_contract_with_diagnostic(self) -> None:
+        """ARC6: Validator accepts input_contract with executable=True (diagnostic, not reject)."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1833,11 +1840,13 @@ class TestRouteRefinementValidator:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        assert len(result.rejected) == 1
-        assert "input_contract must be non-executable" in result.rejected[0].reason.lower()
+        # ARC6: accepted with diagnostic, not rejected
+        assert len(result.rejected) == 0
+        assert len(result.accepted) == 1
+        assert len(result.structured_diagnostics) >= 1
 
-    def test_validator_rejects_executable_failure_condition(self) -> None:
-        """Validator rejects failure_mode with executable=True."""
+    def test_validator_accepts_executable_failure_mode_with_diagnostic(self) -> None:
+        """ARC6: Validator accepts failure_mode with executable=True (diagnostic, not reject)."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1863,8 +1872,10 @@ class TestRouteRefinementValidator:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        assert len(result.rejected) == 1
-        assert "failure_mode must be non-executable" in result.rejected[0].reason.lower()
+        # ARC6: accepted with diagnostic, not rejected
+        assert len(result.rejected) == 0
+        assert len(result.accepted) == 1
+        assert len(result.structured_diagnostics) >= 1
 
     def test_validator_accepts_explicit_exception_handler_action(self) -> None:
         """Validator accepts exception_handler_action with handler verb in text."""
@@ -1930,8 +1941,8 @@ class TestRouteRefinementValidator:
         assert len(result.rejected) == 1
         assert "handler action verb" in result.rejected[0].reason.lower()
 
-    def test_validator_keeps_delegation_intent_non_executable(self) -> None:
-        """Validator rejects delegation_intent with executable=True."""
+    def test_validator_diagnoses_delegation_intent_executable(self) -> None:
+        """ARC6: Validator diagnoses delegation_intent with executable=True."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1955,11 +1966,14 @@ class TestRouteRefinementValidator:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        assert len(result.rejected) == 1
-        assert "delegation_intent must be non-executable" in result.rejected[0].reason.lower()
+        # ARC6: accepted with diagnostic, not rejected
+        assert len(result.rejected) == 0
+        assert len(result.accepted) == 1
+        assert len(result.structured_diagnostics) >= 1
 
     def test_validator_rejects_failure_mode_with_wrong_construct(self) -> None:
-        """Validator rejects failure_mode with construct_target != EXCEPTION_FLOW."""
+        """Phase 1: Validator now ACCEPTS failure_mode with wrong construct_target
+        and records diagnostic. Normalization corrects fields."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1985,8 +1999,13 @@ class TestRouteRefinementValidator:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        assert len(result.rejected) == 1
-        assert "requires construct_target='EXCEPTION_FLOW'" in result.rejected[0].reason
+        # Phase 1: known role accepted with diagnostic, not rejected
+        assert len(result.accepted) == 1, (
+            "Phase 1: failure_mode must be ACCEPTED (diagnostic recorded)"
+        )
+        assert len(result.structured_diagnostics) >= 1, (
+            "Phase 1: structured diagnostic must be recorded for construct_target mismatch"
+        )
 
     def test_validator_no_fallback_even_when_majority_rejected(self) -> None:
         """Validator does NOT trigger fallback — rejected annotations are
@@ -3026,7 +3045,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3080,7 +3099,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3131,7 +3150,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3187,7 +3206,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
+        merged, _, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
 
         s19_anns = [a for a in merged if a.span_id == "s19"]
         assert len(s19_anns) == 1
@@ -3244,7 +3263,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             priors, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3299,7 +3318,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, diagnostics, _ = router._merge_llm_refinement(priors, llm_result, spans)
+        merged, diagnostics, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
 
         conflict_diags = [d for d in diagnostics if "route_refinement_conflict" in d]
         assert len(conflict_diags) >= 1, (
@@ -3347,7 +3366,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, diagnostics, _ = router._merge_llm_refinement(
+        merged, diagnostics, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3404,7 +3423,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
