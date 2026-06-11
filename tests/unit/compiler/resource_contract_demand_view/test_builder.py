@@ -237,7 +237,7 @@ def test_builder_signature_does_not_accept_canonical_input() -> None:
 
 
 def test_construct_target_without_direction_produces_no_demand() -> None:
-    """A RESOURCE_CONTRACT annotation without direction must NOT default to output."""
+    """RESOURCE_CONTRACT alone must not select a contract annotation."""
     spans = [_span("s5", "Some text")]
     ann = RouteAnnotation(
         span_id="s5",
@@ -254,11 +254,29 @@ def test_construct_target_without_direction_produces_no_demand() -> None:
     view = DemandViewBuilder().build(spans, routes)
 
     assert len(view.demands) == 0
-    missing_dir = [
-        d for d in view.view_diagnostics
-        if d.kind == RESOURCE_CONTRACT_ANNOTATION_MISSING_DIRECTION
-    ]
-    assert len(missing_dir) >= 1
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
+
+
+def test_route_family_and_slot_target_without_contract_role_do_not_create_demand() -> None:
+    """Only input_contract/output_contract semantic roles authorize demands."""
+    spans = [_span("s6", "Profile domain")]
+    ann = RouteAnnotation(
+        span_id="s6",
+        field="resources",
+        semantic_role="profile_domain",
+        route_family="resource_contract",
+        construct_target="RESOURCE_CONTRACT",
+        slot_target="input",
+        executable=False,
+        source_section_id="sec_inputs",
+    )
+    ann.metadata["requiredness"] = "required"
+    routes = FieldRouteIR(behavior=["s6"], annotations=[ann])
+
+    view = DemandViewBuilder().build(spans, routes)
+
+    assert len(view.demands) == 0
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
 
 
 # =============================================================================
@@ -627,7 +645,7 @@ def test_diagnostics_deterministic() -> None:
 
 
 def test_no_direction_diagnostic_details() -> None:
-    """Missing direction diagnostic has correct kind and references."""
+    """Non-contract RESOURCE_CONTRACT annotations are not DemandView inputs."""
     spans = [_span("s99", "Mystery text")]
     ann = RouteAnnotation(
         span_id="s99",
@@ -642,14 +660,8 @@ def test_no_direction_diagnostic_details() -> None:
 
     view = DemandViewBuilder().build(spans, routes)
 
-    diags = [
-        d for d in view.view_diagnostics
-        if d.kind == RESOURCE_CONTRACT_ANNOTATION_MISSING_DIRECTION
-    ]
-    assert len(diags) >= 1
-    d = diags[0]
-    assert "s99" in d.span_ids
-    assert d.severity == "warning"
+    assert len(view.demands) == 0
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
 
 
 # =============================================================================
@@ -736,7 +748,7 @@ def test_duplicate_demand_id_builder_scenario() -> None:
 
 
 def test_missing_direction_builder_scenario() -> None:
-    """Builder emits MISSING_DIRECTION for contract annotation without any direction."""
+    """RESOURCE_CONTRACT without a contract role is ignored, not inferred."""
     spans = [_span("s99", "Mystery")]
     ann = RouteAnnotation(
         span_id="s99",
@@ -750,8 +762,8 @@ def test_missing_direction_builder_scenario() -> None:
     routes = FieldRouteIR(behavior=[], annotations=[ann])
 
     view = DemandViewBuilder().build(spans, routes)
-    kinds = {d.kind for d in view.view_diagnostics}
-    assert RESOURCE_CONTRACT_ANNOTATION_MISSING_DIRECTION in kinds
+    assert len(view.demands) == 0
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
 
 
 def test_missing_requiredness_builder_scenario() -> None:
@@ -1039,9 +1051,7 @@ def test_projector_covers_all_phase_a_diagnostic_kinds() -> None:
 
 
 def test_direction_from_slot_target() -> None:
-    """TRANSITIONAL (Phase A compat): When semantic_role is absent but slot_target='output',
-    direction is output.  This behaviour will be tightened in B2 — only semantic_role
-    will be canonical."""
+    """slot_target alone must not authorize a resource contract demand."""
 
     spans = [_span("s5", "Slot-targeted text")]
     ann = RouteAnnotation(
@@ -1057,14 +1067,12 @@ def test_direction_from_slot_target() -> None:
 
     view = DemandViewBuilder().build(spans, routes)
 
-    assert len(view.demands) == 1
-    assert view.demands[0].direction == "output"
+    assert len(view.demands) == 0
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
 
 
 def test_direction_from_metadata() -> None:
-    """TRANSITIONAL (Phase A compat): When neither semantic_role nor slot_target indicate
-    direction, metadata.direction is used.  This behaviour will be tightened in B2 — only
-    semantic_role will be canonical."""
+    """metadata.direction alone must not authorize a resource contract demand."""
 
     spans = [_span("s5", "Metadata-driven text")]
     ann = RouteAnnotation(
@@ -1079,8 +1087,8 @@ def test_direction_from_metadata() -> None:
 
     view = DemandViewBuilder().build(spans, routes)
 
-    assert len(view.demands) == 1
-    assert view.demands[0].direction == "input"
+    assert len(view.demands) == 0
+    assert len(view.view_diagnostics) >= 1, "ARC5: suspicious resource-contract annotations produce visible diagnostic"
 
 
 # =============================================================================

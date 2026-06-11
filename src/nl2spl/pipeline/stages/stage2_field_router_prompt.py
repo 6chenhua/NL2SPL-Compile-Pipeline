@@ -18,74 +18,50 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+from nl2spl.compiler.annotation_role_contract.registry import (
+    ROLE_CONTRACT_REGISTRY,
+)
 from nl2spl.ir.field_route_ir import StructuralPrior
 from nl2spl.ir.span_ir import SpanIR
 
 
 # ===========================================================================
 # Allowed schema — closed sets for validation (Step 4)
+#
+# All constants are derived from the canonical AnnotationRoleContractRegistry.
+# Modifying the registry automatically updates these schema values.
 # ===========================================================================
 
-ALLOWED_FIELDS: frozenset[str] = frozenset({
-    "identity", "audience", "rules", "domain", "integrations", "behavior", "resources",
-})
+ALLOWED_FIELDS: frozenset[str] = ROLE_CONTRACT_REGISTRY.allowed_prompt_fields()
+"""All valid ``field`` values (contract-derived + legacy ``identity``/``audience``)."""
 
-ALLOWED_SEMANTIC_ROLES: frozenset[str] = frozenset({
-    "profile_domain",
-    "input_contract",
-    "output_contract",
-    "process_step",
-    "constraint",
-    "failure_mode",
-    "exception_handler_action",
-    "delegation_intent",
-    "delegation_boundary_constraint",
-    "delegation_prohibition",
-    "api_candidate",
-    "worker_handoff_candidate",
-    "handoff_condition",
-    "integration_hint",
-})
+ALLOWED_SEMANTIC_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_llm_semantic_roles()
+)
+"""LLM-visible canonical semantic roles.  Structural aliases and internal
+roles (e.g. ``failure_condition``) are excluded."""
 
-ALLOWED_CONSTRUCT_TARGETS: frozenset[str] = frozenset({
-    "EXCEPTION_FLOW",
-    "WORKER_HANDOFF",
-    "API_CALL",
-    "RESOURCE_CONTRACT",
-    "CONSTRAINT",
-})
+ALLOWED_CONSTRUCT_TARGETS: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_construct_targets()
+)
+"""All valid ``construct_target`` values across all canonical contracts."""
 
-ALLOWED_SLOT_TARGETS: frozenset[str] = frozenset({
-    "condition",
-    "handler",
-    "input",
-    "output",
-    "target",
-    "boundary",
-    "prohibition",
-})
+ALLOWED_SLOT_TARGETS: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.allowed_slot_targets()
+)
+"""All valid ``slot_target`` values across all canonical contracts."""
 
 # Semantic roles that MUST have executable=False regardless of LLM output
-NON_EXECUTABLE_ROLES: frozenset[str] = frozenset({
-    "input_contract",
-    "output_contract",
-    "constraint",
-    "failure_mode",
-    "delegation_intent",
-    "delegation_boundary_constraint",
-    "delegation_prohibition",
-    "api_candidate",
-    "worker_handoff_candidate",
-    "handoff_condition",
-    "integration_hint",
-    "profile_domain",
-})
+NON_EXECUTABLE_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.prompt_non_executable_roles()
+)
+"""LLM-visible roles whose contract specifies ``executable=False``."""
 
 # Semantic roles ALLOWED to have executable=True
-EXECUTABLE_ROLES: frozenset[str] = frozenset({
-    "process_step",
-    "exception_handler_action",
-})
+EXECUTABLE_ROLES: frozenset[str] = (
+    ROLE_CONTRACT_REGISTRY.prompt_executable_roles()
+)
+"""LLM-visible roles whose contract specifies ``executable=True``."""
 
 
 # ===========================================================================

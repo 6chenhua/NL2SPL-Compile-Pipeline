@@ -1547,15 +1547,18 @@ class TestFieldRouteLLMRefinement:
         spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
         span_id = spans[0].span_id
 
-        # LLM returns same role + span but different slot_target.
-        # 'constraint' role contract has no required construct/slot,
-        # so both annotations should be accepted.
+        # LLM returns same span but with TWO DISTINCT canonical roles
+        # that share the same construct_target=CONSTRAINT but differ in
+        # slot_target.  ARC3: 'constraint' role has explicit
+        # construct_target=None, slot_target=None — only
+        # delegation_boundary_constraint and delegation_prohibition
+        # carry CONSTRAINT construct.
         mock_client.call_json.return_value = {
             "annotations": [
                 {
                     "span_id": span_id,
                     "field": "rules",
-                    "semantic_role": "constraint",
+                    "semantic_role": "delegation_boundary_constraint",
                     "construct_target": "CONSTRAINT",
                     "slot_target": "boundary",
                     "executable": False,
@@ -1563,7 +1566,7 @@ class TestFieldRouteLLMRefinement:
                 {
                     "span_id": span_id,
                     "field": "rules",
-                    "semantic_role": "constraint",
+                    "semantic_role": "delegation_prohibition",
                     "construct_target": "CONSTRAINT",
                     "slot_target": "prohibition",
                     "executable": False,
@@ -1578,7 +1581,7 @@ class TestFieldRouteLLMRefinement:
 
         span_anns = routes.get_annotations(span_id)
         assert len(span_anns) >= 2, (
-            f"Same role with different slot must produce separate annotations, got {len(span_anns)}"
+            f"Two distinct canonical roles must produce separate annotations, got {len(span_anns)}"
         )
         slots = {a.slot_target for a in span_anns}
         assert "boundary" in slots
@@ -3026,7 +3029,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3080,7 +3083,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3131,7 +3134,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3187,7 +3190,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
+        merged, _, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
 
         s19_anns = [a for a in merged if a.span_id == "s19"]
         assert len(s19_anns) == 1
@@ -3244,7 +3247,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             priors, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3299,7 +3302,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, diagnostics, _ = router._merge_llm_refinement(priors, llm_result, spans)
+        merged, diagnostics, _, _ = router._merge_llm_refinement(priors, llm_result, spans)
 
         conflict_diags = [d for d in diagnostics if "route_refinement_conflict" in d]
         assert len(conflict_diags) >= 1, (
@@ -3347,7 +3350,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, diagnostics, _ = router._merge_llm_refinement(
+        merged, diagnostics, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )
@@ -3404,7 +3407,7 @@ class TestNeutralPriorMerge:
             ],
         )
 
-        merged, _, _ = router._merge_llm_refinement(
+        merged, _, _, _ = router._merge_llm_refinement(
             deterministic_annotations, llm_result, spans,
             structural_priors=structural_priors,
         )

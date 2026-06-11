@@ -15,7 +15,10 @@ from nl2spl.compiler.irs.result_store import IRSResultStore
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
 
-DiagnosticDedupKey = tuple[str, str | None, str | None, tuple[str, ...]]
+DiagnosticDedupKey = tuple[
+    str, str | None, str | None, tuple[str, ...],
+    str | None, str | None,  # semantic_role, field_name (ARC7)
+]
 
 
 def missing_slot_name(diagnostic: CompileDiagnostic) -> str | None:
@@ -27,12 +30,19 @@ def missing_slot_name(diagnostic: CompileDiagnostic) -> str | None:
 
 
 def diagnostic_dedup_key(diagnostic: CompileDiagnostic) -> DiagnosticDedupKey:
-    """Return the authority-safe dedup key for one diagnostic."""
+    """Return the authority-safe dedup key for one diagnostic.
+
+    ARC7: includes ``metadata["semantic_role"]`` and ``metadata["field_name"]``
+    so that different role-contract conflicts for the same span are not collapsed.
+    """
+    meta = getattr(diagnostic, "metadata", None) or {}
     return (
         diagnostic.kind,
         diagnostic.target_ref,
         missing_slot_name(diagnostic),
         tuple(sorted(diagnostic.source_span_ids or [])),
+        meta.get("semantic_role"),
+        meta.get("field_name"),
     )
 
 

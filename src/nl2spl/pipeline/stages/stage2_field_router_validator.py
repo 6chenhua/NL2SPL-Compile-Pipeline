@@ -18,6 +18,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from nl2spl.compiler.annotation_role_contract.diagnostics import (
+    ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
+    ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
+    ANNOTATION_INVALID_FIELD_FOR_ROLE,
+    ANNOTATION_INVALID_ROUTE_FAMILY_FOR_ROLE,
+    ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
+    ANNOTATION_MISSING_REQUIREDNESS,
+    ANNOTATION_REJECTED_AFTER_ROLE_CONTRACT_VALIDATION,
+    AnnotationValidationDiagnostic,
+)
+from nl2spl.compiler.annotation_role_contract.registry import (
+    ROLE_CONTRACT_REGISTRY,
+)
 from nl2spl.ir.field_route_ir import RouteAnnotation
 from nl2spl.pipeline.stages.stage2_field_router_prompt import (
     ALLOWED_CONSTRUCT_TARGETS,
@@ -30,33 +43,9 @@ from nl2spl.pipeline.stages.stage2_field_router_prompt import (
     SplitRecommendation,
 )
 
-# ===========================================================================
-# Role-specific contracts
-# ===========================================================================
-
-_ROLE_CONTRACT: dict[str, dict[str, Any]] = {
-    "failure_mode": {
-        "construct_target": "EXCEPTION_FLOW",
-        "slot_target": "condition",
-        "executable": False,
-    },
-    "exception_handler_action": {
-        "construct_target": "EXCEPTION_FLOW",
-        "slot_target": "handler",
-        "executable": True,
-    },
-    "input_contract": {"executable": False},
-    "output_contract": {"executable": False},
-    "delegation_intent": {"executable": False},
-    "delegation_boundary_constraint": {"executable": False},
-    "delegation_prohibition": {"executable": False},
-    "api_candidate": {"executable": False},
-    "worker_handoff_candidate": {"executable": False},
-    "constraint": {"executable": False},
-    "profile_domain": {"executable": False},
-    "handoff_condition": {"executable": False},
-    "integration_hint": {"executable": False},
-}
+# _ROLE_CONTRACT removed — ARC4: validator uses ROLE_CONTRACT_REGISTRY.
+# A module-level alias exists only for tests that check convergence status.
+_ROLE_CONTRACT: dict[str, dict[str, Any]] = {}
 
 _HANDLER_ACTION_VERBS: frozenset[str] = frozenset(
     {
@@ -101,6 +90,9 @@ class ValidatedRefinementResult:
     rejected: list[RejectedItem] = field(default_factory=list)
     split_recommendations: list[dict[str, Any]] = field(default_factory=list)
     diagnostics: list[str] = field(default_factory=list)
+    structured_diagnostics: list[AnnotationValidationDiagnostic] = field(
+        default_factory=list
+    )
     fallback_triggered: bool = False
 
 
@@ -130,8 +122,10 @@ class RouteRefinementValidator:
             if sp.span_id not in structural_prior_by_sid:
                 structural_prior_by_sid[sp.span_id] = sp
 
+        structured_diags: list[AnnotationValidationDiagnostic] = []
+
         for llm_ann in llm_result.annotations:
-            ok, rej_msg, warns = self._validate_one(
+            ok, rej_msg, warns, s_diags = self._validate_one(
                 llm_ann,
                 valid_span_ids,
                 span_by_id,
@@ -144,6 +138,8 @@ class RouteRefinementValidator:
             else:
                 rejected.append(RejectedItem(annotation=llm_ann, reason=rej_msg))
                 diagnostics.append(rej_msg)
+            if s_diags:
+                structured_diags.extend(s_diags)
 
         # Validate split recommendations
         split_recs = self._validate_split_recommendations(
@@ -158,6 +154,7 @@ class RouteRefinementValidator:
             rejected=rejected,
             split_recommendations=split_recs,
             diagnostics=diagnostics,
+            structured_diagnostics=structured_diags,
             fallback_triggered=False,
         )
 
@@ -172,14 +169,16 @@ class RouteRefinementValidator:
         span_by_id: dict[str, Any],
         structural_prior_by_sid: dict[str, Any],
         canonical_input: Any,
-    ) -> tuple[bool, str, list[str]]:
-        """Return (accepted, rejection_reason, warnings)."""
+    ) -> tuple[bool, str, list[str], list[AnnotationValidationDiagnostic]]:
+        """Return (accepted, rejection_reason, warnings, structured_diagnostics)."""
 
-        def reject(msg: str) -> tuple[bool, str, list[str]]:
-            return False, msg, []
+        def reject(
+            msg: str, struct: list | None = None,
+        ) -> tuple[bool, str, list[str], list]:
+            return False, msg, [], struct or []
 
-        def ok(warns: list[str] | None = None) -> tuple[bool, str, list[str]]:
-            return True, "", warns or []
+        def ok(warns: list[str] | None = None) -> tuple[bool, str, list[str], list]:
+            return True, "", warns or [], []
 
         # --- 1. Span existence ------------------------------------------
         if ann.span_id not in valid_span_ids:
@@ -248,30 +247,28 @@ class RouteRefinementValidator:
                         f"('{span_text[:60]}') cannot be annotated as {ann.semantic_role}"
                     )
 
-        # --- 5. Role-specific contract ----------------------------------
-        contract = _ROLE_CONTRACT.get(ann.semantic_role or "")
-        if contract:
-            exp_ct = contract.get("construct_target")
-            if exp_ct is not None and ann.construct_target != exp_ct:
-                return reject(
-                    f"Rejected: {ann.semantic_role} requires "
-                    f"construct_target='{exp_ct}', got '{ann.construct_target}' "
-                    f"for span '{ann.span_id}'"
-                )
-            exp_st = contract.get("slot_target")
-            if exp_st is not None and ann.slot_target != exp_st:
-                return reject(
-                    f"Rejected: {ann.semantic_role} requires "
-                    f"slot_target='{exp_st}', got '{ann.slot_target}' "
-                    f"for span '{ann.span_id}'"
-                )
-            exp_ex = contract.get("executable")
-            if exp_ex is not None and ann.executable != exp_ex:
-                return reject(
-                    f"Rejected: {ann.semantic_role} requires "
-                    f"executable={exp_ex}, got {ann.executable} "
-                    f"for span '{ann.span_id}'"
-                )
+        # --- 4.7. Fill provenance from span before contract check ----------
+        # ARC7: typed diagnostics need source_section_id / source_packet_id
+        # for provenance projection.  LLM annotations often lack these, so
+        # fill from the backing span before the role-contract check runs.
+        if span is not None:
+            if not ann.source_section_id:
+                sid = getattr(span, "source_section_id", None)
+                if sid:
+                    ann.source_section_id = sid
+            if not ann.source_packet_id:
+                pid = getattr(span, "source_packet_id", None)
+                if pid:
+                    ann.source_packet_id = pid
+
+        # --- 5. Full-field role contract check (ARC4: registry-driven) --
+        if ann.semantic_role:
+            rej, struct_diags = self._check_against_registry(ann)
+            if rej:
+                # Store structured diagnostics on the rejection reason
+                # for later collection by the validate() method
+                # (hack: attach to the annotation temporarily)
+                return reject(rej, struct_diags)
 
         # --- 6. Anti-fabrication: handler must have source text ----------
         if ann.semantic_role == "exception_handler_action":
@@ -361,6 +358,169 @@ class RouteRefinementValidator:
             warns.append(conflict)
 
         return ok(warns)
+
+    # ------------------------------------------------------------------
+    # Full-field role contract check (ARC4)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _check_against_registry(
+        ann: RefinedAnnotation,
+    ) -> tuple[str | None, list[AnnotationValidationDiagnostic]]:
+        """Validate *ann* against the canonical role contract registry.
+
+        Checks all five compiler-facing fields including expected ``None``.
+        Returns ``(rejection_reason, structured_diagnostics)``.
+        If valid, rejection_reason is ``None``.
+        """
+        role = ann.semantic_role
+        source_section_id = getattr(ann, "source_section_id", None)
+        source_packet_id = getattr(ann, "source_packet_id", None)
+        structured: list[AnnotationValidationDiagnostic] = []
+
+        if not role:
+            return None, structured
+
+        resolved = ROLE_CONTRACT_REGISTRY.resolve_semantic_role(role)
+        if resolved is None:
+            return (
+                f"Rejected: unknown semantic_role '{role}' "
+                f"for span '{ann.span_id}'",
+                structured,
+            )
+
+        contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
+
+        def _reject(
+            kind: str, field_name: str, expected: object, actual: object, msg: str,
+        ) -> tuple[str, list[AnnotationValidationDiagnostic]]:
+            diag = AnnotationValidationDiagnostic(
+                kind=kind,
+                span_id=ann.span_id,
+                semantic_role=resolved,
+                field_name=field_name,
+                expected=expected,
+                actual=actual,
+                source_section_id=source_section_id,
+                source_packet_id=source_packet_id,
+                message=msg,
+            )
+            structured.append(diag)
+            return msg, structured
+
+        # field
+        if ann.field is not None and ann.field != contract.field:
+            return _reject(
+                ANNOTATION_INVALID_FIELD_FOR_ROLE,
+                "field", contract.field, ann.field,
+                f"Rejected: {role} requires field='{contract.field}', "
+                f"got '{ann.field}' for span '{ann.span_id}'",
+            )
+
+        # route_family — reject only conflicting values, not missing ones
+        if ann.route_family is not None and ann.route_family != contract.route_family:
+            return _reject(
+                ANNOTATION_INVALID_ROUTE_FAMILY_FOR_ROLE,
+                "route_family", contract.route_family, ann.route_family,
+                f"Rejected: {role} requires route_family={contract.route_family!r}, "
+                f"got {ann.route_family!r} for span '{ann.span_id}'",
+            )
+
+        # construct_target
+        if ann.construct_target is not None and ann.construct_target != contract.construct_target:
+            return _reject(
+                ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
+                "construct_target", contract.construct_target, ann.construct_target,
+                f"Rejected: {role} requires construct_target={contract.construct_target!r}, "
+                f"got {ann.construct_target!r} for span '{ann.span_id}'",
+            )
+
+        # slot_target
+        if ann.slot_target is not None and ann.slot_target != contract.slot_target:
+            return _reject(
+                ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
+                "slot_target", contract.slot_target, ann.slot_target,
+                f"Rejected: {role} requires slot_target={contract.slot_target!r}, "
+                f"got {ann.slot_target!r} for span '{ann.span_id}'",
+            )
+
+        # executable
+        if ann.executable != contract.executable:
+            return _reject(
+                ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
+                "executable", contract.executable, ann.executable,
+                f"Rejected: {role} requires executable={contract.executable}, "
+                f"got {ann.executable} for span '{ann.span_id}'",
+            )
+
+        return None, structured
+
+    # ------------------------------------------------------------------
+    # Post-enrichment requiredness finalizer (ARC4)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def finalize_requiredness(
+        annotations: list[RouteAnnotation],
+    ) -> tuple[list[str], list[AnnotationValidationDiagnostic]]:
+        """Post-enrichment check: ensure resource contract annotations
+        carry valid requiredness metadata.
+
+        Runs AFTER ``_enrich_contract_requiredness()`` has injected
+        requiredness from structural sources.  Must NOT reject annotations
+        for missing requiredness before enrichment.
+
+        Returns ``(string_diagnostics, structured_diagnostics)``.
+        """
+        string_diags: list[str] = []
+        structured: list[AnnotationValidationDiagnostic] = []
+
+        for ann in annotations:
+            if ann.semantic_role not in ("input_contract", "output_contract"):
+                continue
+
+            rv = ann.metadata.get("requiredness")
+            if rv is None:
+                msg = (
+                    f"Post-enrichment: span '{ann.span_id}' "
+                    f"({ann.semantic_role}) has no requiredness metadata"
+                )
+                string_diags.append(msg)
+                structured.append(
+                    AnnotationValidationDiagnostic(
+                        kind=ANNOTATION_MISSING_REQUIREDNESS,
+                        span_id=ann.span_id,
+                        semantic_role=ann.semantic_role,
+                        field_name="requiredness",
+                        expected="required | optional | unspecified",
+                        actual=None,
+                        source_section_id=ann.source_section_id,
+                        source_packet_id=ann.source_packet_id,
+                        message=msg,
+                    )
+                )
+            elif rv not in ("required", "optional", "unspecified"):
+                msg = (
+                    f"Post-enrichment: span '{ann.span_id}' "
+                    f"({ann.semantic_role}) has invalid requiredness "
+                    f"value {rv!r}"
+                )
+                string_diags.append(msg)
+                structured.append(
+                    AnnotationValidationDiagnostic(
+                        kind=ANNOTATION_MISSING_REQUIREDNESS,
+                        span_id=ann.span_id,
+                        semantic_role=ann.semantic_role,
+                        field_name="requiredness",
+                        expected="required | optional | unspecified",
+                        actual=rv,
+                        source_section_id=ann.source_section_id,
+                        source_packet_id=ann.source_packet_id,
+                        message=msg,
+                    )
+                )
+
+        return string_diags, structured
 
     # ------------------------------------------------------------------
     # Split recommendation validation

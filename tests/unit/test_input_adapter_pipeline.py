@@ -1093,7 +1093,7 @@ def test_stage2_route_diagnostics_stay_internal(
     pipeline_config: MagicMock,
     mock_client: MagicMock,
 ) -> None:
-    """Stage 2 route diagnostics stay in route IR and do not enter feedback."""
+    """ARC7: Stage 2 route diagnostics now project into compile_diagnostics."""
 
     canonical = StructuralNLAdapter(mock_client).adapt(STRUCTURAL_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
@@ -1195,11 +1195,12 @@ def test_stage2_route_diagnostics_stay_internal(
         for d in route_diags
     ), f"Expected LLM diagnostic message in stage2 route diagnostics: {route_diags}"
 
-    # They must not become final user-facing requirement diagnostics.
-    assert not any(
+    # ARC7: Stage 2 route diagnostics now project into compile_diagnostics
+    # as structured CompileDiagnostic entries — visible in feedback.
+    assert any(
         d.kind.startswith("route_refinement_")
         for d in result.compile_diagnostics
-    ), f"route_refinement_* leaked into compile_diagnostics: {result.compile_diagnostics}"
+    ), f"ARC7: Stage 2 diagnostics must be visible in compile_diagnostics: {result.compile_diagnostics}"
 
     feedback = render_feedback_report(
         spl_text=result.spl_text,
@@ -1211,6 +1212,8 @@ def test_stage2_route_diagnostics_stay_internal(
         validation_errors=result.validation_errors,
         validation_warnings=result.validation_warnings,
     )
-    assert "route_refinement_" not in feedback
-    assert "Failure condition may need handler text" not in feedback
-    assert result.readable_report == ""
+    # ARC7: Stage 2 diagnostics now project into feedback and readable_report
+    assert "route_refinement_" in feedback, (
+        "Stage 2 diagnostics must appear in feedback report"
+    )
+    assert "Failure condition may need handler text" in feedback

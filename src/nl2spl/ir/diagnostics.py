@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from nl2spl.compiler.compile_result import MissingSlot
@@ -35,8 +35,12 @@ class CompileDiagnostic:
     message: str
     target_ref: str | None = None
     source_span_ids: list[str] = field(default_factory=list)
+    source_section_id: str | None = None
+    source_packet_id: str | None = None
     suggested_resolution: str | None = None
     missing_slot: MissingSlot | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    """Structured payload: e.g. semantic_role, field_name, expected, actual."""
     blocks_rendering: bool = False
     blocks_completion: bool = True
 
