@@ -331,60 +331,135 @@ RouteAnnotation label / DiagnosticKind
 
 ## 9. 实施计划
 
-### Phase 1: Registry 边界修正
+### P0: Characterization tests / inventory
 
-1. 从 `SPLConstructRegistry.default()` 删除 `DELEGATION_INTENT`。
-2. 删除依赖 `DELEGATION_INTENT` 的 registry tests。
-3. 保留并审查 `WORKER_CANDIDATE`、`WORKER_PROMOTION`、`WORKER_HANDOFF`。
-4. 标记 `RESOURCE_CONTRACT_DEMAND` 为待审对象；除非补齐架构证明，否则后续 phase 收回到 resource materialization / required output 检查。
+先不改生产代码，锁定当前行为和耦合点。
 
-验收：
+验收重点：
 
 ```text
-registry.has("DELEGATION_INTENT") == False
-rg "DELEGATION_INTENT" src tests
+1. 当前 delegation_intent without contract 能产生 type_or_contract_ambiguity。
+2. 当前 diagnostic target_ref 是 delegation_intent:*。
+3. 当前 provenance / trace 中存在 delegation_intent:* target_ref。
+4. 当前 stage3.5 IRS diagnostic 是通过 orchestrator selective promotion 进入 final diagnostics。
+5. 当前 WORKER_PROMOTION missing slots 没有显式 diagnostic_blocks_rendering=False。
 ```
 
-只允许命中文档或迁移说明，不允许命中生产 registry / checker / active tests。
+同时 inventory：
 
-### Phase 2: WorkerDelegationIRSChecker 改造
+```text
+rg "DELEGATION_INTENT|delegation_intent:|target_ref=.*delegation_intent|startswith(\"delegation_intent:\")" src tests
+```
+
+inventory 必须区分：
+
+```text
+保留：semantic_role="delegation_intent"
+保留：metadata.original_semantic_role="delegation_intent"
+保留：source signal / route annotation / source provenance
+清理：construct_type="DELEGATION_INTENT"
+清理：diagnostic host target_ref="delegation_intent:*"
+迁移：trace/report target_ref="delegation_intent:*"
+```
+
+不得把不存在的 `diag_del_*` 或 `fact_bridges.py` 写入当前工作区实施计划。当前工作区应按 provenance / feedback target 展示语义处理。
+
+### P1: 迁移 `WorkerDelegationIRSChecker`
+
+先改 checker，不先删 registry。这样可以避免 registry 先删除后 checker 仍抽取 `DELEGATION_INTENT` instance 导致 diagnostic 丢失。
 
 1. 不再从 route annotations 提取 `DELEGATION_INTENT` instance。
-2. 将 `delegation_intent` route annotation 转为 `WORKER_CANDIDATE` / `WORKER_PROMOTION` 的 evidence。
-3. 当 candidate 缺 input/output/invocation/result handoff 时，由 `WORKER_PROMOTION` missing slots 产生 `type_or_contract_ambiguity`。
-4. 当已 materialized handoff 缺 target/binding/site 时，由 `WORKER_HANDOFF` missing slots 产生 `type_or_contract_ambiguity`。
-5. `source_span_ids` 必须保留原 route annotation span。
-6. metadata 中保留原始 `semantic_role="delegation_intent"`，用于 report trace。
+2. `delegation_intent` route annotation 只作为 structured source signal / evidence。
+3. confirmed `delegation_intent` 必须落到 `WORKER_CANDIDATE` / `WORKER_PROMOTION`。
+4. 无法 materialize 成完整 worker boundary 时，由 `WORKER_PROMOTION` missing slots 产生 `type_or_contract_ambiguity`。
+5. 已 materialized handoff 缺 target/binding/site 时，由 `WORKER_HANDOFF` missing slots 产生 `type_or_contract_ambiguity`。
+6. `source_span_ids` 必须保留原 route annotation span。
+7. metadata 中保留原始 `semantic_role="delegation_intent"`，用于 report trace。
 
 验收：
 
 ```text
 delegation_intent source signal
 -> no DELEGATION_INTENT report
--> WORKER_PROMOTION report exists
+-> WORKER_CANDIDATE or WORKER_PROMOTION report exists
 -> missing promotion_* slot
--> projected type_or_contract_ambiguity
+-> diagnostic kind remains type_or_contract_ambiguity
 ```
 
-### Phase 3: Final diagnostic promotion 修正
+### P2: 保证 delegation signal 不丢失
+
+这是独立验收点，不应藏在 P1 中。
+
+规则：
+
+```text
+Every confirmed delegation_intent source signal must be represented by:
+- WORKER_CANDIDATE, or
+- WORKER_PROMOTION, or
+- explicit planner/checker warning explaining why it cannot be represented.
+```
+
+不得出现：
+
+```text
+delegation_intent source signal
+-> no candidate
+-> no promotion
+-> no diagnostic
+-> only trace remains
+```
+
+### P3: 修正 `WORKER_PROMOTION` diagnostic 的 render blocking 语义
+
+`WORKER_PROMOTION` 是 candidate-only / analysis construct，不是 renderable SPL construct。因此 promotion 缺 slot 应该是 completion gap，不应被误标为 render-blocking。
+
+目标语义：
+
+```text
+kind = type_or_contract_ambiguity
+target_ref = worker_promotion:<candidate_id>
+blocks_completion = True
+blocks_rendering = False
+```
+
+实现要求：
+
+```text
+promotion_input_contract
+promotion_output_contract
+promotion_invocation_point
+promotion_result_handoff
+```
+
+这些 `SlotSatisfaction` 在缺失时必须显式设置：
+
+```text
+diagnostic_blocks_rendering=False
+```
+
+也可以在 `DiagnosticProjector` 中按 candidate-only analysis construct 统一处理，但本方案优先要求 slot-level 显式设置，因为范围更局部、回归风险更小。
+
+### P4: 重写 orchestrator selective promotion
 
 1. 删除所有基于 `target_ref.startswith("delegation_intent:")` 的提升逻辑。
 2. 改为基于 construct type + diagnostic kind + source-demand provenance 提升：
 
 ```text
-construct_type in {
-  WORKER_PROMOTION,
-  WORKER_HANDOFF,
-  CHILD_WORKER,
-  INVOKE_WORKER,
-  CALL_API
+diagnostic.kind == "type_or_contract_ambiguity"
+and target_ref prefix in {
+  "worker_promotion:",
+  "worker_handoff:",
+  "child_worker:",
+  "invoke_worker:",
+  "call_api:"
 }
-and diagnostic.kind == "type_or_contract_ambiguity"
 and source_span_ids 非空
+and provenance / metadata 能追溯到 delegation_intent source signal
 ```
 
 3. final diagnostic target 指向真实 construct。
 4. feedback report 中可以展示原始 delegation span，但不能把它当 construct。
+5. 不打开所有 stage-local IRS diagnostics 进入 final `compile_diagnostics`。
 
 验收：
 
@@ -393,56 +468,119 @@ diagnostic_id startswith "irs_"
 diagnostic.kind == "type_or_contract_ambiguity"
 diagnostic.target_ref != "delegation_intent:<span_id>"
 diagnostic.source_span_ids contains original delegation span
+diagnostic.blocks_completion == True
+diagnostic.blocks_rendering == False
 feedback_report contains no diag_d10_*
 ```
 
-### Phase 4: Legacy 手写 diagnostic 清理
+### P5: 删除 registry 中的 `DELEGATION_INTENT`
 
-继续删除或保持删除：
+只有 P1-P4 通过后再删除 registry construct。
 
-- `pipeline/delegation_diagnostics.py`
-- `PipelineOrchestrator._run_delegation_diagnostics`
-- `DiagnosticConsolidationInput.delegation_diagnostics`
-- legacy `DiagnosticAnalyzer`
-- legacy `PostNormalizeIRSChecker`
+删除对象：
+
+```text
+SPLConstructRegistry.default() 中的 DELEGATION_INTENT
+依赖 DELEGATION_INTENT registry 的 active tests
+依赖 DELEGATION_INTENT report 的 checker tests
+依赖 target_ref="delegation_intent:*" 的 final diagnostic tests
+```
+
+保留对象：
+
+```text
+semantic_role="delegation_intent"
+metadata.original_semantic_role="delegation_intent"
+source signal / route annotation / provenance source span
+```
 
 验收：
 
 ```text
-rg "diag_d10|delegation_diagnostics|DiagnosticAnalyzer|AnalyzeInput|final_irs_checker|PostNormalizeIRSChecker\\b" src tests
+registry.has("DELEGATION_INTENT") == False
+WorkerDelegationIRSChecker supported_construct_types 不包含 DELEGATION_INTENT
+rg "construct_type=\"DELEGATION_INTENT\"|registry.has\\(\"DELEGATION_INTENT\"\\)|target_ref=\"delegation_intent:" src tests
 ```
 
-不得命中生产路径或 active tests。
+不得命中生产路径或 active tests。`semantic_role="delegation_intent"` 仍允许存在。
 
-### Phase 5: ResourceContractDemand 审计
+### P6: 清理 provenance / feedback 的 `delegation_intent:*` target 展示语义
+
+当前工作区没有 `fact_bridges.py / diag_del_*` 这条手写 diagnostic path。这里处理的是：
+
+```text
+TraceRecord(target_ref="delegation_intent:...")
+feedback/report 中把 delegation_intent:* 展示成 diagnostic target 或 construct target 的逻辑
+```
+
+迁移目标：
+
+```text
+diagnostic target_ref:
+  worker_promotion:<candidate_id>
+  worker_handoff:<handoff_id>
+  child_worker:<worker_id>
+  invoke_worker:<step_id>
+  call_api:<step_id>
+
+provenance metadata:
+  original_semantic_role = "delegation_intent"
+  original_route_annotation_id = ...
+  original_source_span_ids = [...]
+```
+
+允许：
+
+```text
+feedback 展示“该 issue 来源于 delegation intent span”
+```
+
+不允许：
+
+```text
+feedback 把 delegation_intent:* 展示成 IRS construct / diagnostic host
+```
+
+### P7: `RESOURCE_CONTRACT_DEMAND` 单独审计
+
+不要和本次 delegation cleanup 混在同一实现阶段。
 
 1. 审查 `RESOURCE_CONTRACT_DEMAND` 是否已有明确架构批准。
-2. 如果没有，制定迁移：
+2. 如果没有，另行制定迁移：
    - demand 留在 `ResourceContractPlan`；
    - materialization 检查归属 `FileSpec` / `VariableSpec` / resolver；
    - producer 检查归属 `REQUIRED_OUTPUT` / ProducerIndex；
    - kind mismatch 归属 resolver / materialization checker。
-3. 删除或降级 `RESOURCE_CONTRACT_DEMAND` IRS。
+3. 本轮 delegation cleanup 不要求删除 `RESOURCE_CONTRACT_DEMAND`。
 
 验收：
 
 ```text
 ResourceContractDemandIR 不直接等同 ConstructIRS
-resource diagnostics target 指向 REQUIRED_OUTPUT / FileSpec / VariableSpec / binding / producer owner
+RESOURCE_CONTRACT_DEMAND 默认视为待审 top-level IRS construct
+是否保留，必须单独证明它是 approved compiler materialization construct
 ```
 
 ## 10. 总体验收标准
 
 1. `DELEGATION_INTENT` 不再是 IRS construct。
 2. `delegation_intent` 只作为 source signal / evidence。
-3. delegation contract 缺失仍能产生 `type_or_contract_ambiguity`。
-4. 该 diagnostic 来自 IRS checker + DiagnosticProjector。
-5. diagnostic target 指向 `WORKER_PROMOTION` / `WORKER_HANDOFF` / `CHILD_WORKER` / `INVOKE_WORKER` / `CALL_API` 等真实 construct。
-6. diagnostic provenance 指回原始 delegation span。
-7. final feedback 不出现 `diag_d10_*`。
-8. 不把全部 stage-local IRS diagnostics 无差别提升到 final diagnostics。
-9. `RESOURCE_CONTRACT_DEMAND` 不再被默认视为合法 top-level IRS；保留必须有明确架构证明。
-10. 测试覆盖 registry、checker extraction、slot satisfaction、projector、orchestrator promotion、feedback report。
+3. `WorkerDelegationIRSChecker` 不再 extract `DELEGATION_INTENT` instance。
+4. confirmed `delegation_intent` 不会静默丢失，必须落到 `WORKER_CANDIDATE` / `WORKER_PROMOTION`，或产生明确 planner/checker warning。
+5. delegation contract 缺失仍能产生 `type_or_contract_ambiguity`。
+6. 该 diagnostic 来自 IRS checker + DiagnosticProjector。
+7. final diagnostic target 指向 `WORKER_PROMOTION` / `WORKER_HANDOFF` / `CHILD_WORKER` / `INVOKE_WORKER` / `CALL_API` 等真实 construct。
+8. final diagnostic target_ref 不再是 `delegation_intent:*`。
+9. diagnostic provenance 指回原始 delegation span。
+10. promotion missing slot diagnostic `blocks_completion=True`。
+11. promotion missing slot diagnostic `blocks_rendering=False`。
+12. orchestrator 不再用 `startswith("delegation_intent:")` 做 selective promotion。
+13. provenance / feedback 可以提到原始 delegation intent，但不能把它当 IRS construct / diagnostic host。
+14. final feedback 不出现 `diag_d10_*`。
+15. 不把不存在的 `diag_del_*` / `fact_bridges.py` 写入当前工作区实施计划。
+16. 不把全部 stage-local IRS diagnostics 无差别提升到 final diagnostics。
+17. `RESOURCE_CONTRACT_DEMAND` 只做单独审计，不作为本轮 delegation cleanup 的阻塞项。
+18. 测试覆盖 characterization、checker extraction、slot satisfaction、projector、orchestrator promotion、provenance / feedback report。
 
 ## 11. 非目标
 
