@@ -1,23 +1,32 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-06-09T14:25:12.353701",
+  "timestamp": "2026-06-12T16:12:12.840444",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_initial_drafting_using_template_and_topic_summary",
+        "candidate_id": "candidate_clarify_missing_fields",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_retrieve_sources",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "integration_wrapper",
         "rejection_reason": "no_clear_output_contract",
         "reason": "Auto-rejected: blocking risk no_clear_output_contract",
         "evidence": []
       },
       {
-        "candidate_id": "candidate_route_for_comm_lead_review",
+        "candidate_id": "candidate_produce_draft",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
-        "boundary_kind": "explicit_delegation",
+        "boundary_kind": "bounded_subtask",
         "rejection_reason": "no_clear_input_contract",
         "reason": "Auto-rejected: blocking risk no_clear_input_contract",
         "evidence": []

@@ -1,0 +1,173 @@
+{
+  "stage": "stage3_2_demand_view",
+  "timestamp": "2026-06-12T16:12:07.278040",
+  "metadata": {},
+  "result": {
+    "demands": [
+      {
+        "demand_id": "rcd_input_s10",
+        "direction": "input",
+        "requiredness": "optional",
+        "required": false,
+        "evidence_text": "optional format preferences",
+        "source_span_ids": [
+          "s10"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_format_preferences",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s10"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_input_s6",
+        "direction": "input",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "A user request",
+        "source_span_ids": [
+          "s6"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_request",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s6"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_input_s7",
+        "direction": "input",
+        "requiredness": "optional",
+        "required": false,
+        "evidence_text": "optional known topics",
+        "source_span_ids": [
+          "s7"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_known_topics",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s7"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_input_s8",
+        "direction": "input",
+        "requiredness": "optional",
+        "required": false,
+        "evidence_text": "optional timeframe",
+        "source_span_ids": [
+          "s8"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_timeframe",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s8"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_input_s9",
+        "direction": "input",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "available connectors or\nsource repositories",
+        "source_span_ids": [
+          "s9"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_connectors_or_source_repositories",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s9"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s11",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "A draft communication artifact",
+        "source_span_ids": [
+          "s11"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_draft_communication_artifact",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s11"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s12",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "a source/evidence set",
+        "source_span_ids": [
+          "s12"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_source_evidence_set",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s12"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s13",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "a short assumptions log for any\nunresolved items",
+        "source_span_ids": [
+          "s13"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_assumptions_log",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s13"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s14",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "a completion status",
+        "source_span_ids": [
+          "s14"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_completion_status",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s14"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      }
+    ],
+    "view_diagnostics": [],
+    "warnings": []
+  }
+}

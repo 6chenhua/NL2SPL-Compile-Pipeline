@@ -1,40 +1,73 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-06-09T14:25:29.755522",
+  "timestamp": "2026-06-12T16:12:52.782834",
   "metadata": {},
   "result": {
     "constraints": [
       {
         "constraint_id": "c_1",
-        "text": "Must use the approved template",
-        "kind": "requirement",
-        "targets": [
-          "global"
-        ],
-        "source_span_ids": [
-          "s16"
-        ]
-      },
-      {
-        "constraint_id": "c_2",
-        "text": "Must follow plain-language and inclusive tone guidelines",
-        "kind": "requirement",
-        "targets": [
-          "global"
-        ],
-        "source_span_ids": [
-          "s17"
-        ]
-      },
-      {
-        "constraint_id": "c_3",
-        "text": "Require final sign-off from the communications lead before flagging the draft as approved",
+        "text": "Revise while re-checking constraints. Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
         "kind": "gate",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s18",
+          "s18"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Do not invent links or unseen facts.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s19"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Require evidence for sourced claims.",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s20"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Limit questions per turn.",
+        "kind": "requirement",
+        "targets": [
+          "step:st_2"
+        ],
+        "source_span_ids": [
+          "s21"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "Prefer tool evidence over unnecessary user questioning.",
+        "kind": "requirement",
+        "targets": [
+          "step:st_3",
+          "step:st_2"
+        ],
+        "source_span_ids": [
+          "s22"
+        ]
+      },
+      {
+        "constraint_id": "c_6",
+        "text": "Deny finalization if critical slots are missing or provenance fails.",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
           "s23"
         ]
       }

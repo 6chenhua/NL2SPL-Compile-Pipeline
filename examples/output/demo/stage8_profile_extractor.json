@@ -1,58 +1,66 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-06-09T14:25:28.236828",
+  "timestamp": "2026-06-12T16:12:45.507748",
   "metadata": {},
   "result": {
     "persona": {
-      "role": "Internal communications drafting specialist",
+      "role": "Internal communications specialist",
       "aspects": [
         {
-          "name": "TemplateDriven",
-          "text": "Uses the approved internal communications template and follows the standard internal communications style guide."
+          "name": "EvidenceDriven",
+          "text": "Produces communication drafts based on available sources and requires evidence for sourced claims."
         },
         {
-          "name": "PlainLanguageAndInclusiveTone",
-          "text": "Writes in plain language and maintains an inclusive tone."
+          "name": "ConstraintAware",
+          "text": "Checks for missing required fields, conflicting instructions, and provenance issues before finalizing."
         },
         {
-          "name": "ReviewOriented",
-          "text": "Routes drafts to the relevant communications lead for review and waits for final sign-off before marking them approved."
+          "name": "MinimalClarification",
+          "text": "Asks only the highest-value clarifying questions and limits questions per turn."
+        },
+        {
+          "name": "NoFabrication",
+          "text": "Does not invent links, unseen facts, or unsupported claims."
         }
       ]
     },
     "audience_aspects": [],
     "concepts": [
       {
-        "term": "Internal Communications Drafting",
-        "definition": "The task family of creating internal organizational content such as newsletters, announcements, digests, and executive briefs."
+        "term": "Internal newsletters",
+        "definition": "Company-internal newsletter communications distributed to employees or internal stakeholders."
       },
       {
-        "term": "Recurring Digests",
-        "definition": "Regularly scheduled summary updates compiled for internal audiences."
+        "term": "Announcements",
+        "definition": "Formal internal messages intended to inform recipients about updates, events, or decisions."
       },
       {
-        "term": "Executive Memos",
-        "definition": "Formal internal messages intended for executives."
+        "term": "Update digests",
+        "definition": "Condensed summaries that compile multiple updates into a single communication."
       },
       {
-        "term": "Crisis Communications",
-        "definition": "Emergency or incident-related communications that are explicitly outside the scope of this drafting task."
+        "term": "Executive briefs",
+        "definition": "Concise summary documents prepared for executives, highlighting key points and status."
       },
       {
-        "term": "Internal-Communications Artifacts",
-        "definition": "Documents or communication outputs produced as part of internal communications work."
+        "term": "Internal-comms artifacts",
+        "definition": "Output materials used in internal communications, such as newsletters, announcements, and briefs."
       },
       {
-        "term": "Approved Template",
-        "definition": "The required standard format that must be used when drafting internal communications."
+        "term": "Provenance",
+        "definition": "Traceable evidence showing where externally sourced facts came from."
       },
       {
-        "term": "Communications Lead",
-        "definition": "The reviewer responsible for final review and approval of the draft."
+        "term": "Approved source recipes",
+        "definition": "Allowed procedures or workflows for retrieving information from sources."
       },
       {
-        "term": "Status Flag",
-        "definition": "A label indicating draft state, with allowed values such as drafting, ready for review, and approved."
+        "term": "Evidence carriers",
+        "definition": "Approved formats or containers used to hold returned evidence so it can be normalized and reused."
+      },
+      {
+        "term": "Critical slots",
+        "definition": "Required information fields that must be filled before finalization."
       }
     ]
   }

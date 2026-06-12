@@ -1,74 +1,210 @@
 {
   "stage": "stage3_5a_candidate_task_units",
-  "timestamp": "2026-06-09T14:25:12.352284",
+  "timestamp": "2026-06-12T16:12:12.839290",
   "metadata": {},
   "result": {
     "candidates": [
       {
-        "candidate_id": "candidate_initial_drafting_using_template_and_topic_summary",
+        "candidate_id": "candidate_clarify_missing_fields",
         "source_span_ids": [
-          "s13",
-          "s14"
+          "s15",
+          "s21"
         ],
-        "task_text": "Draft the internal communications piece using the approved internal communications template and the provided topic/audience information.",
-        "purpose": "Produce a draft artifact from supplied topic and audience details using the standard template.",
+        "task_text": "Determine the communication type, identify missing required fields, and ask only the highest-value clarifying questions needed to proceed.",
+        "purpose": "To efficiently resolve missing inputs before drafting or retrieval continues.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
-            "name": "topic_audience",
+            "name": "user_request",
             "data_type": "text",
             "required": true,
-            "description": "Requestor-provided topic and audience information",
+            "description": "The user's request for the communication task.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
             "source_section_id": null,
             "source_packet_id": null,
-            "resource_kind": null
+            "resource_kind": null,
+            "requiredness": "unspecified"
           }
         ],
         "possible_outputs": [
           {
-            "name": "draft",
+            "name": "missing_required_fields",
             "data_type": "text",
             "required": true,
-            "description": "Draft produced using the standard internal communications template",
+            "description": "Which required fields are still missing.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
             "source_section_id": null,
             "source_packet_id": null,
-            "resource_kind": null
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "clarifying_questions",
+            "data_type": "text",
+            "required": true,
+            "description": "The highest-value clarifying questions to ask the user.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
           }
         ],
         "signals": [
           "bounded_io",
           "multi_step_process",
-          "reuse_potential"
+          "complex_control"
         ],
         "risks": [
           "no_clear_output_contract",
-          "insufficient_semantic_boundary"
+          "ordinary_sequential_step"
         ]
       },
       {
-        "candidate_id": "candidate_route_for_comm_lead_review",
+        "candidate_id": "candidate_retrieve_sources",
         "source_span_ids": [
-          "s15"
+          "s16",
+          "s22",
+          "s29"
         ],
-        "task_text": "Route the drafted internal communications item to the relevant communications lead for review.",
-        "purpose": "Hand the draft off to the appropriate communications lead for review.",
-        "candidate_kind": "explicit_delegation",
-        "possible_inputs": [],
-        "possible_outputs": [],
+        "task_text": "Retrieve needed sources using approved source recipes and maintain provenance for externally sourced facts.",
+        "purpose": "To gather evidence-backed source material with provenance preserved for later use.",
+        "candidate_kind": "integration_wrapper",
+        "possible_inputs": [
+          {
+            "name": "approved_source_recipes",
+            "data_type": "text",
+            "required": true,
+            "description": "Approved recipes or methods for retrieving sources.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "source_repositories",
+            "data_type": "text",
+            "required": true,
+            "description": "Available connectors or source repositories.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "source_evidence",
+            "data_type": "text",
+            "required": true,
+            "description": "Retrieved source/evidence set with provenance.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
         "signals": [
-          "explicit_delegation"
+          "external_integration",
+          "bounded_io",
+          "reuse_potential",
+          "testability"
+        ],
+        "risks": [
+          "no_clear_output_contract"
+        ]
+      },
+      {
+        "candidate_id": "candidate_produce_draft",
+        "source_span_ids": [
+          "s17",
+          "s18",
+          "s23"
+        ],
+        "task_text": "Produce a draft communication artifact, revising it while re-checking constraints and avoiding finalization when required slots remain missing or provenance fails.",
+        "purpose": "To generate the draft output that can be revised under constraint checks.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "required_information",
+            "data_type": "text",
+            "required": true,
+            "description": "Enough required information to draft the communication.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "source_evidence",
+            "data_type": "text",
+            "required": false,
+            "description": "Evidence available for sourced claims.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "A draft communication artifact.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "assumptions_log",
+            "data_type": "text",
+            "required": true,
+            "description": "A short assumptions log for unresolved items.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "complex_control",
+          "independent_failure_policy"
         ],
         "risks": [
           "no_clear_input_contract",
           "no_clear_output_contract",
-          "unclear_result_handoff",
-          "insufficient_semantic_boundary"
+          "ordinary_sequential_step"
         ]
       }
     ]
