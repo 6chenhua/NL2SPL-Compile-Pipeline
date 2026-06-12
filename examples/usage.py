@@ -19,61 +19,9 @@ def main() -> None:
         max_tokens=int(os.getenv("LLM_MAX_TOKENS", "16000")),
     )
 
-    raw_text = """
-# Internal Communications Drafting
-
-## Task Family
-
-**Name:** internal communications drafting  
-**Scope:** Includes recurring digests and executive memos; excludes crisis communications.  
-**Examples:**  
-- Internal newsletters  
-- Announcements  
-- Update digests  
-- Executive briefs  
-- Related internal-communications artifacts  
-
-## Inputs for Each Run
-
-**Required:**  
-- Topic summary  
-- Target audience  
-- Key dates or deadlines  
-
-## Required Outputs
-
-- Finished draft (Word or Google Doc, 200–500 words, no approval marks)  
-- Status flag (values: `'drafting'`, `'ready for review'`, `'approved'`)  
-
-## Reusable Process
-
-1. Requestor provides topic/audience  
-2. IC writer drafts using the standard internal communications template (Appendix A of the style guide)  
-3. Routes to the relevant communications lead for review  
-
-## Policies
-
-**Hard:**  
-- Must use the approved template  
-- Must follow plain-language and inclusive tone guidelines  
-- Require final sign-off from the communications lead before flagging as approved  
-
-## Failure Handling
-
-**Anticipated:**  
-- Topic summary too vague to draft from  
-- Template unavailable  
-- Communications lead unresponsive for over two days  
-
-## Delegation Policy
-
-**Delegable:**  
-- Initial drafting using template and topic summary  
-
-**Non‑delegable:**  
-- Final review and approval by communications lead
-
-"""
+    # Read input from a text file
+    input_path = Path(__file__).parent / "input" / "internal_comms.txt"
+    raw_text = input_path.read_text(encoding="utf-8")
 
     # Load configuration
     config = load_config(

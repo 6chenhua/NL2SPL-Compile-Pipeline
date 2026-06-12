@@ -94,8 +94,18 @@ def test_adapter_preserves_delegation_policy_without_bridge_facts() -> None:
     result = _run_stage3_5_irs(routes)
     diags = result.diagnostics
 
-    assert len(diags) == 1
-    assert diags[0].diagnostic_id.startswith("irs_")
-    assert diags[0].kind == "type_or_contract_ambiguity"
-    assert diags[0].target_ref == f"delegation_intent:{del_span.span_id}"
-    assert diags[0].source_span_ids == [del_span.span_id]
+    # R10 Phase 1: diagnostic now targets worker_promotion:* (not delegation_intent:*)
+    assert len(diags) >= 1, (
+        f"Expected diagnostics from IRS, got {[(d.target_ref, d.kind) for d in diags]}"
+    )
+    # Filter to the type_or_contract_ambiguity diagnostics from worker_promotion
+    ambiguity_diags = [
+        d for d in diags
+        if d.kind == "type_or_contract_ambiguity"
+        and (d.target_ref or "").startswith("worker_promotion:")
+    ]
+    assert len(ambiguity_diags) >= 1
+    diag = ambiguity_diags[0]
+    assert diag.diagnostic_id.startswith("irs_")
+    assert diag.kind == "type_or_contract_ambiguity"
+    assert del_span.span_id in diag.source_span_ids

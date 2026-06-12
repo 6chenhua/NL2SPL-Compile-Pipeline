@@ -443,7 +443,9 @@ class ProvenanceAggregator:
             worker_hint = getattr(intent, "suggested_worker_name", None) or ""
             traces.append(
                 TraceRecord(
-                    target_ref=f"delegation_intent:{intent.name}",
+                    # R10 Phase 6: source_signal: prefix — trace-only, not
+                    # a construct or diagnostic host target.
+                    target_ref=f"source_signal:delegation_intent:{intent.name}",
                     source_span_ids=ev_span_ids,
                     source_section_id=section_id,
                     source_packet_id=packet_id,
