@@ -45,6 +45,19 @@ class ExecutorMixin:
             if routes.annotations
             else set(routes.behavior)
         )
+        # Phase 3 defensive diagnostic: routes.behavior non-empty but zero
+        # executable behavior span IDs from annotations.
+        if routes.annotations and routes.behavior and not behavior_span_ids:
+            self.logger.warning(
+                "Defensive: routes.behavior has %d span(s) but zero executable "
+                "behavior span IDs from annotations. Behavior spans exist in "
+                "the legacy list but none have executable annotations. This "
+                "may indicate upstream annotation contract mismatches (e.g., "
+                "process_step with invalid construct_target rejected by "
+                "Stage 2 validator, or Stage 3 split children missing "
+                "annotations).",
+                len(routes.behavior),
+            )
         if construct_plan is not None:
             behavior_span_ids -= construct_plan.reserved_without_dual_role()
         behavior_spans = [s for s in spans if s.span_id in behavior_span_ids]
@@ -105,6 +118,15 @@ class ExecutorMixin:
             if routes.annotations
             else set(routes.behavior)
         )
+        # Phase 3 defensive diagnostic: behavior list non-empty but no
+        # executable annotations — worker flows will be empty.
+        if routes.annotations and routes.behavior and not behavior_span_ids:
+            self.logger.warning(
+                "Defensive: routes.behavior has %d span(s) but zero executable "
+                "behavior span IDs from annotations. Worker-level flow "
+                "assembly may produce empty main flow for all workers.",
+                len(routes.behavior),
+            )
         if construct_plan is not None:
             behavior_span_ids -= construct_plan.reserved_without_dual_role()
         span_by_id = {span.span_id: span for span in spans}
@@ -135,6 +157,15 @@ class ExecutorMixin:
                 warnings.append(
                     f"Worker {worker.worker_id} has no owned behavior spans for Stage 4."
                 )
+                # Amplify warning when root cause is likely annotation-related
+                if routes.annotations and routes.behavior and not behavior_span_ids:
+                    warnings.append(
+                        f"Worker {worker.worker_id}: routes.behavior is non-empty "
+                        f"({len(routes.behavior)} span(s)) but no executable "
+                        f"behavior annotations exist. Check Stage 2 annotation "
+                        f"contract validation and Stage 3 child annotation "
+                        f"derivation."
+                    )
 
             flow = self._assemble_flow(
                 spans=worker_source_spans or worker_behavior_spans,

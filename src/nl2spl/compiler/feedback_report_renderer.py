@@ -14,6 +14,13 @@ from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
 
 
+_WORKER_PROMOTION_SLOT_ORDER: tuple[str, ...] = (
+    "promotion_input_contract",
+    "promotion_output_contract",
+    "promotion_invocation_point",
+    "promotion_result_handoff",
+)
+
 _DIAG_ORDER: dict[str, int] = {
     "missing_handler": 0,
     "missing_output_producer": 1,
@@ -59,7 +66,7 @@ def render_feedback_report(
     lines.append("")
     lines.extend(_render_diagnostics(diags))
     lines.append("")
-    lines.extend(_render_assumptions(asms))
+    lines.extend(_render_assumptions(asms, diags))
     lines.append("")
     lines.extend(_render_traces(trcs))
     lines.append("")
@@ -101,9 +108,12 @@ def _render_status(
         lines.append("Result is blocked because validation errors remain.")
     elif blocking:
         lines.append("Result is partial because the following requirement gaps remain:")
-        for d in _sort_diags(blocking):
-            target = f" on `{d.target_ref}`" if d.target_ref else ""
-            lines.append(f"- `{d.kind}`{target}: {d.message}")
+        for item in _grouped_diag_items(blocking):
+            if isinstance(item, list):
+                lines.extend(_render_worker_promotion_group(item, "status"))
+            else:
+                target = f" on `{item.target_ref}`" if item.target_ref else ""
+                lines.append(f"- `{item.kind}`{target}: {item.message}")
     elif completeness == "complete":
         lines.append("No completion-blocking diagnostic was emitted.")
     else:
@@ -128,7 +138,8 @@ def _render_materialized(traces: list[TraceRecord]) -> list[str]:
         lines.append("No source-backed structure was materialized.")
         return lines
 
-    for group in ["Workers", "Flows", "Steps", "Variables", "Constraints", "Handoffs", "Delegation Intents", "Other"]:
+    # R10 Phase 6: "Delegation Intents" replaced by "Source Signals"
+    for group in ["Workers", "Flows", "Steps", "Variables", "Constraints", "Handoffs", "Source Signals", "Other"]:
         items = sorted(grouped.get(group, []), key=_trace_sort_key)
         if not items:
             continue
@@ -158,11 +169,14 @@ def _render_not_materialized(diagnostics: list[CompileDiagnostic]) -> list[str]:
         lines.append("No source-expressed structure was blocked or kept partial.")
         return lines
 
-    for d in _sort_diags(partial_diags):
-        target = f"`{d.target_ref}`" if d.target_ref else "affected element"
-        lines.append(f"- {target}: `{d.kind}` -- {d.message}")
-        if d.suggested_resolution:
-            lines.append(f"  - Suggested resolution: {d.suggested_resolution}")
+    for item in _grouped_diag_items(partial_diags):
+        if isinstance(item, list):
+            lines.extend(_render_worker_promotion_group(item, "partial"))
+            continue
+        target = f"`{item.target_ref}`" if item.target_ref else "affected element"
+        lines.append(f"- {target}: `{item.kind}` -- {item.message}")
+        if item.suggested_resolution:
+            lines.append(f"  - Suggested resolution: {item.suggested_resolution}")
     return lines
 
 
@@ -172,7 +186,12 @@ def _render_diagnostics(diagnostics: list[CompileDiagnostic]) -> list[str]:
         lines.append("No compile diagnostics.")
         return lines
 
-    for d in _sort_diags(diagnostics):
+    for item in _grouped_diag_items(diagnostics):
+        if isinstance(item, list):
+            lines.extend(_render_worker_promotion_group(item, "diagnostics"))
+            lines.append("")
+            continue
+        d = item
         lines.append(f"### {d.diagnostic_id}: `{d.kind}`")
         lines.append(f"- Severity: `{d.severity}`")
         if d.target_ref:
@@ -196,13 +215,66 @@ def _render_diagnostics(diagnostics: list[CompileDiagnostic]) -> list[str]:
     return lines
 
 
-def _render_assumptions(assumptions: list[CompileAssumption]) -> list[str]:
+def _render_assumptions(
+    assumptions: list[CompileAssumption],
+    diagnostics: list[CompileDiagnostic] | None = None,
+) -> list[str]:
     lines = ["## 5. Assumptions / Suggestions", ""]
     if not assumptions:
         lines.append("No report-only assumptions were generated.")
         return lines
 
+    diag_group_by_id: dict[str, tuple[str, tuple[str, ...]]] = {}
+    promotion_groups = _group_worker_promotion_diags(diagnostics or [])
+    for key, group in promotion_groups.items():
+        if len(group) <= 1:
+            continue
+        for diag in group:
+            diag_group_by_id[diag.diagnostic_id] = key
+
+    assumptions_by_diag_id = {
+        a.related_diagnostic_id: a
+        for a in assumptions
+        if a.related_diagnostic_id
+    }
+    rendered_groups: set[tuple[str, tuple[str, ...]]] = set()
+
     for a in sorted(assumptions, key=lambda x: x.assumption_id):
+        group_key = (
+            diag_group_by_id.get(a.related_diagnostic_id)
+            if a.related_diagnostic_id
+            else None
+        )
+        if group_key is not None:
+            if group_key in rendered_groups:
+                continue
+            rendered_groups.add(group_key)
+            group = promotion_groups[group_key]
+            grouped_asms = [
+                assumptions_by_diag_id[d.diagnostic_id]
+                for d in _sort_worker_promotion_group(group)
+                if d.diagnostic_id in assumptions_by_diag_id
+            ]
+            if grouped_asms:
+                assumption_ids = ", ".join(a.assumption_id for a in grouped_asms)
+                diagnostic_ids = ", ".join(a.related_diagnostic_id or "" for a in grouped_asms)
+                target = group[0].target_ref or "worker promotion"
+                lines.append(
+                    f"- `{assumption_ids}` for `{target}`: "
+                    "Worker promotion has an incomplete contract."
+                )
+                lines.append(
+                    "  - Reason: The candidate is blocked by multiple "
+                    "missing promotion slots."
+                )
+                lines.append(
+                    "  - Suggested resolution: Provide the missing input/output "
+                    "contracts, invocation point, and result handoff details "
+                    "listed in the related diagnostics."
+                )
+                lines.append(f"  - Related diagnostics: `{diagnostic_ids}`")
+                continue
+
         lines.append(f"- `{a.assumption_id}` for `{a.target_ref}`: {a.text}")
         if a.reason:
             lines.append(f"  - Reason: {a.reason}")
@@ -327,6 +399,131 @@ def _sort_diags(diagnostics: list[CompileDiagnostic]) -> list[CompileDiagnostic]
     )
 
 
+def _is_worker_promotion_slot_diag(diagnostic: CompileDiagnostic) -> bool:
+    missing_slot = diagnostic.missing_slot
+    return (
+        diagnostic.kind == "type_or_contract_ambiguity"
+        and bool(diagnostic.target_ref)
+        and diagnostic.target_ref.startswith("worker_promotion:")
+        and missing_slot is not None
+        and missing_slot.slot_name in _WORKER_PROMOTION_SLOT_ORDER
+    )
+
+
+def _worker_promotion_group_key(
+    diagnostic: CompileDiagnostic,
+) -> tuple[str, tuple[str, ...]]:
+    return (
+        diagnostic.target_ref or "",
+        tuple(sorted(diagnostic.source_span_ids)),
+    )
+
+
+def _group_worker_promotion_diags(
+    diagnostics: list[CompileDiagnostic],
+) -> dict[tuple[str, tuple[str, ...]], list[CompileDiagnostic]]:
+    groups: dict[tuple[str, tuple[str, ...]], list[CompileDiagnostic]] = defaultdict(list)
+    for diagnostic in diagnostics:
+        if _is_worker_promotion_slot_diag(diagnostic):
+            groups[_worker_promotion_group_key(diagnostic)].append(diagnostic)
+    return groups
+
+
+def _grouped_diag_items(
+    diagnostics: list[CompileDiagnostic],
+) -> list[CompileDiagnostic | list[CompileDiagnostic]]:
+    groups = _group_worker_promotion_diags(diagnostics)
+    grouped_ids = {
+        diagnostic.diagnostic_id
+        for group in groups.values()
+        if len(group) > 1
+        for diagnostic in group
+    }
+    items: list[CompileDiagnostic | list[CompileDiagnostic]] = []
+    emitted_groups: set[tuple[str, tuple[str, ...]]] = set()
+
+    for diagnostic in _sort_diags(diagnostics):
+        if diagnostic.diagnostic_id not in grouped_ids:
+            items.append(diagnostic)
+            continue
+        key = _worker_promotion_group_key(diagnostic)
+        if key in emitted_groups:
+            continue
+        emitted_groups.add(key)
+        items.append(_sort_worker_promotion_group(groups[key]))
+    return items
+
+
+def _sort_worker_promotion_group(
+    diagnostics: list[CompileDiagnostic],
+) -> list[CompileDiagnostic]:
+    slot_order = {
+        slot_name: index
+        for index, slot_name in enumerate(_WORKER_PROMOTION_SLOT_ORDER)
+    }
+    return sorted(
+        diagnostics,
+        key=lambda d: (
+            slot_order.get(d.missing_slot.slot_name if d.missing_slot else "", 99),
+            d.diagnostic_id,
+        ),
+    )
+
+
+def _render_worker_promotion_group(
+    diagnostics: list[CompileDiagnostic],
+    section: str,
+) -> list[str]:
+    group = _sort_worker_promotion_group(diagnostics)
+    first = group[0]
+    target = first.target_ref or "worker promotion"
+    source_spans = sorted(first.source_span_ids)
+    lines: list[str] = []
+
+    if section == "status":
+        lines.append(
+            f"- `type_or_contract_ambiguity` on `{target}`: "
+            "WORKER_PROMOTION blocked by missing promotion slots."
+        )
+        for diagnostic in group:
+            lines.append(_promotion_slot_line(diagnostic, indent="  "))
+        return lines
+
+    if section == "partial":
+        lines.append(
+            f"- `{target}`: `type_or_contract_ambiguity` -- "
+            "WORKER_PROMOTION blocked by missing promotion slots."
+        )
+        if source_spans:
+            lines.append(f"  - Source spans: `{', '.join(source_spans)}`")
+        for diagnostic in group:
+            lines.append(_promotion_slot_line(diagnostic, indent="  "))
+        return lines
+
+    lines.append(f"### grouped:{target}: `type_or_contract_ambiguity`")
+    lines.append("- Severity: `warning`")
+    lines.append(f"- Target: `{target}`")
+    if source_spans:
+        lines.append(f"- Source spans: `{', '.join(source_spans)}`")
+    lines.append("- Message: WORKER_PROMOTION blocked by missing promotion slots.")
+    lines.append("- Blocks rendering: `false`")
+    lines.append(
+        f"- Blocks completion: `{str(any(d.blocks_completion for d in group)).lower()}`"
+    )
+    lines.append("- Missing slots:")
+    for diagnostic in group:
+        lines.append(_promotion_slot_line(diagnostic, indent="  "))
+        lines.append(f"    - Diagnostic: `{diagnostic.diagnostic_id}`")
+    return lines
+
+
+def _promotion_slot_line(diagnostic: CompileDiagnostic, indent: str) -> str:
+    missing_slot = diagnostic.missing_slot
+    slot_name = missing_slot.slot_name if missing_slot else "unknown"
+    reason = missing_slot.reason if missing_slot else diagnostic.message
+    return f"{indent}- `{slot_name}`: {reason}"
+
+
 def _trace_group(target_ref: str) -> str:
     if target_ref.startswith("worker:"):
         return "Workers"
@@ -340,8 +537,10 @@ def _trace_group(target_ref: str) -> str:
         return "Constraints"
     if target_ref.startswith("handoff:"):
         return "Handoffs"
-    if target_ref.startswith("delegation_intent:"):
-        return "Delegation Intents"
+    # R10 Phase 6: delegation_intent:* is no longer a construct/diagnostic
+    # target.  Source-signal traces use source_signal:delegation_intent: prefix.
+    if target_ref.startswith("source_signal:delegation_intent:"):
+        return "Source Signals"
     return "Other"
 
 
