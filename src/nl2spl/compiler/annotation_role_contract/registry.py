@@ -408,33 +408,37 @@ class AnnotationRoleContractRegistry:
             if c.executable
         )
 
-    # -- compatibility sets (for parser/validator, not LLM prompt) --------------
+    # -- prompt-visible sets (safe for LLM prompt schemas) ---------------------
 
-    # Legacy fields retained for backward compatibility in the parser and
-    # validator.  The LLM prompt payload (ARC6) only exposes semantic_roles.
+    # Legacy fields that exist in the historical LLM output schema but
+    # have no corresponding semantic role contract.  These must be
+    # preserved in the prompt ``allowed_schema`` for backward compatibility.
     _LEGACY_PROMPT_FIELDS: frozenset[str] = frozenset({"identity", "audience"})
 
     def allowed_prompt_fields(self) -> frozenset[str]:
-        """All ``field`` values accepted by the parser/validator.
+        """All ``field`` values for the LLM-facing prompt schema.
 
-        Contract-derived fields PLUS legacy ``identity``/``audience`` that
-        have no semantic role contract but may appear in older LLM responses.
-        Sourced by ``ALLOWED_FIELDS`` for backward compatibility.
+        Returns the contract-derived fields PLUS legacy fields
+        (``identity``, ``audience``) that have no semantic role contract
+        but are part of the historical LLM output schema.
+
+        This is the set that should source ``ALLOWED_FIELDS``.
         """
         return self.allowed_fields() | self._LEGACY_PROMPT_FIELDS
 
     def prompt_non_executable_roles(self) -> frozenset[str]:
         """LLM-visible roles whose contract specifies ``executable=False``.
 
-        Excludes internal roles.  Sourced by ``NON_EXECUTABLE_ROLES`` for
-        backward compatibility with older LLM responses.
+        Excludes internal roles (e.g. ``failure_condition``) that are not
+        LLM-visible.  This is the set that should source
+        ``NON_EXECUTABLE_ROLES``.
         """
         return self.non_executable_roles() & self.allowed_llm_semantic_roles()
 
     def prompt_executable_roles(self) -> frozenset[str]:
         """LLM-visible roles whose contract specifies ``executable=True``.
 
-        Sourced by ``EXECUTABLE_ROLES`` for backward compatibility.
+        This is the set that should source ``EXECUTABLE_ROLES``.
         """
         return self.executable_roles() & self.allowed_llm_semantic_roles()
 

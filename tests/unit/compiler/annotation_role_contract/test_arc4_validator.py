@@ -60,10 +60,9 @@ def _validate(annotations: list, spans=None):
 
 
 class TestProfileDomainContractRejection:
-    """Phase 1: profile_domain with mismatched construct_target/slot_target
-    is now ACCEPTED with diagnostics (normalization will correct fields)."""
+    """profile_domain with any construct_target or slot_target must be rejected."""
 
-    def test_accepts_with_diagnostic_for_construct_target_mismatch(self):
+    def test_rejects_construct_target_reserved_word(self):
         ann = _make_annotation(
             span_id="sp_pd",
             field="domain",
@@ -72,14 +71,9 @@ class TestProfileDomainContractRejection:
             slot_target="input",
         )
         v = _validate([ann])
-        assert "sp_pd" in {a.span_id for a in v.accepted}, (
-            "Phase 1: known role must be accepted with diagnostic"
-        )
-        assert len(v.structured_diagnostics) >= 1, (
-            "Phase 1: diagnostic must be recorded for construct_target/slot mismatch"
-        )
+        assert "sp_pd" in {r.annotation.span_id for r in v.rejected}
 
-    def test_accepts_with_diagnostic_for_slot_target_only(self):
+    def test_rejects_slot_target_only(self):
         ann = _make_annotation(
             span_id="sp_pd",
             field="domain",
@@ -87,10 +81,7 @@ class TestProfileDomainContractRejection:
             slot_target="input",
         )
         v = _validate([ann])
-        assert "sp_pd" in {a.span_id for a in v.accepted}, (
-            "Phase 1: known role with slot mismatch must be accepted"
-        )
-        assert len(v.structured_diagnostics) >= 1
+        assert "sp_pd" in {r.annotation.span_id for r in v.rejected}
 
     def test_accepts_correct_profile_domain(self):
         ann = _make_annotation(
@@ -109,11 +100,10 @@ class TestProfileDomainContractRejection:
 
 
 class TestExpectedNoneEnforced:
-    """Phase 1: roles with expected None for construct_target/slot_target
-    now ACCEPT annotations with non-None values (diagnostics recorded).
-    Normalization will correct the fields in the merge loop."""
+    """Roles with explicit construct_target=None, slot_target=None must reject
+    annotations that provide non-None values."""
 
-    def test_constraint_accepted_with_diagnostic_for_construct_target(self):
+    def test_constraint_rejects_construct_target(self):
         ann = _make_annotation(
             span_id="sp_c",
             field="rules",
@@ -122,14 +112,9 @@ class TestExpectedNoneEnforced:
             slot_target="input",
         )
         v = _validate([ann])
-        assert "sp_c" in {a.span_id for a in v.accepted}, (
-            "Phase 1: constraint with known role must be accepted"
-        )
-        assert len(v.structured_diagnostics) >= 1, (
-            "Phase 1: diagnostic must be recorded for construct_target mismatch"
-        )
+        assert "sp_c" in {r.annotation.span_id for r in v.rejected}
 
-    def test_process_step_accepted_with_diagnostic_for_construct_target(self):
+    def test_process_step_rejects_construct_target(self):
         ann = _make_annotation(
             span_id="sp_ps",
             field="behavior",
@@ -139,12 +124,7 @@ class TestExpectedNoneEnforced:
             executable=True,
         )
         v = _validate([ann])
-        assert "sp_ps" in {a.span_id for a in v.accepted}, (
-            "Phase 1: process_step with known role must be accepted"
-        )
-        assert len(v.structured_diagnostics) >= 1, (
-            "Phase 1: diagnostic must be recorded for construct_target/slot mismatch"
-        )
+        assert "sp_ps" in {r.annotation.span_id for r in v.rejected}
 
 
 # ===========================================================================
@@ -208,10 +188,9 @@ class TestValidContractAnnotationsAccepted:
 
 
 class TestWrongFieldDetected:
-    """Phase 1: annotations with wrong field for their semantic_role
-    are now ACCEPTED with diagnostics (normalization corrects the field)."""
+    """Annotations with wrong field for their semantic_role are rejected."""
 
-    def test_input_contract_with_wrong_field_accepted(self):
+    def test_input_contract_with_wrong_field(self):
         ann = _make_annotation(
             span_id="sp_wf",
             field="behavior",  # should be "resources"
@@ -222,12 +201,7 @@ class TestWrongFieldDetected:
             executable=False,
         )
         v = _validate([ann])
-        assert "sp_wf" in {a.span_id for a in v.accepted}, (
-            "Phase 1: known role with wrong field must be accepted"
-        )
-        assert len(v.structured_diagnostics) >= 1, (
-            "Phase 1: diagnostic must be recorded for field mismatch"
-        )
+        assert "sp_wf" in {r.annotation.span_id for r in v.rejected}
 
 
 # ===========================================================================
@@ -470,8 +444,6 @@ class TestValidatorUsesRegistry:
         assert diags == []
 
     def test_check_against_registry_returns_structured_diagnostic(self):
-        """Phase 1: known roles produce diagnostics without rejection.
-        rej is None, but structured_diagnostics are populated."""
         v = _make_validator()
         ann = _make_annotation(
             span_id="sp_sd",
@@ -481,12 +453,8 @@ class TestValidatorUsesRegistry:
             slot_target="input",
         )
         rej, diags = v._check_against_registry(ann)
-        assert rej is None, (
-            "Phase 1: known role must NOT be rejected — rejection_reason is None"
-        )
-        assert len(diags) >= 1, (
-            "Phase 1: structured diagnostics must be populated"
-        )
+        assert rej is not None
+        assert len(diags) >= 1
         d = diags[0]
         assert d.kind == "annotation_invalid_construct_target_for_role"
         assert d.span_id == "sp_sd"

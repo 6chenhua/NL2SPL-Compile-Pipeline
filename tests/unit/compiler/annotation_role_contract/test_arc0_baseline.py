@@ -77,13 +77,10 @@ class TestProfileDomainResourceContractGap:
         assert exe is False
 
     def test_validator_enforces_none_construct_target_for_profile_domain(self):
-        """Phase 1: Validator now ACCEPTS profile_domain with
-        construct_target=RESOURCE_CONTRACT and records a typed diagnostic.
-        Normalization in the merge loop corrects the fields.
+        """ARC4: Validator rejects profile_domain with construct_target=RESOURCE_CONTRACT.
 
         The canonical registry encodes explicit construct_target=None for
-        profile_domain.  The full-field validator diagnoses this but does
-        not reject known roles.
+        profile_domain.  The full-field validator now enforces this.
         """
         from nl2spl.pipeline.stages.stage2_field_router_validator import (
             _ROLE_CONTRACT,
@@ -94,12 +91,20 @@ class TestProfileDomainResourceContractGap:
             RouteRefinementResult,
         )
 
-        # _ROLE_CONTRACT is an empty compatibility wrapper; registry is authoritative
         contract = _ROLE_CONTRACT.get("profile_domain", {})
+        # Today: no construct_target key → validator skips the check
         assert "construct_target" not in contract, (
-            "_ROLE_CONTRACT is an empty compatibility wrapper"
+            "CURRENT GAP: _ROLE_CONTRACT for profile_domain has no construct_target "
+            "expectation, so validator cannot enforce that it must be None"
+        )
+        assert "slot_target" not in contract, (
+            "CURRENT GAP: _ROLE_CONTRACT for profile_domain has no slot_target "
+            "expectation, so validator cannot enforce that it must be None"
         )
 
+        # Build a RefinedAnnotation that contradicts the semantic role.
+        # Provide a valid span so the validator proceeds past span-existence
+        # check and reaches the role-specific contract check.
         from nl2spl.ir.span_ir import SpanIR
 
         ann = RefinedAnnotation(
@@ -116,20 +121,17 @@ class TestProfileDomainResourceContractGap:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans=[span], canonical_input=None)
 
-        # Phase 1: known role is accepted with diagnostic
-        accepted_ids = {a.span_id for a in result.accepted}
-        assert "sp_001" in accepted_ids, (
-            "Phase 1: profile_domain with known role must be ACCEPTED "
-            "(diagnostic recorded, normalization will correct fields)"
-        )
-        assert len(result.structured_diagnostics) >= 1, (
-            "Phase 1: structured diagnostic must be recorded for "
-            "construct_target mismatch"
+        # FUTURE expectation: this annotation should be rejected.
+        # CURRENTLY: _ROLE_CONTRACT["profile_domain"] lacks construct_target/slot_target
+        # expectations, so the validator skips the check and the annotation passes.
+        rejected_span_ids = {r.annotation.span_id for r in result.rejected}
+        assert "sp_001" in rejected_span_ids, (
+            "profile_domain + RESOURCE_CONTRACT/input should be rejected "
+            "by the full-field validator"
         )
 
     def test_validator_enforces_none_slot_target_for_profile_domain(self):
-        """Phase 1: Validator now ACCEPTS profile_domain with slot_target=input
-        and records a typed diagnostic. Normalization corrects fields."""
+        """ARC4: Validator rejects profile_domain with slot_target=input."""
         from nl2spl.pipeline.stages.stage2_field_router_validator import (
             RouteRefinementValidator,
         )
@@ -153,13 +155,10 @@ class TestProfileDomainResourceContractGap:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans=[span], canonical_input=None)
 
-        # Phase 1: known role accepted with diagnostic
-        accepted_ids = {a.span_id for a in result.accepted}
-        assert "sp_001" in accepted_ids, (
-            "Phase 1: profile_domain with slot mismatch must be ACCEPTED "
-            "(diagnostic recorded)"
+        rejected_span_ids = {r.annotation.span_id for r in result.rejected}
+        assert "sp_001" in rejected_span_ids, (
+            "profile_domain with slot_target=input should be rejected"
         )
-        assert len(result.structured_diagnostics) >= 1
 
 
 # ===========================================================================
@@ -377,10 +376,8 @@ class TestValidatorMissingExpectedNone:
         assert c.executable is True
 
     def test_validator_now_rejects_profile_domain_with_construct_target(self):
-        """Phase 1: Full-field validator now ACCEPTS profile_domain with
-        construct_target=RESOURCE_CONTRACT (diagnostic recorded).
-        Expected None is diagnosed, not enforced via rejection — the
-        merge loop's normalization corrects the fields."""
+        """ARC4: Full-field validator rejects profile_domain with
+        construct_target=RESOURCE_CONTRACT — expected None is enforced."""
         from nl2spl.pipeline.stages.stage2_field_router_validator import (
             RouteRefinementValidator,
         )
@@ -408,14 +405,10 @@ class TestValidatorMissingExpectedNone:
             canonical_input=None,
         )
 
-        # Phase 1: known role accepted with diagnostic, not rejected
-        accepted_ids = {a.span_id for a in result.accepted}
-        assert "sp_test" in accepted_ids, (
-            "Phase 1: profile_domain known role must be ACCEPTED "
-            "(diagnostic recorded, normalization will correct fields)"
-        )
-        assert len(result.structured_diagnostics) >= 1, (
-            "Phase 1: structured diagnostic must be recorded for field mismatch"
+        rejected_span_ids = {r.annotation.span_id for r in result.rejected}
+        assert "sp_test" in rejected_span_ids, (
+            "ARC4: validator must reject profile_domain with "
+            "construct_target=RESOURCE_CONTRACT"
         )
 
 

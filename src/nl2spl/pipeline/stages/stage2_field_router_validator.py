@@ -177,11 +177,8 @@ class RouteRefinementValidator:
         ) -> tuple[bool, str, list[str], list]:
             return False, msg, [], struct or []
 
-        def ok(
-            warns: list[str] | None = None,
-            struct_diags: list[AnnotationValidationDiagnostic] | None = None,
-        ) -> tuple[bool, str, list[str], list]:
-            return True, "", warns or [], struct_diags or []
+        def ok(warns: list[str] | None = None) -> tuple[bool, str, list[str], list]:
+            return True, "", warns or [], []
 
         # --- 1. Span existence ------------------------------------------
         if ann.span_id not in valid_span_ids:
@@ -189,46 +186,36 @@ class RouteRefinementValidator:
 
         span = span_by_id.get(ann.span_id)
 
-        # --- 2. Allowed schema (ARC6) ------------------------------------
-        # semantic_role is the PRIMARY required field.  Legacy field-only
-        # annotations without semantic_role are rejected.
-        if ann.semantic_role is None:
-            return reject(f"Rejected: missing semantic_role for span '{ann.span_id}'")
-
-        has_known_role = ann.semantic_role in ALLOWED_SEMANTIC_ROLES
-        if not has_known_role and ann.field is not None and ann.field not in ALLOWED_FIELDS:
+        # --- 2. Allowed schema ------------------------------------------
+        if ann.field is None or ann.field not in ALLOWED_FIELDS:
             return reject(f"Rejected: invalid field '{ann.field}' for span '{ann.span_id}'")
         if ann.semantic_role is not None and ann.semantic_role not in ALLOWED_SEMANTIC_ROLES:
             return reject(
                 f"Rejected: invalid semantic_role '{ann.semantic_role}' for span '{ann.span_id}'"
             )
-        # ARC6: Known roles with invalid construct_target/slot_target are
-        # diagnosed (step 5) but NOT rejected — normalization corrects them.
         if (
             ann.construct_target is not None
             and ann.construct_target not in ALLOWED_CONSTRUCT_TARGETS
         ):
-            if not has_known_role:
-                return reject(
-                    f"Rejected: invalid construct_target '{ann.construct_target}' "
-                    f"for span '{ann.span_id}'"
-                )
+            return reject(
+                f"Rejected: invalid construct_target '{ann.construct_target}' "
+                f"for span '{ann.span_id}'"
+            )
         if ann.slot_target is not None and ann.slot_target not in ALLOWED_SLOT_TARGETS:
-            if not has_known_role:
+            return reject(
+                f"Rejected: invalid slot_target '{ann.slot_target}' for span '{ann.span_id}'"
+            )
+
+        # --- 3. Executable must be a bool -------------------------------
+        if not isinstance(ann.executable, bool):
+            return reject(f"Rejected: missing or malformed executable for span '{ann.span_id}'")
+
+        # --- 4. NON_EXECUTABLE_ROLES ------------------------------------
+        if ann.semantic_role and ann.semantic_role in NON_EXECUTABLE_ROLES:
+            if ann.executable:
                 return reject(
-                    f"Rejected: invalid slot_target '{ann.slot_target}' "
-                    f"for span '{ann.span_id}'"
+                    f"Rejected: {ann.semantic_role} must be non-executable for span '{ann.span_id}'"
                 )
-
-        # --- 3. Executable is optional (ARC6: compiler fills from contract) -
-        if ann.executable is not None and not isinstance(ann.executable, bool):
-            return reject(f"Rejected: malformed executable for span '{ann.span_id}'")
-
-        # --- 4. NON_EXECUTABLE_ROLES (ARC6: diagnostic, not reject) -------
-        # executable mismatches for known roles are recorded as diagnostics
-        # by the contract check (step 5) and corrected by normalization.
-        # This gate is now a soft diagnostic for legacy non-executable
-        # mismatches — the annotation is accepted with correction.
 
         # --- 4.5. Placeholder spans and empty markers cannot be executable roles ----------
         if span is not None:
@@ -275,14 +262,12 @@ class RouteRefinementValidator:
                     ann.source_packet_id = pid
 
         # --- 5. Full-field role contract check (ARC4: registry-driven) --
-        # Phase 1: known-role mismatches produce diagnostics, NOT rejection.
-        # The merge loop's _normalize_annotation_contract will correct fields.
-        registry_struct_diags: list[AnnotationValidationDiagnostic] = []
         if ann.semantic_role:
             rej, struct_diags = self._check_against_registry(ann)
-            registry_struct_diags = struct_diags
             if rej:
-                # Only unknown semantic_role reaches here (Phase 1 change)
+                # Store structured diagnostics on the rejection reason
+                # for later collection by the validate() method
+                # (hack: attach to the annotation temporarily)
                 return reject(rej, struct_diags)
 
         # --- 6. Anti-fabrication: handler must have source text ----------
@@ -372,7 +357,7 @@ class RouteRefinementValidator:
         if conflict:
             warns.append(conflict)
 
-        return ok(warns, struct_diags=registry_struct_diags)
+        return ok(warns)
 
     # ------------------------------------------------------------------
     # Full-field role contract check (ARC4)
@@ -385,13 +370,8 @@ class RouteRefinementValidator:
         """Validate *ann* against the canonical role contract registry.
 
         Checks all five compiler-facing fields including expected ``None``.
-
-        For **known** semantic roles, field-value mismatches produce typed
-        diagnostics but do NOT cause rejection — the merge loop's normalization
-        will correct them.  Only **unknown** semantic roles are rejected.
-
         Returns ``(rejection_reason, structured_diagnostics)``.
-        For known roles, rejection_reason is always ``None``.
+        If valid, rejection_reason is ``None``.
         """
         role = ann.semantic_role
         source_section_id = getattr(ann, "source_section_id", None)
@@ -411,14 +391,9 @@ class RouteRefinementValidator:
 
         contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
 
-        def _record(
-            kind: str, field_name: str, expected: object, actual: object,
-        ) -> None:
-            """Record a typed diagnostic for a contract field mismatch.
-
-            The annotation is NOT rejected — the merge loop's
-            ``_normalize_annotation_contract`` will correct the field.
-            """
+        def _reject(
+            kind: str, field_name: str, expected: object, actual: object, msg: str,
+        ) -> tuple[str, list[AnnotationValidationDiagnostic]]:
             diag = AnnotationValidationDiagnostic(
                 kind=kind,
                 span_id=ann.span_id,
@@ -428,49 +403,54 @@ class RouteRefinementValidator:
                 actual=actual,
                 source_section_id=source_section_id,
                 source_packet_id=source_packet_id,
-                message=(
-                    f"Role contract mismatch for {resolved}: "
-                    f"{field_name} is {actual!r}, "
-                    f"contract requires {expected!r} "
-                    f"(will be normalized by merge loop)"
-                ),
+                message=msg,
             )
             structured.append(diag)
+            return msg, structured
 
-        # field — record diagnostic, do not reject known roles
+        # field
         if ann.field is not None and ann.field != contract.field:
-            _record(
+            return _reject(
                 ANNOTATION_INVALID_FIELD_FOR_ROLE,
                 "field", contract.field, ann.field,
+                f"Rejected: {role} requires field='{contract.field}', "
+                f"got '{ann.field}' for span '{ann.span_id}'",
             )
 
-        # route_family — record diagnostic for conflicting values, not missing
+        # route_family — reject only conflicting values, not missing ones
         if ann.route_family is not None and ann.route_family != contract.route_family:
-            _record(
+            return _reject(
                 ANNOTATION_INVALID_ROUTE_FAMILY_FOR_ROLE,
                 "route_family", contract.route_family, ann.route_family,
+                f"Rejected: {role} requires route_family={contract.route_family!r}, "
+                f"got {ann.route_family!r} for span '{ann.span_id}'",
             )
 
-        # construct_target — record diagnostic (including expected None)
+        # construct_target
         if ann.construct_target is not None and ann.construct_target != contract.construct_target:
-            _record(
+            return _reject(
                 ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
                 "construct_target", contract.construct_target, ann.construct_target,
+                f"Rejected: {role} requires construct_target={contract.construct_target!r}, "
+                f"got {ann.construct_target!r} for span '{ann.span_id}'",
             )
 
-        # slot_target — record diagnostic (including expected None)
+        # slot_target
         if ann.slot_target is not None and ann.slot_target != contract.slot_target:
-            _record(
+            return _reject(
                 ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
                 "slot_target", contract.slot_target, ann.slot_target,
+                f"Rejected: {role} requires slot_target={contract.slot_target!r}, "
+                f"got {ann.slot_target!r} for span '{ann.span_id}'",
             )
 
-        # executable — record diagnostic only when LLM provided a value
-        # (minimal schema omits executable; that is correct, not a conflict)
-        if ann.executable is not None and ann.executable != contract.executable:
-            _record(
+        # executable
+        if ann.executable != contract.executable:
+            return _reject(
                 ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
                 "executable", contract.executable, ann.executable,
+                f"Rejected: {role} requires executable={contract.executable}, "
+                f"got {ann.executable} for span '{ann.span_id}'",
             )
 
         return None, structured
@@ -581,23 +561,6 @@ class RouteRefinementValidator:
                         f"'{seg_text[:60]}' not found in parent span text "
                         f"'{parent_text[:60]}' for parent '{sr.parent_span_id}'"
                     )
-                # Validate segment semantic_role against registry.
-                # Unknown roles are diagnosed but the segment is NOT dropped —
-                # Stage 3 will resolve and skip gracefully.
-                seg_role = seg.semantic_role
-                if seg_role is not None:
-                    from nl2spl.compiler.annotation_role_contract.registry import (
-                        ROLE_CONTRACT_REGISTRY,
-                    )
-                    resolved = ROLE_CONTRACT_REGISTRY.resolve_semantic_role(seg_role)
-                    if resolved is None:
-                        diagnostics.append(
-                            f"Split segment warning: unknown semantic_role "
-                            f"'{seg_role}' in segment "
-                            f"'{seg_text[:60]}' for parent "
-                            f"'{sr.parent_span_id}'; Stage 3 will skip "
-                            f"annotation for this child."
-                        )
                 valid_segments.append(
                     {
                         "text": seg_text,
