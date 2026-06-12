@@ -641,39 +641,8 @@ class SPLConstructRegistry:
             ],
         ))
 
-        # -- DELEGATION_INTENT -----------------------------------------------
-        registry.register(ConstructIRS(
-            construct_type="DELEGATION_INTENT",
-            existence_policy="source_signal_required",
-            source_signals=["delegation_intent", "delegation_boundary"],
-            partial_rendering_allowed=False,
-            no_demand_behavior="do_not_generate",
-            description=(
-                "A source-level delegation intent route annotation. It is not "
-                "rendered as SPL by itself; it is complete only when a valid "
-                "worker/API handoff contract covers the source span."
-            ),
-            slots=[
-                SlotSpec(
-                    slot_name="delegation_signal",
-                    required_for_partial=True,
-                    required_for_complete=True,
-                    evidence_kinds=["route_annotation", "source_span"],
-                ),
-                SlotSpec(
-                    slot_name="handoff_contract",
-                    required_for_complete=True,
-                    renderable_without=False,
-                    evidence_kinds=["worker_handoff", "api_handoff"],
-                    missing_diagnostic="type_or_contract_ambiguity",
-                    notes=(
-                        "Satisfied when an invoke/API handoff has a valid "
-                        "target and contract bindings covering the delegation "
-                        "intent span."
-                    ),
-                ),
-            ],
-        ))
+        # R10: DELEGATION_INTENT removed — delegation_intent is a source
+        # signal / evidence routed through WORKER_CANDIDATE / WORKER_PROMOTION.
 
         # -- RESOURCE_CONTRACT_DEMAND -----------------------------------------
         registry.register(ConstructIRS(

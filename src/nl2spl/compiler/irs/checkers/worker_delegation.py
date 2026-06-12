@@ -7,6 +7,13 @@ R4 implementation:
     - Does not modify WorkerPlanIR
     - Does not generate new workers or handoffs
     - Uses diagnostic_kind for missing slots
+
+R10 Phase 1:
+    - DELEGATION_INTENT removed as IRS construct; delegation_intent annotations
+      are evidence routed into WORKER_CANDIDATE / WORKER_PROMOTION instead.
+    - Annotations not covered by any candidate produce synthetic candidate-only
+      WORKER_CANDIDATE / WORKER_PROMOTION instances flagged with
+      metadata.synthetic_from_route_annotation=True.
 """
 
 from __future__ import annotations
@@ -23,14 +30,13 @@ from nl2spl.compiler.irs.instance import ConstructInstance
 
 class WorkerDelegationIRSChecker:
     """IRS v6 checker for worker/delegation constructs.
-    
+
     Supported constructs:
-        - DELEGATION_INTENT: Source-level delegation intent route annotations
         - WORKER_CANDIDATE: Identified task boundary candidates
         - WORKER_PROMOTION: Promotion readiness assessment
         - CHILD_WORKER: Materialized child workers
         - WORKER_HANDOFF: Materialized worker handoffs
-    
+
     Design principles:
         - Only consumes structured IR fields
         - Does not infer semantics from text
@@ -38,134 +44,208 @@ class WorkerDelegationIRSChecker:
         - Does not generate new constructs
         - Uses diagnostic_kind for missing slots
     """
-    
+
     checker_id = "worker_delegation"
     supported_construct_types = (
-        "DELEGATION_INTENT",
         "WORKER_CANDIDATE",
         "WORKER_PROMOTION",
         "CHILD_WORKER",
         "WORKER_HANDOFF",
     )
     supported_stages = ("stage3_5", "stage3_5_worker_boundary")
-    
+
     def extract_instances(self, context: IRSCheckContext) -> list[ConstructInstance]:
         """Extract worker/delegation construct instances from context.
-        
+
         Args:
             context: Pipeline context with worker_plan
-        
+
         Returns:
             List of construct instances to check
         """
         instances: list[ConstructInstance] = []
-        
+
         worker_plan = context.worker_plan
 
-        # Extract DELEGATION_INTENT directly from final RouteAnnotations.
-        # The source demand is represented as an IRS construct and projected
-        # through DiagnosticProjector.
+        # Collect delegation_intent route annotations as evidence.
+        # They are NOT registered as DELEGATION_INTENT construct instances.
+        # Instead, they are routed into WORKER_CANDIDATE / WORKER_PROMOTION.
+        delegation_annotations: list = []
         if context.routes is not None:
-            for ann in context.routes.get_annotations_by_role("delegation_intent"):
+            delegation_annotations = context.routes.get_annotations_by_role(
+                "delegation_intent"
+            )
+        delegation_span_ids = {ann.span_id for ann in delegation_annotations}
+        # Track which delegation spans have been covered by existing candidates
+        covered_delegation_spans: set[str] = set()
+
+        # ------------------------------------------------------------------
+        # Extract WORKER_CANDIDATE / WORKER_PROMOTION from WorkerPlanIR
+        # candidates.  Delegation-intent route annotations that overlap with
+        # a candidate's source spans are attached as evidence.
+        # ------------------------------------------------------------------
+        if worker_plan is not None:
+            worker_candidate_kinds = {
+                "explicit_delegation",
+                "bounded_subtask",
+                "integration_wrapper",
+                "complex_control_extraction",
+                "loop_body_worker",
+                "failure_recovery_protocol",
+                "template_or_format_protocol",
+            }
+
+            for candidate in worker_plan.candidates:
+                if candidate.candidate_kind not in worker_candidate_kinds:
+                    continue
+
+                # Merge delegation annotation spans into source_span_ids
+                candidate_spans = list(candidate.source_span_ids)
+                delegation_hits = delegation_span_ids & set(candidate_spans)
+                covered_delegation_spans |= delegation_hits
+
+                candidate_metadata: dict = {"candidate_ir": candidate}
+                promotion_metadata: dict = {"candidate_ir": candidate}
+
+                # Attach delegation evidence when annotations overlap.
+                # Only merge the spans that actually hit this candidate,
+                # not every delegation annotation span in the system.
+                if delegation_hits:
+                    candidate_spans = list(
+                        set(candidate_spans) | delegation_hits
+                    )
+                    delegation_meta = {
+                        "original_semantic_role": "delegation_intent",
+                        "original_route_annotation_ids": sorted(delegation_hits),
+                        "original_source_span_ids": sorted(delegation_hits),
+                    }
+                    candidate_metadata.update(delegation_meta)
+                    promotion_metadata.update(delegation_meta)
+
                 instances.append(ConstructInstance(
-                    construct_id=f"delegation_intent:{ann.span_id}",
-                    construct_type="DELEGATION_INTENT",
+                    construct_id=f"worker_candidate:{candidate.candidate_id}",
+                    construct_type="WORKER_CANDIDATE",
                     materialized=False,
                     source_demanded=True,
                     candidate_only=True,
-                    ir_ref=ann,
+                    ir_ref=candidate,
+                    source_span_ids=candidate_spans,
+                    construct_path=("worker_plan", "candidates", candidate.candidate_id),
+                    metadata=candidate_metadata,
+                ))
+
+                instances.append(ConstructInstance(
+                    construct_id=f"worker_promotion:{candidate.candidate_id}",
+                    construct_type="WORKER_PROMOTION",
+                    materialized=False,
+                    source_demanded=True,
+                    candidate_only=True,
+                    ir_ref=candidate,
+                    source_span_ids=candidate_spans,
+                    construct_path=("worker_plan", "promotion", candidate.candidate_id),
+                    metadata=promotion_metadata,
+                ))
+
+        # ------------------------------------------------------------------
+        # Synthetic WORKER_CANDIDATE / WORKER_PROMOTION for delegation_intent
+        # annotations not covered by any WorkerPlanIR candidate.
+        # These are candidate-only analysis instances flagged with
+        # metadata.synthetic_from_route_annotation=True.
+        # ------------------------------------------------------------------
+        uncovered_spans = delegation_span_ids - covered_delegation_spans
+        if uncovered_spans:
+            from nl2spl.ir.worker_plan_ir import CandidateTaskUnitIR
+
+            for ann in delegation_annotations:
+                if ann.span_id not in uncovered_spans:
+                    continue
+
+                synthetic_id = f"del_{ann.span_id}"
+                synthetic_candidate = CandidateTaskUnitIR(
+                    candidate_id=synthetic_id,
+                    source_span_ids=[ann.span_id],
+                    task_text="",
+                    purpose="",
+                    candidate_kind="explicit_delegation",
+                    possible_inputs=[],
+                    possible_outputs=[],
+                    signals=["delegation"],
+                    risks=[
+                        "no_clear_input_contract",
+                        "no_clear_output_contract",
+                    ],
+                )
+                synthetic_metadata = {
+                    "candidate_ir": synthetic_candidate,
+                    "synthetic_from_route_annotation": True,
+                    "original_semantic_role": "delegation_intent",
+                    "original_route_annotation_id": ann.span_id,
+                    "original_source_span_ids": [ann.span_id],
+                    "annotation": ann,
+                }
+
+                instances.append(ConstructInstance(
+                    construct_id=f"worker_candidate:{synthetic_id}",
+                    construct_type="WORKER_CANDIDATE",
+                    materialized=False,
+                    source_demanded=True,
+                    candidate_only=True,
+                    ir_ref=synthetic_candidate,
                     source_span_ids=[ann.span_id],
                     construct_path=("routes", "annotations", ann.span_id),
-                    metadata={"annotation": ann},
+                    metadata=dict(synthetic_metadata),
                 ))
-        
-        # The remaining worker/delegation constructs require WorkerPlanIR.
-        if worker_plan is None:
-            return instances
-        
-        # Extract WORKER_CANDIDATE and WORKER_PROMOTION from candidates
-        # Only process worker/delegation boundary candidates, not constraint/exception/alternative/api_call
-        worker_candidate_kinds = {
-            "explicit_delegation",
-            "bounded_subtask",
-            "integration_wrapper",
-            "complex_control_extraction",
-            "loop_body_worker",
-            "failure_recovery_protocol",
-            "template_or_format_protocol",
-        }
-        
-        for candidate in worker_plan.candidates:
-            # Skip non-worker candidates
-            if candidate.candidate_kind not in worker_candidate_kinds:
-                continue
-            
-            # WORKER_CANDIDATE instance
-            candidate_instance = ConstructInstance(
-                construct_id=f"worker_candidate:{candidate.candidate_id}",
-                construct_type="WORKER_CANDIDATE",
-                materialized=False,
-                source_demanded=True,
-                candidate_only=True,
-                ir_ref=candidate,
-                source_span_ids=list(candidate.source_span_ids),
-                construct_path=("worker_plan", "candidates", candidate.candidate_id),
-                metadata={"candidate_ir": candidate},
-            )
-            instances.append(candidate_instance)
-            
-            # WORKER_PROMOTION instance
-            promotion_instance = ConstructInstance(
-                construct_id=f"worker_promotion:{candidate.candidate_id}",
-                construct_type="WORKER_PROMOTION",
-                materialized=False,
-                source_demanded=True,
-                candidate_only=True,
-                ir_ref=candidate,
-                source_span_ids=list(candidate.source_span_ids),
-                construct_path=("worker_plan", "promotion", candidate.candidate_id),
-                metadata={"candidate_ir": candidate},
-            )
-            instances.append(promotion_instance)
-        
-        # Extract CHILD_WORKER from materialized workers
-        for worker in worker_plan.workers:
-            if worker.kind in {"child", "api_adapter"}:
-                worker_instance = ConstructInstance(
-                    construct_id=f"child_worker:{worker.worker_id}",
-                    construct_type="CHILD_WORKER",
+                instances.append(ConstructInstance(
+                    construct_id=f"worker_promotion:{synthetic_id}",
+                    construct_type="WORKER_PROMOTION",
+                    materialized=False,
+                    source_demanded=True,
+                    candidate_only=True,
+                    ir_ref=synthetic_candidate,
+                    source_span_ids=[ann.span_id],
+                    construct_path=("routes", "annotations", ann.span_id),
+                    metadata=dict(synthetic_metadata),
+                ))
+
+        # Extract CHILD_WORKER from materialized workers and
+        # WORKER_HANDOFF from handoffs. Both require WorkerPlanIR.
+        if worker_plan is not None:
+            for worker in worker_plan.workers:
+                if worker.kind in {"child", "api_adapter"}:
+                    worker_instance = ConstructInstance(
+                        construct_id=f"child_worker:{worker.worker_id}",
+                        construct_type="CHILD_WORKER",
+                        materialized=True,
+                        source_demanded=True,
+                        candidate_only=False,
+                        ir_ref=worker,
+                        source_span_ids=list(worker.owned_span_ids),
+                        construct_path=("worker_plan", "workers", worker.worker_id),
+                        metadata={"worker_ir": worker},
+                    )
+                    instances.append(worker_instance)
+
+            for handoff in worker_plan.handoffs:
+                # Collect source spans from invoke_location_hint if available
+                handoff_source_spans = []
+                if handoff.invoke_location_hint:
+                    if handoff.invoke_location_hint.after_span_id:
+                        handoff_source_spans.append(handoff.invoke_location_hint.after_span_id)
+                    if handoff.invoke_location_hint.before_span_id:
+                        handoff_source_spans.append(handoff.invoke_location_hint.before_span_id)
+
+                handoff_instance = ConstructInstance(
+                    construct_id=f"worker_handoff:{handoff.handoff_id}",
+                    construct_type="WORKER_HANDOFF",
                     materialized=True,
                     source_demanded=True,
                     candidate_only=False,
-                    ir_ref=worker,
-                    source_span_ids=list(worker.owned_span_ids),
-                    construct_path=("worker_plan", "workers", worker.worker_id),
-                    metadata={"worker_ir": worker},
+                    ir_ref=handoff,
+                    source_span_ids=handoff_source_spans,
+                    construct_path=("worker_plan", "handoffs", handoff.handoff_id),
+                    metadata={"handoff_ir": handoff},
                 )
-                instances.append(worker_instance)
-        
-        # Extract WORKER_HANDOFF from handoffs
-        for handoff in worker_plan.handoffs:
-            # Collect source spans from invoke_location_hint if available
-            handoff_source_spans = []
-            if handoff.invoke_location_hint:
-                if handoff.invoke_location_hint.after_span_id:
-                    handoff_source_spans.append(handoff.invoke_location_hint.after_span_id)
-                if handoff.invoke_location_hint.before_span_id:
-                    handoff_source_spans.append(handoff.invoke_location_hint.before_span_id)
-            
-            handoff_instance = ConstructInstance(
-                construct_id=f"worker_handoff:{handoff.handoff_id}",
-                construct_type="WORKER_HANDOFF",
-                materialized=True,
-                source_demanded=True,
-                candidate_only=False,
-                ir_ref=handoff,
-                source_span_ids=handoff_source_spans,
-                construct_path=("worker_plan", "handoffs", handoff.handoff_id),
-                metadata={"handoff_ir": handoff},
-            )
-            instances.append(handoff_instance)
+                instances.append(handoff_instance)
         
         return instances
     
@@ -185,9 +265,7 @@ class WorkerDelegationIRSChecker:
         Returns:
             Satisfaction report with slot-level evidence
         """
-        if instance.construct_type == "DELEGATION_INTENT":
-            return self._check_delegation_intent(instance, irs, context)
-        elif instance.construct_type == "WORKER_CANDIDATE":
+        if instance.construct_type == "WORKER_CANDIDATE":
             return self._check_worker_candidate(instance, irs, context)
         elif instance.construct_type == "WORKER_PROMOTION":
             return self._check_worker_promotion(instance, irs, context)
@@ -198,87 +276,6 @@ class WorkerDelegationIRSChecker:
         else:
             raise ValueError(f"Unsupported construct type: {instance.construct_type}")
 
-    def _check_delegation_intent(
-        self,
-        instance: ConstructInstance,
-        irs: ConstructIRS,
-        context: IRSCheckContext,
-    ) -> ConstructSatisfactionReport:
-        """Check whether a delegation intent has a valid handoff contract."""
-        annotation = instance.metadata["annotation"]
-        span_id = annotation.span_id
-        handoff_satisfied = self._handoff_covers_span(
-            span_id,
-            context.worker_plan,
-        )
-
-        signal = SlotSatisfaction(
-            slot_name="delegation_signal",
-            status="satisfied",
-            source_span_ids=[span_id],
-            source_section_id=annotation.source_section_id,
-            source_packet_id=annotation.source_packet_id,
-            relation="direct",
-        )
-
-        handoff_spec = irs.get_slot("handoff_contract")
-        if handoff_satisfied:
-            handoff = SlotSatisfaction(
-                slot_name="handoff_contract",
-                status="satisfied",
-                source_span_ids=[span_id],
-                relation="direct",
-            )
-            completeness = "complete"
-            frontier_status = "leaf"
-            cutline_reason = None
-        else:
-            handoff = SlotSatisfaction(
-                slot_name="handoff_contract",
-                status="missing",
-                source_span_ids=[span_id],
-                source_section_id=annotation.source_section_id,
-                source_packet_id=annotation.source_packet_id,
-                diagnostic_kind=(
-                    handoff_spec.missing_diagnostic
-                    if handoff_spec else "type_or_contract_ambiguity"
-                ),
-                diagnostic_target_ref=f"delegation_intent:{span_id}",
-                diagnostic_required_for=span_id,
-                diagnostic_blocks_rendering=False,
-                explanation=(
-                    "Delegation intent lacks a valid worker/API handoff "
-                    "contract. No INVOKE_WORKER or CALL_API will be "
-                    "generated from this span."
-                ),
-                suggested_resolution=(
-                    "Provide a valid worker/API handoff contract with "
-                    "input/output/API bindings covering this delegation span."
-                ),
-            )
-            completeness = "partial"
-            frontier_status = "cutline_partial"
-            cutline_reason = "missing_handoff_contract"
-
-        return ConstructSatisfactionReport(
-            construct_id=instance.construct_id,
-            construct_type="DELEGATION_INTENT",
-            slots=[signal, handoff],
-            completeness=completeness,
-            renderable=False,
-            source_span_ids=[span_id],
-            source_section_id=annotation.source_section_id,
-            source_packet_id=annotation.source_packet_id,
-            construct_path=instance.construct_path,
-            frontier_status=frontier_status,
-            cutline_reason=cutline_reason,
-            metadata={
-                "span_id": span_id,
-                "route_family": annotation.route_family,
-                "semantic_role": annotation.semantic_role,
-            },
-        )
-    
     def _matching_handoffs_for_candidate(self, candidate, worker_plan):
         """Find handoffs that structurally match the given candidate.
         
@@ -351,19 +348,18 @@ class WorkerDelegationIRSChecker:
                 matching.append(invoke_handoffs[0])
         
         return matching
-    
+
     def _handoff_has_valid_target(self, handoff, worker_plan):
         """Check if handoff has a valid target.
-        
+
         Args:
             handoff: WorkerHandoffIR
             worker_plan: WorkerPlanIR
-        
+
         Returns:
             bool: True if target is valid
         """
         if handoff.mode == "invoke":
-            # For invoke mode, to_worker must exist in worker_plan.workers
             if not handoff.to_worker:
                 return False
             return any(
@@ -371,56 +367,9 @@ class WorkerDelegationIRSChecker:
                 for w in worker_plan.workers
             )
         elif handoff.mode == "api_call":
-            # For api_call mode, api_ref must be non-empty
             return bool(handoff.api_ref)
         return False
 
-    def _handoff_covers_span(self, span_id: str, worker_plan) -> bool:
-        """Return True when a valid handoff contract covers *span_id*."""
-        if worker_plan is None or not worker_plan.handoffs:
-            return False
-
-        known_child_ids = {
-            worker.worker_id for worker in worker_plan.workers
-            if worker.worker_id != worker_plan.main_worker_id
-            and worker.boundary_kind != "main_worker"
-            and worker.boundary_kind != "not_a_worker"
-        }
-
-        for handoff in worker_plan.handoffs:
-            if not self._is_valid_handoff_contract(handoff, known_child_ids):
-                continue
-
-            hint_ids: list[str] = []
-            if handoff.invoke_location_hint:
-                if handoff.invoke_location_hint.after_span_id:
-                    hint_ids.append(handoff.invoke_location_hint.after_span_id)
-                if handoff.invoke_location_hint.before_span_id:
-                    hint_ids.append(handoff.invoke_location_hint.before_span_id)
-            if handoff.failure_policy:
-                hint_ids.extend(handoff.failure_policy.source_span_ids)
-
-            if span_id in hint_ids:
-                return True
-        return False
-
-    @staticmethod
-    def _is_valid_handoff_contract(handoff, known_child_ids: set[str]) -> bool:
-        """Check the contract fields needed to satisfy DELEGATION_INTENT."""
-        if handoff.mode == "invoke":
-            if not handoff.to_worker or handoff.to_worker not in known_child_ids:
-                return False
-            if not handoff.input_bindings:
-                return False
-            if not handoff.output_bindings:
-                return False
-            return True
-
-        if handoff.mode == "api_call":
-            return bool(handoff.api_ref)
-
-        return False
-    
     def _check_worker_candidate(
         self,
         instance: ConstructInstance,
@@ -428,7 +377,7 @@ class WorkerDelegationIRSChecker:
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
         """Check WORKER_CANDIDATE satisfaction.
-        
+
         A candidate is complete when:
             - responsibility: purpose or task_text is non-empty
             - delegation_signal: signals non-empty or candidate_kind != "not_a_worker"
@@ -471,6 +420,21 @@ class WorkerDelegationIRSChecker:
         completeness = "complete" if all_satisfied else "partial"
         
         # WORKER_CANDIDATE is not renderable (analysis construct)
+        report_metadata: dict = {
+            "candidate_id": candidate.candidate_id,
+            "candidate_kind": candidate.candidate_kind,
+            "candidate_status": "identified",
+        }
+        for key in (
+            "original_semantic_role",
+            "original_route_annotation_id",
+            "original_route_annotation_ids",
+            "original_source_span_ids",
+            "synthetic_from_route_annotation",
+        ):
+            if key in instance.metadata:
+                report_metadata[key] = instance.metadata[key]
+
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type=instance.construct_type,
@@ -480,11 +444,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             construct_path=instance.construct_path,
             frontier_status="leaf",
-            metadata={
-                "candidate_id": candidate.candidate_id,
-                "candidate_kind": candidate.candidate_kind,
-                "candidate_status": "identified",
-            },
+            metadata=report_metadata,
         )
     
     def _check_worker_promotion(
@@ -517,6 +477,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if input_contract_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not input_contract_satisfied else None,
+            diagnostic_blocks_rendering=False,
             explanation=(
                 "Input contract satisfied" if input_contract_satisfied
                 else "Missing clear input contract"
@@ -537,6 +498,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if output_contract_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not output_contract_satisfied else None,
+            diagnostic_blocks_rendering=False,
             explanation=(
                 "Output contract satisfied" if output_contract_satisfied
                 else "Missing clear output contract"
@@ -546,10 +508,14 @@ class WorkerDelegationIRSChecker:
             missing_slot_names.append("promotion_output_contract")
         
         # Check promotion_invocation_point
-        # Requires: accepted decision + matching handoff with invoke hint
+        # Requires: accepted decision (or synthetic delegation) + matching
+        # handoff with invoke hint.
+        is_synthetic = instance.metadata.get("synthetic_from_route_annotation", False)
         invocation_point_satisfied = False
         if context.worker_plan:
-            # Check for accepted extract_child_worker decision
+            # Check for accepted extract_child_worker decision.
+            # Synthetic instances (from bare delegation annotations) skip
+            # the decision requirement — the handoff match is sufficient.
             has_accepted_decision = any(
                 d.candidate_id == candidate.candidate_id
                 and d.decision == "extract_child_worker"
@@ -567,7 +533,9 @@ class WorkerDelegationIRSChecker:
                 )
                 for h in matching_handoffs
             )
-            invocation_point_satisfied = has_accepted_decision and has_handoff_with_hint
+            invocation_point_satisfied = (
+                has_accepted_decision or is_synthetic
+            ) and has_handoff_with_hint
         
         slot_spec = irs.get_slot("promotion_invocation_point")
         slots.append(SlotSatisfaction(
@@ -576,6 +544,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if invocation_point_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not invocation_point_satisfied else None,
+            diagnostic_blocks_rendering=False,
             explanation=(
                 "Invocation point identified with accepted decision and matching handoff with invoke hint"
                 if invocation_point_satisfied
@@ -602,6 +571,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if result_handoff_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not result_handoff_satisfied else None,
+            diagnostic_blocks_rendering=False,
             explanation=(
                 "Result handoff with output bindings found"
                 if result_handoff_satisfied
@@ -649,6 +619,23 @@ class WorkerDelegationIRSChecker:
                 ))
         
         # WORKER_PROMOTION is not renderable (analysis construct)
+        report_metadata: dict = {
+            "promotion_status": promotion_status,
+            "promotion_candidate_id": candidate.candidate_id,
+            "promotion_missing_slots": missing_slot_names,
+        }
+        # Propagate delegation provenance from instance metadata so
+        # DiagnosticProjector / selective promotion can use it (Phase 4).
+        for key in (
+            "original_semantic_role",
+            "original_route_annotation_id",
+            "original_route_annotation_ids",
+            "original_source_span_ids",
+            "synthetic_from_route_annotation",
+        ):
+            if key in instance.metadata:
+                report_metadata[key] = instance.metadata[key]
+
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type=instance.construct_type,
@@ -660,13 +647,9 @@ class WorkerDelegationIRSChecker:
             frontier_status="cutline_blocked" if not all_satisfied else "leaf",
             cutline_reason="missing_promotion_contract" if not all_satisfied else None,
             related_edges=related_edges,
-            metadata={
-                "promotion_status": promotion_status,
-                "promotion_candidate_id": candidate.candidate_id,
-                "promotion_missing_slots": missing_slot_names,
-            },
+            metadata=report_metadata,
         )
-    
+
     def _check_child_worker(
         self,
         instance: ConstructInstance,

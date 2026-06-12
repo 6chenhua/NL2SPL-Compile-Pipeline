@@ -171,7 +171,25 @@ class DiagnosticProjector:
                     blocks_completion=spec.blocks_completion,
                     suggested_resolution=slot.suggested_resolution,
                 )
-                
+
+                # R10 Phase 4A: Project delegation provenance metadata from
+                # the construct satisfaction report to the diagnostic so
+                # orchestrator selective promotion can use it.
+                # Only copies safe provenance keys — does not infer
+                # diagnostic kind, severity, or construct semantics.
+                _SAFE_PROVENANCE_KEYS = (
+                    "original_semantic_role",
+                    "original_route_annotation_id",
+                    "original_route_annotation_ids",
+                    "original_source_span_ids",
+                    "synthetic_from_route_annotation",
+                    "promotion_candidate_id",
+                    "promotion_status",
+                )
+                for _key in _SAFE_PROVENANCE_KEYS:
+                    if _key in report.metadata:
+                        diagnostic.metadata[_key] = report.metadata[_key]
+
                 diagnostics.append(diagnostic)
         
         return DiagnosticProjectionResult(

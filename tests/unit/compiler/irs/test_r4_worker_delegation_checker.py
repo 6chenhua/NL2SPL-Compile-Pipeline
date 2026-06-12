@@ -86,17 +86,12 @@ class TestR4ConstructRegistry:
         assert irs.get_slot("delegation_signal") is not None
         assert irs.get_slot("source_evidence") is not None
 
-    def test_registry_contains_delegation_intent(self):
-        """DELEGATION_INTENT construct spec exists for route demands."""
+    def test_registry_no_longer_has_delegation_intent(self):
+        """R10 Phase 5: DELEGATION_INTENT removed from ConstructRegistry."""
         registry = SPLConstructRegistry.default()
-        assert registry.has("DELEGATION_INTENT")
-
-        irs = registry.get("DELEGATION_INTENT")
-        assert irs.construct_type == "DELEGATION_INTENT"
-        assert irs.get_slot("delegation_signal") is not None
-        contract = irs.get_slot("handoff_contract")
-        assert contract is not None
-        assert contract.missing_diagnostic == "type_or_contract_ambiguity"
+        assert not registry.has("DELEGATION_INTENT"), (
+            "R10 Phase 5: DELEGATION_INTENT construct removed from registry"
+        )
 
 
 # ===========================================================================
@@ -225,7 +220,8 @@ class TestR4CheckerExtraction:
         assert instances[0].materialized is True
 
     def test_delegation_intent_extraction_from_routes(self):
-        """Route delegation annotations produce DELEGATION_INTENT instances."""
+        """R10 Phase 1: Route delegation annotations now produce synthetic
+        WORKER_CANDIDATE + WORKER_PROMOTION instances — no DELEGATION_INTENT."""
         routes = FieldRouteIR(
             behavior=["s_delegate"],
             annotations=[
@@ -243,9 +239,15 @@ class TestR4CheckerExtraction:
 
         instances = checker.extract_instances(context)
 
-        assert len(instances) == 1
-        assert instances[0].construct_type == "DELEGATION_INTENT"
-        assert instances[0].construct_id == "delegation_intent:s_delegate"
+        # R10: produces WORKER_CANDIDATE + WORKER_PROMOTION (not DELEGATION_INTENT)
+        assert len(instances) == 2
+        types = {i.construct_type for i in instances}
+        assert types == {"WORKER_CANDIDATE", "WORKER_PROMOTION"}
+        assert all("del_s_delegate" in i.construct_id for i in instances)
+        # All instances must be flagged as synthetic
+        for i in instances:
+            assert i.metadata.get("synthetic_from_route_annotation") is True
+            assert i.metadata.get("original_semantic_role") == "delegation_intent"
 
 
 class TestR4DelegationIntentIRS:
@@ -277,7 +279,12 @@ class TestR4DelegationIntentIRS:
         )
 
     def test_missing_handoff_contract_projects_irs_diagnostic(self):
-        """Missing delegation contract projects type_or_contract_ambiguity."""
+        """R10 Phase 1: Missing delegation contract — WORKER_PROMOTION
+        missing slots produce type_or_contract_ambiguity via IRS projection.
+
+        Precise assertions: exact diagnostic count, exact slot names,
+        correct target_ref, correct source spans, correct metadata.
+        """
         plan = WorkerPlanIR(main_worker_id="worker_main", workers=[], handoffs=[])
         result = self._runner().run_stage(
             "stage3_5",
@@ -288,20 +295,59 @@ class TestR4DelegationIntentIRS:
             ),
         )
 
+        # R10: diagnostics target worker_promotion:del_s_delegate (synthetic)
+        expected_target = "worker_promotion:del_s_delegate"
         diags = [
             d for d in result.diagnostics
-            if d.target_ref == "delegation_intent:s_delegate"
+            if d.target_ref == expected_target
+            and d.kind == "type_or_contract_ambiguity"
         ]
-        assert len(diags) == 1
-        diag = diags[0]
-        assert diag.diagnostic_id.startswith("irs_")
-        assert diag.kind == "type_or_contract_ambiguity"
-        assert diag.source_span_ids == ["s_delegate"]
-        assert diag.missing_slot is not None
-        assert diag.missing_slot.slot_name == "handoff_contract"
+        # All 4 promotion slots missing → exactly 4 diagnostics
+        assert len(diags) == 4, (
+            f"Expected exactly 4 ambiguity diagnostics for {expected_target}, "
+            f"got {len(diags)}: {[(d.target_ref, d.missing_slot.slot_name if d.missing_slot else None) for d in diags]}"
+        )
+        slot_names = {d.missing_slot.slot_name for d in diags}
+        assert slot_names == {
+            "promotion_input_contract",
+            "promotion_output_contract",
+            "promotion_invocation_point",
+            "promotion_result_handoff",
+        }, f"Unexpected slot names: {slot_names}"
+
+        for diag in diags:
+            assert diag.diagnostic_id.startswith("irs_")
+            assert diag.kind == "type_or_contract_ambiguity"
+            assert "s_delegate" in diag.source_span_ids
+            assert diag.missing_slot is not None
+
+        # Verify no DELEGATION_INTENT reports or diagnostics exist
+        delegation_reports = [
+            r for r in result.reports
+            if r.construct_type == "DELEGATION_INTENT"
+        ]
+        assert len(delegation_reports) == 0
+        delegation_diags = [
+            d for d in result.diagnostics
+            if (d.target_ref or "").startswith("delegation_intent:")
+        ]
+        assert len(delegation_diags) == 0
+
+        # Verify the report carries delegation provenance metadata
+        promotion_reports = [
+            r for r in result.reports
+            if r.construct_id == expected_target
+        ]
+        assert len(promotion_reports) == 1
+        report = promotion_reports[0]
+        assert report.metadata.get("synthetic_from_route_annotation") is True
+        assert report.metadata.get("original_semantic_role") == "delegation_intent"
+        assert report.metadata.get("original_source_span_ids") == ["s_delegate"]
 
     def test_valid_handoff_contract_suppresses_delegation_intent_diagnostic(self):
-        """A valid invoke handoff covering the span satisfies the IRS slot."""
+        """R10 Phase 1: A valid invoke handoff covering the span
+        satisfies WORKER_PROMOTION invocation/result-handoff slots.
+        No DELEGATION_INTENT construct exists anymore."""
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[
@@ -364,20 +410,48 @@ class TestR4DelegationIntentIRS:
             ),
         )
 
+        # R10: No DELEGATION_INTENT constructs or diagnostics
         assert all(
-            d.target_ref != "delegation_intent:s_delegate"
+            not (d.target_ref or "").startswith("delegation_intent:")
             for d in result.diagnostics
         )
-        reports = [
+        delegation_reports = [
             r for r in result.reports
-            if r.construct_id == "delegation_intent:s_delegate"
+            if r.construct_type == "DELEGATION_INTENT"
         ]
-        assert reports
-        handoff_slot = next(
-            slot for slot in reports[0].slots
-            if slot.slot_name == "handoff_contract"
+        assert len(delegation_reports) == 0
+
+        # Synthetic WORKER_PROMOTION exists for the delegation span.
+        # The matching handoff satisfies invocation_point + result_handoff.
+        promotion_reports = [
+            r for r in result.reports
+            if r.construct_type == "WORKER_PROMOTION"
+            and "del_s_delegate" in r.construct_id
+        ]
+        assert len(promotion_reports) == 1
+        promotion = promotion_reports[0]
+
+        # invocation_point: satisfied (handoff hint spans overlap)
+        inv_slot = next(
+            s for s in promotion.slots
+            if s.slot_name == "promotion_invocation_point"
         )
-        assert handoff_slot.status == "satisfied"
+        assert inv_slot.status == "satisfied", (
+            f"Expected invocation_point satisfied, got {inv_slot.status}"
+        )
+
+        # result_handoff: satisfied (handoff has output_bindings)
+        res_slot = next(
+            s for s in promotion.slots
+            if s.slot_name == "promotion_result_handoff"
+        )
+        assert res_slot.status == "satisfied", (
+            f"Expected result_handoff satisfied, got {res_slot.status}"
+        )
+
+        # Note: input/output contract slots are still missing because the
+        # synthetic candidate (from bare route annotation) has no contracts.
+        # This is expected — Phase 2 will refine signal preservation.
 
 
 # ===========================================================================
@@ -2068,3 +2142,670 @@ class TestR4RunnerIntegration:
             w for w in result.warnings if "Unknown construct type" in w
         ]
         assert len(unknown_warnings) == 0
+
+
+# ===========================================================================
+# R10 Phase 1: Metadata propagation tests
+# ===========================================================================
+
+
+class TestR10MetadataPropagation:
+    """Verify delegation provenance fields flow from instance → report."""
+
+    def test_promotion_report_carries_delegation_metadata_from_instance(self):
+        """ConstructSatisfactionReport.metadata includes
+        original_semantic_role, original_source_span_ids,
+        synthetic_from_route_annotation from ConstructInstance.metadata.
+        """
+        routes = FieldRouteIR(
+            behavior=["s_delegate"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                )
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=routes)
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        # Report metadata MUST carry delegation provenance for Phase 4
+        assert report.metadata.get("synthetic_from_route_annotation") is True
+        assert report.metadata.get("original_semantic_role") == "delegation_intent"
+        assert report.metadata.get("original_source_span_ids") == ["s_delegate"]
+
+    def test_candidate_report_carries_delegation_metadata_from_instance(self):
+        """WORKER_CANDIDATE report also propagates provenance metadata."""
+        routes = FieldRouteIR(
+            behavior=["s_delegate"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                )
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=routes)
+        instances = checker.extract_instances(context)
+        candidate_instance = [
+            i for i in instances if i.construct_type == "WORKER_CANDIDATE"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_CANDIDATE")
+        report = checker.check_instance(candidate_instance, irs, context)
+
+        assert report.metadata.get("synthetic_from_route_annotation") is True
+        assert report.metadata.get("original_semantic_role") == "delegation_intent"
+
+    def test_real_candidate_report_has_no_synthetic_flag(self):
+        """Real (non-synthetic) candidate report does NOT leak synthetic flag."""
+        candidate = CandidateTaskUnitIR(
+            candidate_id="cand_1",
+            source_span_ids=["s1"],
+            task_text="Task",
+            purpose="Purpose",
+            candidate_kind="explicit_delegation",
+            possible_inputs=[],
+            possible_outputs=[],
+            signals=["delegation"],
+            risks=[],
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[],
+            candidates=[candidate],
+            decisions=[],
+            handoffs=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        assert report.metadata.get("synthetic_from_route_annotation") is None
+        assert report.metadata.get("original_semantic_role") is None
+
+
+# ===========================================================================
+# R10 Phase 1: Correct span-per-candidate matching
+# ===========================================================================
+
+
+class TestR10DelegationSpanMatching:
+    """Verify delegation annotation spans only merge into matching candidates."""
+
+    def test_only_matching_delegation_span_merged_into_candidate(self):
+        """Two delegation annotations, candidate covers only one.
+        The candidate must only receive the matching span, not the other."""
+        routes = FieldRouteIR(
+            behavior=["s_delegate_a", "s_delegate_b"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate_a",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s_delegate_b",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+            ],
+        )
+        # Candidate only covers s_delegate_a
+        candidate = CandidateTaskUnitIR(
+            candidate_id="cand_1",
+            source_span_ids=["s_delegate_a", "s_task"],
+            task_text="Task",
+            purpose="Purpose",
+            candidate_kind="explicit_delegation",
+            possible_inputs=[],
+            possible_outputs=[],
+            signals=["delegation"],
+            risks=[],
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[],
+            candidates=[candidate],
+            decisions=[],
+            handoffs=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(
+            stage_name="stage3_5", routes=routes, worker_plan=plan
+        )
+        instances = checker.extract_instances(context)
+
+        # Total: cand_1 candidate + promotion + del_s_delegate_b synth candidate + promotion = 4
+        assert len(instances) == 4
+
+        # Find the candidate instance
+        cand_instances = [
+            i for i in instances
+            if i.construct_type == "WORKER_CANDIDATE"
+            and i.construct_id == "worker_candidate:cand_1"
+        ]
+        assert len(cand_instances) == 1
+        cand_instance = cand_instances[0]
+
+        # Must have s_delegate_a merged in, but NOT s_delegate_b
+        assert "s_delegate_a" in cand_instance.source_span_ids
+        assert "s_delegate_b" not in cand_instance.source_span_ids, (
+            "Bug: candidate received unrelated delegation span s_delegate_b"
+        )
+        assert cand_instance.metadata.get("original_semantic_role") == "delegation_intent"
+        assert cand_instance.metadata.get("original_source_span_ids") == ["s_delegate_a"]
+
+        # The uncovered span s_delegate_b must have its own synthetic candidate
+        synth_instances = [
+            i for i in instances
+            if i.construct_type == "WORKER_CANDIDATE"
+            and "del_s_delegate_b" in i.construct_id
+        ]
+        assert len(synth_instances) == 1
+        synth = synth_instances[0]
+        assert synth.metadata.get("synthetic_from_route_annotation") is True
+        assert synth.source_span_ids == ["s_delegate_b"]
+
+    def test_two_candidates_each_with_own_delegation_match(self):
+        """Each candidate only gets its own matching delegation span."""
+        routes = FieldRouteIR(
+            behavior=["s_del_a", "s_del_b"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del_a",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s_del_b",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                ),
+            ],
+        )
+        # Two candidates, each matching one delegation span
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[],
+            candidates=[
+                CandidateTaskUnitIR(
+                    candidate_id="cand_a",
+                    source_span_ids=["s_del_a"],
+                    task_text="Task A",
+                    purpose="Purpose A",
+                    candidate_kind="explicit_delegation",
+                    possible_inputs=[],
+                    possible_outputs=[],
+                    signals=["delegation"],
+                    risks=[],
+                ),
+                CandidateTaskUnitIR(
+                    candidate_id="cand_b",
+                    source_span_ids=["s_del_b"],
+                    task_text="Task B",
+                    purpose="Purpose B",
+                    candidate_kind="explicit_delegation",
+                    possible_inputs=[],
+                    possible_outputs=[],
+                    signals=["delegation"],
+                    risks=[],
+                ),
+            ],
+            decisions=[],
+            handoffs=[],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(
+            stage_name="stage3_5", routes=routes, worker_plan=plan
+        )
+        instances = checker.extract_instances(context)
+
+        # 2 real candidates × 2 types + 0 synthetic (both covered) = 4
+        assert len(instances) == 4
+
+        # cand_a has only s_del_a
+        cand_a = [
+            i for i in instances
+            if i.construct_id == "worker_candidate:cand_a"
+        ][0]
+        assert "s_del_a" in cand_a.source_span_ids
+        assert "s_del_b" not in cand_a.source_span_ids
+        assert cand_a.metadata.get("original_source_span_ids") == ["s_del_a"]
+
+        # cand_b has only s_del_b
+        cand_b = [
+            i for i in instances
+            if i.construct_id == "worker_candidate:cand_b"
+        ][0]
+        assert "s_del_b" in cand_b.source_span_ids
+        assert "s_del_a" not in cand_b.source_span_ids
+        assert cand_b.metadata.get("original_source_span_ids") == ["s_del_b"]
+
+
+# ===========================================================================
+# R10 Phase 2B: Synthetic candidate acceptance tests
+# ===========================================================================
+
+
+class TestR10SyntheticCandidatePhase2B:
+    """Phase 2B synthetic compatibility path acceptance.
+
+    Synthetic candidates from bare route annotations must:
+      - Be candidate_only, not materialized
+      - Be non-renderable
+      - Not generate materialized worker / handoff / invoke constructs
+      - Carry synthetic_from_route_annotation=True
+    """
+
+    def _make_routes(self):
+        return FieldRouteIR(
+            behavior=["s_delegate"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_delegate",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                )
+            ],
+        )
+
+    def test_synthetic_candidate_is_candidate_only(self):
+        """Synthetic WORKER_CANDIDATE is candidate_only=True, materialized=False."""
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=self._make_routes())
+        instances = checker.extract_instances(context)
+
+        for i in instances:
+            assert i.candidate_only is True
+            assert i.materialized is False
+
+    def test_synthetic_promotion_is_not_renderable(self):
+        """Synthetic WORKER_PROMOTION report is renderable=False."""
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=self._make_routes())
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        assert report.renderable is False, (
+            "Phase 2B: synthetic promotion must NOT be renderable"
+        )
+
+    def test_synthetic_instances_not_materialized_worker_or_handoff(self):
+        """No CHILD_WORKER or WORKER_HANDOFF instances from bare annotation."""
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=self._make_routes())
+        instances = checker.extract_instances(context)
+
+        types = {i.construct_type for i in instances}
+        assert "CHILD_WORKER" not in types
+        assert "WORKER_HANDOFF" not in types
+        assert types == {"WORKER_CANDIDATE", "WORKER_PROMOTION"}
+
+    def test_synthetic_promotion_slots_have_blocked_frontier(self):
+        """Synthetic promotion (no contracts, no handoff) is cutline_blocked."""
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=self._make_routes())
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        assert report.frontier_status == "cutline_blocked"
+        assert report.cutline_reason == "missing_promotion_contract"
+        assert report.metadata["promotion_status"] == "blocked"
+        # All four slots missing
+        missing = {s.slot_name for s in report.slots if s.status == "missing"}
+        assert missing == {
+            "promotion_input_contract",
+            "promotion_output_contract",
+            "promotion_invocation_point",
+            "promotion_result_handoff",
+        }
+
+    def test_synthetic_does_not_bypass_planner_decision(self):
+        """Synthetic promotion never reports promotion_status=ready
+        without an actual planner decision. The invocation_point
+        check may relax the accepted-decision requirement via
+        has_accepted_decision or is_synthetic, but without a real
+        handoff match it must still be blocked.
+        """
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(stage_name="stage3_5", routes=self._make_routes())
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        assert report.metadata["promotion_status"] == "blocked", (
+            "Phase 2B: synthetic promotion without handoff match must be blocked"
+        )
+
+    def test_synthetic_with_handoff_but_no_decision_is_blocked(self):
+        """P3 observation: synthetic with matching handoff hint but no
+        accepted decision. invocation_point is satisfied (relaxed check),
+        but promotion is still blocked because input/output contracts are
+        missing on the synthetic candidate.
+        """
+        routes = self._make_routes()
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            workers=[
+                WorkerSpecIR(
+                    worker_id="worker_main",
+                    worker_name="Main",
+                    kind="main",
+                    purpose="Main",
+                    boundary_kind="main_worker",
+                ),
+                WorkerSpecIR(
+                    worker_id="worker_child",
+                    worker_name="Child",
+                    kind="child",
+                    purpose="Child",
+                    boundary_kind="child_worker",
+                ),
+            ],
+            handoffs=[
+                WorkerHandoffIR(
+                    handoff_id="h1",
+                    from_worker="worker_main",
+                    to_worker="worker_child",
+                    api_ref=None,
+                    mode="invoke",
+                    condition_text=None,
+                    ordering="after",
+                    input_bindings=[
+                        InputBindingIR(
+                            parent_variable="x", child_input="y", required=True,
+                        )
+                    ],
+                    output_bindings=[
+                        OutputBindingIR(
+                            child_output="z", parent_variable="w",
+                            required=True, merge_strategy="set",
+                        )
+                    ],
+                    invoke_location_hint=InvokeLocationHintIR(
+                        flow_kind="main",
+                        flow_id=None,
+                        after_span_id="s_delegate",
+                        before_span_id=None,
+                        block_hint="sequential",
+                    ),
+                )
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        context = IRSCheckContext(
+            stage_name="stage3_5", routes=routes, worker_plan=plan,
+        )
+        instances = checker.extract_instances(context)
+        promotion_instance = [
+            i for i in instances if i.construct_type == "WORKER_PROMOTION"
+        ][0]
+        irs = SPLConstructRegistry.default().get("WORKER_PROMOTION")
+        report = checker.check_instance(promotion_instance, irs, context)
+
+        # invocation_point IS satisfied (synthetic relaxes decision check)
+        inv_slot = next(
+            s for s in report.slots
+            if s.slot_name == "promotion_invocation_point"
+        )
+        assert inv_slot.status == "satisfied", (
+            "Phase 2B: synthetic invocation_point is satisfied via "
+            "handoff hint match (decision check relaxed)"
+        )
+        # result_handoff is also satisfied
+        res_slot = next(
+            s for s in report.slots
+            if s.slot_name == "promotion_result_handoff"
+        )
+        assert res_slot.status == "satisfied"
+
+        # But input/output contracts are missing → still blocked
+        assert report.metadata["promotion_status"] == "blocked"
+        assert "promotion_input_contract" in report.metadata["promotion_missing_slots"]
+        assert "promotion_output_contract" in report.metadata["promotion_missing_slots"]
+
+
+# ===========================================================================
+# R10 Phase 2: Signal preservation — every delegation annotation is covered
+# ===========================================================================
+
+
+class TestR10DelegationSignalPreservation:
+    """Phase 2: Every confirmed delegation_intent source signal must be
+    represented by WORKER_CANDIDATE / WORKER_PROMOTION or explicit warning.
+
+    Never: only TraceRecord, no candidate, no promotion, silent loss.
+    """
+
+    def test_single_annotation_produces_candidate_and_promotion(self):
+        """One delegation annotation → one WORKER_CANDIDATE + one WORKER_PROMOTION."""
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del",
+                    field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary",
+                    executable=False,
+                )
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        instances = checker.extract_instances(
+            IRSCheckContext(stage_name="stage3_5", routes=routes)
+        )
+        types = {i.construct_type for i in instances}
+        assert types == {"WORKER_CANDIDATE", "WORKER_PROMOTION"}
+        assert len(instances) == 2
+
+    def test_two_annotations_produce_two_pairs(self):
+        """Two delegation annotations → 2×2 = 4 instances."""
+        routes = FieldRouteIR(
+            behavior=["s_a", "s_b"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_a", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary", executable=False,
+                ),
+                RouteAnnotation(
+                    span_id="s_b", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary", executable=False,
+                ),
+            ],
+        )
+        checker = WorkerDelegationIRSChecker()
+        instances = checker.extract_instances(
+            IRSCheckContext(stage_name="stage3_5", routes=routes)
+        )
+        assert len(instances) == 4
+        candidate_ids = {
+            i.construct_id for i in instances
+            if i.construct_type == "WORKER_CANDIDATE"
+        }
+        assert candidate_ids == {
+            "worker_candidate:del_s_a",
+            "worker_candidate:del_s_b",
+        }
+
+    def test_annotation_covered_by_candidate_not_duplicated(self):
+        """Delegation annotation whose span is already in a candidate's
+        source_span_ids does NOT create a duplicate synthetic instance."""
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary", executable=False,
+                )
+            ],
+        )
+        candidate = CandidateTaskUnitIR(
+            candidate_id="cand_1",
+            source_span_ids=["s_del"],  # covers the delegation annotation
+            task_text="Task", purpose="Purpose",
+            candidate_kind="explicit_delegation",
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main",
+            candidates=[candidate],
+        )
+        checker = WorkerDelegationIRSChecker()
+        instances = checker.extract_instances(
+            IRSCheckContext(
+                stage_name="stage3_5", routes=routes, worker_plan=plan,
+            )
+        )
+        # Exactly 2 instances: cand_1 candidate + promotion (no synthetic!)
+        assert len(instances) == 2
+        ids = {i.construct_id for i in instances}
+        assert ids == {
+            "worker_candidate:cand_1",
+            "worker_promotion:cand_1",
+        }
+
+    def test_zero_delegation_annotations_produces_no_synthetic(self):
+        """No delegation annotations → only real candidates, no synthetic."""
+        candidate = CandidateTaskUnitIR(
+            candidate_id="cand_1",
+            source_span_ids=["s1"],
+            task_text="Task", purpose="Purpose",
+            candidate_kind="explicit_delegation",
+        )
+        plan = WorkerPlanIR(
+            main_worker_id="worker_main", candidates=[candidate],
+        )
+        checker = WorkerDelegationIRSChecker()
+        instances = checker.extract_instances(
+            IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
+        )
+        assert len(instances) == 2
+        for i in instances:
+            assert i.metadata.get("synthetic_from_route_annotation") is None
+
+    def test_signal_not_lost_even_with_empty_worker_plan(self):
+        """Delegation annotation with empty worker_plan still produces
+        synthetic candidate + promotion. No silent signal loss."""
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary", executable=False,
+                )
+            ],
+        )
+        # WorkerPlanIR with no candidates, no workers — just a main_worker_id
+        plan = WorkerPlanIR(main_worker_id="worker_main")
+        checker = WorkerDelegationIRSChecker()
+        instances = checker.extract_instances(
+            IRSCheckContext(
+                stage_name="stage3_5", routes=routes, worker_plan=plan,
+            )
+        )
+        # Must have synthetic candidate + promotion
+        assert len(instances) == 2
+        assert all(
+            i.metadata.get("synthetic_from_route_annotation") is True
+            for i in instances
+        )
+
+    def test_each_covered_annotation_has_diagnostic_or_warning(self):
+        """Every uncovered delegation annotation produces type_or_contract_ambiguity
+        diagnostic via WORKER_PROMOTION IRS projection. No silent loss."""
+        routes = FieldRouteIR(
+            behavior=["s_del"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_del", field="behavior",
+                    semantic_role="delegation_intent",
+                    route_family="delegation_boundary", executable=False,
+                )
+            ],
+        )
+        plan = WorkerPlanIR(main_worker_id="worker_main")
+        checker_registry = IRSCheckerRegistry()
+        checker_registry.register(WorkerDelegationIRSChecker())
+        runner = IRSRunner(
+            registry=checker_registry,
+            construct_registry=SPLConstructRegistry.default(),
+            projector=DiagnosticProjector(),
+        )
+        result = runner.run_stage(
+            "stage3_5",
+            IRSCheckContext(
+                stage_name="stage3_5", routes=routes, worker_plan=plan,
+            ),
+        )
+
+        # Must have at least one diagnostic from WORKER_PROMOTION
+        diags = [
+            d for d in result.diagnostics
+            if d.kind == "type_or_contract_ambiguity"
+            and (d.target_ref or "").startswith("worker_promotion:")
+        ]
+        assert len(diags) >= 1, (
+            "Phase 2: delegation annotation must produce at least one "
+            "type_or_contract_ambiguity diagnostic — signal not lost"
+        )
+        # The report must exist
+        promotion_reports = [
+            r for r in result.reports
+            if r.construct_type == "WORKER_PROMOTION"
+        ]
+        assert len(promotion_reports) >= 1
+        # All synthetic reports are non-renderable
+        for r in promotion_reports:
+            if r.metadata.get("synthetic_from_route_annotation"):
+                assert r.renderable is False, (
+                    "Phase 2B: synthetic report must not be renderable"
+                )
