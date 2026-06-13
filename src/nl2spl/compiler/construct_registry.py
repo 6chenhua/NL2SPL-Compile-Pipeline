@@ -32,6 +32,53 @@ SlotStatus = Literal["satisfied", "missing", "inferred", "assumed", "not_applica
 ConstructCompleteness = Literal["complete", "partial", "blocked"]
 
 
+@dataclass(frozen=True)
+class RepairAffordanceSpec:
+    """Machine-readable repair capability declared by an IRS slot.
+
+    Pure metadata — no callables, no class references, no LLM integration.
+    SPL Editing reads these at runtime to derive the ``RepairCatalog``.
+
+    Attributes:
+        affordance_id: Globally unique ID for this repair capability.
+            Naming convention: ``{construct_type_lower}.{descriptive_suffix}``
+            (e.g. ``exception_flow.add_handler_step``,
+            ``worker_promotion.resolve_contract``).
+            Used as a stable key in logs, overlays, API payloads, and
+            ``RepairCatalogEntry`` derivation — must never be reused
+            across different construct+slot combinations.
+        description: Human-readable summary of the repair.
+        supported_patch_types: Allowed ``patch_type`` values the LLM may
+            propose for this slot.
+        default_patch_type: Default patch type when the user doesn't choose.
+        handler_id: Identifies the ``IssueRepairHandler`` to invoke.
+        context_id: Identifies the ``RepairContextBuilder``.
+        target_resolver_id: Identifies the ``IssueTargetResolver``.
+        default_verification_lane: ``"A"`` (Assembler Replay) or ``"B"``
+            (Normalizer Replay).
+        editable_artifacts: Stage-level IR artifact class names the patch
+            applier may modify.
+        required_evidence_kind: Evidence kind required for apply
+            (always ``"user_confirmed_repair"`` in MVP).
+        user_facing: Whether this affordance is exposed in the Diagnostics
+            Console UI.
+        notes: Internal design notes — not used by the runtime.
+    """
+
+    affordance_id: str
+    description: str
+    supported_patch_types: tuple[str, ...] = ()
+    default_patch_type: str | None = None
+    handler_id: str | None = None
+    context_id: str | None = None
+    target_resolver_id: str | None = None
+    default_verification_lane: str = "A"
+    editable_artifacts: tuple[str, ...] = ()
+    required_evidence_kind: str = "user_confirmed_repair"
+    user_facing: bool = True
+    notes: str | None = None
+
+
 @dataclass
 class SlotSpec:
     """A single information slot within a SPL construct."""
@@ -46,6 +93,9 @@ class SlotSpec:
     can_be_inferred: bool = False
     can_be_suggested: bool = True
     notes: str | None = None
+    repair_affordances: tuple[RepairAffordanceSpec, ...] = ()
+    """Repair capabilities for SPL Editing.  Default empty — slots without
+    affordances are non-repairable in the MVP Diagnostics Console."""
 
 
 @dataclass
@@ -205,6 +255,19 @@ class SPLConstructRegistry:
                         "Do not invent handler actions. "
                         "If missing, keep partial EXCEPTION_FLOW and emit missing_handler."
                     ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="exception_flow.add_handler_step",
+                            description="Add a handler step to an exception flow that has a condition but no handler action.",
+                            supported_patch_types=("AddExceptionHandlerStep",),
+                            default_patch_type="AddExceptionHandlerStep",
+                            handler_id="missing_handler",
+                            context_id="exception_flow_context",
+                            target_resolver_id="exception_flow_target",
+                            default_verification_lane="A",
+                            editable_artifacts=("WorkerStepPlanIR", "WorkerBlockPlanIR"),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="trigger_step",
@@ -256,6 +319,19 @@ class SPLConstructRegistry:
                         "Must have a source-backed producer step, handoff, or API. "
                         "Missing producer is a completion diagnostic, not a reason "
                         "to synthesise a producer command."
+                    ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="required_output.insert_or_bind_producer",
+                            description="Insert a new producer step or bind an existing step as the producer for a required output.",
+                            supported_patch_types=("InsertProducerStep", "BindExistingProducerStep"),
+                            default_patch_type="InsertProducerStep",
+                            handler_id="missing_output_producer",
+                            context_id="required_output_context",
+                            target_resolver_id="required_output_target",
+                            default_verification_lane="A",
+                            editable_artifacts=("WorkerStepPlanIR", "WorkerBlockPlanIR"),
+                        ),
                     ),
                 ),
             ],
@@ -325,6 +401,19 @@ class SPLConstructRegistry:
                     required_for_complete=True,
                     evidence_kinds=["input_variable", "confirmation_variable"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="request_input.specify_value_target",
+                            description="Specify the variable that receives the user's input.",
+                            supported_patch_types=("SpecifyValueTarget",),
+                            default_patch_type="SpecifyValueTarget",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="request_input_context",
+                            target_resolver_id="step_target",
+                            default_verification_lane="A",
+                            editable_artifacts=("WorkerStepPlanIR",),
+                        ),
+                    ),
                 ),
             ],
         ))
@@ -375,6 +464,19 @@ class SPLConstructRegistry:
                         "A context-only mention must remain a resource "
                         "candidate, not a rendered CALL_API."
                     ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="call_api.specify_integration_evidence",
+                            description="Provide integration evidence (API/tool/connector ref) for a CALL_API step.",
+                            supported_patch_types=("SpecifyAPIIntegration",),
+                            default_patch_type="SpecifyAPIIntegration",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="call_api_context",
+                            target_resolver_id="step_target",
+                            default_verification_lane="A",
+                            editable_artifacts=("WorkerStepPlanIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="response_binding",
@@ -401,24 +503,76 @@ class SPLConstructRegistry:
                     required_for_complete=True,
                     evidence_kinds=["worker_spec", "accepted_worker_boundary"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="invoke_worker.specify_target_worker",
+                            description="Specify the target worker for an INVOKE_WORKER step.",
+                            supported_patch_types=("SpecifyInvokeTarget",),
+                            default_patch_type="SpecifyInvokeTarget",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="invoke_worker_context",
+                            target_resolver_id="step_target",
+                            default_verification_lane="A",
+                            editable_artifacts=("WorkerStepPlanIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="handoff_id",
                     required_for_complete=True,
                     evidence_kinds=["worker_handoff"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="invoke_worker.create_or_bind_handoff",
+                            description="Create a new worker handoff contract or bind an existing one for an INVOKE_WORKER step.",
+                            supported_patch_types=("CreateWorkerHandoffContract", "BindExistingHandoff"),
+                            default_patch_type="CreateWorkerHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="invoke_worker_context",
+                            target_resolver_id="step_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR"),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="input_bindings",
                     required_for_complete=True,
                     evidence_kinds=["input_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="invoke_worker.specify_input_bindings",
+                            description="Specify input bindings for a worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="output_bindings",
                     required_for_complete=True,
                     evidence_kinds=["output_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="invoke_worker.specify_output_bindings",
+                            description="Specify output bindings for a worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
+                    ),
                 ),
             ],
         ))
@@ -541,6 +695,33 @@ class SPLConstructRegistry:
                         "Satisfied when possible_inputs is non-empty and risks "
                         "does not contain no_clear_input_contract."
                     ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_promotion.resolve_contract",
+                            description=(
+                                "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
+                                "User can confirm delegation (create handoff contract), "
+                                "convert to a main-flow step, or convert to a user-prompt step."
+                            ),
+                            supported_patch_types=(
+                                "CreateWorkerHandoffContract",
+                                "ConvertDelegationIntentToMainFlowStep",
+                                "ConvertDelegationIntentToRequestInput",
+                            ),
+                            default_patch_type="CreateWorkerHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="worker_promotion_context",
+                            target_resolver_id="worker_promotion_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            notes=(
+                                "delegation-intent-sourced WORKER_PROMOTION gap. "
+                                "All four promotion slots share the same repair "
+                                "strategy set; the specific missing slots control "
+                                "what the patch payload must provide."
+                            ),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="promotion_output_contract",
@@ -552,6 +733,27 @@ class SPLConstructRegistry:
                     notes=(
                         "Satisfied when possible_outputs is non-empty and risks "
                         "does not contain no_clear_output_contract."
+                    ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_promotion.resolve_contract",
+                            description=(
+                                "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
+                                "User can confirm delegation (create handoff contract), "
+                                "convert to a main-flow step, or convert to a user-prompt step."
+                            ),
+                            supported_patch_types=(
+                                "CreateWorkerHandoffContract",
+                                "ConvertDelegationIntentToMainFlowStep",
+                                "ConvertDelegationIntentToRequestInput",
+                            ),
+                            default_patch_type="CreateWorkerHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="worker_promotion_context",
+                            target_resolver_id="worker_promotion_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                        ),
                     ),
                 ),
                 SlotSpec(
@@ -565,6 +767,27 @@ class SPLConstructRegistry:
                         "Satisfied when risks does not contain no_parent_invocation_point "
                         "and there is evidence of where to invoke the worker."
                     ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_promotion.resolve_contract",
+                            description=(
+                                "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
+                                "User can confirm delegation (create handoff contract), "
+                                "convert to a main-flow step, or convert to a user-prompt step."
+                            ),
+                            supported_patch_types=(
+                                "CreateWorkerHandoffContract",
+                                "ConvertDelegationIntentToMainFlowStep",
+                                "ConvertDelegationIntentToRequestInput",
+                            ),
+                            default_patch_type="CreateWorkerHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="worker_promotion_context",
+                            target_resolver_id="worker_promotion_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="promotion_result_handoff",
@@ -576,6 +799,27 @@ class SPLConstructRegistry:
                     notes=(
                         "Satisfied when risks does not contain unclear_result_handoff "
                         "and there is a matching handoff with output_bindings."
+                    ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_promotion.resolve_contract",
+                            description=(
+                                "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
+                                "User can confirm delegation (create handoff contract), "
+                                "convert to a main-flow step, or convert to a user-prompt step."
+                            ),
+                            supported_patch_types=(
+                                "CreateWorkerHandoffContract",
+                                "ConvertDelegationIntentToMainFlowStep",
+                                "ConvertDelegationIntentToRequestInput",
+                            ),
+                            default_patch_type="CreateWorkerHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="worker_promotion_context",
+                            target_resolver_id="worker_promotion_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                        ),
                     ),
                 ),
             ],
@@ -613,18 +857,57 @@ class SPLConstructRegistry:
                         "For mode='invoke', uses to_worker. "
                         "For mode='api_call', uses api_ref."
                     ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_handoff.specify_target",
+                            description="Specify the target (to_worker or api_ref) for an incomplete worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="input_bindings",
                     required_for_complete=True,
                     evidence_kinds=["input_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_handoff.specify_input_bindings",
+                            description="Specify input bindings for an incomplete worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="output_bindings",
                     required_for_complete=True,
                     evidence_kinds=["output_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_handoff.specify_output_bindings",
+                            description="Specify output bindings for an incomplete worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
+                    ),
                 ),
                 SlotSpec(
                     slot_name="invocation_site",
@@ -636,6 +919,19 @@ class SPLConstructRegistry:
                         "after_span_id, before_span_id, block_hint (non-unknown), "
                         "or handoff-level condition_text. "
                         "Does NOT use ordering (required Literal) as evidence."
+                    ),
+                    repair_affordances=(
+                        RepairAffordanceSpec(
+                            affordance_id="worker_handoff.specify_invocation_site",
+                            description="Specify the invocation site for an incomplete worker handoff.",
+                            supported_patch_types=("UpdateHandoffContract",),
+                            default_patch_type="UpdateHandoffContract",
+                            handler_id="type_or_contract_ambiguity",
+                            context_id="handoff_context",
+                            target_resolver_id="handoff_target",
+                            default_verification_lane="B",
+                            editable_artifacts=("WorkerHandoffIR",),
+                        ),
                     ),
                 ),
             ],

@@ -1,0 +1,1 @@
+"""CreateWorkerHandoffContract patch."""

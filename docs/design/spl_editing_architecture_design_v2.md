@@ -1,7 +1,7 @@
 # AI-assisted SPL Editing 架构设计文档 v2
 
-日期：2026-06-11  
-状态：Revised architecture design for MVP implementation  
+日期：2026-06-12  
+状态：Architecture design — **SPL Editing readiness (R0-R7) complete. Ready for backend implementation.**  
 适用范围：NL2SPL 后端核心能力；未来 UI Diagnostics Console / Fix with AI 的后端基础
 
 ---
@@ -13,6 +13,7 @@ AI-assisted SPL Editing 不是“让 AI 重写 SPL”，也不是“让 AI 直�
 ```text
 Final diagnostic driven
 + IRS / compiler-authority scoped
++ IRS SlotSpec repair-affordance driven
 + user-confirmed evidence
 + typed IR repair patch
 + artifact snapshot based revision
@@ -45,16 +46,22 @@ missing_output_producer:
   支持 InsertProducerStep / BindExistingProducerStep，但必须由 ProducerIndex 验证。
 
 type_or_contract_ambiguity:
-  必须 subtype 化。MVP 至少覆盖 demo 中 delegation_intent missing handoff_contract 场景。
+  必须按 construct_type + slot_name subtype 化。
+  MVP 至少覆盖 delegation-intent-sourced WORKER_PROMOTION / WORKER_HANDOFF contract 场景。
 ```
 
-同时必须前置解决一个地基问题：
+本设计 **假设 SPL Editing readiness (R0-R7) 已完成**，以下能力已就绪：
 
 ```text
-user_confirmed_repair 必须被 Gate / IRS source-evidence predicate / provenance 正式识别。
+✅ SlotSpec.repair_affordances — 13 个 slot 有全局唯一 affordance_id
+✅ CompileDiagnostic.metadata["irs_ref"] — DiagnosticProjector 写入
+✅ RepairCatalogBuilder.from_construct_registry(...) — 派生 runtime catalog
+✅ producer issue grouping — primary/alias/context + repairability matrix
+✅ worker/delegation selected promoted diagnostics — authority=selected_promoted_stage_local_irs
+✅ USER_CONFIRMED_REPAIR evidence recognition — Gate/ProducerIndex/IRS 三方识别
 ```
 
-否则 patch 写入 `StepIR` 后，新增 step 仍可能被 `ExecutableElementGate` 视为 assumed content 并过滤，导致“patch applied but SPL unchanged”的隐蔽失败。
+已就绪，可以进入 handler / patch / verifier 实现。
 
 ---
 
@@ -103,6 +110,48 @@ RepairSuggestion
 ```
 
 ---
+
+## 1.1 IRS Readiness Assumptions
+
+SPL Editing 不再维护一套独立的 diagnostic kind -> patch type truth source。它依赖 IRS readiness 提供以下基础：
+
+```text
+ConstructIRS / SlotSpec
+  -> missing_diagnostic
+  -> repair_affordances
+
+DiagnosticProjector
+  -> CompileDiagnostic.metadata["irs_ref"]
+  -> CompileDiagnostic.metadata["authority"]
+
+RepairCatalogBuilder
+  -> derived runtime catalog from SPLConstructRegistry
+
+DiagnosticConsolidator
+  -> preserves group / alias / related diagnostic metadata
+
+Compiler authorities
+  -> Gate / ProducerIndex / IRS / provenance recognize USER_CONFIRMED_REPAIR
+```
+
+因此，Editing 的 repair discovery key 是：
+
+```text
+source_authority
++ construct_type
++ slot_name
++ diagnostic_kind
++ target_ref shape
++ repair_affordance_id
+```
+
+不是：
+
+```text
+diagnostic.kind
+```
+
+同一个 `type_or_contract_ambiguity` 可能来自 `REQUEST_INPUT.value_target`、`CALL_API.integration_evidence`、`INVOKE_WORKER.handoff_id`、`WORKER_PROMOTION.promotion_output_contract` 等不同 slot；它们必须映射到不同 affordance。
 
 ## 2. 修复边界
 
@@ -162,9 +211,10 @@ Input:
   PipelineResult.compile_diagnostics
 
 Filter:
-  diagnostic.kind in RepairCatalog
+  diagnostic.metadata["irs_ref"] exists
+  repair affordance exists in derived RepairCatalog
   diagnostic is final / authoritative
-  target_ref parseable or subtype-resolvable
+  target_ref parseable or target resolver supports the irs_ref
   user_facing = true
   supported handler exists
 
@@ -172,35 +222,15 @@ Output:
   EditableIssue[]
 ```
 
-如果当前 `CompileDiagnostic` 还没有 authority 字段，MVP 可以先使用：
-
-```text
-kind allowlist
-+ target_ref shape
-+ missing_slot
-+ source_span_ids / metadata
-```
-
-长期应增加：
-
-```python
-DiagnosticAuthority = Literal[
-    "post_normalize_irs",
-    "producer_index",
-    "gate",
-    "construct_planner",
-    "route_refinement",
-    "validation",
-    "provenance",
-]
-```
-
-Editing 只接受：
+Editing 默认只接受：
 
 ```text
 post_normalize_irs
-producer_index    # 仅限 missing_output_producer 类 output producer 缺口
+producer_index / producer_index_backed_irs
+selected_promoted_stage_local_irs
 ```
+
+其中 `selected_promoted_stage_local_irs` 仅用于 user-actionable worker/delegation repairable diagnostics，例如 `WORKER_PROMOTION` / `WORKER_HANDOFF` 的 selected promoted diagnostics。Editing 不直接扫描所有 stage-local IRS reports。
 
 ---
 
@@ -324,14 +354,16 @@ ProducerIndex 能找到 renderable producer；
 CALL_API 缺 api declaration / integration_ref
 INVOKE_WORKER 缺 target_worker / handoff_id / input/output bindings
 REQUEST_INPUT 缺 value target / source evidence
-delegation_intent 缺 handoff_contract
+delegation-intent-sourced WORKER_PROMOTION / WORKER_HANDOFF 缺 handoff contract
 ambiguous action 到底是 worker、API、main-flow step 还是 request-input
 ```
 
 MVP 至少覆盖 demo 中的：
 
 ```text
-delegation_intent:<span_or_fact_id> missing handoff_contract
+WORKER_PROMOTION / WORKER_HANDOFF diagnostics
+  with metadata.original_semantic_role = delegation_intent
+  and missing promotion / handoff contract slots
 ```
 
 对该 subtype，必须提供三种用户确认路径：
@@ -348,6 +380,8 @@ ConvertDelegationIntentToRequestInput
 ```
 
 注意：`type_or_contract_ambiguity` 修复不只是新增 step。对于 delegation intent，如果用户确认它不再是 delegation，还需要 resolution marker，避免原 delegation diagnostic 在 verification 中继续出现。
+
+这里的 `delegation_intent` 只能作为 source signal / subtype metadata。它不能作为 `ConstructIRS`、repair target kind 或 catalog target kind。真正的 repair target 必须反查到 `WORKER_PROMOTION`、`WORKER_HANDOFF`、`CHILD_WORKER` 或 `INVOKE_WORKER` 的 slot。
 
 建议引入：
 
@@ -481,9 +515,11 @@ MVP 不承诺 full NL replay 稳定。MVP 保证的是：
 
 ## 5. User-confirmed repair evidence foundation
 
-### 5.1 为什么必须前置
+### 5.1 Readiness 前提
 
-新增 `StepIR` 如果没有原始 source span，会被现有 anti-fabrication 机制视为 assumed content。仅写入 IR 不代表它能进入 SPL。必须让 compiler 区分：
+本设计假设 readiness 已经让 compiler authorities 正式识别 user-confirmed repair evidence。新增 `StepIR` 如果没有原始 source span，必须能通过该 evidence kind 被 Gate / IRS / ProducerIndex / provenance 识别；仅写入 IR 不代表它能进入 SPL。
+
+compiler 必须区分：
 
 ```text
 AI suggested but unconfirmed
@@ -495,23 +531,24 @@ assumed unsourced content
 
 用户确认后的 repair 不是 AI assumption，而是用户补充的 requirement evidence。
 
-### 5.2 MVP evidence 表示
+### 5.2 Editing 使用方式
 
-MVP 可以先使用 `StepIR.metadata` 表示：
+SPL Editing apply 用户确认后的 patch 时，应写入：
 
 ```python
 metadata = {
     "origin": "user_confirmed_repair",
     "repair_patch_id": patch_id,
     "related_diagnostic_id": diagnostic_id,
+    "user_text": user_text,
 }
 ```
 
-但这不是只写 metadata。必须同时修改 recognition layer。
+这不是绕过 source evidence，而是把用户确认后的补充需求作为新的 evidence source。
 
-### 5.3 必须集成的组件
+### 5.3 已由 readiness 提供的组件
 
-新增：
+readiness 必须已经提供：
 
 ```text
 EvidenceKind.USER_CONFIRMED_REPAIR
@@ -560,7 +597,7 @@ else
   -> assumed
 ```
 
-验收测试必须包括：
+SPL Editing 的 apply / verify 仍必须检查：
 
 ```text
 StepIR.metadata.origin = user_confirmed_repair 的 step 不被 Gate 过滤。
@@ -670,24 +707,49 @@ CreateWorkerHandoffContractVerifier:
 
 ## 7. 数据模型
 
+### 7.0 DiagnosticIRSRef
+
+```python
+@dataclass(frozen=True)
+class DiagnosticIRSRef:
+    construct_type: str
+    construct_id: str
+    slot_name: str
+    construct_path: tuple[str, ...] = ()
+    source_authority: Literal[
+        "post_normalize_irs",
+        "producer_index",
+        "stage_local_irs",
+        "selected_promoted_stage_local_irs",
+        "gate",
+    ] = "post_normalize_irs"
+```
+
+`DiagnosticIRSRef` 来自 `CompileDiagnostic.metadata["irs_ref"]`。Editing 不能通过解析 `feedback_report.md` 或仅凭 `diagnostic.kind` 推断 repair target。
+
 ### 7.1 EditableIssue
 
 ```python
 @dataclass(frozen=True)
 class EditableIssue:
     issue_id: str
-    diagnostic_id: str
+    primary_diagnostic_id: str
+    related_diagnostic_ids: list[str]
+    issue_group_id: str | None
     kind: str
     target_ref: str
+    irs_ref: DiagnosticIRSRef
     missing_slot: str | None
     source_span_ids: list[str]
     message: str
     suggested_resolution: str | None
     blocks_rendering: bool
     blocks_completion: bool
-    authority: str | None = None
+    authority: str
+    affordance_ids: list[str]
+    default_affordance_id: str | None = None
     repairable: bool = True
-    repair_catalog_entry_id: str | None = None
+    repairability: Literal["editable", "review_only", "non_repairable"] = "editable"
 ```
 
 ### 7.2 EditingSession
@@ -710,6 +772,8 @@ class EditingSession:
 class RepairTarget:
     target_ref: str
     target_kind: str
+    irs_ref: DiagnosticIRSRef
+    affordance_id: str
     construct_path: tuple[str, ...]
     worker_id: str | None
     editable_artifacts: list[str]
@@ -742,6 +806,7 @@ class RepairContext:
 class RepairSuggestion:
     suggestion_id: str
     session_id: str
+    affordance_id: str
     title: str
     explanation: str
     patch: RepairPatch
@@ -756,8 +821,10 @@ class RepairSuggestion:
 @dataclass(frozen=True)
 class RepairPatch:
     patch_id: str
+    affordance_id: str
     patch_type: str
     target_ref: str
+    irs_ref: DiagnosticIRSRef
     base_compile_run_id: str
     artifact_snapshot_id: str
     overlay_version: int
@@ -782,65 +849,90 @@ class RepairEvidence:
 
 ## 8. RepairCatalog
 
-支持哪些 issue 和 patch 不应写死在 service 中，应由 catalog 声明。
+支持哪些 issue 和 patch 不应写死在 service 中，也不应由 Editing 维护一套平行 truth source。`RepairCatalog` 是从 `SPLConstructRegistry` 的 `SlotSpec.repair_affordances` 派生出来的 runtime index。
 
 ```python
 @dataclass(frozen=True)
 class RepairCatalogEntry:
     entry_id: str
+    affordance_id: str
+    construct_type: str
+    slot_name: str
     diagnostic_kind: str
-    missing_slot: str | None
-    target_kind: str
     handler_id: str
     supported_patch_types: tuple[str, ...]
+    default_patch_type: str | None
+    editable_artifacts: tuple[str, ...]
+    default_verification_lane: str
+    required_evidence_kind: str = "user_confirmed_repair"
     auto_apply_supported: bool
     user_facing: bool = True
 ```
 
-MVP catalog：
+Catalog 构建方式：
 
 ```python
-REPAIR_CATALOG = [
-    RepairCatalogEntry(
-        entry_id="missing_handler.exception_flow",
-        diagnostic_kind="missing_handler",
-        missing_slot="handler_action",
-        target_kind="EXCEPTION_FLOW",
-        handler_id="missing_handler",
-        supported_patch_types=("AddExceptionHandlerStep",),
-        auto_apply_supported=True,
-    ),
-    RepairCatalogEntry(
-        entry_id="missing_output_producer.required_output",
-        diagnostic_kind="missing_output_producer",
-        missing_slot="producer",
-        target_kind="REQUIRED_OUTPUT",
-        handler_id="missing_output_producer",
-        supported_patch_types=("InsertProducerStep", "BindExistingProducerStep"),
-        auto_apply_supported=True,
-    ),
-    RepairCatalogEntry(
-        entry_id="type_or_contract_ambiguity.delegation_intent",
-        diagnostic_kind="type_or_contract_ambiguity",
-        missing_slot="handoff_contract",
-        target_kind="DELEGATION_INTENT",
-        handler_id="type_or_contract_ambiguity",
-        supported_patch_types=(
-            "CreateWorkerHandoffContract",
-            "ConvertDelegationIntentToMainFlowStep",
-            "ConvertDelegationIntentToRequestInput",
-        ),
-        auto_apply_supported=True,
-    ),
-]
+catalog = RepairCatalogBuilder.from_construct_registry(
+    SPLConstructRegistry.default()
+)
 ```
 
-主流程只能查 catalog / registry，不允许出现大量：
+Lookup key：
+
+```text
+diagnostic.metadata["irs_ref"].source_authority
+diagnostic.metadata["irs_ref"].construct_type
+diagnostic.metadata["irs_ref"].slot_name
+diagnostic.kind
+target_ref shape
+```
+
+不得只使用：
 
 ```python
 if issue.kind == "missing_handler": ...
 elif issue.kind == "missing_output_producer": ...
 ```
+
+### 8.1 Producer issue grouping
+
+`missing_output_producer` 可能同时来自：
+
+```text
+REQUIRED_OUTPUT.producer
+RESOURCE_CONTRACT_DEMAND.producer
+```
+
+Catalog / issue extractor 必须使用 diagnostic metadata 表达 primary / alias / related 关系：
+
+```text
+primary_diagnostic_id
+related_diagnostic_ids
+issue_group_id
+repairability
+```
+
+默认 repairability：
+
+| Diagnostic kind | Repairability |
+| --- | --- |
+| `missing_output_producer` | editable |
+| `unspecified_output_missing_producer` | review_only |
+| `resource_kind_mismatch` | non_repairable for producer patch |
+| `missing_resource_contract` | non_repairable for producer patch |
+
+### 8.2 Worker/delegation promoted issue
+
+`WORKER_PROMOTION` / `WORKER_HANDOFF` 通常来自 stage-local IRS。readiness 必须已经将 selected repairable diagnostics promoted 或 mapped 到 final diagnostics，并保留：
+
+```text
+metadata["irs_ref"]
+metadata["original_semantic_role"] = "delegation_intent"  # when applicable
+metadata["issue_group_id"]
+metadata["related_diagnostic_ids"]
+```
+
+SPL Editing 不直接扫描所有 stage-local reports。
 
 ---
 
@@ -941,7 +1033,8 @@ Payload：
 ```python
 @dataclass(frozen=True)
 class CreateWorkerHandoffContractPayload:
-    delegation_intent_id: str
+    worker_promotion_id: str
+    source_signal_id: str | None = None
     parent_worker_id: str
     child_worker_name: str
     input_bindings: dict[str, str]
@@ -970,7 +1063,8 @@ Payload：
 ```python
 @dataclass(frozen=True)
 class ConvertDelegationIntentToMainFlowStepPayload:
-    delegation_intent_id: str
+    worker_promotion_id: str
+    source_signal_id: str | None = None
     worker_id: str
     action_text: str
     outputs: list[str]
@@ -983,7 +1077,7 @@ Apply：
 ```text
 新增 main-flow user_confirmed_repair StepIR；
 记录 resolution marker: converted_to_main_flow_step；
-原 delegation_intent diagnostic 不应继续作为 unresolved handoff_contract gap。
+原 WORKER_PROMOTION / WORKER_HANDOFF diagnostic 不应继续作为 unresolved handoff_contract gap。
 ```
 
 Verification：Lane A。
@@ -997,7 +1091,8 @@ Payload：
 ```python
 @dataclass(frozen=True)
 class ConvertDelegationIntentToRequestInputPayload:
-    delegation_intent_id: str
+    worker_promotion_id: str
+    source_signal_id: str | None = None
     worker_id: str
     prompt_text: str
     value_target: str
@@ -1040,7 +1135,8 @@ src/nl2spl/compiler/spl_editing/
   targets/
     exception_flow.py
     required_output.py
-    delegation_intent.py
+    worker_promotion.py
+    worker_handoff.py
     step.py
     handoff.py
 
@@ -1048,7 +1144,8 @@ src/nl2spl/compiler/spl_editing/
     registry.py
     exception_flow_context.py
     required_output_context.py
-    delegation_intent_context.py
+    worker_promotion_context.py
+    worker_handoff_context.py
 
   handlers/
     base.py
@@ -1070,7 +1167,8 @@ src/nl2spl/compiler/spl_editing/
       classifier.py
       context.py
       subhandlers/
-        delegation_intent_contract.py
+        worker_promotion_contract.py
+        worker_handoff_contract.py
         request_input_contract.py
         call_api_contract.py
         invoke_worker_contract.py
@@ -1160,8 +1258,10 @@ src/nl2spl/compiler/spl_editing/
 ```text
 PipelineResult
   -> EditableIssueExtractor
-  -> RepairCatalog filter
-  -> TargetRefParser / subtype resolver
+  -> diagnostic.metadata["irs_ref"]
+  -> RepairCatalog lookup by affordance
+  -> TargetResolver selected by affordance
+  -> grouping / alias policy
   -> EditableIssue[]
 ```
 
@@ -1169,15 +1269,16 @@ PipelineResult
 
 ```text
 EditableIssue
+  -> affordance_id selection
   -> IssueTargetResolver
   -> RepairContextBuilder
   -> IssueRepairHandler
-  -> LLM candidate RepairPatch payloads
+  -> LLM candidate payloads for allowed PatchType only
   -> PatchValidator
   -> RepairSuggestion[]
 ```
 
-LLM 只生成 patch payload，不生成 arbitrary IR。
+LLM 只在 `affordance_id` 允许的 `patch_type` 范围内生成 payload，不选择任意 repair strategy，不生成 arbitrary IR。
 
 ### 11.3 Apply suggestion
 
@@ -1238,14 +1339,15 @@ GET  /editing-sessions/{session_id}/verification
 
 ## 13. 实施阶段
 
-### Phase 0: Repairable diagnostics foundation
+### Phase 0: Editing issue extraction foundation
 
 实现：
 
 ```text
 EditableIssueExtractor
-RepairCatalog
+RepairCatalogBuilder integration
 TargetRefParser
+Issue grouping / alias handling
 ArtifactSnapshotStore
 EditRevision
 ```
@@ -1254,27 +1356,11 @@ EditRevision
 
 ```text
 只提取 missing_handler / missing_output_producer / type_or_contract_ambiguity。
+通过 irs_ref + affordance 判断 repairability，不通过 diagnostic.kind 单字段判断。
 不提取 route_refinement_corrected / validation warning / ConstructPlan warning。
+正确处理 producer primary / alias issue。
+正确处理 selected promoted WORKER_PROMOTION / WORKER_HANDOFF issue。
 支持 artifact_snapshot_id + overlay_version stale check。
-```
-
-### Phase 0.5: User-confirmed evidence foundation
-
-实现：
-
-```text
-EvidenceKind.USER_CONFIRMED_REPAIR
-Gate bridge
-IRS source evidence predicate bridge
-Provenance bridge
-```
-
-验收：
-
-```text
-metadata.origin=user_confirmed_repair 的 StepIR 不被 Gate 过滤。
-该 step 可进入 SPL render。
-provenance 标记为 user-confirmed repair。
 ```
 
 ### Phase 1: missing_handler repair
@@ -1304,7 +1390,7 @@ ProducerIndex-oriented verification predicate
 实现最低 demo subtype：
 
 ```text
-delegation_intent_contract classifier
+delegation-intent-sourced WORKER_PROMOTION / WORKER_HANDOFF issue resolver
 CreateWorkerHandoffContract
 ConvertDelegationIntentToMainFlowStep
 ConvertDelegationIntentToRequestInput
@@ -1338,14 +1424,15 @@ EditableIssueExtractor:
 TargetRefParser:
   parses worker:worker_main.exception_flow:exc_adapter_01.
   parses required output target.
-  resolves delegation_intent target.
+  resolves WORKER_PROMOTION / WORKER_HANDOFF target from irs_ref.
 
 RepairCatalog:
-  maps each diagnostic kind to correct handler / patch types.
+  is derived from SlotSpec.repair_affordances.
+  maps same diagnostic kind to different affordances by construct slot.
 
-Gate bridge:
-  user_confirmed_repair step is renderable.
-  unconfirmed AI suggestion remains non-renderable.
+Issue grouping:
+  groups REQUIRED_OUTPUT.producer and RESOURCE_CONTRACT_DEMAND.producer when they refer to the same missing producer.
+  treats unspecified_output_missing_producer as review-only.
 
 Patch validators:
   reject wrong target_ref.
@@ -1395,7 +1482,7 @@ Demo run with missing_output_producer:
   original missing_output_producer disappears.
 
 Demo run with type_or_contract_ambiguity:
-  classify delegation_intent_contract.
+  resolves delegation-intent-sourced WORKER_PROMOTION / WORKER_HANDOFF issue.
   apply one of three subtype patches.
   original ambiguity resolved or resolution marker suppresses exact diagnostic.
 ```
@@ -1419,17 +1506,18 @@ MVP 完成时必须满足：
 
 ```text
 1. Editing 只暴露三类 repairable issue，不暴露内部 compiler health diagnostics。
-2. 三类 issue 都能生成 AI suggestions。
-3. 三类 issue 都至少有一个 typed patch 可以 apply。
-4. LLM 不输出 arbitrary IR，不直接输出 final SPL patch。
-5. user_confirmed_repair 被 Gate / IRS / provenance 识别。
-6. apply 后产生 patched artifact snapshot 和 overlay record。
-7. verification 通过 Lane A / Lane B 明确执行，不默认假设 Stage 9.5 幂等。
-8. missing_handler repair 后 exception flow 不再为空。
-9. missing_output_producer repair 后 ProducerIndex 能识别 producer。
-10. type_or_contract_ambiguity repair 有 subtype classifier 和 resolution marker。
-11. no new blocking diagnostic regression。
-12. 所有 patch 均可审计、可撤销到上一 artifact snapshot。
+2. issue extraction 通过 irs_ref + affordance 判断 repairability，不通过 diagnostic.kind 单字段判断。
+3. RepairCatalog 从 IRS registry 派生，不维护平行手写 truth source。
+4. 三类 issue 都能生成 AI suggestions。
+5. 三类 issue 都至少有一个 typed patch 可以 apply。
+6. LLM 不输出 arbitrary IR，不直接输出 final SPL patch。
+7. apply 后产生 patched artifact snapshot 和 overlay record。
+8. verification 通过 Lane A / Lane B 明确执行，不默认假设 Stage 9.5 幂等。
+9. missing_handler repair 后 exception flow 不再为空。
+10. missing_output_producer repair 后 ProducerIndex 能识别 producer。
+11. type_or_contract_ambiguity repair 使用 construct slot subtype 和 resolution marker。
+12. no new blocking diagnostic regression。
+13. 所有 patch 均可审计、可撤销到上一 artifact snapshot。
 ```
 
 ---
@@ -1458,9 +1546,9 @@ AI 辅助 SPL 编辑实际 apply 的是用户确认后的 typed IR repair patch�
 
 ```text
 1. MVP 覆盖三类 issue，而不是只覆盖 missing_handler。
-2. Gate / IRS / provenance 对 user_confirmed_repair 的识别被前置为 Phase 0.5。
+2. Gate / IRS / provenance 对 user_confirmed_repair 的识别是 readiness 前置条件，不属于 SPL Editing MVP 内部阶段。
 3. base_revision 改为 artifact_snapshot_id + overlay_version。
 4. verification 分 Lane A / B / C，不默认 replay Stage 9.5。
 5. overlay replay 语义降级为 snapshot-based MVP，full NL replay 是长期 rebase 能力。
-6. type_or_contract_ambiguity 被明确 subtype 化，demo delegation_intent_contract 进入 MVP。
+6. type_or_contract_ambiguity 被明确 subtype 化，demo 聚焦 delegation-intent-sourced WORKER_PROMOTION / WORKER_HANDOFF issue。
 ```

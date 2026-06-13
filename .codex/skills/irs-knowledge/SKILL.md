@@ -300,6 +300,73 @@ Checkers must not:
 - create child reports without source demand
 - register source signals, planner records, or diagnostic kinds as constructs
 
+## SPL Editing Readiness (R0-R7, completed)
+
+The following bridges between IRS and SPL Editing are now in place:
+R7 documentation and skill sync is also complete.
+
+### Repair Affordance on SlotSpec
+
+`SlotSpec.repair_affordances: tuple[RepairAffordanceSpec, ...]` — each slot
+can declare which repair capabilities are allowed.
+
+- Contains only string IDs (`affordance_id`, `patch_type`, `handler_id`,
+  `context_id`, `lane`). No callables or class references.
+- `affordance_id` is globally unique across construct types; naming convention
+  is `{construct_type_lower}.{descriptive_suffix}`.
+- IRS only declares affordances — it does NOT execute repairs, call LLMs, or
+  generate suggestions.
+
+### Diagnostic → IRS Slot Reverse Lookup (DiagnosticIRSRef)
+
+`DiagnosticProjector.project()` writes into every `CompileDiagnostic.metadata`:
+
+- `metadata["irs_ref"]` — dict with `construct_type`, `construct_id`,
+  `slot_name`, `construct_path`, `source_authority`
+- `metadata["authority"]` — `"post_normalize_irs"` | `"stage_local_irs"` |
+  `"selected_promoted_stage_local_irs"`
+
+SPL Editing reads these via `DiagnosticIRSRef.from_dict()`.
+
+### RepairCatalog
+
+`RepairCatalogBuilder.from_construct_registry(registry)` scans all
+`SlotSpec.repair_affordances` and produces a `RepairCatalog`.
+
+- `entry_id` = `{construct_type}.{slot_name}.{diagnostic_kind}.{affordance_id}`
+- Multiple slots sharing the same `affordance_id` each produce a distinct entry
+- Three lookup axes: `entry_id`, `affordance_id`,
+  `construct_type+slot_name+diagnostic_kind`
+
+### Issue Grouping
+
+- `metadata["issue_role"]` = `"primary"` | `"alias"` | `"context"`
+- `metadata["repairability"]` = `"editable"` | `"review_only"` | `"non_repairable"`
+- Producer grouping: `REQUIRED_OUTPUT.producer` = primary,
+  `RESOURCE_CONTRACT_DEMAND.producer` = alias
+- Worker/delegation promotion: `WORKER_PROMOTION` slots grouped by candidate
+
+### User-Confirmed Repair Evidence
+
+`origin="user_confirmed_repair"` is recognized by all three authorities:
+
+- Gate `classify_origin()` → `"user_confirmed_repair"`
+- Gate `is_renderable()` → renderable (same guard rails as `source_backed`)
+- ProducerIndex `_step_is_renderable()` → `True`
+- Post-normalize IRS `_source_evidence_slot()` → `status="satisfied"`
+
+Unconfirmed AI suggestions (no `user_confirmed_repair` origin, no source
+spans) remain non-renderable.
+
+### DELEGATION_INTENT Boundary
+
+- `delegation_intent` is a `RouteAnnotation.semantic_role` — source signal
+  only.
+- It is NOT a `ConstructIRS`, NOT in the default registry, NOT a catalog
+  target or repair target.
+- Real repair targets are slots on `WORKER_PROMOTION`, `WORKER_HANDOFF`,
+  `CHILD_WORKER`, or `INVOKE_WORKER`.
+
 ## ConstructPlan Boundary
 
 `ConstructPlan` is upstream of IRS.  It records source-demanded constructs

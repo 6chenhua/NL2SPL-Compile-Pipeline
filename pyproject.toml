@@ -29,6 +29,7 @@ dev = [
 
 [project.scripts]
 nl2spl = "nl2spl.main:main"
+spl-edit = "nl2spl.compiler.spl_editing.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nl2spl"]

@@ -1,0 +1,223 @@
+"""Demo CLI for SPL Editing — thin wrapper over SPLEditingService.
+
+Usage:
+    spl-edit issues --run <run_id>
+    spl-edit suggest --run <run_id> --diagnostic <diag_id> [--instruction "..."]
+    spl-edit apply --session <session_id> --suggestion <sug_id>
+    spl-edit verify --session <session_id>
+    spl-edit demo --run <run_id>
+"""
+
+from __future__ import annotations
+
+import sys
+from typing import Any
+
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
+from nl2spl.compiler.spl_editing.core.model import RepairPatch, RepairSuggestion
+from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
+from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
+from nl2spl.compiler.spl_editing.core.service import SPLEditingService
+from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
+from nl2spl.ir.diagnostics import CompileDiagnostic
+
+
+def _build_default_service() -> SPLEditingService:
+    """Build a service with MVP registrations wired."""
+    reg = SPLEditingRuntimeRegistry()
+
+    # Target resolvers
+    from nl2spl.compiler.spl_editing.targets.exception_flow import (
+        ExceptionFlowTargetResolver,
+    )
+    from nl2spl.compiler.spl_editing.targets.required_output import (
+        RequiredOutputTargetResolver,
+    )
+    from nl2spl.compiler.spl_editing.targets.worker_promotion import (
+        WorkerPromotionTargetResolver,
+    )
+    from nl2spl.compiler.spl_editing.targets.worker_handoff import (
+        WorkerHandoffTargetResolver,
+    )
+    reg.target_resolvers.register("exception_flow_target", ExceptionFlowTargetResolver())
+    reg.target_resolvers.register("required_output_target", RequiredOutputTargetResolver())
+    reg.target_resolvers.register("worker_promotion_target", WorkerPromotionTargetResolver())
+    reg.target_resolvers.register("handoff_target", WorkerHandoffTargetResolver())
+
+    # Context builders
+    from nl2spl.compiler.spl_editing.context.exception_flow_context import (
+        ExceptionFlowContextBuilder,
+    )
+    from nl2spl.compiler.spl_editing.context.required_output_context import (
+        RequiredOutputContextBuilder,
+    )
+    from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
+        WorkerPromotionContextBuilder,
+    )
+    from nl2spl.compiler.spl_editing.context.worker_handoff_context import (
+        WorkerHandoffContextBuilder,
+    )
+    reg.context_builders.register("exception_flow_context", ExceptionFlowContextBuilder())
+    reg.context_builders.register("required_output_context", RequiredOutputContextBuilder())
+    reg.context_builders.register("worker_promotion_context", WorkerPromotionContextBuilder())
+    reg.context_builders.register("handoff_context", WorkerHandoffContextBuilder())
+
+    # Handlers (stub LLM)
+    from nl2spl.compiler.spl_editing.handlers.llm_adapter import StubSuggestionLLM
+    from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
+        MissingHandlerRepairHandler,
+    )
+    from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler import (
+        TypeOrContractAmbiguityHandler,
+    )
+    stub_llm = StubSuggestionLLM()
+    from nl2spl.compiler.spl_editing.handlers.missing_output_producer.handler import (
+        MissingOutputProducerHandler,
+    )
+    reg.handlers.register("missing_handler", MissingHandlerRepairHandler(stub_llm))
+    reg.handlers.register("missing_output_producer", MissingOutputProducerHandler())
+    reg.handlers.register("type_or_contract_ambiguity", TypeOrContractAmbiguityHandler())
+
+    # Patches (validators + appliers + verifiers)
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
+        AddExceptionHandlerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
+        AddExceptionHandlerStepApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
+        AddExceptionHandlerStepVerifier,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
+        AddExceptionHandlerStepPreviewer,
+    )
+    reg.patches.register("AddExceptionHandlerStep", PatchBundle(
+        patch_type="AddExceptionHandlerStep",
+        validator=AddExceptionHandlerStepValidator(),
+        applier=AddExceptionHandlerStepApplier(),
+        verifier=AddExceptionHandlerStepVerifier(),
+        previewer=AddExceptionHandlerStepPreviewer(),
+    ))
+
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.validator import (
+        InsertProducerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
+        InsertProducerStepApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.verifier import (
+        InsertProducerStepVerifier,
+    )
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.preview import (
+        InsertProducerStepPreviewer,
+    )
+    reg.patches.register("InsertProducerStep", PatchBundle(
+        patch_type="InsertProducerStep",
+        validator=InsertProducerStepValidator(),
+        applier=InsertProducerStepApplier(),
+        verifier=InsertProducerStepVerifier(),
+        previewer=InsertProducerStepPreviewer(),
+    ))
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.validator import (
+        BindExistingProducerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
+        BindExistingProducerStepApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.verifier import (
+        BindExistingProducerStepVerifier,
+    )
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.preview import (
+        BindExistingProducerStepPreviewer,
+    )
+    reg.patches.register("BindExistingProducerStep", PatchBundle(
+        patch_type="BindExistingProducerStep",
+        validator=BindExistingProducerStepValidator(),
+        applier=BindExistingProducerStepApplier(),
+        verifier=BindExistingProducerStepVerifier(),
+        previewer=BindExistingProducerStepPreviewer(),
+    ))
+
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.validator import (
+        ConvertDelegationToMainFlowStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
+        ConvertDelegationToMainFlowStepApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.verifier import (
+        ConvertDelegationToMainFlowStepVerifier,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
+        AddExceptionHandlerStepPreviewer,
+    )
+    reg.patches.register("ConvertDelegationIntentToMainFlowStep", PatchBundle(
+        patch_type="ConvertDelegationIntentToMainFlowStep",
+        validator=ConvertDelegationToMainFlowStepValidator(),
+        applier=ConvertDelegationToMainFlowStepApplier(),
+        verifier=ConvertDelegationToMainFlowStepVerifier(),
+        previewer=AddExceptionHandlerStepPreviewer(),
+    ))
+
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.validator import (
+        ConvertDelegationToRequestInputValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
+        ConvertDelegationToRequestInputApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.verifier import (
+        ConvertDelegationToRequestInputVerifier,
+    )
+    reg.patches.register("ConvertDelegationIntentToRequestInput", PatchBundle(
+        patch_type="ConvertDelegationIntentToRequestInput",
+        validator=ConvertDelegationToRequestInputValidator(),
+        applier=ConvertDelegationToRequestInputApplier(),
+        verifier=ConvertDelegationToRequestInputVerifier(),
+        previewer=AddExceptionHandlerStepPreviewer(),
+    ))
+
+    return SPLEditingService(reg)
+
+
+def demo_flow(snapshot: ArtifactSnapshot, instruction: str | None = None) -> None:
+    """Run an interactive demo flow over a snapshot."""
+    svc = _build_default_service()
+    run_id = svc.register_compile_result(snapshot)
+
+    issues = svc.list_editable_issues(run_id)
+    if not issues:
+        print("No editable issues found.")
+        return
+
+    print("Editable issues:")
+    for idx, issue in enumerate(issues, 1):
+        print(f"  [{idx}] {issue.kind} — {issue.message[:80]}")
+    print()
+
+    # Select first issue for demo
+    issue = issues[0]
+    print(f"Selecting issue: {issue.kind} ({issue.issue_id})")
+
+    session = svc.create_session(run_id, issue)
+    print(f"Session created: {session.session_id}")
+
+    suggestions = svc.generate_suggestions(session.session_id, instruction)
+    print(f"\nAI repair suggestions ({len(suggestions)}):")
+    for idx, s in enumerate(suggestions, 1):
+        print(f"  [{idx}] {s.title}")
+        if s.spl_preview:
+            print(f"       Preview: {s.spl_preview}")
+    print()
+
+    if suggestions:
+        sug = suggestions[0]
+        print(f"Applying suggestion: {sug.title}")
+        updated = svc.apply_suggestion(session.session_id, sug.suggestion_id)
+        print(f"Applied — overlay version {updated.overlay_version}")
+
+        result = svc.verify_session(session.session_id)
+        print(f"\nVerification: {'accepted' if result.accepted else 'rejected'}")
+        if result.resolved_diagnostic_ids:
+            print(f"  Resolved: {', '.join(result.resolved_diagnostic_ids)}")
+        if result.failure_reasons:
+            print(f"  Failures: {', '.join(result.failure_reasons)}")

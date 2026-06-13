@@ -835,6 +835,14 @@ class PostNormalizeIRSCheckerV6:
             return SlotSatisfaction(slot_name="source_evidence", status="satisfied")
         if step.metadata.get("origin") == "compiler_unpack":
             return SlotSatisfaction(slot_name="source_evidence", status="satisfied")
+        # R6: user-confirmed repair steps have valid evidence.
+        if step.metadata.get("origin") == "user_confirmed_repair":
+            return SlotSatisfaction(
+                slot_name="source_evidence",
+                status="satisfied",
+                relation="inferred",
+                explanation="Step evidence provided by user-confirmed repair.",
+            )
 
         evidence_spec = irs.get_slot("source_evidence")
         return SlotSatisfaction(

@@ -1,0 +1,124 @@
+"""SPL Editing runtime registries.
+
+Four registries wire service IDs to implementation objects / factories.
+All registries are mutable at setup time (``register()``) and read-only
+during the editing session (``get()`` / ``has()``).
+
+No registry calls LLM, reads run artifacts, or modifies IR on
+construction.  Registry entries are stored as plain objects — no magic
+imports, no lazy instantiation that triggers side effects.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+
+class _BaseRegistry:
+    """Key-value store with duplicate-registration guard."""
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._items: dict[str, Any] = {}
+
+    def register(self, key: str, item: Any) -> None:
+        if key in self._items:
+            raise KeyError(
+                f"{self._name} already has entry for '{key}'"
+            )
+        self._items[key] = item
+
+    def get(self, key: str) -> Any:
+        return self._items[key]
+
+    def has(self, key: str) -> bool:
+        return key in self._items
+
+    def list_keys(self) -> tuple[str, ...]:
+        return tuple(sorted(self._items))
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+
+# ---------------------------------------------------------------------------
+# Public registries
+# ---------------------------------------------------------------------------
+
+
+class PatchRegistry(_BaseRegistry):
+    """Registry of ``patch_type`` string -> patch implementation bundle.
+
+    Each entry is expected to be a composite object (validator + applier
+    + verifier + previewer) keyed by its ``patch_type`` string (e.g.
+    ``"AddExceptionHandlerStep"``).
+
+    The bundle shape is defined in ``patches/base.py``.  Registration
+    validates that ``bundle.patch_type == key``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("PatchRegistry")
+
+    def register(self, key: str, bundle: object) -> None:
+        bundle_patch_type = getattr(bundle, "patch_type", None)
+        if bundle_patch_type is not None and bundle_patch_type != key:
+            raise ValueError(
+                f"PatchBundle.patch_type '{bundle_patch_type}' does not "
+                f"match registry key '{key}'"
+            )
+        super().register(key, bundle)
+
+
+class HandlerRegistry(_BaseRegistry):
+    """Registry of ``handler_id`` -> ``IssueRepairHandler`` instance.
+
+    ``handler_id`` comes from ``RepairCatalogEntry.handler_id`` (e.g.
+    ``"missing_handler"``, ``"missing_output_producer"``,
+    ``"type_or_contract_ambiguity"``).
+    """
+
+    def __init__(self) -> None:
+        super().__init__("HandlerRegistry")
+
+
+class TargetResolverRegistry(_BaseRegistry):
+    """Registry of ``target_resolver_id`` -> ``IssueTargetResolver`` instance.
+
+    ``target_resolver_id`` comes from ``RepairCatalogEntry.target_resolver_id``
+    (e.g. ``"exception_flow_target"``, ``"required_output_target"``).
+    """
+
+    def __init__(self) -> None:
+        super().__init__("TargetResolverRegistry")
+
+
+class ContextBuilderRegistry(_BaseRegistry):
+    """Registry of ``context_id`` -> ``RepairContextBuilder`` instance.
+
+    ``context_id`` comes from ``RepairCatalogEntry.context_id`` (e.g.
+    ``"exception_flow_context"``, ``"required_output_context"``).
+    """
+
+    def __init__(self) -> None:
+        super().__init__("ContextBuilderRegistry")
+
+
+# ---------------------------------------------------------------------------
+# Aggregate
+# ---------------------------------------------------------------------------
+
+
+class SPLEditingRuntimeRegistry:
+    """Holds all four sub-registries for an editing session.
+
+    Built once at service startup.  Individual sub-registries can be
+    populated incrementally as patch families are implemented.
+    """
+
+    def __init__(self) -> None:
+        self.patches = PatchRegistry()
+        self.handlers = HandlerRegistry()
+        self.target_resolvers = TargetResolverRegistry()
+        self.context_builders = ContextBuilderRegistry()

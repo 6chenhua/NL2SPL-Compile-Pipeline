@@ -54,9 +54,10 @@ def _step_is_renderable(
     """Apply the same origin / renderability classification as the executable gate.
 
     A step is renderable when it has source evidence, a *valid* handoff
-    backing, or is deterministic compiler_unpack scaffolding.  When a step
-    carries a ``handoff_id`` it must exist in *handoff_index* and its
-    ``command_type`` must match the handoff's ``mode``.
+    backing, is deterministic compiler_unpack scaffolding, or is a
+    user-confirmed repair (R6).  When a step carries a ``handoff_id`` it
+    must exist in *handoff_index* and its ``command_type`` must match the
+    handoff's ``mode``.
     """
     if step.source_span_ids:
         return True
@@ -74,6 +75,10 @@ def _step_is_renderable(
         return True
 
     if step.metadata.get("origin") == "compiler_unpack":
+        return True
+
+    # R6: user-confirmed repair steps are renderable producers.
+    if step.metadata.get("origin") == "user_confirmed_repair":
         return True
 
     return False

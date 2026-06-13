@@ -7,7 +7,7 @@ from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR
 
-Origin = str  # "source_backed" | "handoff_generated" | "compiler_synthetic" | "assumed"
+Origin = str  # "source_backed" | "handoff_generated" | "compiler_synthetic" | "user_confirmed_repair" | "assumed"
 
 
 class ExecutableElementGate:
@@ -106,11 +106,18 @@ class ExecutableElementGate:
         Handoff-backed steps are checked first -- a step that carries both
         source spans and a handoff_id must still be validated against the
         handoff contract, not silently passed as source_backed.
+
+        R6: ``user_confirmed_repair`` is recognized as a valid origin.
+        A step confirmed by the user through SPL Editing carries this
+        origin and is treated as renderable evidence (with command-type
+        guard rails).
         """
         if step.handoff_id is not None:
             return "handoff_generated"
         if step.source_span_ids:
             return "source_backed"
+        if step.metadata.get("origin") == "user_confirmed_repair":
+            return "user_confirmed_repair"
         if step.metadata.get("origin") == "compiler_unpack":
             return "compiler_synthetic"
         return "assumed"
@@ -226,7 +233,12 @@ class ExecutableElementGate:
                 return True, None
             return False, "Compiler-synthetic step is not unpack scaffolding"
 
-        # 4. assumed -> NOT renderable
+        # 4. user_confirmed_repair — renderable with same command-type
+        #    guard rails as source_backed.  R6.
+        if origin == "user_confirmed_repair":
+            return self._source_backed_renderable(step)
+
+        # 5. assumed -> NOT renderable
         return False, "Step has no source evidence and is not handoff-backed"
 
     def _handoff_outputs_match(

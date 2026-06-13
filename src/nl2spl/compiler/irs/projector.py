@@ -190,6 +190,19 @@ class DiagnosticProjector:
                     if _key in report.metadata:
                         diagnostic.metadata[_key] = report.metadata[_key]
 
+                # R1: Write structured IRS reference so SPL Editing can
+                # reverse-lookup the construct type, slot, and authority
+                # that produced this diagnostic.
+                authority = self._authority_from_context(context)
+                diagnostic.metadata["irs_ref"] = {
+                    "construct_type": report.construct_type,
+                    "construct_id": report.construct_id,
+                    "slot_name": slot.slot_name,
+                    "construct_path": list(report.construct_path),
+                    "source_authority": authority,
+                }
+                diagnostic.metadata["authority"] = authority
+
                 diagnostics.append(diagnostic)
         
         return DiagnosticProjectionResult(
@@ -245,3 +258,19 @@ class DiagnosticProjector:
         """
         base_message = slot_explanation if slot_explanation else spec_description
         return f"{base_message} [construct={construct_id}, slot={slot_name}]"
+
+    @staticmethod
+    def _authority_from_context(context: IRSCheckContext) -> str:
+        """Derive the source authority from the IRS check context.
+
+        Maps stage names to authority labels:
+        - ``"post_normalize"`` → ``"post_normalize_irs"``
+        - everything else → ``"stage_local_irs"``
+
+        The orchestrator may later promote selected stage-local diagnostics
+        to ``"selected_promoted_stage_local_irs"`` by overwriting
+        ``metadata["authority"]`` and ``metadata["irs_ref"]["source_authority"]``.
+        """
+        if context.stage_name == "post_normalize":
+            return "post_normalize_irs"
+        return "stage_local_irs"
