@@ -1,6 +1,6 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-06-12T16:12:52.782834",
+  "timestamp": "2026-06-14T18:46:16.485372",
   "metadata": {},
   "result": {
     "constraints": [
@@ -42,7 +42,7 @@
         "text": "Limit questions per turn.",
         "kind": "requirement",
         "targets": [
-          "step:st_2"
+          "step:st_3"
         ],
         "source_span_ids": [
           "s21"
@@ -54,7 +54,7 @@
         "kind": "requirement",
         "targets": [
           "step:st_3",
-          "step:st_2"
+          "step:st_4"
         ],
         "source_span_ids": [
           "s22"
@@ -65,7 +65,7 @@
         "text": "Deny finalization if critical slots are missing or provenance fails.",
         "kind": "gate",
         "targets": [
-          "global"
+          "step:st_6"
         ],
         "source_span_ids": [
           "s23"

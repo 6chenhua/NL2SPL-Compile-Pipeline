@@ -4,8 +4,10 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+from nl2spl.compiler.artifacts.snapshot.config import SnapshotPersistenceConfig
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
-from nl2spl.config import load_config, LLMConfig
+from nl2spl.config import LLMConfig, load_config
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -30,6 +32,7 @@ def main() -> None:
         save_intermediate=True,
         output_dir=Path(__file__).parent / "output",
         run_name="demo",
+        snapshot=SnapshotPersistenceConfig(),
     )
 
     # Create orchestrator
@@ -47,6 +50,11 @@ def main() -> None:
     print(f"Assumptions:  {len(result.assumptions)}")
     print(f"Validation:   {len(result.validation_errors)} errors, "
           f"{len(result.validation_warnings)} warnings")
+    print(f"Snapshot:     {result.spl_editing_snapshot_status}")
+    if result.spl_editing_snapshot_path:
+        print(f"Snapshot path:{result.spl_editing_snapshot_path}")
+    if result.spl_editing_snapshot_error:
+        print(f"Snapshot err: {result.spl_editing_snapshot_error}")
     print("=" * 60)
 
     if result.compile_diagnostics:

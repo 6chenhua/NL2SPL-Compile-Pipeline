@@ -1,0 +1,18 @@
+{
+  "stage": "stage3_5b_worker_boundary_decisions",
+  "timestamp": "2026-06-14T03:18:57.345482",
+  "metadata": {},
+  "result": {
+    "decisions": [
+      {
+        "candidate_id": "candidate_delegate_source_gathering",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "explicit_delegation",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_input_contract",
+        "evidence": []
+      }
+    ]
+  }
+}

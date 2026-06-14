@@ -12,10 +12,6 @@ Coverage targets per Section 4.5:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
 from nl2spl.compiler.irs.context import IRSCheckContext
@@ -23,14 +19,13 @@ from nl2spl.compiler.irs.projector import DiagnosticProjector
 from nl2spl.compiler.irs.registry import IRSCheckerRegistry
 from nl2spl.compiler.irs.result_store import IRSResultStore, IRSStageResult
 from nl2spl.compiler.irs.runner import IRSRunner
+from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     WorkerPlanIR,
 )
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-from nl2spl.ir.diagnostics import CompileDiagnostic
-
 
 # ===========================================================================
 # Helpers
@@ -120,6 +115,31 @@ class TestCharOrchestratorPromotedIRSDiagnostics:
         assert len(promoted) == 1
         assert promoted[0].target_ref == "worker_promotion:del_s_span1"
         assert promoted[0].metadata.get("original_semantic_role") == "delegation_intent"
+
+    def test_promoted_diagnostic_has_snapshot_issue_metadata(self) -> None:
+        """Promoted diagnostics must satisfy snapshot editable-diagnostic
+        metadata requirements."""
+        store = IRSResultStore()
+        store.put_stage_result(IRSStageResult(
+            stage_name="stage3_5",
+            diagnostics=(
+                _make_delegation_sourced_diagnostic(
+                    "worker_promotion:del_s_span1",
+                ),
+            ),
+        ))
+
+        promoted = PipelineOrchestrator._promoted_irs_diagnostics(store)
+        meta = promoted[0].metadata
+
+        assert meta["authority"] == "selected_promoted_stage_local_irs"
+        assert meta["repairability"] == "editable"
+        assert meta["issue_group_id"] == (
+            "worker_promotion_group:worker_promotion:del_s_span1"
+        )
+        assert meta["issue_role"] == "primary"
+        assert meta["primary_diagnostic_id"] == promoted[0].diagnostic_id
+        assert meta["related_diagnostic_ids"] == [promoted[0].diagnostic_id]
 
     def test_non_delegation_sourced_not_promoted(self) -> None:
         """R10 Phase 4: diagnostic without delegation metadata is NOT promoted."""
@@ -243,6 +263,37 @@ class TestCharOrchestratorPromotedIRSDiagnostics:
 # ===========================================================================
 # Phase 4: Full IRS run → promoted diagnostics chain
 # ===========================================================================
+
+
+class TestEditableDiagnosticSnapshotContract:
+    def test_missing_handler_gets_snapshot_issue_metadata(self) -> None:
+        diag = CompileDiagnostic(
+            diagnostic_id="diag_mh",
+            kind="missing_handler",
+            severity="warning",
+            message="Exception flow has no handler.",
+            target_ref="worker:w_main.exception_flow:exc_1",
+            source_span_ids=["s1"],
+            metadata={
+                "irs_ref": {
+                    "construct_type": "EXCEPTION_FLOW",
+                    "construct_id": "worker:w_main.exception_flow:exc_1",
+                    "slot_name": "handler_action",
+                }
+            },
+        )
+
+        PipelineOrchestrator._annotate_editable_diagnostics_for_snapshot_contract(
+            [diag]
+        )
+
+        assert diag.metadata["repairability"] == "editable"
+        assert diag.metadata["issue_group_id"] == (
+            "missing_handler_group:worker:w_main.exception_flow:exc_1"
+        )
+        assert diag.metadata["issue_role"] == "primary"
+        assert diag.metadata["primary_diagnostic_id"] == "diag_mh"
+        assert diag.metadata["related_diagnostic_ids"] == ["diag_mh"]
 
 
 class TestCharFullIRSPromotionChain:

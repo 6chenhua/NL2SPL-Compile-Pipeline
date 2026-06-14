@@ -1,6 +1,6 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-06-12T16:12:12.840444",
+  "timestamp": "2026-06-14T18:45:55.915993",
   "metadata": {},
   "result": {
     "decisions": [
@@ -9,8 +9,8 @@
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
         "evidence": []
       },
       {
@@ -18,8 +18,8 @@
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "integration_wrapper",
-        "rejection_reason": "no_clear_output_contract",
-        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_input_contract",
         "evidence": []
       },
       {

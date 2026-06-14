@@ -1,0 +1,31 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-06-14T03:26:26.029510",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [],
+        "input_contract": [],
+        "output_contract": [],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      }
+    ],
+    "handoffs": [],
+    "candidates": [],
+    "decisions": [],
+    "rejected_candidates": [],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-06-14T03:18:57.346162",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s6",
+          "s7",
+          "s8",
+          "s10",
+          "s11",
+          "s12",
+          "s13",
+          "s14",
+          "s15",
+          "s16",
+          "s17",
+          "s18",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30a"
+        ],
+        "input_contract": [],
+        "output_contract": [],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": ""
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_delegate_source_gathering",
+        "source_span_ids": [
+          "s30a",
+          "s30b"
+        ],
+        "task_text": "Delegated subtasks for source gathering or template matching when bounded and normalized into approved evidence carriers.",
+        "purpose": "To obtain bounded supporting evidence through delegated subtasks and return it in an approved normalized form.",
+        "candidate_kind": "explicit_delegation",
+        "possible_inputs": [
+          {
+            "name": "bounded_subtask_scope",
+            "data_type": "text",
+            "required": true,
+            "description": "The bounded scope for the delegated source-gathering or template-matching work.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "approved_evidence_carriers",
+            "data_type": "text",
+            "required": true,
+            "description": "The approved evidence carrier format that returned evidence must be normalized into.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "normalized_evidence",
+            "data_type": "text",
+            "required": true,
+            "description": "Returned evidence normalized into approved evidence carriers.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "explicit_delegation",
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "insufficient_semantic_boundary",
+          "no_clear_input_contract",
+          "no_clear_output_contract"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_delegate_source_gathering",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "explicit_delegation",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_input_contract",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_delegate_source_gathering",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "explicit_delegation",
+        "rejection_reason": "no_clear_input_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_input_contract",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

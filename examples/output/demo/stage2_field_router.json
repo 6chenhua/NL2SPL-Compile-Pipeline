@@ -1,6 +1,6 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-06-12T16:12:07.275524",
+  "timestamp": "2026-06-14T18:45:52.366041",
   "metadata": {},
   "result": {
     "routes": {
@@ -12,8 +12,7 @@
         "s20",
         "s21",
         "s22",
-        "s23",
-        "s30"
+        "s23"
       ],
       "domain": [
         "s1",
@@ -494,21 +493,6 @@
           "slot_target": "target",
           "executable": false,
           "primary": true,
-          "diagnostics": [],
-          "metadata": {}
-        },
-        {
-          "span_id": "s30",
-          "field": "rules",
-          "semantic_role": "delegation_boundary_constraint",
-          "route_family": "delegation_boundary",
-          "source_section_id": "sec_delegation_policy",
-          "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-          "source_hint_ids": [],
-          "construct_target": "CONSTRAINT",
-          "slot_target": "boundary",
-          "executable": false,
-          "primary": false,
           "diagnostics": [],
           "metadata": {}
         }
@@ -995,15 +979,109 @@
           }
         }
       ],
-      "route_diagnostics": [],
-      "structured_route_diagnostics": []
+      "route_diagnostics": [
+        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested a process step, but the text is a constraint on revising and finalizing.",
+        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a policy rule category; classified as constraint because the text is a prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a policy rule category; classified as constraint because the text imposes an evidence requirement.",
+        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a policy rule category; classified as constraint because the text limits questioning.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested a policy rule category; classified as constraint because the text expresses a preference constraint.",
+        "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a policy rule category; classified as constraint because the text denies finalization under specified conditions.",
+        "LLM route diagnostic [prior_overridden] span='s24': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s25': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a general behavior label, but the text is a delegation-intent policy."
+      ],
+      "structured_route_diagnostics": [
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested a process step, but the text is a constraint on revising and finalizing."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a policy rule category; classified as constraint because the text is a prohibition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a policy rule category; classified as constraint because the text imposes an evidence requirement."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a policy rule category; classified as constraint because the text limits questioning."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested a policy rule category; classified as constraint because the text expresses a preference constraint."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a policy rule category; classified as constraint because the text denies finalization under specified conditions."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s24': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s25': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a process/behavior label, but the text names a failure condition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a general behavior label, but the text is a delegation-intent policy."
+        }
+      ]
     },
     "ambiguity_updates": [],
     "overlaps": [],
     "adapter_consumed_spans": [],
     "llm_refinement": {
       "used": true,
-      "route_diagnostics": [],
+      "route_diagnostics": [
+        "LLM route diagnostic [prior_overridden] span='s18': Structural prior suggested a process step, but the text is a constraint on revising and finalizing.",
+        "LLM route diagnostic [prior_overridden] span='s19': Structural prior suggested a policy rule category; classified as constraint because the text is a prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s20': Structural prior suggested a policy rule category; classified as constraint because the text imposes an evidence requirement.",
+        "LLM route diagnostic [prior_overridden] span='s21': Structural prior suggested a policy rule category; classified as constraint because the text limits questioning.",
+        "LLM route diagnostic [prior_overridden] span='s22': Structural prior suggested a policy rule category; classified as constraint because the text expresses a preference constraint.",
+        "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a policy rule category; classified as constraint because the text denies finalization under specified conditions.",
+        "LLM route diagnostic [prior_overridden] span='s24': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s25': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a process/behavior label, but the text names a failure condition.",
+        "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a general behavior label, but the text is a delegation-intent policy."
+      ],
       "split_recommendations": []
     }
   }

@@ -3,26 +3,39 @@ r"""Runnable SPL Editing backend demo.
 Run from the repository root:
 
     .\.venv\Scripts\python.exe examples\spl_editing_demo.py --auto
+    .\.venv\Scripts\python.exe examples\spl_editing_demo.py --run output\my_run --auto
 
-The script builds an in-memory ArtifactSnapshot, lists editable issues,
-generates repair suggestions, applies one suggestion, verifies through the
-compiler replay lane, and prints the patched SPL.
+The script uses the same snapshot path as production SPL Editing:
+
+1. If ``--run`` is provided, it loads ``<run_dir>/spl_editing_snapshot.json``.
+2. Otherwise it writes a demo ``spl_editing_snapshot.json`` under
+   ``examples/output/spl_editing_demo/<case>/`` and loads that file.
+
+It then lists editable issues, generates repair suggestions, applies one
+suggestion, verifies through the compiler replay lane, and prints the patched
+SPL.
 """
 
 from __future__ import annotations
 
+# ruff: noqa: E402
 import argparse
 import sys
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from nl2spl.compiler.spl_editing.cli import _build_default_service, _run_demo
+from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
+    JsonFileSnapshotRepository,
+)
+from nl2spl.compiler.spl_editing.cli import _build_default_service, _run_demo_for_run
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
+from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
+    document_from_artifact_snapshot,
+)
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic
@@ -32,6 +45,7 @@ from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import ExceptionFlowRef
 from nl2spl.ir.worker_plan_ir import (
+    ContractFieldIR,
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
     WorkerPlanIR,
@@ -61,6 +75,9 @@ def build_missing_handler_snapshot() -> ArtifactSnapshot:
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
+    diag.metadata["repairability"] = "editable"
+    diag.metadata["issue_role"] = "primary"
+    diag.metadata["issue_group_id"] = "group_diag_mh"
     return ArtifactSnapshot(
         "snap_demo_mh",
         "run_demo_mh",
@@ -119,6 +136,9 @@ def build_missing_output_snapshot() -> ArtifactSnapshot:
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
+    diag.metadata["repairability"] = "editable"
+    diag.metadata["issue_role"] = "primary"
+    diag.metadata["issue_group_id"] = "group_diag_mop"
     return ArtifactSnapshot(
         "snap_demo_mop",
         "run_demo_mop",
@@ -181,18 +201,29 @@ def build_worker_handoff_snapshot() -> ArtifactSnapshot:
             workers=[
                 WorkerSpecIR(
                     "w_main",
-                    "Main",
+                    "MainWorker",
                     "main",
                     "Main",
                     boundary_kind="main_worker",
-                    owned_span_ids=["s1"],
+                    owned_span_ids=[],
                 ),
                 WorkerSpecIR(
                     "w_child",
                     "Child",
                     "child",
                     "ChildWorker",
-                    boundary_kind="child_worker",
+                    boundary_kind="bounded_subtask",
+                    owned_span_ids=["s1"],
+                    input_contract=[
+                        ContractFieldIR(
+                            "request", "text", True, "Request", "input",
+                        ),
+                    ],
+                    output_contract=[
+                        ContractFieldIR(
+                            "result", "text", True, "Result", "output",
+                        ),
+                    ],
                 ),
             ],
         ),
@@ -205,17 +236,34 @@ def build_worker_handoff_snapshot() -> ArtifactSnapshot:
                         "Invoke child",
                         ["s1"],
                         "INVOKE_WORKER",
+                        inputs=["request"],
+                        outputs=["result"],
                         handoff_id="handoff_repair_cand_1",
                         integration_ref="Child",
                     )
-                ]
+                ],
+                "w_child": [
+                    StepIR(
+                        "st_child_result",
+                        "Produce result",
+                        ["s1"],
+                        "GENERAL_COMMAND",
+                        outputs=["result"],
+                    ),
+                ],
             },
         ),
         worker_flow_plan=WorkerFlowPlanIR(
-            worker_flows={"w_main": FlowStructureIR()}
+            worker_flows={
+                "w_main": FlowStructureIR(),
+                "w_child": FlowStructureIR(),
+            }
         ),
         worker_block_plan=WorkerBlockPlanIR(
-            worker_blocks={"w_main": BlockStructureIR()}
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+                "w_child": BlockStructureIR(),
+            }
         ),
         resources=ResourceRegistryIR(),
         symbol_table=SymbolTable(),
@@ -231,9 +279,20 @@ SNAPSHOT_BUILDERS = {
 }
 
 
-def run_auto(snapshot: ArtifactSnapshot, preferred_patch_type: str | None = None) -> None:
+def _write_demo_snapshot(snapshot: ArtifactSnapshot, run_dir: Path) -> Path:
+    path = run_dir / "spl_editing_snapshot.json"
+    document = document_from_artifact_snapshot(snapshot)
+    JsonFileSnapshotRepository().save(document, path)
+    return path
+
+
+def _register_snapshot(run_dir: Path):
     svc = _build_default_service()
-    run_id = svc.register_compile_result(snapshot)
+    run_id = svc.register_snapshot_file(run_dir / "spl_editing_snapshot.json")
+    return svc, run_id
+
+
+def run_auto(svc, run_id: str, preferred_patch_type: str | None = None) -> None:
     issues = svc.list_editable_issues(run_id)
     if not issues:
         raise RuntimeError("No editable issues found.")
@@ -283,13 +342,27 @@ def run_auto(snapshot: ArtifactSnapshot, preferred_patch_type: str | None = None
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run a self-contained SPL Editing backend demo."
+        description="Run SPL Editing from a canonical snapshot JSON."
+    )
+    parser.add_argument(
+        "--run",
+        type=Path,
+        help=(
+            "Run directory containing spl_editing_snapshot.json. "
+            "If omitted, a demo snapshot is written first."
+        ),
     )
     parser.add_argument(
         "--case",
         choices=tuple(SNAPSHOT_BUILDERS),
         default="missing-handler",
-        help="Demo scenario to run.",
+        help="Demo scenario to materialize when --run is omitted.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=ROOT / "examples" / "output" / "spl_editing_demo",
+        help="Directory for generated demo snapshots when --run is omitted.",
     )
     parser.add_argument(
         "--auto",
@@ -298,15 +371,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    snapshot = SNAPSHOT_BUILDERS[args.case]()
+    if args.run is None:
+        snapshot = SNAPSHOT_BUILDERS[args.case]()
+        run_dir = args.output_dir / args.case
+        snapshot_path = _write_demo_snapshot(snapshot, run_dir)
+        print(f"Snapshot: {snapshot_path}")
+    else:
+        run_dir = args.run
+
+    svc, run_id = _register_snapshot(run_dir)
+
     if args.auto:
         preferred = None
         if args.case == "handoff":
             preferred = "CreateWorkerHandoffContract"
-        run_auto(snapshot, preferred_patch_type=preferred)
+        run_auto(svc, run_id, preferred_patch_type=preferred)
         return
 
-    _run_demo(snapshot)
+    _run_demo_for_run(svc, run_id)
 
 
 if __name__ == "__main__":

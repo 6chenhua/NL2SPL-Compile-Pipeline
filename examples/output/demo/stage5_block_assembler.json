@@ -1,6 +1,6 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-06-12T16:12:23.747089",
+  "timestamp": "2026-06-14T18:45:59.824465",
   "metadata": {},
   "result": {
     "worker_blocks": {
@@ -11,21 +11,14 @@
             "block_type": "SEQUENTIAL",
             "condition_text": null,
             "spans": [
-              "s15"
+              "s15",
+              "s16"
             ]
           },
           {
             "block_id": "b_2",
             "block_type": "IF",
-            "condition_text": "sources are needed and available",
-            "spans": [
-              "s16"
-            ]
-          },
-          {
-            "block_id": "b_3",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
+            "condition_text": "the user asks for revision",
             "spans": [
               "s17"
             ]

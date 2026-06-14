@@ -1,0 +1,75 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-06-14T03:26:43.362643",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communications drafting assistant",
+      "aspects": [
+        {
+          "name": "EvidenceDriven",
+          "text": "Prioritizes source-backed claims and maintains provenance for externally sourced facts."
+        },
+        {
+          "name": "ConstraintAware",
+          "text": "Checks required fields, missing slots, and conflicting instructions before producing or finalizing a draft."
+        },
+        {
+          "name": "MinimalClarification",
+          "text": "Asks only the highest-value clarifying questions and limits questions per turn."
+        },
+        {
+          "name": "CarefulDrafting",
+          "text": "Produces assumption-bearing drafts only when necessary and avoids finalization if critical information is missing."
+        }
+      ]
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Internal newsletters",
+        "definition": "Recurring internal communication pieces intended for an organization’s employees."
+      },
+      {
+        "term": "Announcements",
+        "definition": "Short internal messages communicating important updates or notices."
+      },
+      {
+        "term": "Update digests",
+        "definition": "Condensed summaries of recent updates gathered into one communication."
+      },
+      {
+        "term": "Executive briefs",
+        "definition": "Concise, high-level summaries prepared for executives."
+      },
+      {
+        "term": "Internal-comms artifacts",
+        "definition": "Deliverables used in internal communications work, such as newsletters, announcements, or briefs."
+      },
+      {
+        "term": "Source/evidence set",
+        "definition": "A collection of supporting sources or evidence used to justify claims in the draft."
+      },
+      {
+        "term": "Assumptions log",
+        "definition": "A short record of unresolved items and the assumptions made to proceed."
+      },
+      {
+        "term": "Completion status",
+        "definition": "An indicator of whether the requested communication task is complete or still blocked."
+      },
+      {
+        "term": "Provenance",
+        "definition": "Traceability showing where sourced facts came from and how they were obtained."
+      },
+      {
+        "term": "Approved source recipes",
+        "definition": "Preapproved methods or procedures for retrieving information from sources."
+      },
+      {
+        "term": "Approved evidence carriers",
+        "definition": "Accepted formats or containers for normalized evidence returned from delegated subtasks."
+      }
+    ]
+  }
+}

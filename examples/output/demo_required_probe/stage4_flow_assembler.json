@@ -1,0 +1,25 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-06-14T03:19:00.090942",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [],
+        "alternative_flows": [
+          {
+            "flow_id": "alt_1",
+            "condition_text": "user asks for revision",
+            "spans": []
+          }
+        ],
+        "exception_flows": [],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": [
+      "Worker worker_main has no owned behavior spans for Stage 4.",
+      "Worker worker_main: routes.behavior is non-empty (19 span(s)) but no executable behavior annotations exist. Check Stage 2 annotation contract validation and Stage 3 child annotation derivation."
+    ]
+  }
+}
