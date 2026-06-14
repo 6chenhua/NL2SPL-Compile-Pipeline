@@ -64,6 +64,9 @@ class PipelineConfig:
     # IRS (Information Requirements Specification) settings
     irs: IRSRuntimeConfig = field(default_factory=IRSRuntimeConfig)
 
+    # Snapshot persistence settings (S4)
+    snapshot: Any = None  # SnapshotPersistenceConfig — lazy reference to avoid import
+
     def __post_init__(self) -> None:
         """Ensure directories exist."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
