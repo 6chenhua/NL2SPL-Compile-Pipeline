@@ -13,6 +13,9 @@ from nl2spl.compiler.analyzers.semantic_conflict import (
     LLMConflictDiagnosticVerifier,
     NoOpSemanticConflictAnalyzer,
 )
+from nl2spl.compiler.annotation_role_contract.projector import (
+    project_stage2_to_compile_diagnostics,
+)
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
@@ -29,7 +32,15 @@ from nl2spl.config import PipelineConfig
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
-from nl2spl.ir.diagnostics import CompileDiagnostic
+from nl2spl.ir.diagnostics import (
+    METADATA_KEY_AUTHORITY,
+    METADATA_KEY_ISSUE_GROUP_ID,
+    METADATA_KEY_ISSUE_ROLE,
+    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
+    METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
+    METADATA_KEY_REPAIRABILITY,
+    CompileDiagnostic,
+)
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
@@ -47,9 +58,6 @@ from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
-from nl2spl.compiler.annotation_role_contract.projector import (
-    project_stage2_to_compile_diagnostics,
-)
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
@@ -101,6 +109,11 @@ class PipelineResult:
     readable_report: str = ""
     intermediate_results: dict[str, Any] = field(default_factory=dict)
     final_spl_path: Path | None = None
+
+    # Snapshot persistence (S4)
+    spl_editing_snapshot_path: Path | None = None
+    spl_editing_snapshot_status: str = "not_requested"
+    spl_editing_snapshot_error: str | None = None
 
     @property
     def diagnostics(self) -> list[Any]:
@@ -472,6 +485,8 @@ class PipelineOrchestrator:
         # 鏇存柊 steps 涓烘墍鏈?worker 鐨?steps
         steps = worker_step_plan.get_all_steps()
         intermediate["stage9_5_normalization"] = norm_result
+        # Store normalized symbol table for S4 snapshot persistence
+        intermediate["symbol_table"] = symbol_table
 
         # Stage 10: Worker Assembly
         self.logger.info("Stage 10: Worker Assembly")
@@ -666,6 +681,9 @@ class PipelineOrchestrator:
             + list(view_diagnostics)
             + coverage_diagnostics
         )
+        self._annotate_editable_diagnostics_for_snapshot_contract(
+            all_diagnostics
+        )
         intermediate["suppressed_stage_local_diagnostics"] = (
             consolidation.suppressed_stage_local_diagnostics
         )
@@ -681,6 +699,32 @@ class PipelineOrchestrator:
         assumptions = assumption_builder.build(all_diagnostics)
         readable_report = ""
 
+        # S4: Snapshot persistence
+        snapshot_path = None
+        snapshot_status = "not_requested"
+        snapshot_error: str | None = None
+
+        snap_config = getattr(self.config, "snapshot", None)
+        if snap_config is not None and getattr(snap_config, "enabled", False):
+            try:
+                snapshot_path = self._persist_snapshot(
+                    compile_run_id=self.config.run_name or "unknown",
+                    output_dir=self.config.run_dir,
+                    spl_text=spl_text,
+                    final_spl_path=final_spl_path,
+                    intermediate=intermediate,
+                    all_diagnostics=all_diagnostics,
+                    traces=traces,
+                )
+                snapshot_status = "available"
+            except Exception as exc:
+                snapshot_error = str(exc)
+                mode = getattr(snap_config, "mode", None)
+                if mode is not None and getattr(mode, "value", "") == "required":
+                    snapshot_status = "failed_required"
+                else:
+                    snapshot_status = "failed_best_effort"
+
         return PipelineResult(
             spl_text=spl_text,
             validation_errors=errors,
@@ -693,7 +737,137 @@ class PipelineOrchestrator:
             readable_report=readable_report,
             intermediate_results=intermediate,
             final_spl_path=final_spl_path,
+            spl_editing_snapshot_path=snapshot_path,
+            spl_editing_snapshot_status=snapshot_status,
+            spl_editing_snapshot_error=snapshot_error,
         )
+
+    # ------------------------------------------------------------------
+    # S4: Snapshot persistence
+    # ------------------------------------------------------------------
+
+    def _persist_snapshot(
+        self,
+        *,
+        compile_run_id: str,
+        output_dir: Path,
+        spl_text: str,
+        final_spl_path: Path | None,
+        intermediate: dict[str, Any],
+        all_diagnostics: list[Any],
+        traces: list[Any],
+    ) -> Path | None:
+        """Build and persist a snapshot document if configured.
+
+        Returns the written file path on success, or None if disabled.
+        Raises on failure (caller decides best-effort vs required).
+        """
+        from nl2spl.compiler.artifacts.snapshot.build.builder import SnapshotBuilder
+        from nl2spl.compiler.artifacts.snapshot.build.input import SnapshotBuildInput
+        from nl2spl.compiler.artifacts.snapshot.capabilities import (
+            SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS,
+        )
+        from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
+            JsonFileSnapshotRepository,
+        )
+
+        snap_config = self.config.snapshot
+
+        # Map pipeline intermediate keys to SnapshotBuildInput fields.
+        # Keys match what the orchestrator writes into intermediate dict.
+
+        # stage9_5_normalization is a tuple:
+        #   (worker_flow_plan, worker_block_plan, worker_step_plan,
+        #    symbol_table, errors, warnings)
+        norm_result = intermediate.get("stage9_5_normalization")
+        norm_flow = None
+        norm_block = None
+        norm_step = None
+        norm_symbols = None
+        if isinstance(norm_result, (list, tuple)) and len(norm_result) >= 4:
+            norm_flow, norm_block, norm_step, norm_symbols = norm_result[:4]
+
+        # Construct stage10_input as a dict of artifacts fed to WorkerAssembler
+        stage10_raw = intermediate.get("stage10_input")
+        if stage10_raw is None:
+            stage10_raw = {
+                "worker_step_plan": intermediate.get("stage7_worker_step_plan"),
+                "resources": intermediate.get("stage6_resources"),
+                "symbol_table": intermediate.get("symbol_table") or norm_symbols,
+                "worker_plan": intermediate.get("stage3_5_worker_plan"),
+                "worker_flow_plan": intermediate.get("stage4_worker_flows"),
+                "worker_block_plan": intermediate.get("stage5_worker_blocks"),
+            }
+
+        build_input = SnapshotBuildInput(
+            compile_run_id=compile_run_id,
+            output_dir=output_dir,
+            source_spans=tuple(intermediate.get("stage1_spans", ())),
+            source_routes=intermediate.get("stage2_routes"),
+            construct_plan=intermediate.get("construct_plan"),
+            canonical_input=intermediate.get("canonical_input"),
+            worker_plan=intermediate.get("stage3_5_worker_plan"),
+            worker_flow_plan=intermediate.get("stage4_worker_flows"),
+            worker_block_plan=intermediate.get("stage5_worker_blocks"),
+            worker_step_plan=intermediate.get("stage7_worker_step_plan"),
+            resources=intermediate.get("stage6_resources"),
+            worker_scoped_resources=intermediate.get("stage6_worker_scoped_resources"),
+            symbol_table=intermediate.get("symbol_table") or norm_symbols,
+            constraints=tuple(intermediate.get("stage9_constraints", ())),
+            agent_profile=intermediate.get("stage8_profile"),
+            final_worker=intermediate.get("stage10_worker"),
+            pre_gate_worker=intermediate.get("stage10_worker"),
+            final_spl_text=spl_text,
+            compile_diagnostics=tuple(
+                diag for diag in all_diagnostics
+                if getattr(diag, "kind", "") in SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS
+            ),
+            traces=tuple(traces),
+            normalizer_input={
+                "worker_flow_plan": intermediate.get("stage4_worker_flows"),
+                "worker_block_plan": intermediate.get("stage5_worker_blocks"),
+                "worker_step_plan": intermediate.get("stage7_worker_step_plan"),
+                "worker_plan": intermediate.get("stage3_5_worker_plan"),
+                "resources": intermediate.get("stage6_resources"),
+                "symbol_table": intermediate.get("symbol_table"),
+            },
+            normalizer_output={
+                "worker_flow_plan": norm_flow,
+                "worker_block_plan": norm_block,
+                "worker_step_plan": norm_step,
+                "symbol_table": norm_symbols,
+            } if norm_flow is not None else None,
+            stage10_input=stage10_raw,
+            config=snap_config,
+        )
+
+        builder = SnapshotBuilder()
+        document = builder.build(build_input)
+
+        # Enforce required_capabilities via S2 validation
+        required_caps = getattr(snap_config, "required_capabilities", ())
+        if required_caps:
+            from nl2spl.compiler.artifacts.snapshot.validation.validator import (
+                SnapshotValidator,
+            )
+
+            validator = SnapshotValidator()
+            result = validator.validate(document)
+            missing = [
+                c for c in required_caps
+                if not result.effective_capabilities.has(c)
+            ]
+            if missing:
+                names = ", ".join(c.value for c in missing)
+                raise ValueError(
+                    f"Required capabilities not effective: {names}"
+                )
+
+        repo = JsonFileSnapshotRepository()
+        filename = getattr(snap_config, "filename", "spl_editing_snapshot.json")
+        path = output_dir / filename
+        repo.save(document, path)
+        return path
 
     # Stage implementations
     def _run_stage1(self, raw_text: str | CanonicalCompileInput) -> list[SpanIR]:
@@ -873,7 +1047,7 @@ class PipelineOrchestrator:
         R10 Phase 4: promotion based on construct target + delegation
         source-signal provenance, not on delegation_intent:* target_ref.
         """
-        _PROMOTABLE_PREFIXES = (
+        _PROMOTABLE_PREFIXES = (  # noqa: N806
             "worker_promotion:",
             "worker_handoff:",
             "child_worker:",
@@ -891,11 +1065,147 @@ class PipelineOrchestrator:
                 == "delegation_intent"
             )
 
-        return [
+        promoted = [
             d
             for d in irs_store.get_stage_diagnostics("stage3_5")
             if _is_delegation_sourced_actionable(d)
         ]
+        PipelineOrchestrator._annotate_promoted_irs_diagnostics(promoted)
+        return promoted
+
+    @staticmethod
+    def _annotate_promoted_irs_diagnostics(
+        diagnostics: list[CompileDiagnostic],
+    ) -> None:
+        """Annotate promoted IRS diagnostics with SPL Editing issue metadata.
+
+        This keeps the compiler pipeline independent from ``spl_editing`` while
+        still making promoted compiler diagnostics satisfy the snapshot
+        diagnostic contract.
+        """
+        if not diagnostics:
+            return
+
+        authority = "selected_promoted_stage_local_irs"
+        for diagnostic in diagnostics:
+            diagnostic.metadata[METADATA_KEY_AUTHORITY] = authority
+            irs_ref = diagnostic.metadata.get("irs_ref")
+            if isinstance(irs_ref, dict):
+                irs_ref["source_authority"] = authority
+
+        groups: dict[str, list[CompileDiagnostic]] = {}
+        for diagnostic in diagnostics:
+            key = diagnostic.target_ref or diagnostic.diagnostic_id
+            groups.setdefault(key, []).append(diagnostic)
+
+        slot_order = {
+            "promotion_input_contract": 0,
+            "promotion_output_contract": 1,
+            "promotion_invocation_point": 2,
+            "promotion_result_handoff": 3,
+        }
+        for target_ref, group in groups.items():
+            ordered = sorted(
+                group,
+                key=lambda d: (
+                    slot_order.get(
+                        d.missing_slot.slot_name if d.missing_slot else "",
+                        99,
+                    ),
+                    d.diagnostic_id,
+                ),
+            )
+            primary = ordered[0]
+            related_ids = sorted(d.diagnostic_id for d in ordered)
+            group_id = f"worker_promotion_group:{target_ref}"
+            for diagnostic in ordered:
+                diagnostic.metadata[METADATA_KEY_ISSUE_GROUP_ID] = group_id
+                diagnostic.metadata[METADATA_KEY_PRIMARY_DIAGNOSTIC_ID] = (
+                    primary.diagnostic_id
+                )
+                diagnostic.metadata[METADATA_KEY_RELATED_DIAGNOSTIC_IDS] = list(
+                    related_ids
+                )
+                diagnostic.metadata[METADATA_KEY_REPAIRABILITY] = "editable"
+                diagnostic.metadata[METADATA_KEY_ISSUE_ROLE] = (
+                    "primary"
+                    if diagnostic.diagnostic_id == primary.diagnostic_id
+                    else "alias"
+                )
+
+    @staticmethod
+    def _annotate_editable_diagnostics_for_snapshot_contract(
+        diagnostics: list[CompileDiagnostic],
+    ) -> None:
+        """Fill required issue metadata for compiler-exposed editable diags.
+
+        Snapshot validation requires every editable diagnostic to carry enough
+        grouping and repairability metadata for deterministic SPL Editing issue
+        extraction.  This is a compiler diagnostic contract step, not an SPL
+        Editing runtime dependency.
+        """
+        editable_kinds = {
+            "missing_handler",
+            "missing_output_producer",
+            "type_or_contract_ambiguity",
+        }
+        groups: dict[tuple[str, str], list[CompileDiagnostic]] = {}
+        for diagnostic in diagnostics:
+            if diagnostic.kind not in editable_kinds:
+                continue
+            key = PipelineOrchestrator._editable_issue_group_key(diagnostic)
+            groups.setdefault((diagnostic.kind, key), []).append(diagnostic)
+
+        for (kind, key), group in groups.items():
+            ordered = sorted(
+                group,
+                key=lambda diagnostic: diagnostic.diagnostic_id,
+            )
+            primary = ordered[0]
+            related_ids = sorted(
+                diagnostic.diagnostic_id for diagnostic in ordered
+            )
+            group_id = (
+                primary.metadata.get(METADATA_KEY_ISSUE_GROUP_ID)
+                if isinstance(
+                    primary.metadata.get(METADATA_KEY_ISSUE_GROUP_ID), str
+                )
+                else f"{kind}_group:{key}"
+            )
+            for diagnostic in ordered:
+                diagnostic.metadata.setdefault(
+                    METADATA_KEY_REPAIRABILITY, "editable"
+                )
+                diagnostic.metadata.setdefault(
+                    METADATA_KEY_ISSUE_GROUP_ID, group_id
+                )
+                diagnostic.metadata.setdefault(
+                    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
+                    primary.diagnostic_id,
+                )
+                diagnostic.metadata.setdefault(
+                    METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
+                    list(related_ids),
+                )
+                diagnostic.metadata.setdefault(
+                    METADATA_KEY_ISSUE_ROLE,
+                    (
+                        "primary"
+                        if diagnostic.diagnostic_id == primary.diagnostic_id
+                        else "alias"
+                    ),
+                )
+
+    @staticmethod
+    def _editable_issue_group_key(diagnostic: CompileDiagnostic) -> str:
+        if diagnostic.target_ref:
+            return diagnostic.target_ref
+        irs_ref = diagnostic.metadata.get("irs_ref")
+        if isinstance(irs_ref, dict):
+            construct_id = irs_ref.get("construct_id")
+            if isinstance(construct_id, str) and construct_id:
+                return construct_id
+        return diagnostic.diagnostic_id
 
     def _run_stage10_worker_scoped(
         self,

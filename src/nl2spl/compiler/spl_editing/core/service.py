@@ -6,30 +6,43 @@ registries keyed by handler_id / affordance_id / patch_type.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from nl2spl.compiler.artifacts.snapshot.model.document import SnapshotDocument
+from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
+    JsonFileSnapshotRepository,
+)
+from nl2spl.compiler.artifacts.snapshot.persistence.loader import SnapshotLoader
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import (
     RepairCatalog,
     RepairCatalogBuilder,
 )
 from nl2spl.compiler.spl_editing.core.errors import (
-    PatchValidationError,
     SPLEditingError,
     StaleRevisionError,
     UnsupportedIssueError,
 )
 from nl2spl.compiler.spl_editing.core.model import (
-    EditingSession,
     EditableIssue,
+    EditingSession,
     RepairEvidence,
     RepairPatch,
     RepairSuggestion,
-    RepairTarget,
     VerificationResult,
 )
 from nl2spl.compiler.spl_editing.core.registry import (
     SPLEditingRuntimeRegistry,
 )
-from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
+from nl2spl.compiler.spl_editing.core.revision import (
+    AcceptedRepairPatch,
+    ArtifactSnapshot,
+)
+from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
+    artifact_snapshot_from_document,
+    document_from_artifact_snapshot,
+    document_with_verification_record,
+)
 from nl2spl.compiler.spl_editing.issues.extractor import EditableIssueExtractor
 from nl2spl.compiler.spl_editing.storage.artifact_snapshot_store import (
     ArtifactSnapshotStore,
@@ -37,10 +50,10 @@ from nl2spl.compiler.spl_editing.storage.artifact_snapshot_store import (
 from nl2spl.compiler.spl_editing.storage.overlay_store import OverlayStore
 from nl2spl.compiler.spl_editing.storage.session_store import SessionStore
 from nl2spl.compiler.spl_editing.storage.suggestion_store import SuggestionStore
-from nl2spl.compiler.spl_editing.verification.lanes import LaneReplayAdapter
 from nl2spl.compiler.spl_editing.storage.verification_result_store import (
     VerificationResultStore,
 )
+from nl2spl.compiler.spl_editing.verification.lanes import LaneReplayAdapter
 from nl2spl.compiler.spl_editing.verification.runner import VerificationRunner
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
@@ -64,6 +77,8 @@ class SPLEditingService:
         runtime: SPLEditingRuntimeRegistry,
         catalog: RepairCatalog | None = None,
         lane_a: LaneReplayAdapter | None = None,
+        snapshot_repository: JsonFileSnapshotRepository | None = None,
+        snapshot_run_dir: Path | None = None,
     ) -> None:
         self._runtime = runtime
         self._catalog = catalog or RepairCatalogBuilder.from_construct_registry(
@@ -80,6 +95,12 @@ class SPLEditingService:
         self._session_overlays: dict[str, list[str]] = {}
         # compile_run_id → snapshot_id
         self._run_snapshot: dict[str, str] = {}
+        self._snapshot_repository = snapshot_repository
+        self._snapshot_run_dir = Path(snapshot_run_dir) if snapshot_run_dir else None
+        self._snapshot_documents: dict[tuple[str, str], SnapshotDocument] = {}
+        self._session_current_snapshot_id: dict[str, str] = {}
+        self._run_current_snapshot_id: dict[str, str] = {}
+        self._run_dirs: dict[str, Path] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -89,13 +110,37 @@ class SPLEditingService:
         self,
         snapshot: ArtifactSnapshot,
     ) -> str:
-        """Store a base snapshot and return its run_id."""
+        """Store a base snapshot and return its run_id.
+
+        Compatibility wrapper for older in-memory callers.
+        """
+        return self.register_artifact_snapshot(snapshot)
+
+    def register_artifact_snapshot(
+        self,
+        snapshot: ArtifactSnapshot,
+    ) -> str:
+        """Store a typed runtime artifact snapshot and return its run_id."""
         self._snapshots.put(snapshot)
         self._run_snapshot[snapshot.compile_run_id] = snapshot.snapshot_id
         self._overlays.register_snapshot(
             snapshot.compile_run_id, snapshot.snapshot_id,
         )
         return snapshot.compile_run_id
+
+    def register_snapshot_file(self, path: Path) -> str:
+        """Load a canonical JSON snapshot file and register it for editing."""
+        path = Path(path)
+        self._snapshot_repository = (
+            self._snapshot_repository or JsonFileSnapshotRepository()
+        )
+        document = SnapshotLoader(self._snapshot_repository).load(path)
+        snapshot = artifact_snapshot_from_document(document)
+        run_id = self.register_artifact_snapshot(snapshot)
+        self._snapshot_documents[(run_id, document.identity.snapshot_id)] = document
+        self._run_current_snapshot_id[run_id] = document.identity.snapshot_id
+        self._run_dirs[run_id] = path.parent
+        return run_id
 
     def _get_snapshot(self, compile_run_id: str) -> ArtifactSnapshot:
         sid = self._run_snapshot.get(compile_run_id, "")
@@ -133,6 +178,9 @@ class SPLEditingService:
         )
         self._sessions.put(session)
         self._suggestions.register_session(session.session_id)
+        self._session_current_snapshot_id[session.session_id] = (
+            self._run_current_snapshot_id.get(compile_run_id, snap.snapshot_id)
+        )
         return session
 
     def generate_suggestions(
@@ -277,6 +325,12 @@ class SPLEditingService:
         self._session_overlays.setdefault(session_id, []).append(
             overlay_event.overlay_id,
         )
+        self._persist_overlay_snapshot_if_configured(
+            session_id=session_id,
+            patched_snapshot=patched_snap,
+            overlay_event=overlay_event,
+            patch=confirmed_patch,
+        )
 
         # Persist updated session
         updated = EditingSession(
@@ -326,6 +380,7 @@ class SPLEditingService:
             result = self._verifier.verify(
                 patch, base, snap, bundle.verifier,
             )
+        self._persist_verification_if_configured(session_id, result)
         self._verification_results.append(session_id, result)
         return result
 
@@ -348,6 +403,80 @@ class SPLEditingService:
         snap = self._get_snapshot(run_id)
         artifacts = LaneAReplayAdapter().replay(snap)
         return artifacts.rendered_spl
+
+    # ------------------------------------------------------------------
+    # Optional persisted snapshot support
+    # ------------------------------------------------------------------
+
+    def _persist_overlay_snapshot_if_configured(
+        self,
+        *,
+        session_id: str,
+        patched_snapshot: ArtifactSnapshot,
+        overlay_event,
+        patch: RepairPatch,
+    ) -> None:
+        if self._snapshot_repository is None:
+            return
+        run_id = patched_snapshot.compile_run_id
+        current_doc_id = self._session_current_snapshot_id.get(session_id)
+        if current_doc_id is None:
+            return
+        parent_document = self._snapshot_documents.get((run_id, current_doc_id))
+        if parent_document is None:
+            return
+        accepted = AcceptedRepairPatch(
+            patch_id=patch.patch_id,
+            patch_type=patch.patch_type,
+            affordance_id=patch.affordance_id,
+            overlay_id=overlay_event.overlay_id,
+        )
+        document = document_from_artifact_snapshot(
+            patched_snapshot,
+            parent_document=parent_document,
+            overlay_event=overlay_event,
+            accepted_patch=accepted,
+        )
+        run_dir = self._run_dirs.get(run_id, self._snapshot_run_dir)
+        if run_dir is None:
+            return
+        self._snapshot_repository.save_overlay(
+            document, self._overlay_path(run_dir, document.identity.snapshot_id),
+        )
+        self._snapshot_documents[(run_id, document.identity.snapshot_id)] = document
+        self._session_current_snapshot_id[session_id] = document.identity.snapshot_id
+        self._run_current_snapshot_id[run_id] = document.identity.snapshot_id
+
+    def _persist_verification_if_configured(
+        self,
+        session_id: str,
+        result: VerificationResult,
+    ) -> None:
+        if self._snapshot_repository is None:
+            return
+        session = self._sessions.get(session_id)
+        current_doc_id = self._session_current_snapshot_id.get(session_id)
+        if current_doc_id is None:
+            return
+        document = self._snapshot_documents.get((session.compile_run_id, current_doc_id))
+        if document is None:
+            return
+        overlay_ids = self._session_overlays.get(session_id, [])
+        event = self._overlays.get(overlay_ids[-1]) if overlay_ids else None
+        updated = document_with_verification_record(document, result, event)
+        run_dir = self._run_dirs.get(session.compile_run_id, self._snapshot_run_dir)
+        if run_dir is None:
+            return
+        self._snapshot_repository.save_overlay(
+            updated, self._overlay_path(run_dir, updated.identity.snapshot_id),
+        )
+        self._snapshot_documents[
+            (session.compile_run_id, updated.identity.snapshot_id)
+        ] = updated
+
+    @staticmethod
+    def _overlay_path(run_dir: Path, snapshot_id: str) -> Path:
+        return Path(run_dir) / "spl_editing_overlays" / f"{snapshot_id}.json"
 
     # ------------------------------------------------------------------
     # Registry resolution helpers
