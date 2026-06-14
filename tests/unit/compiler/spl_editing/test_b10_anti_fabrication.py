@@ -1,4 +1,4 @@
-"""B10: Anti-fabrication tests."""
+﻿"""B10: Anti-fabrication tests."""
 
 from nl2spl.compiler.spl_editing.core.model import (
     RepairEvidence,
@@ -67,7 +67,7 @@ def _patch(**kw):
 
 
 class TestB10AntiFabrication:
-    """B10: Anti-fabrication tests — patch must not bypass compiler authorities."""
+    """B10: Anti-fabrication tests 鈥?patch must not bypass compiler authorities."""
 
     def test_generate_suggestions_does_not_mutate_artifacts(self) -> None:
         """B10: Service-level generate_suggestions does not change
@@ -80,7 +80,7 @@ class TestB10AntiFabrication:
         from nl2spl.compiler.spl_editing.context.exception_flow_context import (
             ExceptionFlowContextBuilder,
         )
-        from nl2spl.compiler.spl_editing.handlers.llm_adapter import StubSuggestionLLM
+        from tests.spl_editing_stub_llm import StubSuggestionLLM
         from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
             MissingHandlerRepairHandler,
         )
@@ -169,3 +169,4 @@ class TestB10AntiFabrication:
         patch = _patch()
         assert patch.irs_ref.construct_type != "DELEGATION_INTENT"
         assert patch.affordance_id != "DELEGATION_INTENT"
+

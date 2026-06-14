@@ -1,4 +1,4 @@
-"""B10: Integration anti-fabrication tests.
+﻿"""B10: Integration anti-fabrication tests.
 
 Proves that SPL Editing cannot bypass compiler authorities or fabricate
 executable SPL without proper evidence.
@@ -20,14 +20,15 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
+from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 
 class TestB10IntegrationAntiFabrication:
     """B10: Full integration tests proving anti-fabrication constraints."""
 
     def test_missing_handler_full_flow(self) -> None:
-        """B10: missing_handler → suggestion → apply → verify accepted."""
-        svc = _build_default_service()
+        """B10: missing_handler 鈫?suggestion 鈫?apply 鈫?verify accepted."""
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         diag = CompileDiagnostic(
             "diag_mh", "missing_handler", "warning",
             "Exception flow has condition but no handler step.",
@@ -81,16 +82,16 @@ class TestB10IntegrationAntiFabrication:
         assert result.accepted is True
 
     def test_empty_snapshot_produces_no_issues(self) -> None:
-        """B10: Empty diagnostics → no user-facing issues."""
-        svc = _build_default_service()
+        """B10: Empty diagnostics 鈫?no user-facing issues."""
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = ArtifactSnapshot("snap_x", "run_x", 0)
         run_id = svc.register_compile_result(snap)
         assert svc.list_editable_issues(run_id) == ()
 
     def test_patch_applied_step_survives_gate(self) -> None:
         """B10: applied user_confirmed_repair step must survive Gate."""
-        from nl2spl.pipeline.executable_gate import ExecutableElementGate
         from nl2spl.ir.step_ir import StepIR
+        from nl2spl.pipeline.executable_gate import ExecutableElementGate
 
         gate = ExecutableElementGate()
         step = StepIR(
@@ -103,8 +104,8 @@ class TestB10IntegrationAntiFabrication:
         assert origin == "user_confirmed_repair"
 
     def test_missing_output_producer_full_flow(self) -> None:
-        """B10: missing_output_producer → suggestion → apply → verify accepted."""
-        svc = _build_default_service()
+        """B10: missing_output_producer 鈫?suggestion 鈫?apply 鈫?verify accepted."""
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         diag = CompileDiagnostic(
             "diag_mop", "missing_output_producer", "warning",
             "Required output 'draft' has no source-backed producer step.",
@@ -148,8 +149,8 @@ class TestB10IntegrationAntiFabrication:
         assert result.accepted is True
 
     def test_worker_promotion_handoff_full_flow(self) -> None:
-        """B10: type_or_contract_ambiguity → handoff suggestion → apply → verify."""
-        svc = _build_default_service()
+        """B10: type_or_contract_ambiguity 鈫?handoff suggestion 鈫?apply 鈫?verify."""
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
         diag = CompileDiagnostic(
@@ -184,6 +185,8 @@ class TestB10IntegrationAntiFabrication:
             worker_step_plan=WorkerStepPlanIR("w_main", {
                 "w_main": [StepIR(
                     "st_inv", "Invoke child", ["s1"], "INVOKE_WORKER",
+                    inputs=["request"],
+                    outputs=["result"],
                     handoff_id="handoff_repair_cand_1",
                     integration_ref="Child",
                 )],
@@ -221,3 +224,5 @@ class TestB10IntegrationAntiFabrication:
         catalog = RepairCatalogBuilder.from_construct_registry(reg)
         for entry in catalog.entries:
             assert entry.construct_type != "DELEGATION_INTENT"
+
+

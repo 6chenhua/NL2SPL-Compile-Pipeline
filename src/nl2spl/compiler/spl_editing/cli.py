@@ -8,17 +8,43 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Any
+from pathlib import Path
 
+from nl2spl.compiler.artifacts.snapshot.persistence.loader import SnapshotLoader
 from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.core.service import SPLEditingService
+from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
+    artifact_snapshot_from_document,
+)
 from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
 from nl2spl.compiler.spl_editing.verification.lanes import LaneAReplayAdapter
 
 
-def _build_default_service() -> SPLEditingService:
+def build_suggestion_llm_from_env():
+    """Build the live project LLM client for SPL Editing suggestions."""
+    from dotenv import load_dotenv
+
+    from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
+    from nl2spl.compiler.spl_editing.handlers.llm_adapter import LiveSuggestionLLM
+    from nl2spl.config import LLMConfig
+    from nl2spl.llm.client import LLMClient
+
+    load_dotenv()
+    config = LLMConfig()
+    if not config.api_key:
+        raise SPLEditingError(
+            "SPL Editing suggestion generation requires a configured LLM "
+            "API key. Set OPENAI_API_KEY or the project LLM config before "
+            "running Fix with AI."
+        )
+    return LiveSuggestionLLM(LLMClient(config))
+
+
+def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     reg = SPLEditingRuntimeRegistry()
+    if suggestion_llm is None:
+        suggestion_llm = build_suggestion_llm_from_env()
 
     from nl2spl.compiler.spl_editing.targets.exception_flow import (
         ExceptionFlowTargetResolver,
@@ -46,7 +72,6 @@ def _build_default_service() -> SPLEditingService:
     reg.context_builders.register("required_output_context", RequiredOutputContextBuilder())
     reg.context_builders.register("worker_promotion_context", WorkerPromotionContextBuilder())
 
-    from nl2spl.compiler.spl_editing.handlers.llm_adapter import StubSuggestionLLM
     from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
         MissingHandlerRepairHandler,
     )
@@ -56,21 +81,27 @@ def _build_default_service() -> SPLEditingService:
     from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler import (
         TypeOrContractAmbiguityHandler,
     )
-    reg.handlers.register("missing_handler", MissingHandlerRepairHandler(StubSuggestionLLM()))
-    reg.handlers.register("missing_output_producer", MissingOutputProducerHandler())
-    reg.handlers.register("type_or_contract_ambiguity", TypeOrContractAmbiguityHandler())
-
-    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
-        AddExceptionHandlerStepValidator,
+    reg.handlers.register("missing_handler", MissingHandlerRepairHandler(suggestion_llm))
+    reg.handlers.register(
+        "missing_output_producer",
+        MissingOutputProducerHandler(suggestion_llm),
     )
+    reg.handlers.register(
+        "type_or_contract_ambiguity",
+        TypeOrContractAmbiguityHandler(suggestion_llm),
+    )
+
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
         AddExceptionHandlerStepApplier,
     )
-    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
-        AddExceptionHandlerStepVerifier,
-    )
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
         AddExceptionHandlerStepPreviewer,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
+        AddExceptionHandlerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
+        AddExceptionHandlerStepVerifier,
     )
     reg.patches.register("AddExceptionHandlerStep", PatchBundle(
         patch_type="AddExceptionHandlerStep",
@@ -79,17 +110,17 @@ def _build_default_service() -> SPLEditingService:
         verifier=AddExceptionHandlerStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
     ))
-    from nl2spl.compiler.spl_editing.patches.insert_producer_step.validator import (
-        InsertProducerStepValidator,
-    )
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
         InsertProducerStepApplier,
     )
-    from nl2spl.compiler.spl_editing.patches.insert_producer_step.verifier import (
-        InsertProducerStepVerifier,
-    )
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.preview import (
         InsertProducerStepPreviewer,
+    )
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.validator import (
+        InsertProducerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.insert_producer_step.verifier import (
+        InsertProducerStepVerifier,
     )
     reg.patches.register("InsertProducerStep", PatchBundle(
         patch_type="InsertProducerStep",
@@ -98,17 +129,17 @@ def _build_default_service() -> SPLEditingService:
         verifier=InsertProducerStepVerifier(),
         previewer=InsertProducerStepPreviewer(),
     ))
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.validator import (
-        BindExistingProducerStepValidator,
-    )
     from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
         BindExistingProducerStepApplier,
     )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.verifier import (
-        BindExistingProducerStepVerifier,
-    )
     from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.preview import (
         BindExistingProducerStepPreviewer,
+    )
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.validator import (
+        BindExistingProducerStepValidator,
+    )
+    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.verifier import (
+        BindExistingProducerStepVerifier,
     )
     reg.patches.register("BindExistingProducerStep", PatchBundle(
         patch_type="BindExistingProducerStep",
@@ -118,11 +149,11 @@ def _build_default_service() -> SPLEditingService:
         previewer=BindExistingProducerStepPreviewer(),
     ))
 
-    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.validator import (
-        ConvertDelegationToMainFlowStepValidator,
-    )
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
         ConvertDelegationToMainFlowStepApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.validator import (
+        ConvertDelegationToMainFlowStepValidator,
     )
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.verifier import (
         ConvertDelegationToMainFlowStepVerifier,
@@ -134,11 +165,11 @@ def _build_default_service() -> SPLEditingService:
         verifier=ConvertDelegationToMainFlowStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
     ))
-    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.validator import (
-        ConvertDelegationToRequestInputValidator,
-    )
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
         ConvertDelegationToRequestInputApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.validator import (
+        ConvertDelegationToRequestInputValidator,
     )
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.verifier import (
         ConvertDelegationToRequestInputVerifier,
@@ -151,11 +182,11 @@ def _build_default_service() -> SPLEditingService:
         previewer=AddExceptionHandlerStepPreviewer(),
     ))
 
-    from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.validator import (
-        CreateWorkerHandoffContractValidator,
-    )
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
         CreateWorkerHandoffContractApplier,
+    )
+    from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.validator import (
+        CreateWorkerHandoffContractValidator,
     )
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.verifier import (
         CreateWorkerHandoffContractVerifier,
@@ -181,33 +212,27 @@ def _load_snapshot(run_dir: str) -> ArtifactSnapshot:
     Raises ``FileNotFoundError`` or ``ValueError`` if structured artifacts
     are missing — never falls back to parsing text/markdown reports.
     """
-    import pickle
-    import os
-
-    path = os.path.join(run_dir, "snapshot.pkl")
-    if not os.path.isfile(path):
+    path = Path(run_dir) / "spl_editing_snapshot.json"
+    if not path.is_file():
         raise FileNotFoundError(
             f"Structured artifact snapshot not found at '{path}'. "
-            f"SPL Editing requires a pickled ArtifactSnapshot, "
-            f"not a markdown/text report."
+            f"SPL Editing requires spl_editing_snapshot.json, not a "
+            f"markdown/text report or stage debug JSON."
         )
 
-    with open(path, "rb") as fh:
-        obj = pickle.load(fh)
-
-    if not isinstance(obj, ArtifactSnapshot):
-        raise ValueError(
-            f"File at '{path}' does not contain an ArtifactSnapshot "
-            f"(got {type(obj).__name__})"
-        )
-
-    return obj
+    document = SnapshotLoader().load(path)
+    return artifact_snapshot_from_document(document)
 
 
 def _run_demo(snapshot: ArtifactSnapshot) -> None:
     """Run the interactive demo flow."""
     svc = _build_default_service()
     run_id = svc.register_compile_result(snapshot)
+    _run_demo_for_run(svc, run_id)
+
+
+def _run_demo_for_run(svc: SPLEditingService, run_id: str) -> None:
+    """Run the interactive demo flow for a registered compile run."""
     issues = svc.list_editable_issues(run_id)
 
     if not issues:
@@ -236,7 +261,7 @@ def _run_demo(snapshot: ArtifactSnapshot) -> None:
     for idx, s in enumerate(suggestions, 1):
         print(f"  [{idx}] {s.title}")
         if s.spl_preview:
-            print(f"       Preview:")
+            print("       Preview:")
             for line in s.spl_preview.split("\n"):
                 print(f"         {line}")
         print()
@@ -308,11 +333,13 @@ def main() -> None:
 
     if args.command == "demo":
         try:
-            snapshot = _load_snapshot(args.run_dir)
+            svc = _build_default_service()
+            snapshot_path = Path(args.run_dir) / "spl_editing_snapshot.json"
+            run_id = svc.register_snapshot_file(snapshot_path)
         except (FileNotFoundError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
-        _run_demo(snapshot)
+        _run_demo_for_run(svc, run_id)
 
 
 if __name__ == "__main__":

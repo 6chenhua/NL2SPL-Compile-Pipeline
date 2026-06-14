@@ -1,8 +1,10 @@
-"""C2: Demo CLI tests — fixture-based + interactive simulation."""
+﻿"""C2: Demo CLI tests 鈥?fixture-based + interactive simulation."""
 
-import io
+
+import pytest
 
 from nl2spl.compiler.spl_editing.cli import _build_default_service, _load_snapshot
+from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
@@ -19,6 +21,7 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
+from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 
 def _build_mh_snapshot() -> ArtifactSnapshot:
@@ -34,6 +37,9 @@ def _build_mh_snapshot() -> ArtifactSnapshot:
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
+    diag.metadata["repairability"] = "editable"
+    diag.metadata["issue_group_id"] = "g_mh"
+    diag.metadata["issue_role"] = "primary"
     return ArtifactSnapshot(
         "snap_mh", "run_mh", 0,
         worker_plan=WorkerPlanIR(
@@ -78,6 +84,9 @@ def _build_mop_snapshot() -> ArtifactSnapshot:
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
+    diag.metadata["repairability"] = "editable"
+    diag.metadata["issue_group_id"] = "g_mop"
+    diag.metadata["issue_role"] = "primary"
     return ArtifactSnapshot(
         "snap_mop", "run_mop", 0,
         worker_plan=WorkerPlanIR(
@@ -117,8 +126,17 @@ def _mock_input(monkeypatch, responses: list[str]):
 class TestC2DemoCLI:
     """C2: Demo CLI paths via fixture snapshots."""
 
+    def test_default_service_requires_configured_llm(self, monkeypatch) -> None:
+        """Production default does not silently fall back to stub LLM."""
+        class EmptyLLMConfig:
+            api_key = None
+
+        monkeypatch.setattr("nl2spl.config.LLMConfig", EmptyLLMConfig)
+        with pytest.raises(SPLEditingError, match="requires a configured LLM"):
+            _build_default_service()
+
     def test_missing_handler_demo_path(self) -> None:
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = _build_mh_snapshot()
         run_id = svc.register_compile_result(snap)
 
@@ -138,7 +156,7 @@ class TestC2DemoCLI:
         assert result.accepted is True
 
     def test_missing_output_producer_demo_path(self) -> None:
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = _build_mop_snapshot()
         run_id = svc.register_compile_result(snap)
 
@@ -158,7 +176,7 @@ class TestC2DemoCLI:
         assert result.accepted is True
 
     def test_missing_artifacts_fails_fast(self) -> None:
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = ArtifactSnapshot("snap_x", "run_x", 0)
         run_id = svc.register_compile_result(snap)
         issues = svc.list_editable_issues(run_id)
@@ -167,6 +185,7 @@ class TestC2DemoCLI:
     def test_cli_does_not_import_feedback_report(self) -> None:
         """C2: CLI never imports feedback report renderer."""
         import inspect
+
         from nl2spl.compiler.spl_editing import cli as cli_mod
 
         source = inspect.getsource(cli_mod)
@@ -174,9 +193,13 @@ class TestC2DemoCLI:
         assert "render_feedback_report" not in source
 
     def test_interactive_demo_flow(self, monkeypatch, capsys) -> None:
-        """C2: simulate interactive demo — select issue 1, suggestion 1,
+        """C2: simulate interactive demo 鈥?select issue 1, suggestion 1,
         confirm apply, print patched SPL."""
         _mock_input(monkeypatch, ["1", "1", "y"])
+        monkeypatch.setattr(
+            "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
+            lambda: StubSuggestionLLM(),
+        )
         from nl2spl.compiler.spl_editing.cli import _run_demo
         _run_demo(_build_mh_snapshot())
 
@@ -192,17 +215,20 @@ class TestC2DemoCLI:
     def test_interactive_demo_cancel_does_not_apply(self, monkeypatch) -> None:
         """C2: cancelling confirmation does not apply."""
         _mock_input(monkeypatch, ["1", "1", "n"])
+        monkeypatch.setattr(
+            "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
+            lambda: StubSuggestionLLM(),
+        )
         from nl2spl.compiler.spl_editing.cli import _run_demo
         _run_demo(_build_mh_snapshot())
-        # No crash — just cancelled
+        # No crash 鈥?just cancelled
 
     def test_bind_suggestion_when_context_has_bindable_step(self) -> None:
         """C4: handler generates BindExistingProducerStep when context has
         a renderable existing step."""
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = _build_mop_snapshot()
         # Add a source-backed existing step
-        from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
         snap = ArtifactSnapshot(
             "snap_mop", "run_mop", 0,
@@ -236,7 +262,7 @@ class TestC2DemoCLI:
 
     def test_no_bind_suggestion_when_no_bindable_step(self) -> None:
         """C4: handler does NOT generate Bind when no renderable step."""
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = _build_mop_snapshot()
         run_id = svc.register_compile_result(snap)
         issues = svc.list_editable_issues(run_id)
@@ -246,27 +272,42 @@ class TestC2DemoCLI:
         assert "BindExistingProducerStep" not in patch_types
 
     def test_load_snapshot_rejects_missing_file(self, tmp_path) -> None:
-        """C2: _load_snapshot raises when snapshot.pkl missing."""
+        """C2: _load_snapshot raises when spl_editing_snapshot.json is missing."""
         import pytest
-        with pytest.raises(FileNotFoundError, match="snapshot.pkl"):
+        with pytest.raises(FileNotFoundError, match="spl_editing_snapshot.json"):
             _load_snapshot(str(tmp_path))
 
-    def test_main_entry_with_pickle(self, monkeypatch, tmp_path) -> None:
-        """C2: main() with --run loads pickle and runs demo."""
-        import pickle
+    def test_main_entry_with_json_snapshot(self, monkeypatch, tmp_path) -> None:
+        """C2: main() with --run loads canonical JSON and runs demo."""
         import sys
-        from nl2spl.compiler.spl_editing.cli import main
 
-        # Write snapshot.pkl to tmp dir
+        from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
+            JsonFileSnapshotRepository,
+        )
+        from nl2spl.compiler.spl_editing.cli import main
+        from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
+            document_from_artifact_snapshot,
+        )
+
         snap = _build_mh_snapshot()
-        pkl_path = tmp_path / "snapshot.pkl"
-        with open(pkl_path, "wb") as fh:
-            pickle.dump(snap, fh)
+        document = document_from_artifact_snapshot(snap)
+        JsonFileSnapshotRepository().save(
+            document, tmp_path / "spl_editing_snapshot.json",
+        )
 
         # Mock input and argv
         _mock_input(monkeypatch, ["1", "1", "y"])
+        monkeypatch.setattr(
+            "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
+            lambda: StubSuggestionLLM(),
+        )
         monkeypatch.setattr(
             sys, "argv",
             ["spl-edit", "demo", "--run", str(tmp_path)],
         )
         main()  # Should not raise
+
+        overlay_dir = tmp_path / "spl_editing_overlays"
+        assert list(overlay_dir.glob("*.json"))
+
+

@@ -1,10 +1,14 @@
-"""C6: CreateWorkerHandoffContract patch tests."""
+﻿"""C6: CreateWorkerHandoffContract patch tests."""
 
 import pytest
 
+from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.errors import PatchValidationError
 from nl2spl.compiler.spl_editing.core.model import (
-    EditableIssue, RepairContext, RepairEvidence, RepairPatch, RepairTarget,
+    EditableIssue,
+    RepairEvidence,
+    RepairPatch,
+    RepairTarget,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler import (
@@ -21,20 +25,20 @@ from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.verifier
 )
 from nl2spl.compiler.spl_editing.verification.lanes import LaneBReplayAdapter
 from nl2spl.compiler.spl_editing.verification.runner import VerificationRunner
-from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
+from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
+from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
+from nl2spl.ir.flow_structure_ir import FlowStructureIR
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
-    WorkerFlowPlanIR,
     WorkerBlockPlanIR,
+    WorkerFlowPlanIR,
     WorkerPlanIR,
     WorkerSpecIR,
     WorkerStepPlanIR,
 )
-from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
-from nl2spl.ir.block_structure_ir import BlockStructureIR
-from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
-from nl2spl.ir.symbol_table import SymbolTable
+from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 
 def _snap(**kw) -> ArtifactSnapshot:
@@ -230,7 +234,7 @@ class TestC6cHandlerContext:
         ),)
 
     def test_unique_child_derived_and_generates_handoff(self) -> None:
-        """C6c: builder finds unique child → handler generates handoff."""
+        """C6c: builder finds unique child 鈫?handler generates handoff."""
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
@@ -239,13 +243,13 @@ class TestC6cHandlerContext:
             self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") == "w_child"
 
-        suggestions = TypeOrContractAmbiguityHandler().generate_suggestions(
+        suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
             self._issue(), self._target(), ctx, self._entries())
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" in types
 
     def test_no_child_worker_skips_handoff(self) -> None:
-        """C6c: no child worker → no handoff suggestion."""
+        """C6c: no child worker 鈫?no handoff suggestion."""
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
@@ -260,13 +264,13 @@ class TestC6cHandlerContext:
             self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") is None
 
-        suggestions = TypeOrContractAmbiguityHandler().generate_suggestions(
+        suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
             self._issue(), self._target(), ctx, self._entries())
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" not in types
 
     def test_multiple_children_skips_handoff(self) -> None:
-        """C6c: 2+ child workers → ambiguous → no handoff."""
+        """C6c: 2+ child workers 鈫?ambiguous 鈫?no handoff."""
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
@@ -287,7 +291,7 @@ class TestC6cHandlerContext:
             self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") is None
 
-        suggestions = TypeOrContractAmbiguityHandler().generate_suggestions(
+        suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
             self._issue(), self._target(), ctx, self._entries())
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" not in types
@@ -301,7 +305,7 @@ class TestC6cHandlerContext:
         snap = _snap()
         ctx = WorkerPromotionContextBuilder().build(
             self._issue(), self._target(), snap)
-        suggestions = TypeOrContractAmbiguityHandler().generate_suggestions(
+        suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
             self._issue(), self._target(), ctx, self._entries())
         hc = next(s for s in suggestions
                    if s.patch.patch_type == "CreateWorkerHandoffContract")
@@ -322,12 +326,12 @@ class TestC6cHandlerContext:
 
 
 class TestC6dServiceLevel:
-    """C6d: service-level issue → suggestion → apply → verify accepted."""
+    """C6d: service-level issue 鈫?suggestion 鈫?apply 鈫?verify accepted."""
 
     def test_handoff_service_flow(self) -> None:
         from nl2spl.compiler.spl_editing.cli import _build_default_service
 
-        svc = _build_default_service()
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         # Snapshot with worker promotion diagnostic and unique child worker
         diag = CompileDiagnostic(
             "diag_promo", "type_or_contract_ambiguity", "warning",
@@ -368,6 +372,8 @@ class TestC6dServiceLevel:
                 "w_main": [StepIR(
                     "st_invoke", "Invoke child", ["s1"],
                     "INVOKE_WORKER",
+                    inputs=["request"],
+                    outputs=["result"],
                     handoff_id="handoff_repair_cand_1",
                     integration_ref="Child",
                 )],
@@ -397,7 +403,7 @@ class TestC6dServiceLevel:
         assert result.lane == "B"
 
     def test_lane_b_verification_accepted(self) -> None:
-        """C6: Handoff patch with Lane B verification — accepted."""
+        """C6: Handoff patch with Lane B verification 鈥?accepted."""
         snap = _snap()
         patched, _ = CreateWorkerHandoffContractApplier().apply(_patch(), snap)
         runner = VerificationRunner(lane_b=LaneBReplayAdapter())
@@ -407,3 +413,6 @@ class TestC6dServiceLevel:
         )
         assert result.lane == "B"
         assert result.accepted is True
+
+
+

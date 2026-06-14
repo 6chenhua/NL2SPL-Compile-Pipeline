@@ -1,4 +1,4 @@
-"""C3: Verification result persistence tests."""
+﻿"""C3: Verification result persistence tests."""
 
 import pytest
 
@@ -65,7 +65,7 @@ class TestC3VerificationResultStore:
 
 
 class TestC3ServiceLevelPersistence:
-    """C3: Service-level persistence tests — verify_session stores results."""
+    """C3: Service-level persistence tests 鈥?verify_session stores results."""
 
     def _make_mh_service(self):
         reg = SPLEditingRuntimeRegistry()
@@ -75,7 +75,7 @@ class TestC3ServiceLevelPersistence:
         from nl2spl.compiler.spl_editing.context.exception_flow_context import (
             ExceptionFlowContextBuilder,
         )
-        from nl2spl.compiler.spl_editing.handlers.llm_adapter import StubSuggestionLLM
+        from tests.spl_editing_stub_llm import StubSuggestionLLM
         from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
             MissingHandlerRepairHandler,
         )
@@ -200,3 +200,4 @@ class TestC3ServiceLevelPersistence:
         session = svc.create_session("run_1", self._make_mh_issue())
         with pytest.raises(KeyError, match="session"):
             svc.get_latest_verification(session.session_id)
+
