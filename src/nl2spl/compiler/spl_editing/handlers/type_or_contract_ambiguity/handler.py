@@ -1,14 +1,13 @@
-"""Type-or-contract-ambiguity repair handler (stub for B7).
-
-Subtype dispatch skeleton — must be resolved by
-``construct_type + slot_name + affordance_id``, not free-form
-classifier.  B7 sub-handlers will be registered per subtype.
-"""
+"""Type-or-contract-ambiguity repair handler."""
 
 from __future__ import annotations
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
-from nl2spl.compiler.spl_editing.core.errors import UnsupportedIssueError
+from nl2spl.compiler.spl_editing.core.errors import (
+    PatchValidationError,
+    UnsupportedIssueError,
+    UnsupportedPatchTypeError,
+)
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     RepairContext,
@@ -20,9 +19,13 @@ from nl2spl.compiler.spl_editing.handlers.base import (
     IssueRepairHandler,
     SuggestionPolicy,
 )
+from nl2spl.compiler.spl_editing.handlers.llm_adapter import SuggestionLLM
+from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
+from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.prompt import (
+    TYPE_OR_CONTRACT_SYSTEM_PROMPT,
+    build_type_or_contract_user_prompt,
+)
 
-# MVP subtypes: (construct_type, slot_name, affordance_id) for B7.
-# B7 will register sub-handlers for each of these.
 _MVP_SUBTYPES: frozenset[tuple[str, str, str]] = frozenset({
     ("WORKER_PROMOTION", "promotion_input_contract", "worker_promotion.resolve_contract"),
     ("WORKER_PROMOTION", "promotion_output_contract", "worker_promotion.resolve_contract"),
@@ -36,17 +39,16 @@ _MVP_SUBTYPES: frozenset[tuple[str, str, str]] = frozenset({
 
 
 class TypeOrContractAmbiguityHandler(IssueRepairHandler):
-    """Stub handler for type_or_contract_ambiguity diagnostics.
-
-    Subtypes are keyed by ``(construct_type, slot_name, affordance_id)``.
-    B7 will register per-subtype sub-handlers.  Until then, unsupported
-    subtypes raise ``UnsupportedIssueError``; recognised subtypes return
-    empty (no sub-handler wired yet).
-    """
+    """Generate LLM-backed suggestions for type_or_contract_ambiguity."""
 
     handler_id = "type_or_contract_ambiguity"
 
-    def __init__(self, policy: SuggestionPolicy | None = None) -> None:
+    def __init__(
+        self,
+        llm: SuggestionLLM,
+        policy: SuggestionPolicy | None = None,
+    ) -> None:
+        self._llm = llm
         self._policy = policy or SuggestionPolicy()
 
     @property
@@ -60,10 +62,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
     ) -> tuple[str, str, str]:
         ct = issue.irs_ref.construct_type
         sn = issue.irs_ref.slot_name
-        aff = (
-            catalog_entries[0].affordance_id
-            if catalog_entries else ""
-        )
+        aff = catalog_entries[0].affordance_id if catalog_entries else ""
         return (ct, sn, aff)
 
     def generate_suggestions(
@@ -78,72 +77,179 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         if key not in _MVP_SUBTYPES:
             raise UnsupportedIssueError(
                 f"type_or_contract_ambiguity subtype "
-                f"({key[0]}, {key[1]}, {key[2]}) is not supported "
-                f"in MVP."
+                f"({key[0]}, {key[1]}, {key[2]}) is not supported in MVP."
             )
         ct = key[0]
         if ct == "WORKER_HANDOFF":
             raise UnsupportedIssueError(
-                f"WORKER_HANDOFF requires B7d (CreateWorkerHandoffContract) "
-                f"which depends on B4.5 Lane B proof."
+                "WORKER_HANDOFF suggestions are not wired for this handler."
             )
         if ct != "WORKER_PROMOTION":
             raise UnsupportedIssueError(
                 f"Construct type '{ct}' has no suggestion handler."
             )
-        entry = catalog_entries[0] if catalog_entries else None
-        if entry is None:
+        if not catalog_entries:
             return ()
-        # Return one stub suggestion per supported patch type
-        patch_types = entry.supported_patch_types or ()
-        result: list[RepairSuggestion] = []
-        for i, pt in enumerate(patch_types[:3]):
-            payload: dict = {}
-            preview = ""
-            if pt == "ConvertDelegationIntentToMainFlowStep":
-                payload = {
-                    "worker_id": (target.worker_id or ""),
-                    "action_text": "Execute the delegated task.",
-                    "outputs": [],
-                }
-                preview = "[GENERAL_COMMAND] Execute the delegated task."
-            elif pt == "ConvertDelegationIntentToRequestInput":
-                payload = {
-                    "worker_id": (target.worker_id or ""),
-                    "prompt_text": "Ask the user to provide the missing information.",
-                    "value_target": "user_input",
-                }
-                preview = "[REQUEST_INPUT] Ask the user to provide the missing information."
-            elif pt == "CreateWorkerHandoffContract":
-                child_id = context.metadata.get("derived_child_worker_id")
-                if not child_id:
-                    continue
-                payload = {
-                    "worker_promotion_id": issue.target_ref.replace("worker_promotion:", ""),
-                    "parent_worker_id": context.metadata.get("parent_worker_id",
-                                                               target.worker_id or ""),
-                    "child_worker_id": child_id,
-                    "input_bindings": {},
-                    "output_bindings": {},
-                    "invocation_point": "main",
-                }
-                preview = f"[INVOKE {child_id}]"
-            else:
+
+        entry = catalog_entries[0]
+        child_id = _string_or_none(context.metadata.get("derived_child_worker_id"))
+        child_inputs = _string_tuple(context.metadata.get("child_input_fields"))
+        child_outputs = _string_tuple(context.metadata.get("child_output_fields"))
+
+        suggestions: list[RepairSuggestion] = []
+        parse_failures = 0
+        for patch_type in entry.supported_patch_types:
+            if len(suggestions) >= self._policy.max_suggestions:
+                break
+            if patch_type == "CreateWorkerHandoffContract" and not child_id:
                 continue
-            result.append(RepairSuggestion(
-                suggestion_id=f"{issue.issue_id}_stub_{i:02d}",
+            raw = self._llm.generate_json(
+                system_prompt=TYPE_OR_CONTRACT_SYSTEM_PROMPT,
+                user_prompt=build_type_or_contract_user_prompt(
+                    issue_message=issue.message,
+                    target_ref=issue.target_ref,
+                    construct_type=issue.irs_ref.construct_type,
+                    slot_name=issue.irs_ref.slot_name,
+                    allowed_patch_types=(patch_type,),
+                    parent_worker_id=_string_or_none(
+                        context.metadata.get("parent_worker_id"),
+                    ) or target.worker_id,
+                    child_worker_id=child_id,
+                    child_input_fields=child_inputs,
+                    child_output_fields=child_outputs,
+                    user_instruction=user_instruction,
+                ),
+            )
+            try:
+                data = parse_suggestion_payload(raw, (patch_type,))
+            except UnsupportedPatchTypeError:
+                raise
+            except PatchValidationError:
+                parse_failures += 1
+                continue
+
+            payload = self._payload_for(
+                patch_type,
+                issue,
+                target,
+                context,
+                data["payload"],
+                child_id,
+            )
+            if payload is None:
+                parse_failures += 1
+                continue
+            suggestions.append(RepairSuggestion(
+                suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
                 session_id="",
                 affordance_id=entry.affordance_id,
-                title=f"Convert delegation ({pt})",
-                explanation=f"Apply {pt} to resolve the unresolved delegation intent.",
+                title=data["title"],
+                explanation=data["explanation"],
                 patch=RepairPatch(
-                    patch_id="", affordance_id=entry.affordance_id,
-                    patch_type=pt, target_ref=issue.target_ref,
+                    patch_id="",
+                    affordance_id=entry.affordance_id,
+                    patch_type=patch_type,
+                    target_ref=issue.target_ref,
                     irs_ref=issue.irs_ref,
-                    base_compile_run_id="", artifact_snapshot_id="",
-                    overlay_version=0, payload=payload,
+                    base_compile_run_id="",
+                    artifact_snapshot_id="",
+                    overlay_version=0,
+                    payload=payload,
                     verification_lane=entry.default_verification_lane,
                 ),
-                spl_preview=preview,
+                spl_preview=self._preview_for(patch_type, payload),
             ))
-        return tuple(result)
+
+        if not suggestions and parse_failures:
+            raise PatchValidationError(
+                "LLM did not produce a valid type_or_contract_ambiguity "
+                f"suggestion ({parse_failures} parse/schema failures)."
+            )
+        return tuple(suggestions)
+
+    @staticmethod
+    def _payload_for(
+        patch_type: str,
+        issue: EditableIssue,
+        target: RepairTarget,
+        context: RepairContext,
+        llm_payload: object,
+        child_id: str | None,
+    ) -> dict | None:
+        if not isinstance(llm_payload, dict):
+            return None
+        if patch_type == "ConvertDelegationIntentToMainFlowStep":
+            action_text = llm_payload.get("action_text")
+            if not isinstance(action_text, str) or not action_text.strip():
+                return None
+            return {
+                "worker_id": target.worker_id or "",
+                "action_text": action_text,
+                "outputs": _string_tuple(llm_payload.get("outputs")),
+            }
+        if patch_type == "ConvertDelegationIntentToRequestInput":
+            prompt_text = llm_payload.get("prompt_text")
+            value_target = llm_payload.get("value_target")
+            if not isinstance(prompt_text, str) or not prompt_text.strip():
+                return None
+            if not isinstance(value_target, str) or not value_target.strip():
+                return None
+            return {
+                "worker_id": target.worker_id or "",
+                "prompt_text": prompt_text,
+                "value_target": value_target,
+            }
+        if patch_type == "CreateWorkerHandoffContract":
+            if not child_id:
+                return None
+            input_bindings = _string_mapping(llm_payload.get("input_bindings"))
+            output_bindings = _string_mapping(llm_payload.get("output_bindings"))
+            invocation_point = llm_payload.get("invocation_point")
+            if not input_bindings or not output_bindings:
+                return None
+            if not isinstance(invocation_point, str) or not invocation_point.strip():
+                return None
+            return {
+                "worker_promotion_id": issue.target_ref.replace("worker_promotion:", ""),
+                "parent_worker_id": _string_or_none(
+                    context.metadata.get("parent_worker_id"),
+                ) or target.worker_id or "",
+                "child_worker_id": child_id,
+                "input_bindings": input_bindings,
+                "output_bindings": output_bindings,
+                "invocation_point": invocation_point,
+            }
+        return None
+
+    @staticmethod
+    def _preview_for(patch_type: str, payload: dict) -> str:
+        if patch_type == "ConvertDelegationIntentToMainFlowStep":
+            return f"[GENERAL_COMMAND] {payload.get('action_text', '')}"
+        if patch_type == "ConvertDelegationIntentToRequestInput":
+            return f"[REQUEST_INPUT] {payload.get('prompt_text', '')}"
+        if patch_type == "CreateWorkerHandoffContract":
+            return f"[INVOKE {payload.get('child_worker_id', '')}]"
+        return ""
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(item for item in value if isinstance(item, str) and item)
+
+
+def _string_mapping(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        k: v
+        for k, v in value.items()
+        if isinstance(k, str) and k.strip()
+        and isinstance(v, str) and v.strip()
+    }
+
+
+def _string_or_none(value: object) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value
+    return None

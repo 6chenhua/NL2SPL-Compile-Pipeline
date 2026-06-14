@@ -1,4 +1,4 @@
-"""B3: Repair handler and parser tests."""
+﻿"""B3: Repair handler and parser tests."""
 
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ from nl2spl.compiler.spl_editing.core.errors import (
     UnsupportedPatchTypeError,
 )
 from nl2spl.compiler.spl_editing.core.model import (
-    EditableIssue, RepairContext, RepairSuggestion, RepairTarget,
+    EditableIssue,
+    RepairContext,
+    RepairSuggestion,
+    RepairTarget,
 )
 from nl2spl.compiler.spl_editing.handlers.base import SuggestionPolicy
-from nl2spl.compiler.spl_editing.handlers.llm_adapter import StubSuggestionLLM
 from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
     MissingHandlerRepairHandler,
 )
@@ -23,6 +25,7 @@ from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler imp
     TypeOrContractAmbiguityHandler,
 )
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
+from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 
 def _issue(**kw: object) -> EditableIssue:
@@ -180,22 +183,18 @@ class TestB3MissingHandlerHandler:
         assert s.spl_preview is not None
         assert "REQUEST_INPUT" in s.spl_preview
 
-    def test_fallback_when_llm_returns_malformed(self) -> None:
-        """B3: When stub returns malformed JSON, handler skips attempts
-        and produces fallback after repeated failures."""
+    def test_malformed_llm_output_raises(self) -> None:
+        """B3: malformed LLM output is surfaced, not replaced by fallback."""
         llm = StubSuggestionLLM(fixed_response={
             "patch_type": "AddExceptionHandlerStep",
             "title": "T",
-            # missing "explanation" key → ValueError → handler retries
+            # missing "explanation" key 鈫?ValueError 鈫?handler retries
         })
         handler = MissingHandlerRepairHandler(llm)
-        suggestions = handler.generate_suggestions(
-            _issue(), _target(), _context(), (_entry(),),
-        )
-        assert len(suggestions) >= 1
-        # Fallback has valid payload
-        assert suggestions[0].patch.patch_type == "AddExceptionHandlerStep"
-        assert isinstance(suggestions[0].patch.payload, dict)
+        with pytest.raises(PatchValidationError, match="LLM did not produce"):
+            handler.generate_suggestions(
+                _issue(), _target(), _context(), (_entry(),),
+            )
 
     def test_handler_does_not_write_ir(self) -> None:
         """B3: Handler generates suggestions without importing patch applier."""
@@ -205,7 +204,7 @@ class TestB3MissingHandlerHandler:
         )
         for s in suggestions:
             assert isinstance(s, RepairSuggestion)
-            # No IR mutation — suggestions are pure data
+            # No IR mutation 鈥?suggestions are pure data
 
     def test_llm_output_truncated_to_max_suggestions(self) -> None:
         llm = StubSuggestionLLM(fixed_response={
@@ -223,7 +222,7 @@ class TestB3MissingHandlerHandler:
 
 
 # ===========================================================================
-# B3-3: Error propagation — unsupported patch type is NOT swallowed
+# B3-3: Error propagation 鈥?unsupported patch type is NOT swallowed
 # ===========================================================================
 
 
@@ -231,7 +230,7 @@ class TestB3ErrorPropagation:
     """B3: UnsupportedPatchTypeError propagates, not hidden by fallback."""
 
     def test_unsupported_patch_type_propagates(self) -> None:
-        """B3: Stub returning unsupported patch_type → UnsupportedPatchTypeError
+        """B3: Stub returning unsupported patch_type 鈫?UnsupportedPatchTypeError
         propagates to caller, not replaced by fallback.
         """
         llm = StubSuggestionLLM(fixed_response={
@@ -252,11 +251,11 @@ class TestB3ErrorPropagation:
 # ===========================================================================
 
 
-class TestB3AmbiguityStub:
-    """B3: TypeOrContractAmbiguityHandler rejects unsupported subtypes."""
+class TestB3AmbiguityHandler:
+    """B3: TypeOrContractAmbiguityHandler uses LLM-backed suggestions."""
 
     def test_rejects_non_mvp_construct_type(self) -> None:
-        handler = TypeOrContractAmbiguityHandler()
+        handler = TypeOrContractAmbiguityHandler(StubSuggestionLLM())
         issue = EditableIssue(
             issue_id="i1", primary_diagnostic_id="d1",
             related_diagnostic_ids=("d1",), issue_group_id=None,
@@ -274,9 +273,9 @@ class TestB3AmbiguityStub:
                 issue, _target(), _context(), (_entry(),),
             )
 
-    def test_mvp_construct_returns_stub_suggestion(self) -> None:
-        """B3: WORKER_PROMOTION with correct affordance → returns stub suggestion."""
-        handler = TypeOrContractAmbiguityHandler()
+    def test_mvp_construct_returns_llm_suggestion(self) -> None:
+        """B3: WORKER_PROMOTION with correct affordance returns LLM suggestion."""
+        handler = TypeOrContractAmbiguityHandler(StubSuggestionLLM())
         issue = EditableIssue(
             issue_id="i1", primary_diagnostic_id="d1",
             related_diagnostic_ids=("d1",), issue_group_id=None,
@@ -309,8 +308,8 @@ class TestB3AmbiguityStub:
         assert "ConvertDelegationIntentToMainFlowStep" in types
 
     def test_rejects_unrecognized_affordance_subtype(self) -> None:
-        """B3: WORKER_PROMOTION with wrong affordance_id → UnsupportedIssueError."""
-        handler = TypeOrContractAmbiguityHandler()
+        """B3: WORKER_PROMOTION with wrong affordance_id 鈫?UnsupportedIssueError."""
+        handler = TypeOrContractAmbiguityHandler(StubSuggestionLLM())
         issue = EditableIssue(
             issue_id="i1", primary_diagnostic_id="d1",
             related_diagnostic_ids=("d1",), issue_group_id=None,
@@ -344,7 +343,7 @@ class TestB3AmbiguityStub:
 
     def test_worker_handoff_subtype_rejected(self) -> None:
         """B3: WORKER_HANDOFF subtype raises UnsupportedIssueError."""
-        handler = TypeOrContractAmbiguityHandler()
+        handler = TypeOrContractAmbiguityHandler(StubSuggestionLLM())
         issue = EditableIssue(
             issue_id="i1", primary_diagnostic_id="d1",
             related_diagnostic_ids=("d1",), issue_group_id=None,
@@ -420,3 +419,5 @@ class TestB3StubAdapterContract:
         user_prompt = llm.calls[0]["user_prompt"]
         assert "Allowed patch types" in user_prompt
         assert "AddExceptionHandlerStep" in user_prompt
+
+

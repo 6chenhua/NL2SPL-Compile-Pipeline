@@ -2,27 +2,36 @@
 
 from __future__ import annotations
 
-import json
-
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
-from nl2spl.compiler.spl_editing.core.errors import UnsupportedPatchTypeError
+from nl2spl.compiler.spl_editing.core.errors import (
+    PatchValidationError,
+    UnsupportedPatchTypeError,
+)
 from nl2spl.compiler.spl_editing.core.model import (
-    EditableIssue, RepairContext, RepairPatch, RepairSuggestion, RepairTarget,
+    EditableIssue,
+    RepairContext,
+    RepairPatch,
+    RepairSuggestion,
+    RepairTarget,
 )
 from nl2spl.compiler.spl_editing.handlers.base import IssueRepairHandler, SuggestionPolicy
+from nl2spl.compiler.spl_editing.handlers.llm_adapter import SuggestionLLM
 from nl2spl.compiler.spl_editing.handlers.missing_output_producer.prompt import (
-    MISSING_OUTPUT_SYSTEM_PROMPT, build_missing_output_user_prompt,
+    MISSING_OUTPUT_SYSTEM_PROMPT,
+    build_missing_output_user_prompt,
 )
 from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
-
-
-_JSON_RESPONSE = json.dumps
 
 
 class MissingOutputProducerHandler(IssueRepairHandler):
     handler_id = "missing_output_producer"
 
-    def __init__(self, policy: SuggestionPolicy | None = None) -> None:
+    def __init__(
+        self,
+        llm: SuggestionLLM,
+        policy: SuggestionPolicy | None = None,
+    ) -> None:
+        self._llm = llm
         self._policy = policy or SuggestionPolicy()
 
     @property
@@ -41,10 +50,33 @@ class MissingOutputProducerHandler(IssueRepairHandler):
 
         entry = catalog_entries[0]
         output_name = self._output_name_from_target(issue)
-        # Return a deterministic stub suggestion for each allowed patch type
         suggestions: list[RepairSuggestion] = []
-        for i, pt in enumerate(allowed[: self._policy.max_suggestions]):
-            payload = self._payload_for(pt, issue, target, context)
+        for allowed_patch_type in allowed:
+            if len(suggestions) >= self._policy.max_suggestions:
+                break
+            if (
+                allowed_patch_type == "BindExistingProducerStep"
+                and self._find_bindable_step(context) is None
+            ):
+                continue
+            raw = self._llm.generate_json(
+                system_prompt=MISSING_OUTPUT_SYSTEM_PROMPT,
+                user_prompt=build_missing_output_user_prompt(
+                    output_name=output_name,
+                    target_ref=issue.target_ref,
+                    allowed_patch_types=(allowed_patch_type,),
+                    user_instruction=user_instruction,
+                ),
+            )
+            try:
+                data = parse_suggestion_payload(raw, (allowed_patch_type,))
+            except UnsupportedPatchTypeError:
+                raise
+            except PatchValidationError:
+                continue
+
+            pt = data["patch_type"]
+            payload = self._payload_for(pt, issue, target, context, data["payload"])
             if payload is None:
                 continue
             preview = (
@@ -55,11 +87,11 @@ class MissingOutputProducerHandler(IssueRepairHandler):
                      f"{payload.get('producer_text', 'Produce output.')}"
             )
             suggestions.append(RepairSuggestion(
-                suggestion_id=f"{issue.issue_id}_sug_{i:02d}",
+                suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
                 session_id="",
                 affordance_id=entry.affordance_id,
-                title=f"Add producer step for '{output_name}'",
-                explanation=f"Create a {pt} to produce the required output.",
+                title=data["title"],
+                explanation=data["explanation"],
                 patch=RepairPatch(
                     patch_id="", affordance_id=entry.affordance_id,
                     patch_type=pt, target_ref=issue.target_ref,
@@ -84,14 +116,22 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         return issue.missing_slot or "unknown_output"
 
     @staticmethod
-    def _payload_for(pt: str, issue, target, context):
+    def _payload_for(pt: str, issue, target, context, llm_payload):
         output_name = MissingOutputProducerHandler._output_name_from_target(issue)
         if pt == "InsertProducerStep":
+            producer_text = llm_payload.get("producer_text") or llm_payload.get("handler_text")
+            command_type = llm_payload.get("command_type", "GENERAL_COMMAND")
+            if not isinstance(producer_text, str) or not producer_text.strip():
+                return None
+            if command_type not in {"GENERAL_COMMAND", "REQUEST_INPUT"}:
+                return None
             return {
                 "worker_id": target.worker_id or "",
                 "output_name": output_name,
-                "producer_text": "Produce the required output.",
-                "command_type": "GENERAL_COMMAND",
+                "producer_text": producer_text,
+                "command_type": command_type,
+                "inputs": tuple(llm_payload.get("inputs", ())),
+                "outputs": tuple(llm_payload.get("outputs", ())),
             }
         if pt == "BindExistingProducerStep":
             # Select the first renderable existing step from context

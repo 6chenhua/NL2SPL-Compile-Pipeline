@@ -1,14 +1,16 @@
-"""B6 handler contract tests: generated suggestions must pass validator."""
+﻿"""B6 handler contract tests: generated suggestions must pass validator."""
 
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
-from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
-from nl2spl.compiler.spl_editing.core.model import (
-    EditableIssue, RepairEvidence, RepairTarget,
-)
-from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.context.required_output_context import (
     RequiredOutputContextBuilder,
 )
+from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
+from nl2spl.compiler.spl_editing.core.model import (
+    EditableIssue,
+    RepairEvidence,
+    RepairTarget,
+)
+from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.handlers.missing_output_producer.handler import (
     MissingOutputProducerHandler,
 )
@@ -16,14 +18,27 @@ from nl2spl.compiler.spl_editing.patches.insert_producer_step.validator import (
     InsertProducerStepValidator,
 )
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
+from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 
 def test_missing_output_handler_generates_valid_payload() -> None:
     """B6 handler: generated InsertProducerStep suggestion passes validator."""
     catalog = RepairCatalogBuilder.from_construct_registry(
         SPLConstructRegistry.default())
-    handler = MissingOutputProducerHandler()
+    stub_llm = StubSuggestionLLM(fixed_response={
+        "patch_type": "InsertProducerStep",
+        "title": "Add producer step",
+        "explanation": "Create a source-backed step for the output.",
+        "payload": {
+            "producer_text": "Produce the draft output.",
+            "command_type": "GENERAL_COMMAND",
+            "inputs": [],
+            "outputs": ["draft"],
+        },
+    })
+    handler = MissingOutputProducerHandler(stub_llm)
     issue = EditableIssue(
         issue_id="i1", primary_diagnostic_id="d1",
         related_diagnostic_ids=("d1",), issue_group_id=None,
@@ -54,9 +69,9 @@ def test_missing_output_handler_generates_valid_payload() -> None:
     suggestions = handler.generate_suggestions(
         issue, target, context, entries)
 
+    assert len(stub_llm.calls) == 1
     assert len(suggestions) >= 1
 
-    from dataclasses import replace
     from nl2spl.compiler.spl_editing.core.model import RepairPatch
 
     # Each suggestion must pass the corresponding validator
@@ -99,3 +114,4 @@ def test_missing_output_handler_generates_valid_payload() -> None:
         else:
             raise AssertionError(
                 f"Unexpected patch type: {sug.patch.patch_type}")
+

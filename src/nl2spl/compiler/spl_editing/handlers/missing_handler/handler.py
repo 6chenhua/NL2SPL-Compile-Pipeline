@@ -6,8 +6,6 @@ that have a condition but no handler action.
 
 from __future__ import annotations
 
-import json
-
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.errors import (
     PatchValidationError,
@@ -115,10 +113,12 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
             )
             suggestions.append(suggestion)
 
-        if len(suggestions) < self._policy.min_suggestions and allowed:
-            fb = self._fallback_suggestion(issue, catalog_entries[0], allowed)
-            if fb is not None:
-                suggestions.append(fb)
+        if len(suggestions) < self._policy.min_suggestions:
+            raise PatchValidationError(
+                "LLM did not produce a valid AddExceptionHandlerStep "
+                f"suggestion after {self._policy.max_suggestions} attempts "
+                f"({parse_failures} parse/schema failures)."
+            )
 
         return tuple(suggestions[: self._policy.max_suggestions])
 
@@ -146,59 +146,3 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         if outputs:
             parts.append(f"  outputs: {outputs}")
         return "\n".join(parts)
-
-    @staticmethod
-    def _fallback_suggestion(
-        issue: EditableIssue,
-        entry: RepairCatalogEntry,
-        allowed_patch_types: tuple[str, ...],
-    ) -> RepairSuggestion | None:
-        """Produce a safe deterministic suggestion when LLM fails.
-
-        The fallback payload MUST pass the same parser + schema
-        validation as LLM output.  Returns None if validation fails
-        or the allowed patch set does not include the fallback type.
-        """
-        import json as _json
-
-        fallback_patch_type = "AddExceptionHandlerStep"
-        if fallback_patch_type not in allowed_patch_types:
-            return None
-
-        raw = _json.dumps({
-            "patch_type": fallback_patch_type,
-            "title": "Add a DISPLAY_MESSAGE handler",
-            "explanation": (
-                "Display a message explaining the exception to the "
-                "user.  This is a safe deterministic fallback."
-            ),
-            "payload": {
-                "handler_text": "Display exception explanation to user.",
-                "command_type": "DISPLAY_MESSAGE",
-                "inputs": [],
-                "outputs": [],
-            },
-        })
-
-        data = parse_suggestion_payload(raw, allowed_patch_types)
-
-        return RepairSuggestion(
-            suggestion_id=f"{issue.issue_id}_sug_fallback",
-            session_id="",
-            affordance_id=entry.affordance_id,
-            title=data["title"],
-            explanation=data["explanation"],
-            patch=RepairPatch(
-                patch_id="",
-                affordance_id=entry.affordance_id,
-                patch_type=data["patch_type"],
-                target_ref=issue.target_ref,
-                irs_ref=issue.irs_ref,
-                base_compile_run_id="",
-                artifact_snapshot_id="",
-                overlay_version=0,
-                payload=data["payload"],
-                verification_lane=entry.default_verification_lane,
-            ),
-            spl_preview=MissingHandlerRepairHandler._build_preview(data),
-        )
