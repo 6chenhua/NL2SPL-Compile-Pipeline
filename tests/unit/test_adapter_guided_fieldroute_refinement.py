@@ -760,6 +760,7 @@ class TestAdapterGuidedPromptContract:
             "structural_priors",
             "deterministic_annotations",
             "allowed_schema",
+            "role_policy",
         }
         for s in payload["spans"]:
             assert "span_id" in s and "text" in s
@@ -848,6 +849,50 @@ class TestAdapterGuidedPromptContract:
         assert "integration_hint is only for named/specific APIs" in prompt
         assert "Do NOT classify examples such as newsletters" in prompt
         assert "classify them as profile_domain" in prompt
+
+    def test_system_prompt_restricts_resource_contracts_to_explicit_values(
+        self,
+    ) -> None:
+        """Process instructions must not become input/output contracts."""
+        from nl2spl.llm.prompts import load_prompt
+
+        prompt = load_prompt("stage2_adapter_guided")
+
+        assert "Use input_contract only when the text explicitly declares" in prompt
+        assert "Do NOT use input_contract for executable workflow" in prompt
+        assert "is process_step, not input_contract" in prompt
+
+    def test_user_prompt_contains_resource_contract_role_policy(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """The LLM receives machine-readable role policy guardrails."""
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            build_adapter_guided_user_prompt,
+        )
+
+        routes, spans, canonical, _updates = _adapt_slice_route(
+            MIXED_DELEGATION_TEXT, pipeline_config, mock_client
+        )
+
+        payload_json = build_adapter_guided_user_prompt(
+            spans,
+            canonical,
+            routes.structural_priors,
+            routes.annotations,
+        )
+        import json as _json
+
+        payload = _json.loads(payload_json)
+        policy = payload["role_policy"]
+
+        assert "input_contract" in policy
+        assert "process_step" in policy
+        assert "explicitly declares an input" in (
+            policy["input_contract"]["use_only_when"]
+        )
+        assert "Use process_step for those spans" in (
+            policy["input_contract"]["do_not_use_when"]
+        )
 
 
 class TestOutputSchemaContract:
@@ -2771,8 +2816,10 @@ class TestValidatorMergeIntegration:
         checkpoint = mock_save.call_args[0][0]
         llm_rf = checkpoint["llm_refinement"]
         diags = llm_rf["route_diagnostics"]
-        assert any("failure_mode must be non-executable" in d for d in diags), (
-            f"Expected validator diagnostic about non-executable failure_mode, got: {diags}"
+        # ARC6 normalization auto-corrects executable=False for failure_mode
+        # instead of rejecting — the correction diagnostic replaces the old rejection.
+        assert any("Corrected executable for failure_mode" in d for d in diags), (
+            f"Expected normalization diagnostic correcting executable for failure_mode, got: {diags}"
         )
 
     def test_merge_append_handler_uses_prior_provenance_not_llm(

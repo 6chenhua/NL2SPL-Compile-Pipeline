@@ -25,7 +25,6 @@ from nl2spl.compiler.annotation_role_contract.diagnostics import (
     ANNOTATION_INVALID_ROUTE_FAMILY_FOR_ROLE,
     ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
     ANNOTATION_MISSING_REQUIREDNESS,
-    ANNOTATION_REJECTED_AFTER_ROLE_CONTRACT_VALIDATION,
     AnnotationValidationDiagnostic,
 )
 from nl2spl.compiler.annotation_role_contract.registry import (
@@ -177,14 +176,23 @@ class RouteRefinementValidator:
         ) -> tuple[bool, str, list[str], list]:
             return False, msg, [], struct or []
 
-        def ok(warns: list[str] | None = None) -> tuple[bool, str, list[str], list]:
-            return True, "", warns or [], []
+        def ok(
+            warns: list[str] | None = None,
+            struct: list | None = None,
+        ) -> tuple[bool, str, list[str], list]:
+            return True, "", warns or [], struct or []
 
         # --- 1. Span existence ------------------------------------------
         if ann.span_id not in valid_span_ids:
             return reject(f"Rejected: unknown span_id '{ann.span_id}'")
 
         span = span_by_id.get(ann.span_id)
+
+        # ARC6: ``semantic_role`` is the LLM's only required routing decision.
+        # Compiler-facing fields are derived from the canonical role contract
+        # before schema validation, so role-only annotations are valid input.
+        normalization_diags = self._normalize_contract_fields_from_role(ann)
+        normalization_warns = [d.message for d in normalization_diags]
 
         # --- 2. Allowed schema ------------------------------------------
         if ann.field is None or ann.field not in ALLOWED_FIELDS:
@@ -357,11 +365,79 @@ class RouteRefinementValidator:
         if conflict:
             warns.append(conflict)
 
-        return ok(warns)
+        return ok(warns + normalization_warns, normalization_diags)
 
     # ------------------------------------------------------------------
     # Full-field role contract check (ARC4)
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_contract_fields_from_role(
+        ann: RefinedAnnotation,
+    ) -> list[AnnotationValidationDiagnostic]:
+        role = ann.semantic_role
+        if not role:
+            return []
+        resolved = ROLE_CONTRACT_REGISTRY.resolve_semantic_role(role)
+        if resolved is None:
+            return []
+        contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
+        diagnostics: list[AnnotationValidationDiagnostic] = []
+
+        def record(field_name: str, expected: object, actual: object, kind: str) -> None:
+            diagnostics.append(
+                AnnotationValidationDiagnostic(
+                    kind=kind,
+                    span_id=ann.span_id,
+                    semantic_role=resolved,
+                    field_name=field_name,
+                    expected=expected,
+                    actual=actual,
+                    source_section_id=ann.source_section_id,
+                    source_packet_id=ann.source_packet_id,
+                    message=(
+                        f"Corrected {field_name} for {resolved}: "
+                        f"expected {expected!r}, got {actual!r}"
+                    ),
+                )
+            )
+
+        ann.semantic_role = resolved
+        if ann.field is not None and ann.field != contract.field:
+            record(
+                "field", contract.field, ann.field,
+                ANNOTATION_INVALID_FIELD_FOR_ROLE,
+            )
+        if ann.route_family is not None and ann.route_family != contract.route_family:
+            record(
+                "route_family", contract.route_family, ann.route_family,
+                ANNOTATION_INVALID_ROUTE_FAMILY_FOR_ROLE,
+            )
+        if (
+            ann.construct_target is not None
+            and ann.construct_target != contract.construct_target
+        ):
+            record(
+                "construct_target", contract.construct_target, ann.construct_target,
+                ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
+            )
+        if ann.slot_target is not None and ann.slot_target != contract.slot_target:
+            record(
+                "slot_target", contract.slot_target, ann.slot_target,
+                ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
+            )
+        if ann.executable is not None and ann.executable != contract.executable:
+            record(
+                "executable", contract.executable, ann.executable,
+                ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
+            )
+
+        ann.field = contract.field
+        ann.route_family = contract.route_family
+        ann.construct_target = contract.construct_target
+        ann.slot_target = contract.slot_target
+        ann.executable = contract.executable
+        return diagnostics
 
     @staticmethod
     def _check_against_registry(

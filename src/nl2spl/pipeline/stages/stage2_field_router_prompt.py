@@ -26,7 +26,6 @@ from nl2spl.compiler.annotation_role_contract.registry import (
 from nl2spl.ir.field_route_ir import StructuralPrior
 from nl2spl.ir.span_ir import SpanIR
 
-
 # ===========================================================================
 # Allowed schema — closed sets for validation (Step 4)
 #
@@ -64,6 +63,38 @@ EXECUTABLE_ROLES: frozenset[str] = (
     ROLE_CONTRACT_REGISTRY.prompt_executable_roles()
 )
 """LLM-visible roles whose contract specifies ``executable=True``."""
+
+ROLE_POLICY: dict[str, Any] = {
+    "input_contract": {
+        "use_only_when": (
+            "The span explicitly declares an input, field, parameter, "
+            "runtime value, source, connector, repository, or required item "
+            "received by the workflow."
+        ),
+        "do_not_use_when": (
+            "The span describes actions, sequencing, process instructions, "
+            "questions to ask, checks to perform, or other executable "
+            "workflow behavior. Use process_step for those spans."
+        ),
+    },
+    "output_contract": {
+        "use_only_when": (
+            "The span explicitly declares an artifact, field, result, file, "
+            "status, evidence set, or other value produced by the workflow."
+        ),
+        "do_not_use_when": (
+            "The span merely describes how to produce something. Use "
+            "process_step for executable production instructions."
+        ),
+    },
+    "process_step": {
+        "use_when": (
+            "The span tells the agent to determine, identify, ask, retrieve, "
+            "produce, revise, validate, deny, or otherwise perform an action."
+        ),
+    },
+}
+"""LLM-visible role policy.  This is guidance, not compiler-facing schema."""
 
 
 # ===========================================================================
@@ -327,6 +358,7 @@ def build_adapter_guided_user_prompt(
         "allowed_schema": {
             "semantic_roles": sorted(ALLOWED_SEMANTIC_ROLES),
         },
+        "role_policy": ROLE_POLICY,
     }
 
     return json.dumps(payload, ensure_ascii=False, indent=2)
@@ -368,7 +400,10 @@ def parse_refinement_result(data: dict[str, Any]) -> RouteRefinementResult:
         else:
             parse_diags.append(ParseDiagnostic(
                 field=f"annotations[{i}].executable",
-                issue=f"malformed executable value (must be bool, got {type(executable_val).__name__})",
+                issue=(
+                    "malformed executable value "
+                    f"(must be bool, got {type(executable_val).__name__})"
+                ),
                 raw_value=executable_val,
             ))
 

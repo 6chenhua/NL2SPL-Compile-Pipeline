@@ -338,6 +338,7 @@ class TestPromptPayloadIsMinimal:
         )
         parsed = json.loads(payload)
         schema = parsed["allowed_schema"]
+        assert "role_policy" in parsed
 
         # Only semantic_roles must be present
         assert "semantic_roles" in schema

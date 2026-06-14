@@ -102,6 +102,22 @@ Copy source_section_id and source_packet_id from the span. Do not invent them.
 **input_contract / output_contract**
   Declarations of what is received or produced.
 
+  Use input_contract only when the text explicitly declares an input, field,
+  parameter, runtime value, source, connector, repository, or required item
+  received by the workflow. Do NOT use input_contract for executable workflow
+  instructions such as "determine", "identify", "ask", "retrieve", "produce",
+  "revise", "validate", or "deny"; those are process_step unless the text also
+  separately names an explicit resource contract.
+
+  Use output_contract only when the text explicitly declares an artifact, field,
+  result, file, status, evidence set, or value produced by the workflow. Do NOT
+  use output_contract merely because a process step will eventually produce
+  something.
+
+  Example: "First determine the communication type, identify missing fields,
+  and ask clarifying questions" is process_step, not input_contract. The process
+  itself is not an input variable.
+
 **profile_domain**
   Domain context, task family, persona description, examples of supported
   artifact/content types, or business vocabulary.
