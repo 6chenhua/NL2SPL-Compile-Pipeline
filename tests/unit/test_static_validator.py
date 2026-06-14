@@ -277,6 +277,28 @@ REQUIRED <REF>output_var</REF>
         # Assert
         assert len(errors) == 0
 
+    def test_validate_variables_inline_multi_result_declarations(self) -> None:
+        """Inline multi-result declarations are declared and used."""
+        validator = StaticValidator()
+        spl_text = """[DEFINE_AGENT: Test "Test"]
+[DEFINE_WORKER: "Test" TestWorker]
+[INPUTS]
+[END_INPUTS]
+[OUTPUTS]
+REQUIRED <REF>summary</REF>
+REQUIRED <REF>score</REF>
+[END_OUTPUTS]
+[MAIN_FLOW]
+COMMAND-1 [COMMAND Produce results RESULT summary: text, score: number SET]
+COMMAND-2 [DISPLAY Show <REF>summary</REF> and <REF>score</REF>]
+[END_MAIN_FLOW]
+[END_WORKER]
+[END_AGENT]"""
+
+        errors = validator.validate_variables(spl_text)
+
+        assert errors == []
+
     def test_get_validation_summary_valid(self) -> None:
         """Test validation summary for valid result."""
         # Arrange

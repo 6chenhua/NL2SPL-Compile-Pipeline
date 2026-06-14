@@ -83,6 +83,9 @@ it in new_variables instead.
 
 2. **outputs**: Variables the step produces or overwrites.
    - Only list variables this step directly produces.
+   - A step may produce multiple outputs; Stage 11 renders them as
+     comma-separated RESULT/RESPONSE/VALUE bindings, so do not create a
+     structured aggregate solely for SPL syntax.
 
 3. **Dangling reference check**: Before finalizing, verify that every
    variable in inputs either:

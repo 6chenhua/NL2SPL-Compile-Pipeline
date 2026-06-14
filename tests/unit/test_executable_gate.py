@@ -172,6 +172,36 @@ class TestRenderability:
         assert ok is True
         assert reason is None
 
+    def test_handoff_invoke_with_multiple_outputs_is_renderable(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR(
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["out_one", "out_two"],
+        )
+        handoff = self._invoke_handoff(
+            output_bindings=[
+                OutputBindingIR("child_one", "out_one", True, "set"),
+                OutputBindingIR("child_two", "out_two", True, "set"),
+            ]
+        )
+
+        ok, reason = gate.is_renderable(
+            step,
+            "handoff_generated",
+            {"h1": handoff},
+            {"Child"},
+            {"w_child": "Child"},
+        )
+
+        assert ok is True
+        assert reason is None
+
     def test_handoff_mode_mismatch_blocks_rendering(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(

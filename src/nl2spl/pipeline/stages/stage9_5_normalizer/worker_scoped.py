@@ -66,14 +66,14 @@ class WorkerScopedMixin:
         handoff_type_errors = self._validate_handoff_types(worker_plan)
         errors.extend(handoff_type_errors)
 
-        # 5. Normalize worker-local multi-output steps. SPL commands can only
-        # declare one RESULT/RESPONSE variable, so multi-output steps must be
-        # represented as a structured result variable.
+        # 5. Multi-output commands render directly. Keep only the narrow
+        # cleanup that removes same-step output inputs when the value was not
+        # produced earlier and is not a worker input.
         for worker_id, steps in worker_step_plan.worker_steps.items():
             errors.extend(self._validate_command_shapes(worker_id, steps))
             warnings.extend(
-                self._normalize_multi_output_steps(
-                    resources, symbol_table, steps, worker_id, worker_plan
+                self._remove_unproduced_self_output_inputs(
+                    steps, worker_id, worker_plan
                 )
             )
 

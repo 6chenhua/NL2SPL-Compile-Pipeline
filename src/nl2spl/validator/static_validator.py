@@ -314,6 +314,8 @@ class StaticValidator:
         # Extract variable declarations
         var_declarations = re.findall(r'"([^"]+)"\s+(\w+):', spl_text)
         declared_vars = {var for _, var in var_declarations}
+        inline_result_vars = self._inline_result_declarations(spl_text)
+        declared_vars.update(inline_result_vars)
 
         # Extract variable references
         var_references = re.findall(r"<REF>(\w+)</REF>", spl_text)
@@ -325,11 +327,49 @@ class StaticValidator:
 
         # Check for unused variables
         used_vars = set(var_references)
+        used_vars.update(inline_result_vars)
         for _, var in var_declarations:
             if var not in used_vars:
                 errors.append(f"Unused variable declared: {var}")
 
         return errors
+
+    def _inline_result_declarations(self, spl_text: str) -> set[str]:
+        """Extract VAR_NAME declarations from RESULT/RESPONSE/VALUE clauses."""
+        declared: set[str] = set()
+        pattern = re.compile(
+            r"\b(?:RESULT|RESPONSE|VALUE)\s+(.+?)\s+(?:SET|APPEND)(?=\])",
+            flags=re.DOTALL,
+        )
+        for match in pattern.finditer(spl_text):
+            for item in self._split_result_items(match.group(1)):
+                if item.startswith("<REF>"):
+                    continue
+                name_match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*:", item)
+                if name_match:
+                    declared.add(name_match.group(1))
+        return declared
+
+    @staticmethod
+    def _split_result_items(text: str) -> list[str]:
+        """Split result bindings on top-level commas only."""
+        items: list[str] = []
+        start = 0
+        depth = 0
+        pairs = {"[": "]", "{": "}", "(": ")"}
+        closing = set(pairs.values())
+
+        for index, char in enumerate(text):
+            if char in pairs:
+                depth += 1
+            elif char in closing and depth > 0:
+                depth -= 1
+            elif char == "," and depth == 0:
+                items.append(text[start:index].strip())
+                start = index + 1
+
+        items.append(text[start:].strip())
+        return [item for item in items if item]
 
     def get_validation_summary(self, result: ValidationResult) -> str:
         """Get validation summary.

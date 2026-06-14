@@ -42,17 +42,27 @@ class ClauseBuilderMixin:
         return f" WITH {', '.join(refs)}"
 
     def _result_clause(self, keyword: str, outputs: list[str]) -> str:
-        """Render the first declared output as a command result clause."""
+        """Render declared outputs as a command result clause."""
         if not outputs:
             return ""
-        output = outputs[0]
+
+        results: list[str] = []
+        for output in outputs:
+            if not output:
+                continue
+            results.append(self._result_item(output))
+            self._produced_variables.add(output)
+
+        if not results:
+            return ""
+        return f" {keyword} {', '.join(results)} SET"
+
+    def _result_item(self, output: str) -> str:
+        """Render one output binding in a result list."""
         if output not in self._produced_variables:
             data_type = self._result_data_types.get(output, "text")
-            result = f"{output}: {self._format_data_type(data_type)}"
-        else:
-            result = f"<REF>{output}</REF>"
-        self._produced_variables.add(output)
-        return f" {keyword} {result} SET"
+            return f"{output}: {self._format_data_type(data_type)}"
+        return f"<REF>{output}</REF>"
 
     def _refs(self, names: list[str]) -> list[str]:
         """Render variable names as SPL REF tags."""

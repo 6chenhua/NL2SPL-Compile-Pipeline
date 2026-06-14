@@ -254,7 +254,7 @@ class ProducerIndex:
         extra: set[str],
         api_refs: dict[str, str],
     ) -> None:
-        """Index a structured result that faithfully wraps handoff outputs."""
+        """Index legacy structured results that faithfully wrap handoff outputs."""
         if not step.handoff_id:
             return
         handoff = self._handoff_index.get(step.handoff_id)

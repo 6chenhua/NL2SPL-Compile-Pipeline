@@ -424,6 +424,181 @@ class TestSPLRenderer:
             "RESULT output1: text SET]"
         ) in spl_text
 
+    def test_general_command_renders_multiple_results(self) -> None:
+        """GENERAL_COMMAND renders all outputs in one RESULT list."""
+        renderer = SPLRenderer()
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            main_flow=MagicMock(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])]),
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("summary", "text", True, "Summary", "step"),
+                VariableSpec("score", "number", True, "Score", "step"),
+            ]
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Produce results",
+                ["s1"],
+                "GENERAL_COMMAND",
+                outputs=["summary", "score"],
+            )
+        ]
+
+        spl_text, _, _ = renderer.render(
+            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
+        )
+
+        assert (
+            "COMMAND-1 [COMMAND Produce results "
+            "RESULT summary: text, score: number SET]"
+        ) in spl_text
+
+    def test_call_api_renders_multiple_responses(self) -> None:
+        """CALL_API renders all outputs in one RESPONSE list."""
+        renderer = SPLRenderer()
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            main_flow=MagicMock(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])]),
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("payload", "text", True, "Payload", "step"),
+                VariableSpec("count", "number", True, "Count", "step"),
+            ]
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Call service",
+                ["s1"],
+                "CALL_API",
+                outputs=["payload", "count"],
+                integration_ref="SearchAPI",
+            )
+        ]
+
+        spl_text, _, _ = renderer.render(
+            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
+        )
+
+        assert "COMMAND-1 [CALL SearchAPI RESPONSE payload: text, count: number SET]" in spl_text
+
+    def test_invoke_worker_renders_multiple_responses(self) -> None:
+        """INVOKE_WORKER renders all outputs in one RESPONSE list."""
+        renderer = SPLRenderer()
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            child_worker_refs=["ChildWorker"],
+            main_flow=MagicMock(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])]),
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("draft", "text", True, "Draft", "step"),
+                VariableSpec("status", "text", True, "Status", "step"),
+            ]
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Invoke child",
+                ["s1"],
+                "INVOKE_WORKER",
+                outputs=["draft", "status"],
+                integration_ref="ChildWorker",
+            )
+        ]
+
+        spl_text, errors, _ = renderer.render(
+            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
+        )
+
+        assert errors == []
+        assert "COMMAND-1 [INVOKE ChildWorker RESPONSE draft: text, status: text SET]" in spl_text
+
+    def test_request_input_renders_multiple_values(self) -> None:
+        """REQUEST_INPUT renders all outputs in one VALUE list."""
+        renderer = SPLRenderer()
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            main_flow=MagicMock(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1"])]),
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("answer", "text", True, "Answer", "input"),
+                VariableSpec("reason", "text", True, "Reason", "input"),
+            ]
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Ask for clarification",
+                ["s1"],
+                "REQUEST_INPUT",
+                outputs=["answer", "reason"],
+            )
+        ]
+
+        spl_text, _, _ = renderer.render(
+            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
+        )
+
+        assert (
+            "COMMAND-1 [INPUT Ask for clarification "
+            "VALUE answer: text, reason: text SET]"
+        ) in spl_text
+
+    def test_result_list_mixes_refs_and_new_declarations(self) -> None:
+        """Existing outputs render as refs while new outputs stay declarations."""
+        renderer = SPLRenderer()
+        worker = WorkerIR(
+            worker_name="TestWorker",
+            description="Test",
+            inputs=[WorkerInput("request", True)],
+            main_flow=MagicMock(blocks=[BlockIR("b1", "SEQUENTIAL", None, ["s1", "s2"])]),
+        )
+        resources = ResourceRegistryIR(
+            variables=[
+                VariableSpec("request", "text", True, "Request", "input"),
+                VariableSpec("draft", "text", True, "Draft", "step"),
+                VariableSpec("summary", "text", True, "Summary", "step"),
+            ]
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Create draft",
+                ["s1"],
+                "GENERAL_COMMAND",
+                inputs=["request"],
+                outputs=["draft"],
+            ),
+            StepIR(
+                "st2",
+                "Revise draft and summarize",
+                ["s2"],
+                "GENERAL_COMMAND",
+                inputs=["draft"],
+                outputs=["draft", "summary"],
+            ),
+        ]
+
+        spl_text, errors, _ = renderer.render(
+            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
+        )
+
+        assert errors == []
+        assert (
+            "COMMAND-2 [COMMAND Revise draft and summarize based on <REF>draft</REF> "
+            "RESULT <REF>draft</REF>, summary: text SET]"
+        ) in spl_text
+
     def test_conditional_command_text_is_rewritten(self) -> None:
         """Test command text does not repeat an IF block condition."""
         # Arrange

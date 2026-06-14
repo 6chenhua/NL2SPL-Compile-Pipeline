@@ -281,3 +281,35 @@ class NormalizationMixin:
                 source="step",
                 description=description,
             )
+
+    def _remove_unproduced_self_output_inputs(
+        self,
+        steps: list[StepIR],
+        worker_id: str | None = None,
+        worker_plan: WorkerPlanIR | None = None,
+    ) -> list[str]:
+        """Remove same-step output inputs that cannot have been produced yet.
+
+        Multi-output commands now render directly in SPL, so Stage 9.5 should
+        not aggregate them. This only preserves the old safety cleanup for
+        cases where extraction put a newly produced output in the same step's
+        inputs, which would render as reading a value before it exists.
+        """
+        worker_inputs = self._worker_input_names(worker_id, worker_plan)
+        prior_producers: set[str] = set()
+
+        for step in steps:
+            if step.inputs and step.outputs:
+                outputs = set(step.outputs)
+                step.inputs = [
+                    input_name
+                    for input_name in step.inputs
+                    if (
+                        input_name not in outputs
+                        or input_name in prior_producers
+                        or input_name in worker_inputs
+                    )
+                ]
+            prior_producers.update(step.outputs)
+
+        return []

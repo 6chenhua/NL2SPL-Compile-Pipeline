@@ -553,6 +553,34 @@ class TestEdgeCases:
         index = ProducerIndex(steps=[], handoffs=[h])
         assert index.all_produced_variables() == {"p1", "p2"}
 
+    def test_handoff_step_with_multiple_outputs_uses_bindings(self) -> None:
+        h = WorkerHandoffIR(
+            handoff_id="h_m",
+            from_worker="w_main",
+            to_worker="w_child",
+            api_ref=None,
+            mode="invoke",
+            condition_text=None,
+            ordering="after",
+            input_bindings=[InputBindingIR("x", "y", True)],
+            output_bindings=[
+                OutputBindingIR("c1", "p1", True, "set"),
+                OutputBindingIR("c2", "p2", True, "set"),
+            ],
+        )
+        steps = [
+            StepIR(
+                "st_invoke",
+                "Invoke",
+                [],
+                "INVOKE_WORKER",
+                handoff_id="h_m",
+                outputs=["p1", "p2"],
+            )
+        ]
+        index = ProducerIndex(steps=steps, handoffs=[h])
+        assert index.all_produced_variables() == {"p1", "p2"}
+
     def test_default_factory_lists_not_shared(self) -> None:
         r1 = ProducerRef("a", "step", "st1")
         r2 = ProducerRef("b", "step", "st2")

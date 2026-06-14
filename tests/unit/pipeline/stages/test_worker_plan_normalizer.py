@@ -26,7 +26,7 @@ def field(name: str, source: str = "input") -> ContractFieldIR:
     return ContractFieldIR(name, "text", True, f"{name} field", source)  # type: ignore[arg-type]
 
 
-def test_worker_scoped_normalizes_multi_output_handoff_step() -> None:
+def test_worker_scoped_preserves_multi_output_handoff_step() -> None:
     resources = ResourceRegistryIR(
         variables=[
             VariableSpec("request", "text", True, "Request", "input"),
@@ -137,22 +137,20 @@ def test_worker_scoped_normalizes_multi_output_handoff_step() -> None:
 
     assert errors == []
     main_steps = normalized_steps.worker_steps["worker_main"]
-    assert main_steps[0].outputs == ["h_multi_response_structured"]
+    assert main_steps[0].outputs == ["out_one", "out_two"]
     assert len(main_steps) == 1
-    assert plan.workers[0].output_contract[0].name == "h_multi_response_structured"
-    assert plan.workers[0].output_contract[0].data_type == "h_multi_response_structured_type"
-    assert any(t.type_name == "h_multi_response_structured_type" for t in resources.types)
-    assert any(
-        "Aggregated multi-output step st_handoff into h_multi_response_structured without unpack steps."
-        in warning
-        for warning in warnings
-    )
+    assert [field.name for field in plan.workers[0].output_contract] == [
+        "out_one",
+        "out_two",
+    ]
+    assert resources.types == []
+    assert not any("Aggregated multi-output step" in warning for warning in warnings)
     assert getattr(normalizer, "construct_findings", {}).get(
         "missing_output_producer"
     ) in (None, [])
 
 
-def test_worker_scoped_multi_output_rewrites_downstream_consumers() -> None:
+def test_worker_scoped_multi_output_cleans_self_inputs_only() -> None:
     resources = ResourceRegistryIR(
         variables=[
             VariableSpec("request", "text", True, "Request", "input"),
@@ -227,13 +225,17 @@ def test_worker_scoped_multi_output_rewrites_downstream_consumers() -> None:
 
     assert errors == []
     main_steps = normalized_steps.worker_steps["worker_main"]
-    structured_name = "worker_main_st_finalize_result_structured"
-    assert main_steps[0].outputs == [structured_name]
+    assert main_steps[0].outputs == ["revision_history", "readiness_status"]
     assert main_steps[0].inputs == ["request"]
-    assert main_steps[1].inputs == ["polished_draft", structured_name]
+    assert main_steps[1].inputs == [
+        "polished_draft",
+        "revision_history",
+        "readiness_status",
+    ]
     assert [field.name for field in plan.workers[0].output_contract] == [
         "polished_draft",
-        structured_name,
+        "revision_history",
+        "readiness_status",
     ]
     assert not any("revision_history' consumed but not produced" in warning for warning in warnings)
     assert not any("readiness_status' consumed but not produced" in warning for warning in warnings)
