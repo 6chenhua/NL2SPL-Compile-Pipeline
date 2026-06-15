@@ -72,6 +72,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         context: RepairContext,
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
+        selected_patch_types: tuple[str, ...] | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         key = self._subtype_key(issue, catalog_entries)
         if key not in _MVP_SUBTYPES:
@@ -96,9 +97,27 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         child_inputs = _string_tuple(context.metadata.get("child_input_fields"))
         child_outputs = _string_tuple(context.metadata.get("child_output_fields"))
 
+        patch_types_to_generate = list(entry.supported_patch_types)
+        if selected_patch_types:
+            patch_types_to_generate = [
+                pt for pt in patch_types_to_generate
+                if pt in selected_patch_types
+            ]
         suggestions: list[RepairSuggestion] = []
         parse_failures = 0
-        for patch_type in entry.supported_patch_types:
+        previous_summaries: list[str] = []
+        previous_payloads: list[dict] = []
+        max_attempts = self._policy.max_suggestions * self._policy.max_attempts_ratio
+
+        # Build ordered sequence of patch types to try.
+        # Focused: all attempts on selected type(s).
+        # Unfiltered: round-robin to cover every supported type.
+        patch_type_sequence = [
+            patch_types_to_generate[i % len(patch_types_to_generate)]
+            for i in range(max_attempts)
+        ]
+
+        for patch_type in patch_type_sequence:
             if len(suggestions) >= self._policy.max_suggestions:
                 break
             if patch_type == "CreateWorkerHandoffContract" and not child_id:
@@ -118,6 +137,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                     child_input_fields=child_inputs,
                     child_output_fields=child_outputs,
                     user_instruction=user_instruction,
+                    previous_suggestions=tuple(previous_summaries),
                 ),
             )
             try:
@@ -129,41 +149,49 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 continue
 
             payload = self._payload_for(
-                patch_type,
-                issue,
-                target,
-                context,
-                data["payload"],
-                child_id,
+                patch_type, issue, target, context,
+                data["payload"], child_id,
             )
             if payload is None:
                 parse_failures += 1
                 continue
-            suggestions.append(RepairSuggestion(
-                suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
-                session_id="",
-                affordance_id=entry.affordance_id,
-                title=data["title"],
-                explanation=data["explanation"],
-                patch=RepairPatch(
-                    patch_id="",
-                    affordance_id=entry.affordance_id,
-                    patch_type=patch_type,
-                    target_ref=issue.target_ref,
-                    irs_ref=issue.irs_ref,
-                    base_compile_run_id="",
-                    artifact_snapshot_id="",
-                    overlay_version=0,
-                    payload=payload,
-                    verification_lane=entry.default_verification_lane,
-                ),
-                spl_preview=self._preview_for(patch_type, payload),
-            ))
 
-        if not suggestions and parse_failures:
+            # Skip duplicate payloads
+            if payload in previous_payloads:
+                parse_failures += 1
+                continue
+
+            previous_summaries.append(
+                f"{data['title']}: {data['explanation']}"
+            )
+            previous_payloads.append(payload)
+            suggestions.append(RepairSuggestion(
+                    suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
+                    session_id="",
+                    affordance_id=entry.affordance_id,
+                    title=data["title"],
+                    explanation=data["explanation"],
+                    patch=RepairPatch(
+                        patch_id="",
+                        affordance_id=entry.affordance_id,
+                        patch_type=patch_type,
+                        target_ref=issue.target_ref,
+                        irs_ref=issue.irs_ref,
+                        base_compile_run_id="",
+                        artifact_snapshot_id="",
+                        overlay_version=0,
+                        payload=payload,
+                        verification_lane=entry.default_verification_lane,
+                    ),
+                    spl_preview=self._preview_for(patch_type, payload),
+                ))
+
+        if len(suggestions) < self._policy.max_suggestions:
             raise PatchValidationError(
                 "LLM did not produce a valid type_or_contract_ambiguity "
-                f"suggestion ({parse_failures} parse/schema failures)."
+                f"suggestion set ({len(suggestions)} unique suggestions, "
+                f"expected {self._policy.max_suggestions}; "
+                f"{parse_failures} parse/schema/duplicate failures)."
             )
         return tuple(suggestions)
 
@@ -182,8 +210,9 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
             action_text = llm_payload.get("action_text")
             if not isinstance(action_text, str) or not action_text.strip():
                 return None
+            parent = _string_or_none(context.metadata.get("parent_worker_id"))
             return {
-                "worker_id": target.worker_id or "",
+                "worker_id": parent or target.worker_id or "",
                 "action_text": action_text,
                 "outputs": _string_tuple(llm_payload.get("outputs")),
             }
@@ -194,8 +223,9 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 return None
             if not isinstance(value_target, str) or not value_target.strip():
                 return None
+            parent = _string_or_none(context.metadata.get("parent_worker_id"))
             return {
-                "worker_id": target.worker_id or "",
+                "worker_id": parent or target.worker_id or "",
                 "prompt_text": prompt_text,
                 "value_target": value_target,
             }

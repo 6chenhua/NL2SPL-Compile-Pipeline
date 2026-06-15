@@ -144,6 +144,33 @@ class SPLEditingPresentationService:
                 return issue
         raise IssuePresentationNotFoundError(issue_id)
 
+    def generate_suggestions_for_option(
+        self,
+        run_id: str,
+        issue_id: str,
+        option_index: int,
+        *,
+        user_instruction: str | None = None,
+    ) -> tuple[SuggestionPresentationView, ...]:
+        """Generate suggestions for one specific repair strategy.
+
+        Renders the issue detail, extracts the patch types for the chosen
+        repair option, and delegates to the core service with
+        ``selected_patch_types`` scoped to that option.
+        """
+        detail = self.get_issue_detail_presentation(run_id, issue_id)
+        if option_index < 0 or option_index >= len(detail.available_repairs):
+            raise IssuePresentationNotFoundError(str(option_index))
+        option = detail.available_repairs[option_index]
+        issue = self.issue_by_id(run_id, issue_id)
+        session = self._editing.create_session(run_id, issue)
+        suggestions = self._editing.generate_suggestions(
+            session.session_id,
+            user_instruction=user_instruction,
+            selected_patch_types=option.patch_types,
+        )
+        return build_suggestion_presentations(suggestions)
+
     def present_suggestions(
         self,
         suggestions: tuple[RepairSuggestion, ...],

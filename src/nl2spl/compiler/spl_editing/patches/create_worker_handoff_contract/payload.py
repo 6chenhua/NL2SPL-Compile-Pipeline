@@ -1,6 +1,7 @@
 """CreateWorkerHandoffContract payload."""
 
 from dataclasses import dataclass, field
+
 from nl2spl.compiler.spl_editing.patches.base import PatchPayload
 
 
@@ -14,3 +15,7 @@ class CreateWorkerHandoffContractPayload(PatchPayload):
     invocation_point: str = "main"
     result_handoff: str = ""
     source_signal_id: str | None = None
+    input_binding_status: str = "known_present"
+    output_binding_status: str = "known_present"
+    input_binding_status_source: str | None = "user_confirmed_repair"
+    output_binding_status_source: str | None = "user_confirmed_repair"

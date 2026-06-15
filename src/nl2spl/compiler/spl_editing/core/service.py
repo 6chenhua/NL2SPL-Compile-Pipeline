@@ -187,6 +187,7 @@ class SPLEditingService:
         self,
         session_id: str,
         user_instruction: str | None = None,
+        selected_patch_types: tuple[str, ...] | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         """Generate repair suggestions for the issue in *session_id*."""
         session = self._sessions.get(session_id)
@@ -217,6 +218,7 @@ class SPLEditingService:
         # Generate
         suggestions = handler.generate_suggestions(
             issue, target, context, entries, user_instruction,
+            selected_patch_types=selected_patch_types,
         )
 
         # Stamp with session metadata, revision, and evidence

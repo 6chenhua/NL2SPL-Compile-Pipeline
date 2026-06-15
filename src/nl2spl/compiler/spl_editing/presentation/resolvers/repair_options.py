@@ -37,13 +37,25 @@ def repair_options_for_issue(
     result: list[RepairOptionView] = []
     for entry in entries:
         availability = _availability(entry, runtime, snapshot)
-        result.append(
-            _option(
-                entry.supported_patch_types,
-                entry.default_verification_lane,
-                availability,
+        if entry.patch_type_metadata:
+            for meta in entry.patch_type_metadata:
+                result.append(
+                    _option_single(
+                        patch_type=meta.patch_type,
+                        label=meta.label,
+                        description=meta.description,
+                        verification_lane=meta.verification_lane,
+                        availability=availability,
+                    )
+                )
+        else:
+            result.append(
+                _option(
+                    entry.supported_patch_types,
+                    entry.default_verification_lane,
+                    availability,
+                )
             )
-        )
     if result:
         return tuple(result)
     return (
@@ -106,6 +118,25 @@ def _option(
         label=label,
         description=patch_description(first_patch) if first_patch else (reason or ""),
         patch_types=patch_types,
+        verification_lane=verification_lane,
+        availability=availability,
+        unavailable_reason=reason,
+    )
+
+
+def _option_single(
+    *,
+    patch_type: str,
+    label: str,
+    description: str,
+    verification_lane: str,
+    availability: RepairOptionAvailability,
+) -> RepairOptionView:
+    reason = unavailable_reason(availability)
+    return RepairOptionView(
+        label=label,
+        description=description,
+        patch_types=(patch_type,),
         verification_lane=verification_lane,
         availability=availability,
         unavailable_reason=reason,

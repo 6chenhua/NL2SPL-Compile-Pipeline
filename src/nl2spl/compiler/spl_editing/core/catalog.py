@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
 
-
 # ---------------------------------------------------------------------------
 # Entry
 # ---------------------------------------------------------------------------
@@ -69,6 +68,9 @@ class RepairCatalogEntry:
     required_evidence_kind: str = "user_confirmed_repair"
     user_facing: bool = True
     description: str = ""
+    patch_type_metadata: tuple = ()
+    """Per-patch-type labels, descriptions, and verification lanes copied from
+    ``RepairAffordanceSpec.patch_type_metadata``."""
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +246,7 @@ class RepairCatalogBuilder:
                         required_evidence_kind=aff.required_evidence_kind,
                         user_facing=aff.user_facing,
                         description=aff.description,
+                        patch_type_metadata=aff.patch_type_metadata,
                     )
                     entries.append(entry)
 

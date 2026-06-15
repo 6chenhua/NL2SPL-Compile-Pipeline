@@ -43,15 +43,34 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         context: RepairContext,
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
+        selected_patch_types: tuple[str, ...] | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         allowed = tuple(pt for e in catalog_entries for pt in e.supported_patch_types)
+        if selected_patch_types:
+            allowed = tuple(pt for pt in allowed if pt in selected_patch_types)
         if not allowed:
             return ()
 
         entry = catalog_entries[0]
         output_name = self._output_name_from_target(issue)
         suggestions: list[RepairSuggestion] = []
-        for allowed_patch_type in allowed:
+        parse_failures = 0
+        previous_summaries: list[str] = []
+        previous_payloads: list[dict] = []
+        max_attempts = self._policy.max_suggestions * self._policy.max_attempts_ratio
+        bindable_step_ids = tuple(
+            step.step_id for step in self._bindable_steps(context)
+        )
+
+        # Build ordered sequence of patch types to try.
+        # Focused: all attempts on selected type(s).
+        # Unfiltered: round-robin to cover every supported type.
+        patch_type_sequence = [
+            allowed[i % len(allowed)]
+            for i in range(max_attempts)
+        ]
+
+        for allowed_patch_type in patch_type_sequence:
             if len(suggestions) >= self._policy.max_suggestions:
                 break
             if (
@@ -66,6 +85,8 @@ class MissingOutputProducerHandler(IssueRepairHandler):
                     target_ref=issue.target_ref,
                     allowed_patch_types=(allowed_patch_type,),
                     user_instruction=user_instruction,
+                    previous_suggestions=tuple(previous_summaries),
+                    bindable_step_ids=bindable_step_ids,
                 ),
             )
             try:
@@ -73,12 +94,26 @@ class MissingOutputProducerHandler(IssueRepairHandler):
             except UnsupportedPatchTypeError:
                 raise
             except PatchValidationError:
+                parse_failures += 1
                 continue
 
             pt = data["patch_type"]
-            payload = self._payload_for(pt, issue, target, context, data["payload"])
+            payload = self._payload_for(
+                pt, issue, target, context, data["payload"],
+            )
             if payload is None:
+                parse_failures += 1
                 continue
+
+            # Skip duplicate payloads
+            if payload in previous_payloads:
+                parse_failures += 1
+                continue
+
+            previous_summaries.append(
+                f"{data['title']}: {data['explanation']}"
+            )
+            previous_payloads.append(payload)
             preview = (
                 f"Bind existing step '{payload.get('step_id', '?')}' "
                 f"as producer of '{output_name}'"
@@ -102,6 +137,13 @@ class MissingOutputProducerHandler(IssueRepairHandler):
                 ),
                 spl_preview=preview,
             ))
+        if len(suggestions) < self._policy.max_suggestions:
+            raise PatchValidationError(
+                "LLM did not produce a valid missing_output_producer "
+                f"suggestion set ({len(suggestions)} unique suggestions, "
+                f"expected {self._policy.max_suggestions}; "
+                f"{parse_failures} parse/schema/duplicate failures)."
+            )
         return tuple(suggestions)
 
     @staticmethod
@@ -134,8 +176,14 @@ class MissingOutputProducerHandler(IssueRepairHandler):
                 "outputs": tuple(llm_payload.get("outputs", ())),
             }
         if pt == "BindExistingProducerStep":
-            # Select the first renderable existing step from context
-            candidate = MissingOutputProducerHandler._find_bindable_step(context)
+            requested_step_id = llm_payload.get("step_id")
+            if not isinstance(requested_step_id, str) or not requested_step_id.strip():
+                return None
+            candidate = None
+            for step in MissingOutputProducerHandler._bindable_steps(context):
+                if step.step_id == requested_step_id:
+                    candidate = step
+                    break
             if candidate is None:
                 return None
             return {
@@ -149,10 +197,18 @@ class MissingOutputProducerHandler(IssueRepairHandler):
     @staticmethod
     def _find_bindable_step(context):
         """Find a renderable existing step that can be bound as producer."""
+        steps = MissingOutputProducerHandler._bindable_steps(context)
+        return steps[0] if steps else None
+
+    @staticmethod
+    def _bindable_steps(context):
+        """Find renderable existing steps that can be bound as producers."""
         steps = context.related_steps
         if not steps:
-            return None
+            return ()
+        result = []
         for step in steps:
             if step.source_span_ids or step.metadata.get("origin") == "user_confirmed_repair":
-                return step
-        return None
+                result.append(step)
+        return tuple(result)
+

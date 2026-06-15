@@ -10,14 +10,24 @@ confirm and apply.
 Rules:
 - Use only one of the allowed patch types.
 - Do not invent worker ids, promotion ids, or compiler ids.
-- For CreateWorkerHandoffContract, provide input_bindings and
-  output_bindings as JSON objects mapping parent variable names to child
-  variable names.
-- For ConvertDelegationIntentToMainFlowStep, provide action_text and
-  optional outputs.
-- For ConvertDelegationIntentToRequestInput, provide prompt_text and
-  value_target.
-- Output valid JSON only. No markdown fences, no commentary.
+
+Output a single JSON object with exactly these keys:
+  patch_type: one of the allowed patch types listed in the user prompt
+  title: short human-readable suggestion title
+  explanation: one-sentence explanation of what this fix does
+  payload: see per-patch-type rules below
+
+Per-patch-type payload rules:
+- ConvertDelegationIntentToMainFlowStep:
+  {action_text: "<step description>", outputs: [<variable names>]}
+- ConvertDelegationIntentToRequestInput:
+  {prompt_text: "<question to ask the user>", value_target: "<variable name>"}
+- CreateWorkerHandoffContract:
+  {input_bindings: {<parent_var>: <child_var>, ...},
+   output_bindings: {<parent_var>: <child_var>, ...},
+   invocation_point: "<location>"}
+
+Only output the JSON object — no markdown fences, no commentary.
 """
 
 
@@ -33,6 +43,7 @@ def build_type_or_contract_user_prompt(
     child_input_fields: tuple[str, ...],
     child_output_fields: tuple[str, ...],
     user_instruction: str | None = None,
+    previous_suggestions: tuple[str, ...] = (),
 ) -> str:
     parts = [
         f"Issue: {issue_message}",
@@ -48,6 +59,11 @@ def build_type_or_contract_user_prompt(
         "",
         "Generate one repair suggestion using an allowed patch type.",
     ]
+    if previous_suggestions:
+        parts.append("")
+        parts.append("Already suggested (generate something DIFFERENT):")
+        for prev in previous_suggestions:
+            parts.append(f"  - {prev}")
     if user_instruction:
         parts.append(f"\nAdditional user instruction: {user_instruction}")
     return "\n".join(parts)

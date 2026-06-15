@@ -20,7 +20,7 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
         if patch.patch_type != "CreateWorkerHandoffContract":
             raise PatchValidationError(f"Wrong patch_type '{patch.patch_type}'")
         if patch.affordance_id != "worker_promotion.resolve_contract":
-            raise PatchValidationError(f"Wrong affordance")
+            raise PatchValidationError("Wrong affordance")
         if patch.irs_ref.construct_type != "WORKER_PROMOTION":
             raise PatchValidationError(
                 f"construct_type must be WORKER_PROMOTION, "
@@ -62,3 +62,39 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
         if child_id not in worker_ids:
             raise PatchValidationError(
                 f"child_worker_id '{child_id}' not in worker plan")
+
+        # Binding status consistency
+        valid_binding_status = frozenset({"known_present", "known_empty"})
+        in_status = p.get("input_binding_status", "known_present")
+        out_status = p.get("output_binding_status", "known_present")
+        if in_status not in valid_binding_status:
+            raise PatchValidationError(
+                f"input_binding_status '{in_status}' is not a valid BindingSideStatus")
+        if out_status not in valid_binding_status:
+            raise PatchValidationError(
+                f"output_binding_status '{out_status}' is not a valid BindingSideStatus")
+
+        in_bindings = p.get("input_bindings", {}) or {}
+        out_bindings = p.get("output_bindings", {}) or {}
+
+        if in_status == "known_present" and not in_bindings:
+            raise PatchValidationError(
+                "input_binding_status='known_present' requires non-empty input_bindings")
+        if out_status == "known_present" and not out_bindings:
+            raise PatchValidationError(
+                "output_binding_status='known_present' requires non-empty output_bindings")
+
+        for side, status, bindings in [
+            ("input", in_status, in_bindings),
+            ("output", out_status, out_bindings),
+        ]:
+            if status == "known_empty":
+                source = p.get(f"{side}_binding_status_source")
+                if not isinstance(source, str) or not source.strip():
+                    raise PatchValidationError(
+                        f"{side}_binding_status='known_empty' requires "
+                        f"non-empty {side}_binding_status_source")
+                if bindings:
+                    raise PatchValidationError(
+                        f"{side}_binding_status='known_empty' requires "
+                        f"empty {side}_bindings, got {len(bindings)} entries")

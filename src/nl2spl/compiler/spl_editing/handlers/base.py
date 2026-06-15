@@ -16,10 +16,18 @@ from nl2spl.compiler.spl_editing.core.model import (
 
 @dataclass(frozen=True)
 class SuggestionPolicy:
-    """Shared suggestion limits for all handlers."""
+    """Shared suggestion limits for all handlers.
+
+    Attributes:
+        max_suggestions: Maximum unique suggestions to return (target).
+        max_attempts_ratio: Multiplier on *max_suggestions* for total
+            LLM call attempts.  Handlers retry up to
+            ``max_suggestions * max_attempts_ratio`` times to fill
+            the target despite duplicates and parse failures.
+    """
 
     max_suggestions: int = 3
-    min_suggestions: int = 1
+    max_attempts_ratio: int = 3
 
 
 class IssueRepairHandler(ABC):
@@ -47,4 +55,5 @@ class IssueRepairHandler(ABC):
         context: RepairContext,
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
+        selected_patch_types: tuple[str, ...] | None = None,
     ) -> tuple[RepairSuggestion, ...]: ...

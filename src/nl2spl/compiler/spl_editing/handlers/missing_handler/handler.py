@@ -54,17 +54,25 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         context: RepairContext,
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
+        selected_patch_types: tuple[str, ...] | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         allowed = tuple(
             pt for e in catalog_entries for pt in e.supported_patch_types
         )
+        if selected_patch_types:
+            allowed = tuple(pt for pt in allowed if pt in selected_patch_types)
         if not allowed:
             return ()
 
         suggestions: list[RepairSuggestion] = []
         parse_failures = 0
+        previous_summaries: list[str] = []
+        previous_payloads: list[dict] = []
+        max_attempts = self._policy.max_suggestions * self._policy.max_attempts_ratio
 
-        for _ in range(self._policy.max_suggestions):
+        for _ in range(max_attempts):
+            if len(suggestions) >= self._policy.max_suggestions:
+                break
             raw = self._llm.generate_json(
                 system_prompt=MISSING_HANDLER_SYSTEM_PROMPT,
                 user_prompt=build_missing_handler_user_prompt(
@@ -72,6 +80,7 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
                     target_ref=issue.target_ref,
                     allowed_patch_types=allowed,
                     user_instruction=user_instruction,
+                    previous_suggestions=tuple(previous_summaries),
                 ),
             )
             try:
@@ -90,6 +99,16 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
             payload.setdefault("worker_id", target.worker_id or "")
             payload.setdefault("exception_flow_id",
                                 self._flow_id_from_target(issue))
+
+            # Skip duplicate payloads
+            if payload in previous_payloads:
+                parse_failures += 1
+                continue
+
+            previous_summaries.append(
+                f"{data['title']}: {data['explanation']}"
+            )
+            previous_payloads.append(payload)
 
             suggestion = RepairSuggestion(
                 suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
@@ -113,11 +132,12 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
             )
             suggestions.append(suggestion)
 
-        if len(suggestions) < self._policy.min_suggestions:
+        if len(suggestions) < self._policy.max_suggestions:
             raise PatchValidationError(
                 "LLM did not produce a valid AddExceptionHandlerStep "
-                f"suggestion after {self._policy.max_suggestions} attempts "
-                f"({parse_failures} parse/schema failures)."
+                f"suggestion set ({len(suggestions)} unique suggestions, "
+                f"expected {self._policy.max_suggestions}; "
+                f"{parse_failures} parse/schema/duplicate failures)."
             )
 
         return tuple(suggestions[: self._policy.max_suggestions])
