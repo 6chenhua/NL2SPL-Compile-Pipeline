@@ -1,0 +1,120 @@
+"""Phase U6: Future Patch Compliance Guardrails.
+
+Source-scanning tests that prevent regression of the UCR evidence contract.
+"""
+
+from __future__ import annotations
+
+import inspect
+import pathlib
+
+
+# =============================================================================
+# U6 Guardrail 1: No naked bool(step.source_span_ids) as sole renderable check
+# =============================================================================
+
+
+class TestNoNakedSourceSpanRenderable:
+    """``bool(step.source_span_ids)`` must not be the sole renderability check.
+
+    The post_normalize checker was the main violation point; these tests
+    lock that the fix stays in place.
+    """
+
+    _FORBIDDEN_IN_RENDERABLE = [
+        "renderable = bool(step.source_span_ids)",
+        "all_ok = source_backed",
+        "bool(step.source_span_ids) and not api_missing",
+    ]
+
+    def test_post_normalize_no_naked_source_span_renderable(self) -> None:
+        """post_normalize.py must not use source_span_ids as sole renderable."""
+        import nl2spl.compiler.irs.checkers.post_normalize as mod
+        source = inspect.getsource(mod)
+        for pattern in self._FORBIDDEN_IN_RENDERABLE:
+            assert pattern not in source, (
+                f"FORBIDDEN in post_normalize.py: '{pattern}'"
+            )
+
+    def test_post_normalize_request_input_not_using_source_backed(self) -> None:
+        """_check_request_input must not define source_backed = bool(step.source_span_ids)."""
+        from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
+        source = inspect.getsource(PostNormalizeIRSCheckerV6._check_request_input)
+        assert "source_backed = bool(step.source_span_ids)" not in source, (
+            "U1 fix removed source_backed from _check_request_input — regression detected!"
+        )
+
+    def test_post_normalize_call_api_not_source_span_only(self) -> None:
+        """_check_call_api renderable must not be gated solely on source_span_ids."""
+        from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
+        source = inspect.getsource(PostNormalizeIRSCheckerV6._check_call_api)
+        # call_action now checks both text AND evidence, not just source_span_ids
+        assert "step.source_span_ids" not in source or "has_call_action" in source, (
+            "U1 fix introduced has_call_action in _check_call_api — regression detected!"
+        )
+
+
+# =============================================================================
+# U6 Guardrail 2: All StepIR-producing appliers stamp user_confirmed_repair
+# =============================================================================
+
+
+class TestAllStepProducingAppliersStamped:
+    """Every applier that creates a StepIR must write origin=user_confirmed_repair."""
+
+    _APPLIER_DIR = (
+        pathlib.Path(__file__).parent.parent.parent.parent.parent
+        / "src/nl2spl/compiler/spl_editing/patches"
+    )
+
+    def test_all_step_producing_appliers_have_ucr(self) -> None:
+        """Audit: every StepIR-producing applier stamps user_confirmed_repair."""
+        import importlib
+        applier_names = [
+            "add_exception_handler_step",
+            "insert_producer_step",
+            "convert_delegation_to_main_flow_step",
+            "convert_delegation_to_request_input",
+            "create_worker_handoff_contract",
+        ]
+        for name in applier_names:
+            mod = importlib.import_module(
+                f"nl2spl.compiler.spl_editing.patches.{name}.applier"
+            )
+            source = inspect.getsource(mod)
+            assert "user_confirmed_repair" in source, (
+                f"Applier '{name}' must stamp user_confirmed_repair in StepIR metadata"
+            )
+
+
+# =============================================================================
+# U6 Guardrail 3: Unconfirmed AI suggestion is never renderable
+# =============================================================================
+
+
+class TestUnconfirmedNotRenderable:
+    """An AI suggestion without user confirmation must never become renderable."""
+
+    def test_unconfirmed_without_source_is_assumed(self) -> None:
+        """A step with no source spans and no UCR origin → assumed."""
+        from nl2spl.compiler.evidence import classify_step_evidence
+        from nl2spl.ir.step_ir import StepIR
+
+        step = StepIR("st1", "AI suggested", [], "GENERAL_COMMAND")
+        evidence = classify_step_evidence(step)
+        assert evidence.primary_kind == "missing"
+        assert evidence.satisfied is False
+
+    def test_llm_suggestion_without_ucr_is_missing(self) -> None:
+        """LLM suggestion payload must NOT carry origin — only apply time writes it."""
+        from nl2spl.compiler.evidence import classify_step_evidence
+        from nl2spl.ir.step_ir import StepIR
+
+        # An AI suggestion that has NOT been confirmed
+        step = StepIR("st_ai", "AI generated", [], "GENERAL_COMMAND",
+                      metadata={"llm_generated": "true"})
+        evidence = classify_step_evidence(step)
+        assert evidence.primary_kind == "missing", (
+            "llm_generated metadata is NOT a valid evidence origin"
+        )
+        assert evidence.satisfied is False

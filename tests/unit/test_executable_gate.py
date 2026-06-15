@@ -930,3 +930,119 @@ class TestR7GateBoundary:
         assert len(mh) == 1
         assert "exc_filtered" in mh[0].target_ref
 
+
+# ===========================================================================
+# Phase U2: user_confirmed_repair gate tests
+# ===========================================================================
+
+
+class TestGateUserConfirmedRepair:
+    """Gate correctly classifies and renders user_confirmed_repair steps."""
+
+    _EMPTY_INDEX: dict[str, object] = {}
+    _EMPTY_SET: set[str] = set()
+    _EMPTY_DICT: dict[str, str] = {}
+
+    def test_classify_origin_ucr(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st1", "User step", [], "GENERAL_COMMAND",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        assert origin == "user_confirmed_repair"
+
+    def test_ucr_origin_renders_like_source_backed(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st1", "Do work", [], "GENERAL_COMMAND",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        assert result is True
+
+    def test_ucr_request_input_with_outputs_renderable(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st_input", "Ask user", [], "REQUEST_INPUT",
+                      outputs=["answer"],
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        assert result is True
+
+    def test_ucr_call_api_without_integration_ref_blocked(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st_api", "Call API", [], "CALL_API",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        assert result is False
+
+    def test_ucr_call_api_with_integration_ref_renderable(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st_api", "Call API", [], "CALL_API",
+                      integration_ref="SomeAPI",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        assert result is True
+
+    def test_ucr_invoke_worker_without_handoff_blocked(self) -> None:
+        gate = ExecutableElementGate()
+        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        assert result is False
+
+    def test_ucr_invoke_worker_with_handoff_handoff_first(self) -> None:
+        """When step has both handoff_id and UCR, classify_origin returns handoff_generated first."""
+        gate = ExecutableElementGate()
+        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
+                      handoff_id="h1",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        # handoff_id check takes priority over user_confirmed_repair — by design
+        assert origin == "handoff_generated"
+
+    def test_ucr_invoke_worker_no_handoff_not_renderable(self) -> None:
+        """UCR INVOKE_WORKER without handoff_id maps to user_confirmed_repair
+        but _source_backed_renderable blocks it (no handoff_id)."""
+        gate = ExecutableElementGate()
+        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
+                      metadata={"origin": "user_confirmed_repair"})
+        origin = gate.classify_origin(step)
+        assert origin == "user_confirmed_repair"
+        result, _block_reason = gate.is_renderable(
+            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+        )
+        # UCR goes through _source_backed_renderable which blocks INVOKE_WORKER without handoff
+        assert result is False
+
+    def test_ucr_apply_allows_ucr_steps(self) -> None:
+        """Gate.apply() keeps UCR GENERAL_COMMAND steps."""
+        gate = ExecutableElementGate()
+        worker = WorkerIR(
+            worker_name="Main",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
+                StepIR("st2", "User confirmed", [], "GENERAL_COMMAND",
+                       metadata={"origin": "user_confirmed_repair"}),
+                StepIR("st3", "", [], "GENERAL_COMMAND"),  # assumed → filtered
+            ],
+        )
+        filtered, _, _ = gate.apply(worker)
+        step_ids = {s.step_id for s in filtered.steps}
+        assert "st1" in step_ids
+        assert "st2" in step_ids  # UCR kept
+        assert "st3" not in step_ids  # assumed filtered
+

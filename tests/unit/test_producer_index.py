@@ -116,6 +116,27 @@ class TestStepRenderable:
             StepIR("st_synth", "S", [], "GENERAL_COMMAND")
         )
 
+    def test_user_confirmed_repair_renderable(self) -> None:
+        """User-confirmed repair step is renderable."""
+        assert _step_is_renderable(
+            StepIR("st_ucr", "User confirmed", [], "GENERAL_COMMAND",
+                   metadata={"origin": "user_confirmed_repair"})
+        )
+
+    def test_user_confirmed_repair_with_outputs_renderable(self) -> None:
+        """UCR step with outputs is renderable for producer indexing."""
+        assert _step_is_renderable(
+            StepIR("st_ucr", "Ask user", [], "REQUEST_INPUT",
+                   outputs=["answer"],
+                   metadata={"origin": "user_confirmed_repair"})
+        )
+
+    def test_unconfirmed_no_source_not_renderable(self) -> None:
+        """Unconfirmed no-source step is NOT renderable."""
+        assert not _step_is_renderable(
+            StepIR("st_assumed", "Maybe do", [], "GENERAL_COMMAND")
+        )
+
 
 # ---------------------------------------------------------------------------
 # Step producers (handoff-backed steps are excluded)

@@ -155,10 +155,13 @@ def _make_service() -> SPLEditingService:
     reg.target_resolvers.register("exception_flow_target", _StubResolver())
     reg.context_builders.register("exception_flow_context", _StubContextBuilder())
     reg.handlers.register("missing_handler", _StubHandler())
+    from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
     reg.patches.register("AddExceptionHandlerStep", PatchBundle(
         patch_type="AddExceptionHandlerStep",
         validator=_StubValidator(), applier=_StubApplier(),
         verifier=_StubVerifier(), previewer=object(),
+        contract=_PTC(patch_type="AddExceptionHandlerStep",
+                       produces_step_ir=True, evidence_targets=("step",)),
     ))
     return SPLEditingService(reg, lane_a=_StubLane())
 
@@ -300,6 +303,7 @@ class TestB8ApplyVerify:
 
     def test_validator_blocks_before_apply(self) -> None:
         # Fresh service with failing validator
+        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
         reg = SPLEditingRuntimeRegistry()
         reg.target_resolvers.register("exception_flow_target", _StubResolver())
         reg.context_builders.register("exception_flow_context", _StubContextBuilder())
@@ -313,6 +317,8 @@ class TestB8ApplyVerify:
             applier=_StubApplier(),
             verifier=_StubVerifier(),
             previewer=object(),
+            contract=_PTC(patch_type="AddExceptionHandlerStep",
+                           produces_step_ir=True, evidence_targets=("step",)),
         ))
         svc = SPLEditingService(reg)
         issue = _make_mh_issue()

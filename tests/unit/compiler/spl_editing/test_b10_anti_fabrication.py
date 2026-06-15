@@ -106,12 +106,15 @@ class TestB10AntiFabrication:
                                         ExceptionFlowContextBuilder())
         reg.handlers.register("missing_handler",
                                MissingHandlerRepairHandler(StubSuggestionLLM()))
+        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
         reg.patches.register("AddExceptionHandlerStep", PatchBundle(
             patch_type="AddExceptionHandlerStep",
             validator=AddExceptionHandlerStepValidator(),
             applier=AddExceptionHandlerStepApplier(),
             verifier=AddExceptionHandlerStepVerifier(),
             previewer=AddExceptionHandlerStepPreviewer(),
+            contract=_PTC(patch_type="AddExceptionHandlerStep",
+                           produces_step_ir=True, evidence_targets=("step",)),
         ))
 
         svc = SPLEditingService(reg)
