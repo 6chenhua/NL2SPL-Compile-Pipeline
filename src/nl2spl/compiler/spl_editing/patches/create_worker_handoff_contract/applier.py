@@ -42,8 +42,8 @@ class CreateWorkerHandoffContractApplier(PatchApplier):
 
         in_status = str(p.get("input_binding_status", "known_present"))
         out_status = str(p.get("output_binding_status", "known_present"))
-        in_source = p.get("input_binding_status_source") or None
-        out_source = p.get("output_binding_status_source") or None
+        in_source = p.get("input_binding_status_source") or "user_confirmed_repair"
+        out_source = p.get("output_binding_status_source") or "user_confirmed_repair"
 
         from nl2spl.ir.worker_contract_status import (
             derive_handoff_materialization_status,
@@ -125,6 +125,7 @@ class CreateWorkerHandoffContractApplier(PatchApplier):
                     "origin": "user_confirmed_repair",
                     "repair_patch_id": patch.patch_id,
                     "related_diagnostic_id": patch.evidence.related_diagnostic_id,
+                    "user_text": patch.evidence.user_text,
                     "worker_promotion_id": promotion_id,
                 },
             )

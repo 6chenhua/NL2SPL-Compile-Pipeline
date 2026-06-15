@@ -34,8 +34,8 @@ class CreateWorkerHandoffContractVerifier(PatchVerifier):
             # Status consistency
             exp_in = str(p.get("input_binding_status", "known_present"))
             exp_out = str(p.get("output_binding_status", "known_present"))
-            exp_in_src = p.get("input_binding_status_source") or None
-            exp_out_src = p.get("output_binding_status_source") or None
+            exp_in_src = p.get("input_binding_status_source") or "user_confirmed_repair"
+            exp_out_src = p.get("output_binding_status_source") or "user_confirmed_repair"
             found_in = getattr(found, "input_binding_status", "unknown")
             found_out = getattr(found, "output_binding_status", "unknown")
             found_in_src = getattr(found, "input_binding_status_source", None)

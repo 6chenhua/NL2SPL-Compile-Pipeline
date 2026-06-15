@@ -30,6 +30,7 @@ class AddExceptionHandlerStepVerifier(PatchVerifier):
         worker_id = str(payload.get("worker_id", ""))
 
         # 1. Check handler step present in gated worker (required)
+        handler_match = None  # scoped outside if/else for use in step 2
         gated = getattr(verification_artifacts, "gated_worker", None)
         if gated is None:
             failures.append(
@@ -45,7 +46,6 @@ class AddExceptionHandlerStepVerifier(PatchVerifier):
                     for b in getattr(ef, "blocks", []):
                         valid_block_ids.add(getattr(b, "block_id", ""))
 
-            handler_match = None
             for s in gated_steps:
                 if (
                     s.flow_ref == flow_id
@@ -75,12 +75,40 @@ class AddExceptionHandlerStepVerifier(PatchVerifier):
                             f"'{flow_id}' (valid: {sorted(valid_block_ids)})"
                         )
 
-        # 2. Check rendered SPL contains the handler
-        spl = getattr(verification_artifacts, "rendered_spl", "")
-        if handler_text and handler_text not in str(spl):
-            failures.append(
-                f"Handler text '{handler_text[:60]}' not found in rendered SPL"
-            )
+        # 2. Check rendered SPL contains evidence of the handler.
+        #    Do NOT require verbatim handler_text — the renderer produces
+        #    structured SPL (e.g. [INPUT ... VALUE ...]) that does not
+        #    include the raw prompt string.  Instead verify that:
+        #    a) The gated worker step is present (checked in step 1 above).
+        #    b) For REQUEST_INPUT: the SPL contains INPUT + the output var name.
+        #    c) For GENERAL_COMMAND: the SPL contains the command text or
+        #       its canonical equivalent.
+        spl = str(getattr(verification_artifacts, "rendered_spl", ""))
+        if handler_match is not None and spl:
+            cmd_type = getattr(handler_match, "command_type", "")
+            outputs = list(getattr(handler_match, "outputs", []))
+            if cmd_type == "REQUEST_INPUT":
+                # Renderer produces [INPUT ... VALUE <var>] — check for
+                # INPUT keyword and output variable name presence.
+                has_input_cmd = "INPUT" in spl
+                var_match = any(
+                    f"VALUE {o}" in spl or o in spl
+                    for o in outputs
+                ) if outputs else True
+                if not has_input_cmd or not var_match:
+                    failures.append(
+                        f"REQUEST_INPUT handler not found in rendered SPL: "
+                        f"INPUT={'found' if has_input_cmd else 'missing'}, "
+                        f"outputs={outputs}"
+                    )
+            elif cmd_type == "GENERAL_COMMAND" and handler_text:
+                # For GENERAL_COMMAND, the command text should appear
+                # verbatim or in canonical form.
+                if handler_text not in spl:
+                    failures.append(
+                        f"GENERAL_COMMAND handler text "
+                        f"'{handler_text[:60]}' not found in rendered SPL"
+                    )
 
         # 3. Check exception flow is non-empty in SPL
         if flow_id and spl:

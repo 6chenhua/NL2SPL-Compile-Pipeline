@@ -28,6 +28,7 @@ class ConvertDelegationToRequestInputApplier(PatchApplier):
                 "origin": "user_confirmed_repair",
                 "repair_patch_id": patch.patch_id,
                 "related_diagnostic_id": patch.evidence.related_diagnostic_id,
+                "user_text": patch.evidence.user_text,
                 "resolution_kind": "converted_to_request_input",
                 "value_target": target,
             },
