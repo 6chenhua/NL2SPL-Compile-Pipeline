@@ -9,6 +9,42 @@ from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
 
+ContractSideStatus = Literal[
+    "unknown",
+    "known_present",
+    "known_empty",
+]
+"""Per-side contract status for a worker or candidate.
+
+``unknown``: no sufficient evidence — contract side is incomplete.
+``known_present``: source-backed fields exist on this side.
+``known_empty``: explicitly confirmed that this side has no fields.
+"""
+
+BindingSideStatus = Literal[
+    "unknown",
+    "known_present",
+    "known_empty",
+]
+"""Per-side binding status for a handoff.
+
+Mirrors ``ContractSideStatus`` but applies to handoff bindings.
+"""
+
+HandoffMaterializationStatus = Literal[
+    "complete",
+    "partial_contract_unknown",
+    "confirmed_empty_contract",
+    "blocked",
+]
+"""Invocation/lifecycle status for a worker handoff.
+
+``complete``: both binding sides are known_present or confirmed_empty.
+``partial_contract_unknown``: at least one binding side is unknown.
+``confirmed_empty_contract``: both sides are known_empty.
+``blocked``: handoff should not be used for materialization.
+"""
+
 BoundaryKind = Literal[
     "explicit_delegation",
     "bounded_subtask",
@@ -98,6 +134,10 @@ class CandidateTaskUnitIR:
     possible_outputs: list[ContractFieldIR] = field(default_factory=list)
     signals: list[Signal] = field(default_factory=list)
     risks: list[Risk] = field(default_factory=list)
+    input_contract_status: ContractSideStatus = "unknown"
+    output_contract_status: ContractSideStatus = "unknown"
+    input_contract_status_source: str | None = None
+    output_contract_status_source: str | None = None
 
 
 @dataclass
@@ -163,6 +203,11 @@ class WorkerSpecIR:
     boundary_kind: BoundaryKind = "main_worker"
     decision_evidence: list[Signal] = field(default_factory=list)
     reason: str = ""
+    input_contract_status: ContractSideStatus = "unknown"
+    output_contract_status: ContractSideStatus = "unknown"
+    input_contract_status_source: str | None = None
+    output_contract_status_source: str | None = None
+    partial_reason: str | None = None
 
 
 @dataclass
@@ -234,6 +279,11 @@ class WorkerHandoffIR:
             block_hint="unknown",
         )
     )
+    input_binding_status: BindingSideStatus = "unknown"
+    output_binding_status: BindingSideStatus = "unknown"
+    input_binding_status_source: str | None = None
+    output_binding_status_source: str | None = None
+    materialization_status: HandoffMaterializationStatus = "partial_contract_unknown"
     failure_policy: HandoffFailurePolicyIR = field(
         default_factory=lambda: HandoffFailurePolicyIR(
             policy_kind="propagate_exception",

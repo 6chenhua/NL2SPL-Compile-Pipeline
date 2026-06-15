@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, get_args
+from typing import get_args
 
+from nl2spl.ir.worker_contract_status import (
+    binding_side_satisfied,
+    contract_side_satisfied,
+    derive_handoff_materialization_status,
+)
 from nl2spl.ir.worker_plan_ir import (
     BoundaryKind,
     Risk,
@@ -62,6 +68,12 @@ class WorkerPlanValidator:
     _INNER_CONTROLS = {"IF", "FOR", "WHILE", "multiple", "unknown"}
     _DISCOVERY_PHASES = {"predicted", "confirmed"}
     _SEVERITIES = {"info", "warning", "error"}
+    _CONTRACT_SIDE_STATUSES = {"unknown", "known_present", "known_empty"}
+    _BINDING_SIDE_STATUSES = {"unknown", "known_present", "known_empty"}
+    _HANDOFF_MATERIALIZATION_STATUSES = {
+        "complete", "partial_contract_unknown",
+        "confirmed_empty_contract", "blocked",
+    }
     _SUGGESTED_REPAIRS = {
         "split_blocks",
         "merge_condition",
@@ -135,11 +147,24 @@ class WorkerPlanValidator:
                 plan.main_worker_id,
             )
         )
-        errors.extend(self._validate_non_main_handoffs(plan.workers, plan.handoffs))
-        errors.extend(self._validate_child_contracts(plan.workers))
-        errors.extend(self._validate_handoff_bindings(plan.handoffs, worker_by_id))
+        errors.extend(
+            self._validate_non_main_handoffs(
+                plan.workers, plan.handoffs, warnings=warnings,
+            )
+        )
+        errors.extend(
+            self._validate_child_contracts(plan.workers, warnings=warnings)
+        )
+        errors.extend(
+            self._validate_handoff_bindings(
+                plan.handoffs, worker_by_id, warnings=warnings,
+            )
+        )
         errors.extend(self._validate_span_ownership(plan.workers, span_ids))
-        errors.extend(self._validate_accepted_child_decisions(plan))
+        errors.extend(self._validate_status_list_consistency(plan))
+        errors.extend(
+            self._validate_accepted_child_decisions(plan, warnings=warnings)
+        )
         errors.extend(self._validate_rejected_candidates(plan))
 
         return WorkerPlanValidationResult(
@@ -168,12 +193,12 @@ class WorkerPlanValidator:
                     self._BOUNDARY_KINDS,
                 )
             )
-            for field in [*worker.input_contract, *worker.output_contract]:
+            for contract_field in [*worker.input_contract, *worker.output_contract]:
                 errors.extend(
                     self._validate_value(
                         "ContractField.source",
-                        f"{worker.worker_id}.{field.name}",
-                        field.source,
+                        f"{worker.worker_id}.{contract_field.name}",
+                        contract_field.source,
                         self._CONTRACT_SOURCES,
                     )
                 )
@@ -186,6 +211,22 @@ class WorkerPlanValidator:
                         self._SIGNALS,
                     )
                 )
+            errors.extend(
+                self._validate_value(
+                    "Worker.input_contract_status",
+                    worker.worker_id,
+                    getattr(worker, "input_contract_status", "unknown"),
+                    self._CONTRACT_SIDE_STATUSES,
+                )
+            )
+            errors.extend(
+                self._validate_value(
+                    "Worker.output_contract_status",
+                    worker.worker_id,
+                    getattr(worker, "output_contract_status", "unknown"),
+                    self._CONTRACT_SIDE_STATUSES,
+                )
+            )
 
         for candidate in plan.candidates:
             errors.extend(
@@ -196,12 +237,31 @@ class WorkerPlanValidator:
                     self._BOUNDARY_KINDS,
                 )
             )
-            for field in [*candidate.possible_inputs, *candidate.possible_outputs]:
+            errors.extend(
+                self._validate_value(
+                    "Candidate.input_contract_status",
+                    candidate.candidate_id,
+                    getattr(candidate, "input_contract_status", "unknown"),
+                    self._CONTRACT_SIDE_STATUSES,
+                )
+            )
+            errors.extend(
+                self._validate_value(
+                    "Candidate.output_contract_status",
+                    candidate.candidate_id,
+                    getattr(candidate, "output_contract_status", "unknown"),
+                    self._CONTRACT_SIDE_STATUSES,
+                )
+            )
+            for contract_field in [
+                *candidate.possible_inputs,
+                *candidate.possible_outputs,
+            ]:
                 errors.extend(
                     self._validate_value(
                         "ContractField.source",
-                        f"{candidate.candidate_id}.{field.name}",
-                        field.source,
+                        f"{candidate.candidate_id}.{contract_field.name}",
+                        contract_field.source,
                         self._CONTRACT_SOURCES,
                     )
                 )
@@ -328,6 +388,30 @@ class WorkerPlanValidator:
                         self._FAILURE_POLICIES,
                     )
                 )
+            errors.extend(
+                self._validate_value(
+                    "Handoff.input_binding_status",
+                    handoff.handoff_id,
+                    getattr(handoff, "input_binding_status", "unknown"),
+                    self._BINDING_SIDE_STATUSES,
+                )
+            )
+            errors.extend(
+                self._validate_value(
+                    "Handoff.output_binding_status",
+                    handoff.handoff_id,
+                    getattr(handoff, "output_binding_status", "unknown"),
+                    self._BINDING_SIDE_STATUSES,
+                )
+            )
+            errors.extend(
+                self._validate_value(
+                    "Handoff.materialization_status",
+                    handoff.handoff_id,
+                    getattr(handoff, "materialization_status", "unknown"),
+                    self._HANDOFF_MATERIALIZATION_STATUSES,
+                )
+            )
 
         for region in plan.control_complexity_regions:
             errors.extend(
@@ -512,46 +596,71 @@ class WorkerPlanValidator:
         self,
         workers: list[WorkerSpecIR],
         handoffs: list[WorkerHandoffIR],
+        *,
+        warnings: list[str] | None = None,
     ) -> list[str]:
         """Ensure every non-main worker is reachable via at least one invoke handoff.
 
         A child or api_adapter that is never invoked is effectively dead
         code in the plan. We detect these orphan workers and flag them.
+        Partial workers (with partial_reason) get a warning instead of error.
         """
         invoked_worker_ids = {
             handoff.to_worker
             for handoff in handoffs
             if handoff.mode == "invoke" and handoff.to_worker is not None
+            and getattr(handoff, "materialization_status", "unknown") != "blocked"
         }
-        return [
-            f"Non-main worker has no handoff: {worker.worker_id}"
-            for worker in workers
-            if worker.kind != "main" and worker.worker_id not in invoked_worker_ids
-        ]
+        errors: list[str] = []
+        for worker in workers:
+            if worker.kind != "main" and worker.worker_id not in invoked_worker_ids:
+                msg = f"Non-main worker has no handoff: {worker.worker_id}"
+                if getattr(worker, "partial_reason", None) and warnings is not None:
+                    warnings.append(msg)
+                else:
+                    errors.append(msg)
+        return errors
 
-    def _validate_child_contracts(self, workers: list[WorkerSpecIR]) -> list[str]:
-        """Require every non-main worker to declare both input and output contracts.
+    def _validate_child_contracts(
+        self, workers: list[WorkerSpecIR],
+        *,
+        warnings: list[str] | None = None,
+    ) -> list[str]:
+        """Check that non-main worker contract sides are satisfied.
 
-        Contracts define the clear interface of a worker. A child worker
-        without either an input or output contract is ill-formed because
-        callers would have no way to pass data into it or receive results.
+        ``known_empty + []`` is satisfied — no error, no warning.
+        ``unknown + []`` is a partial warning.
+        ``known_present + []`` is a status-algebra error (caught elsewhere).
         """
         errors = []
         for worker in workers:
             if worker.kind == "main":
                 continue
-            if not worker.input_contract:
-                errors.append(f"Accepted child worker has empty input contract: {worker.worker_id}")
-            if not worker.output_contract:
-                errors.append(
-                    f"Accepted child worker has empty output contract: {worker.worker_id}"
-                )
+            in_status = getattr(worker, "input_contract_status", "unknown")
+            out_status = getattr(worker, "output_contract_status", "unknown")
+            in_satisfied = contract_side_satisfied(worker.input_contract, in_status)
+            out_satisfied = contract_side_satisfied(worker.output_contract, out_status)
+            is_partial = bool(getattr(worker, "partial_reason", None))
+            if not in_satisfied:
+                msg = f"Accepted child worker has empty input contract: {worker.worker_id}"
+                if is_partial and warnings is not None:
+                    warnings.append(msg)
+                else:
+                    errors.append(msg)
+            if not out_satisfied:
+                msg = f"Accepted child worker has empty output contract: {worker.worker_id}"
+                if is_partial and warnings is not None:
+                    warnings.append(msg)
+                else:
+                    errors.append(msg)
         return errors
 
     def _validate_handoff_bindings(
         self,
         handoffs: list[WorkerHandoffIR],
         worker_by_id: dict[str, WorkerSpecIR],
+        *,
+        warnings: list[str] | None = None,
     ) -> list[str]:
         """Validate that handoff bindings reference real contract fields.
 
@@ -569,26 +678,52 @@ class WorkerPlanValidator:
             if target is None:
                 continue
 
+            in_contract_unknown = (
+                getattr(target, "input_contract_status", "unknown") == "unknown"
+                and not target.input_contract
+            )
+            out_contract_unknown = (
+                getattr(target, "output_contract_status", "unknown") == "unknown"
+                and not target.output_contract
+            )
             input_names = {field.name for field in target.input_contract}
             output_names = {field.name for field in target.output_contract}
 
             for binding in handoff.input_bindings:
                 if binding.child_input not in input_names:
-                    errors.append(
-                        f"Handoff {handoff.handoff_id} input binding references unknown "
-                        f"contract field: {binding.child_input}"
+                    msg = (
+                        f"Handoff {handoff.handoff_id} input binding references "
+                        f"unknown contract field: {binding.child_input}"
                     )
+                    if in_contract_unknown:
+                        if warnings is not None:
+                            warnings.append(msg)
+                        else:
+                            errors.append(msg)
+                    else:
+                        errors.append(msg)
 
             for binding in handoff.output_bindings:
                 if binding.child_output not in output_names:
-                    errors.append(
-                        f"Handoff {handoff.handoff_id} output binding references unknown "
-                        f"contract field: {binding.child_output}"
+                    msg = (
+                        f"Handoff {handoff.handoff_id} output binding references "
+                        f"unknown contract field: {binding.child_output}"
                     )
+                    if out_contract_unknown:
+                        if warnings is not None:
+                            warnings.append(msg)
+                        else:
+                            errors.append(msg)
+                    else:
+                        errors.append(msg)
 
         return errors
 
-    def _validate_accepted_child_decisions(self, plan: WorkerPlanIR) -> list[str]:
+    def _validate_accepted_child_decisions(
+        self, plan: WorkerPlanIR,
+        *,
+        warnings: list[str] | None = None,
+    ) -> list[str]:
         errors: list[str] = []
         candidate_spans = {
             candidate.candidate_id: set(candidate.source_span_ids)
@@ -629,22 +764,174 @@ class WorkerPlanValidator:
                 if handoff.mode == "invoke" and handoff.to_worker == worker.worker_id
             ]
             if not invoke_handoffs:
-                errors.append(
+                msg = (
                     "Accepted child decision has no invoke handoff: "
                     f"{decision.candidate_id} -> {worker.worker_id}."
                 )
+                # Only downgrade when worker is explicitly partial.
+                if warnings is not None and getattr(worker, "partial_reason", None):
+                    warnings.append(msg)
+                else:
+                    errors.append(msg)
                 continue
 
             for handoff in invoke_handoffs:
-                if not handoff.input_bindings:
+                mat_status = getattr(handoff, "materialization_status", "unknown")
+                if mat_status == "blocked":
                     errors.append(
-                        f"Accepted child handoff has empty input bindings: {handoff.handoff_id}"
+                        "Accepted child handoff is blocked: "
+                        f"{decision.candidate_id} -> {handoff.handoff_id}."
                     )
-                if not handoff.output_bindings:
+                    continue
+                is_partial_handoff = mat_status == "partial_contract_unknown"
+                in_b_status = getattr(handoff, "input_binding_status", "unknown")
+                out_b_status = getattr(handoff, "output_binding_status", "unknown")
+                # Worker-side satisfaction (known_empty + empty = satisfied)
+                w_in_satisfied = contract_side_satisfied(
+                    worker.input_contract,
+                    getattr(worker, "input_contract_status", "unknown"),
+                )
+                w_out_satisfied = contract_side_satisfied(
+                    worker.output_contract,
+                    getattr(worker, "output_contract_status", "unknown"),
+                )
+                # Handoff-side satisfaction
+                h_in_satisfied = binding_side_satisfied(
+                    handoff.input_bindings, in_b_status,
+                )
+                h_out_satisfied = binding_side_satisfied(
+                    handoff.output_bindings, out_b_status,
+                )
+                if not h_in_satisfied:
+                    msg = (
+                        f"Accepted child handoff has empty input bindings: "
+                        f"{handoff.handoff_id}"
+                    )
+                    if warnings is not None and is_partial_handoff and not w_in_satisfied:
+                        warnings.append(msg)
+                    else:
+                        errors.append(msg)
+                if not h_out_satisfied:
+                    msg = (
+                        f"Accepted child handoff has empty output bindings: "
+                        f"{handoff.handoff_id}"
+                    )
+                    if warnings is not None and is_partial_handoff and not w_out_satisfied:
+                        warnings.append(msg)
+                    else:
+                        errors.append(msg)
+
+        return errors
+
+    def _validate_status_list_consistency(self, plan: WorkerPlanIR) -> list[str]:
+        """Enforce status/list/source algebra for worker and handoff status fields.
+
+        - ``known_present`` → list must be non-empty.
+        - ``known_empty`` → list must be empty and source must be non-empty.
+        """
+        errors: list[str] = []
+        for worker in plan.workers:
+            if worker.kind == "main":
+                continue
+            errors.extend(
+                self._check_side_consistency(
+                    worker.worker_id,
+                    worker.input_contract,
+                    getattr(worker, "input_contract_status", "unknown"),
+                    getattr(worker, "input_contract_status_source", None),
+                    "worker input",
+                )
+            )
+            errors.extend(
+                self._check_side_consistency(
+                    worker.worker_id,
+                    worker.output_contract,
+                    getattr(worker, "output_contract_status", "unknown"),
+                    getattr(worker, "output_contract_status_source", None),
+                    "worker output",
+                )
+            )
+        for handoff in plan.handoffs:
+            errors.extend(
+                self._check_side_consistency(
+                    handoff.handoff_id,
+                    handoff.input_bindings,
+                    getattr(handoff, "input_binding_status", "unknown"),
+                    getattr(handoff, "input_binding_status_source", None),
+                    "handoff input",
+                )
+            )
+            errors.extend(
+                self._check_side_consistency(
+                    handoff.handoff_id,
+                    handoff.output_bindings,
+                    getattr(handoff, "output_binding_status", "unknown"),
+                    getattr(handoff, "output_binding_status_source", None),
+                    "handoff output",
+                )
+            )
+            # materialization_status must match derivation
+            mat_status = getattr(handoff, "materialization_status", "unknown")
+            if mat_status != "blocked":
+                expected = derive_handoff_materialization_status(
+                    input_bindings=handoff.input_bindings,
+                    output_bindings=handoff.output_bindings,
+                    input_status=getattr(handoff, "input_binding_status", "unknown"),
+                    output_status=getattr(handoff, "output_binding_status", "unknown"),
+                )
+                if mat_status != expected:
                     errors.append(
-                        f"Accepted child handoff has empty output bindings: {handoff.handoff_id}"
+                        f"handoff materialization_status mismatch: "
+                        f"{handoff.handoff_id} has '{mat_status}', "
+                        f"expected '{expected}'"
                     )
 
+        for candidate in plan.candidates:
+            errors.extend(
+                self._check_side_consistency(
+                    candidate.candidate_id,
+                    candidate.possible_inputs,
+                    getattr(candidate, "input_contract_status", "unknown"),
+                    getattr(candidate, "input_contract_status_source", None),
+                    "candidate input",
+                )
+            )
+            errors.extend(
+                self._check_side_consistency(
+                    candidate.candidate_id,
+                    candidate.possible_outputs,
+                    getattr(candidate, "output_contract_status", "unknown"),
+                    getattr(candidate, "output_contract_status_source", None),
+                    "candidate output",
+                )
+            )
+        return errors
+
+    @staticmethod
+    def _check_side_consistency(
+        owner_id: str,
+        items: list,
+        status: str,
+        source: str | None,
+        label: str,
+    ) -> list[str]:
+        errors: list[str] = []
+        if status == "known_present" and not items:
+            errors.append(
+                f"{label}_contract status is 'known_present' but {label} "
+                f"list is empty: {owner_id}"
+            )
+        if status == "known_empty":
+            if items:
+                errors.append(
+                    f"{label}_contract status is 'known_empty' but {label} "
+                    f"list is non-empty: {owner_id}"
+                )
+            if not isinstance(source, str) or not source.strip():
+                errors.append(
+                    f"{label}_contract status is 'known_empty' but "
+                    f"{label}_status_source is missing or empty: {owner_id}"
+                )
         return errors
 
     def _validate_span_ownership(

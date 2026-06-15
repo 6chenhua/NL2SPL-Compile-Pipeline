@@ -78,6 +78,10 @@ class PlanParserMixin:
             ],
             signals=signals,
             risks=[*explicit_risks, *signal_risks],
+            input_contract_status=data.get("input_contract_status", "unknown"),
+            output_contract_status=data.get("output_contract_status", "unknown"),
+            input_contract_status_source=data.get("input_contract_status_source"),
+            output_contract_status_source=data.get("output_contract_status_source"),
         )
 
     def _parse_decision(self, data: dict[str, Any]) -> WorkerBoundaryDecisionIR:
@@ -114,6 +118,11 @@ class PlanParserMixin:
                 data.get("decision_evidence", [])
             ),
             reason=data.get("reason", ""),
+            input_contract_status=data.get("input_contract_status", "unknown"),
+            output_contract_status=data.get("output_contract_status", "unknown"),
+            input_contract_status_source=data.get("input_contract_status_source"),
+            output_contract_status_source=data.get("output_contract_status_source"),
+            partial_reason=data.get("partial_reason"),
         )
 
     def _parse_signal_values(self, value: object) -> tuple[list[Signal], list[Risk]]:
@@ -178,6 +187,13 @@ class PlanParserMixin:
             ],
             invoke_location_hint=self._parse_invoke_location_hint(
                 data.get("invoke_location_hint", {})
+            ),
+            input_binding_status=data.get("input_binding_status", "unknown"),
+            output_binding_status=data.get("output_binding_status", "unknown"),
+            input_binding_status_source=data.get("input_binding_status_source"),
+            output_binding_status_source=data.get("output_binding_status_source"),
+            materialization_status=data.get(
+                "materialization_status", "partial_contract_unknown",
             ),
             failure_policy=self._parse_failure_policy(data.get("failure_policy", {})),
         )

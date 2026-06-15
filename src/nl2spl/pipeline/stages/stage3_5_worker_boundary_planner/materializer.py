@@ -11,14 +11,7 @@ from __future__ import annotations
 import re
 
 from nl2spl.ir.field_route_ir import RouteAnnotation
-
-
-def _span_sort_key(sid: str) -> tuple[int, str]:
-    """Sort key for span IDs like s5, s5a, s10, s10b."""
-    m = re.match(r"s(\d+)(.*)", sid)
-    if m:
-        return int(m.group(1)), m.group(2)
-    return (0, sid)
+from nl2spl.ir.worker_contract_status import derive_handoff_materialization_status
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     ContractFieldIR,
@@ -31,6 +24,14 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerSpecIR,
 )
+
+
+def _span_sort_key(sid: str) -> tuple[int, str]:
+    """Sort key for span IDs like s5, s5a, s10, s10b."""
+    m = re.match(r"s(\d+)(.*)", sid)
+    if m:
+        return int(m.group(1)), m.group(2)
+    return (0, sid)
 
 
 class WorkerPlanMaterializer:
@@ -126,7 +127,10 @@ class WorkerPlanMaterializer:
                     )
                     if candidate_id:
                         for j, dec in enumerate(materialized_decisions):
-                            if dec.candidate_id == candidate_id and dec.decision == "extract_child_worker":
+                            if (
+                                dec.candidate_id == candidate_id
+                                and dec.decision == "extract_child_worker"
+                            ):
                                 materialized_decisions[j] = self._reject_decision(
                                     dec,
                                     "insufficient_semantic_boundary",
@@ -238,12 +242,18 @@ class WorkerPlanMaterializer:
                 continue
 
             if worker is None:
-                # Attempt recovery from hard facts: if the LLM's IRS-compliant
-                # candidate has empty IO but hard facts provide the contract,
-                # build the worker from hard facts deterministically.
-                recovered = self._recover_from_hard_facts(
-                    candidate, decision, hard_inputs, hard_outputs,
-                )
+                # Attempt recovery from hard facts — only for candidates
+                # that still have worker responsibility (contract-less
+                # candidates are already handled by _candidate_to_worker
+                # producing a partial worker; this path is for candidates
+                # whose contracts weren't expressed by the LLM but exist
+                # in adapter-provided hard facts).
+                if self._has_worker_responsibility(candidate):
+                    recovered = self._recover_from_hard_facts(
+                        candidate, decision, hard_inputs, hard_outputs,
+                    )
+                else:
+                    recovered = None
                 if recovered is not None and self._contract_fields_backed(
                     recovered, candidate, hard_inputs, hard_outputs,
                 ):
@@ -259,8 +269,9 @@ class WorkerPlanMaterializer:
                         hard_outputs,
                     )
                     warnings.append(
-                        f"Candidate {candidate.candidate_id} accepted but missing "
-                        f"{reason}; rejecting."
+                        f"Candidate {candidate.candidate_id} accepted but has "
+                        f"insufficient worker responsibility evidence "
+                        f"({reason}); not materializing as child worker."
                     )
                     rejected_decision = self._reject_decision(
                         decision,
@@ -364,17 +375,35 @@ class WorkerPlanMaterializer:
         hard_inputs: list[ContractFieldIR],
         hard_outputs: list[ContractFieldIR],
     ) -> WorkerSpecIR | None:
-        """Build a WorkerSpecIR from candidate. Returns None if contract
-        cannot be filled deterministically (candidate is rejected upstream)."""
+        """Build a WorkerSpecIR from candidate.
+
+        Returns None only when the candidate lacks worker responsibility
+        (no source spans, no task text / purpose, or non-worker boundary
+        kind).  Missing contract is expressed via ``*_contract_status``
+        fields rather than by rejecting the worker.
+        """
+        if not self._has_worker_responsibility(candidate):
+            return None
+
         inputs = list(candidate.possible_inputs) if candidate.possible_inputs else []
         outputs = list(candidate.possible_outputs) if candidate.possible_outputs else []
 
         if not inputs:
-            inputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_inputs)
+            inputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate, hard_inputs)
         if not outputs:
-            outputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate,hard_outputs)
-        if not inputs or not outputs:
-            return None
+            outputs = WorkerPlanMaterializer._match_hard_fact_contracts(candidate, hard_outputs)
+
+        input_status = self._derive_contract_status(
+            fields=inputs,
+            candidate_status=getattr(candidate, "input_contract_status", "unknown"),
+            source=getattr(candidate, "input_contract_status_source", None),
+        )
+        output_status = self._derive_contract_status(
+            fields=outputs,
+            candidate_status=getattr(candidate, "output_contract_status", "unknown"),
+            source=getattr(candidate, "output_contract_status_source", None),
+        )
+        partial_reason = self._partial_contract_reason(input_status, output_status)
 
         worker_id = self._worker_id_from_candidate(candidate.candidate_id)
         worker_name = self._worker_name_from_candidate(candidate)
@@ -387,6 +416,9 @@ class WorkerPlanMaterializer:
             owned_span_ids=list(candidate.source_span_ids),
             input_contract=inputs,
             output_contract=outputs,
+            input_contract_status=input_status,
+            output_contract_status=output_status,
+            partial_reason=partial_reason,
             boundary_kind=candidate.candidate_kind,
             decision_evidence=list(decision.evidence),
             reason=decision.reason,
@@ -424,6 +456,7 @@ class WorkerPlanMaterializer:
             reason=decision.reason,
         )
 
+    @staticmethod
     def _match_hard_fact_contracts(
         candidate: CandidateTaskUnitIR,
         facts: list[ContractFieldIR],
@@ -466,12 +499,11 @@ class WorkerPlanMaterializer:
         hard_inputs: list[ContractFieldIR],
         hard_outputs: list[ContractFieldIR],
     ) -> bool:
-        """Return True when contract fields are not LLM-invented.
+        """Return False only when non-empty contract fields are LLM-invented.
 
-        Per-side guard:
-        - If hard_inputs exist, every input field must match hard_inputs.
-        - If hard_outputs exist, every output field must match hard_outputs.
-        - A side with no hard facts passes through (relies on prompt).
+        Empty (unknown) fields are NOT treated as invented — contract
+        incompleteness is handled via ``*_contract_status`` fields and
+        IRS diagnostics, not by rejecting the worker.
         """
         hard_in_names: set[str] = {f.name for f in hard_inputs}
         hard_out_names: set[str] = {f.name for f in hard_outputs}
@@ -482,8 +514,6 @@ class WorkerPlanMaterializer:
         if hard_outputs and worker.output_contract:
             if not all(f.name in hard_out_names for f in worker.output_contract):
                 return False
-        if not worker.input_contract and not worker.output_contract:
-            return False
         return True
 
     def _build_handoff(
@@ -517,6 +547,37 @@ class WorkerPlanMaterializer:
             for f in worker.output_contract
         ]
 
+        input_binding_status = (
+            "known_present"
+            if input_bindings
+            else "known_empty"
+            if worker.input_contract_status == "known_empty"
+            else "unknown"
+        )
+        output_binding_status = (
+            "known_present"
+            if output_bindings
+            else "known_empty"
+            if worker.output_contract_status == "known_empty"
+            else "unknown"
+        )
+        input_binding_status_source = (
+            worker.input_contract_status_source
+            if input_binding_status == "known_empty"
+            else None
+        )
+        output_binding_status_source = (
+            worker.output_contract_status_source
+            if output_binding_status == "known_empty"
+            else None
+        )
+        materialization_status = derive_handoff_materialization_status(
+            input_bindings=input_bindings,
+            output_bindings=output_bindings,
+            input_status=input_binding_status,
+            output_status=output_binding_status,
+        )
+
         child_spans = set(worker.owned_span_ids)
         after_span_id, before_span_id = self._caller_neighbor_spans(
             child_spans,
@@ -543,6 +604,11 @@ class WorkerPlanMaterializer:
             input_bindings=input_bindings,
             output_bindings=output_bindings,
             invoke_location_hint=invoke_hint,
+            input_binding_status=input_binding_status,
+            output_binding_status=output_binding_status,
+            input_binding_status_source=input_binding_status_source,
+            output_binding_status_source=output_binding_status_source,
+            materialization_status=materialization_status,
             failure_policy=HandoffFailurePolicyIR(
                 policy_kind="propagate_exception",
                 description=f"If {worker.worker_name} fails, propagate to parent.",
@@ -611,6 +677,53 @@ class WorkerPlanMaterializer:
                 main_worker.owned_span_ids.extend(
                     sorted(unassigned, key=_span_sort_key)
                 )
+
+    # ---- Worker responsibility ---------------------------------------
+
+    _WORKER_LIKE_KINDS: set[str] = {
+        "explicit_delegation", "bounded_subtask",
+        "integration_wrapper", "template_or_format_protocol",
+    }
+
+    @staticmethod
+    def _has_worker_responsibility(candidate: CandidateTaskUnitIR) -> bool:
+        return bool(
+            candidate.source_span_ids
+            and (candidate.task_text or candidate.purpose)
+            and candidate.candidate_kind in WorkerPlanMaterializer._WORKER_LIKE_KINDS
+        )
+
+    @staticmethod
+    def _derive_contract_status(
+        *,
+        fields: list[ContractFieldIR],
+        candidate_status: str,
+        source: str | None,
+    ) -> str:
+        from nl2spl.ir.worker_contract_status import derive_contract_status
+
+        if fields:
+            return "known_present"
+        # Only pass declared_status for explicit declarations; "unknown"
+        # is the normal partial-worker default and should be quiet.
+        declared: str | None = None
+        if candidate_status in {"known_present", "known_empty"}:
+            declared = candidate_status
+        return derive_contract_status(
+            [], declared_status=declared, source=source,
+        )
+
+    @staticmethod
+    def _partial_contract_reason(
+        input_status: str, output_status: str,
+    ) -> str | None:
+        if input_status == "unknown" and output_status == "unknown":
+            return "missing_input_and_output_contract"
+        if input_status == "unknown":
+            return "missing_input_contract"
+        if output_status == "unknown":
+            return "missing_output_contract"
+        return None
 
     # ---- Merge --------------------------------------------------------
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
@@ -17,12 +17,8 @@ from nl2spl.ir.worker_ir import (
     WorkerOutput,
 )
 from nl2spl.ir.worker_plan_ir import (
-    ContractFieldIR,
-    WorkerBlockPlanIR,
-    WorkerFlowPlanIR,
     WorkerPlanIR,
     WorkerSpecIR,
-    WorkerStepPlanIR,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,21 +32,9 @@ class ChildWorkerBuilderMixin:
         worker_plan: WorkerPlanIR,
         steps: list[StepIR],
     ) -> tuple[list[str], list[ChildWorkerIR]]:
-        worker_by_id = {worker.worker_id: worker for worker in worker_plan.workers}
-        invoked_worker_ids = [
-            handoff.to_worker
-            for handoff in worker_plan.handoffs
-            if handoff.mode == "invoke"
-            and handoff.to_worker in worker_by_id
-            and worker_by_id[handoff.to_worker].kind != "main"
-        ]
-
         child_worker_refs: list[str] = []
         child_workers: list[ChildWorkerIR] = []
-        for worker_id in dict.fromkeys(invoked_worker_ids):
-            if worker_id is None:
-                continue
-            spec = worker_by_id[worker_id]
+        for spec in self._child_worker_specs_from_plan(worker_plan):
             invoke_step = self._find_invoke_step_by_worker_name(steps, spec.worker_name)
             child_worker_refs.append(spec.worker_name)
             child_workers.append(
@@ -64,6 +48,34 @@ class ChildWorkerBuilderMixin:
             )
 
         return child_worker_refs, child_workers
+
+    def _child_worker_specs_from_plan(
+        self,
+        worker_plan: WorkerPlanIR,
+    ) -> list[WorkerSpecIR]:
+        """Return renderable non-main worker specs from WorkerPlanIR.
+
+        Worker definitions are a separate lifecycle from invocation readiness:
+        a source-backed partial child worker must render even when no executable
+        handoff step exists yet. Empty shells with no responsibility stay out.
+        """
+        main_worker_id = worker_plan.main_worker_id
+        specs: list[WorkerSpecIR] = []
+        seen_names: set[str] = set()
+        for spec in worker_plan.workers:
+            if spec.worker_id == main_worker_id or spec.kind == "main":
+                continue
+            if not self._has_worker_responsibility(spec):
+                continue
+            if spec.worker_name in seen_names:
+                continue
+            seen_names.add(spec.worker_name)
+            specs.append(spec)
+        return specs
+
+    @staticmethod
+    def _has_worker_responsibility(worker: WorkerSpecIR) -> bool:
+        return bool(worker.purpose or worker.reason or worker.owned_span_ids)
 
     def _child_workers_from_delegation(
         self,

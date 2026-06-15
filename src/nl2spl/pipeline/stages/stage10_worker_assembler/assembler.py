@@ -218,8 +218,6 @@ class WorkerAssembler(
             )
 
         main_spec = self._main_worker_spec(worker_plan)
-        worker_by_id = {w.worker_id: w for w in worker_plan.workers}
-
         # 1. Build inputs/outputs from contract
         inputs = (
             self._inputs_from_contract(main_spec.input_contract)
@@ -314,13 +312,9 @@ class WorkerAssembler(
         # 5. Build child workers
         child_worker_refs: list[str] = []
         child_workers: list[ChildWorkerIR] = []
-        for worker_id, spec in worker_by_id.items():
-            if worker_id == main_worker_id or spec.kind == "main":
-                continue
-            # Only include workers that have steps (i.e., actually invoked)
-            if worker_id not in worker_step_plan.worker_steps:
-                continue
-            child_steps = worker_step_plan.worker_steps[worker_id]
+        for spec in self._child_worker_specs_from_plan(worker_plan):
+            worker_id = spec.worker_id
+            child_steps = worker_step_plan.worker_steps.get(worker_id, [])
             child_flow = worker_flow_plan.worker_flows.get(worker_id) if worker_flow_plan else None
             child_blocks = (
                 worker_block_plan.worker_blocks.get(worker_id)

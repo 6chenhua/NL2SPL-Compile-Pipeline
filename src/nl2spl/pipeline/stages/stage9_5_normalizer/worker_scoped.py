@@ -5,6 +5,7 @@ from __future__ import annotations
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.worker_contract_status import binding_side_satisfied
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
@@ -194,6 +195,20 @@ class WorkerScopedMixin:
 
         for handoff in worker_plan.handoffs:
             matching_steps = handoff_steps.get(handoff.handoff_id, [])
+            mat_status = getattr(handoff, "materialization_status", "partial_contract_unknown")
+            if mat_status in {"partial_contract_unknown", "blocked"}:
+                if matching_steps:
+                    errors.append(
+                        f"Handoff {handoff.handoff_id} has executable step "
+                        f"but materialization_status is {mat_status}"
+                    )
+                else:
+                    warnings.append(
+                        f"Handoff {handoff.handoff_id} has no corresponding step "
+                        f"because materialization_status is {mat_status}"
+                    )
+                continue
+
             if not matching_steps:
                 errors.append(
                     f"Handoff {handoff.handoff_id} has no corresponding step"
@@ -253,13 +268,19 @@ class WorkerScopedMixin:
                     )
 
             # 检查 input_bindings 完整性
-            if not handoff.input_bindings:
+            if not binding_side_satisfied(
+                handoff.input_bindings,
+                getattr(handoff, "input_binding_status", "unknown"),
+            ):
                 warnings.append(
                     f"Handoff {handoff.handoff_id} has no input_bindings"
                 )
 
             # 检查 output_bindings 完整性
-            if not handoff.output_bindings:
+            if not binding_side_satisfied(
+                handoff.output_bindings,
+                getattr(handoff, "output_binding_status", "unknown"),
+            ):
                 warnings.append(
                     f"Handoff {handoff.handoff_id} has no output_bindings"
                 )
