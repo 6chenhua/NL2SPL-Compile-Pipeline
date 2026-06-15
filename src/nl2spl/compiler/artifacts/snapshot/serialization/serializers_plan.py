@@ -208,6 +208,11 @@ class WorkerSpecIRSerializer(ArtifactSerializer):
             "depends_on": w.depends_on,
             "constraints": w.constraints,
             "boundary_kind": w.boundary_kind,
+            "input_contract_status": w.input_contract_status,
+            "output_contract_status": w.output_contract_status,
+            "input_contract_status_source": w.input_contract_status_source,
+            "output_contract_status_source": w.output_contract_status_source,
+            "partial_reason": w.partial_reason,
         }
 
     def from_canonical(self, data: dict[str, Any]) -> Any:
@@ -223,6 +228,11 @@ class WorkerSpecIRSerializer(ArtifactSerializer):
             depends_on=data.get("depends_on", []),
             constraints=data.get("constraints", []),
             boundary_kind=data.get("boundary_kind", "main_worker"),
+            input_contract_status=data.get("input_contract_status", "unknown"),
+            output_contract_status=data.get("output_contract_status", "unknown"),
+            input_contract_status_source=data.get("input_contract_status_source"),
+            output_contract_status_source=data.get("output_contract_status_source"),
+            partial_reason=data.get("partial_reason"),
         )
 
 
@@ -253,6 +263,11 @@ class WorkerHandoffIRSerializer(ArtifactSerializer):
             "failure_policy": (
                 pol_ser.to_canonical(h.failure_policy) if h.failure_policy else None
             ),
+            "input_binding_status": h.input_binding_status,
+            "output_binding_status": h.output_binding_status,
+            "input_binding_status_source": h.input_binding_status_source,
+            "output_binding_status_source": h.output_binding_status_source,
+            "materialization_status": h.materialization_status,
         }
 
     def from_canonical(self, data: dict[str, Any]) -> Any:
@@ -274,6 +289,13 @@ class WorkerHandoffIRSerializer(ArtifactSerializer):
             output_bindings=[ob_ser.from_canonical(b) for b in data.get("output_bindings", [])],
             invoke_location_hint=(
                 hint_ser.from_canonical(hint_data) if hint_data else None
+            ),
+            input_binding_status=data.get("input_binding_status", "unknown"),
+            output_binding_status=data.get("output_binding_status", "unknown"),
+            input_binding_status_source=data.get("input_binding_status_source"),
+            output_binding_status_source=data.get("output_binding_status_source"),
+            materialization_status=data.get(
+                "materialization_status", "partial_contract_unknown",
             ),
             failure_policy=(
                 pol_ser.from_canonical(pol_data) if pol_data else None
@@ -298,6 +320,10 @@ class CandidateTaskUnitIRSerializer(ArtifactSerializer):
             "possible_outputs": [cf_ser.to_canonical(v) for v in c.possible_outputs],
             "signals": c.signals,
             "risks": c.risks,
+            "input_contract_status": c.input_contract_status,
+            "output_contract_status": c.output_contract_status,
+            "input_contract_status_source": c.input_contract_status_source,
+            "output_contract_status_source": c.output_contract_status_source,
         }
 
     def from_canonical(self, data: dict[str, Any]) -> Any:
@@ -312,6 +338,10 @@ class CandidateTaskUnitIRSerializer(ArtifactSerializer):
             possible_outputs=[cf_ser.from_canonical(v) for v in data.get("possible_outputs", [])],
             signals=data.get("signals", []),
             risks=data.get("risks", []),
+            input_contract_status=data.get("input_contract_status", "unknown"),
+            output_contract_status=data.get("output_contract_status", "unknown"),
+            input_contract_status_source=data.get("input_contract_status_source"),
+            output_contract_status_source=data.get("output_contract_status_source"),
         )
 
 

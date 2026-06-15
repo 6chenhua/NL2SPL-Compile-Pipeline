@@ -6,7 +6,6 @@ from nl2spl.compiler.compile_result import CompileAssumption, MissingSlot
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
 from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
 
-
 PROMOTION_SLOTS = (
     "promotion_input_contract",
     "promotion_output_contract",
@@ -51,6 +50,34 @@ def _promotion_diags(
         _promotion_diag(slot, f"{id_prefix}_{index}", target=target, spans=spans)
         for index, slot in enumerate(PROMOTION_SLOTS)
     ]
+
+
+def _child_worker_partial_diag() -> CompileDiagnostic:
+    return CompileDiagnostic(
+        diagnostic_id="D_CHILD_PARTIAL",
+        kind="type_or_contract_ambiguity",
+        severity="warning",
+        message="Child worker input contract is incomplete.",
+        target_ref="child_worker:worker_child",
+        source_span_ids=["s2"],
+        missing_slot=MissingSlot(
+            slot_name="input_contract",
+            required_for="complete",
+            reason="Input contract is unknown.",
+            source_span_ids=["s2"],
+        ),
+        metadata={
+            "irs_ref": {
+                "construct_type": "CHILD_WORKER",
+                "construct_id": "child_worker:worker_child",
+                "slot_name": "input_contract",
+                "construct_path": ["worker_plan", "workers", "worker_child"],
+                "source_authority": "stage_local_irs",
+            }
+        },
+        blocks_rendering=False,
+        blocks_completion=True,
+    )
 
 
 def _assumption_for(diag: CompileDiagnostic, index: int) -> CompileAssumption:
@@ -310,6 +337,21 @@ def test_worker_promotion_diagnostics_grouped_in_report_sections() -> None:
         assert diag.diagnostic_id in diag_section
     for slot in PROMOTION_SLOTS:
         assert diag_section.count(f"`{slot}`") == 1
+
+
+def test_child_worker_partial_definition_wording_distinct_from_blocked_invocation() -> None:
+    report = render_feedback_report(
+        spl_text="[WORKER: Child]\n[INPUTS]\n[OUTPUTS]\n[MAIN_FLOW]\n[END_WORKER]",
+        completeness="partial",
+        diagnostics=[_child_worker_partial_diag()],
+        assumptions=[],
+    )
+
+    assert "Partial child worker definition can render" in report
+    assert "child worker skeleton is renderable" in report
+    assert "no executable worker invocation is invented" in report
+    assert "WORKER_PROMOTION blocked" not in report
+    assert "blocked invocation" not in report
 
 
 def test_worker_promotion_assumptions_grouped_by_related_diagnostics() -> None:

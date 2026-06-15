@@ -13,7 +13,6 @@ from collections import defaultdict
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
 
-
 _WORKER_PROMOTION_SLOT_ORDER: tuple[str, ...] = (
     "promotion_input_contract",
     "promotion_output_contract",
@@ -58,7 +57,16 @@ def render_feedback_report(
     lines: list[str] = []
     lines.append("# NL2SPL Feedback Report")
     lines.append("")
-    lines.extend(_render_status(completeness, spl_text, diags, asms, trcs, a_warns, v_errs, v_warns))
+    lines.extend(_render_status(
+        completeness,
+        spl_text,
+        diags,
+        asms,
+        trcs,
+        a_warns,
+        v_errs,
+        v_warns,
+    ))
     lines.append("")
     lines.extend(_render_materialized(trcs))
     lines.append("")
@@ -111,13 +119,23 @@ def _render_status(
         for item in _grouped_diag_items(blocking):
             if isinstance(item, list):
                 lines.extend(_render_worker_promotion_group(item, "status"))
+            elif _is_child_worker_partial_definition_diag(item):
+                target = f" on `{item.target_ref}`" if item.target_ref else ""
+                lines.append(
+                    f"- `type_or_contract_ambiguity`{target}: "
+                    "Partial child worker definition can render, but its "
+                    "contract/invocation details are incomplete."
+                )
             else:
                 target = f" on `{item.target_ref}`" if item.target_ref else ""
                 lines.append(f"- `{item.kind}`{target}: {item.message}")
     elif completeness == "complete":
         lines.append("No completion-blocking diagnostic was emitted.")
     else:
-        lines.append("The result is not complete; inspect diagnostics and validation sections below.")
+        lines.append(
+            "The result is not complete; inspect diagnostics and validation "
+            "sections below."
+        )
 
     return lines
 
@@ -139,7 +157,16 @@ def _render_materialized(traces: list[TraceRecord]) -> list[str]:
         return lines
 
     # R10 Phase 6: "Delegation Intents" replaced by "Source Signals"
-    for group in ["Workers", "Flows", "Steps", "Variables", "Constraints", "Handoffs", "Source Signals", "Other"]:
+    for group in [
+        "Workers",
+        "Flows",
+        "Steps",
+        "Variables",
+        "Constraints",
+        "Handoffs",
+        "Source Signals",
+        "Other",
+    ]:
         items = sorted(grouped.get(group, []), key=_trace_sort_key)
         if not items:
             continue
@@ -174,6 +201,16 @@ def _render_not_materialized(diagnostics: list[CompileDiagnostic]) -> list[str]:
             lines.extend(_render_worker_promotion_group(item, "partial"))
             continue
         target = f"`{item.target_ref}`" if item.target_ref else "affected element"
+        if _is_child_worker_partial_definition_diag(item):
+            lines.append(
+                f"- {target}: `type_or_contract_ambiguity` -- "
+                "Partial child worker definition kept renderable; no "
+                "executable worker invocation is invented for missing "
+                "contract details."
+            )
+            if item.suggested_resolution:
+                lines.append(f"  - Suggested resolution: {item.suggested_resolution}")
+            continue
         lines.append(f"- {target}: `{item.kind}` -- {item.message}")
         if item.suggested_resolution:
             lines.append(f"  - Suggested resolution: {item.suggested_resolution}")
@@ -199,6 +236,11 @@ def _render_diagnostics(diagnostics: list[CompileDiagnostic]) -> list[str]:
         if d.source_span_ids:
             lines.append(f"- Source spans: `{', '.join(d.source_span_ids)}`")
         lines.append(f"- Message: {d.message}")
+        if _is_child_worker_partial_definition_diag(d):
+            lines.append(
+                "- Definition status: child worker skeleton is renderable; "
+                "worker invocation remains incomplete."
+            )
         lines.append(f"- Blocks rendering: `{str(d.blocks_rendering).lower()}`")
         lines.append(f"- Blocks completion: `{str(d.blocks_completion).lower()}`")
         if d.suggested_resolution:
@@ -321,15 +363,18 @@ def _render_anti_fabrication(
     checks = [
         (
             "missing_handler",
-            "Exception conditions without handler action stay as partial exception flows; no handler command is invented.",
+            "Exception conditions without handler action stay as partial "
+            "exception flows; no handler command is invented.",
         ),
         (
             "missing_output_producer",
-            "Required outputs without a source-backed producer stay in the contract; no synthetic producer command is invented.",
+            "Required outputs without a source-backed producer stay in the "
+            "contract; no synthetic producer command is invented.",
         ),
         (
             "type_or_contract_ambiguity",
-            "Unresolved worker/API contracts are reported as ambiguity; they are not downgraded to generic commands.",
+            "Unresolved worker/API contracts are reported as ambiguity; they "
+            "are not downgraded to generic commands.",
         ),
         (
             "assumed_command_not_renderable",
@@ -407,6 +452,18 @@ def _is_worker_promotion_slot_diag(diagnostic: CompileDiagnostic) -> bool:
         and diagnostic.target_ref.startswith("worker_promotion:")
         and missing_slot is not None
         and missing_slot.slot_name in _WORKER_PROMOTION_SLOT_ORDER
+    )
+
+
+def _is_child_worker_partial_definition_diag(diagnostic: CompileDiagnostic) -> bool:
+    irs_ref = diagnostic.metadata.get("irs_ref")
+    if not isinstance(irs_ref, dict):
+        return False
+    return (
+        diagnostic.kind == "type_or_contract_ambiguity"
+        and irs_ref.get("construct_type") == "CHILD_WORKER"
+        and not diagnostic.blocks_rendering
+        and diagnostic.blocks_completion
     )
 
 
@@ -527,7 +584,11 @@ def _promotion_slot_line(diagnostic: CompileDiagnostic, indent: str) -> str:
 def _trace_group(target_ref: str) -> str:
     if target_ref.startswith("worker:"):
         return "Workers"
-    if target_ref.startswith("flow:") or ".exception_flow:" in target_ref or target_ref.startswith("exception_flow:"):
+    if (
+        target_ref.startswith("flow:")
+        or ".exception_flow:" in target_ref
+        or target_ref.startswith("exception_flow:")
+    ):
         return "Flows"
     if target_ref.startswith("step:"):
         return "Steps"
