@@ -24,8 +24,12 @@ from nl2spl.compiler.construct_registry import (
     SlotSatisfaction,
 )
 from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.graph import ConstructEdge, ConstructEdgeType
+from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
+from nl2spl.ir.worker_contract_status import (
+    binding_side_satisfied,
+    contract_side_satisfied,
+)
 
 
 class WorkerDelegationIRSChecker:
@@ -246,9 +250,9 @@ class WorkerDelegationIRSChecker:
                     metadata={"handoff_ir": handoff},
                 )
                 instances.append(handoff_instance)
-        
+
         return instances
-    
+
     def check_instance(
         self,
         instance: ConstructInstance,
@@ -256,12 +260,12 @@ class WorkerDelegationIRSChecker:
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
         """Check IRS satisfaction for a construct instance.
-        
+
         Args:
             instance: Construct instance to check
             irs: Information requirements spec
             context: Pipeline context (for cross-construct queries)
-        
+
         Returns:
             Satisfaction report with slot-level evidence
         """
@@ -278,35 +282,35 @@ class WorkerDelegationIRSChecker:
 
     def _matching_handoffs_for_candidate(self, candidate, worker_plan):
         """Find handoffs that structurally match the given candidate.
-        
+
         Matching criteria (in order of preference):
         1. Handoff invoke hint spans overlap with candidate source spans
         2. Handoff target worker owned spans overlap with candidate source spans
         3. Unambiguous fallback: single accepted candidate + single invoke handoff
-        
+
         All matching handoffs must have valid targets (existing worker or valid API ref).
-        
+
         Args:
             candidate: CandidateTaskUnitIR
             worker_plan: WorkerPlanIR
-        
+
         Returns:
             List of matching WorkerHandoffIR with valid targets
         """
         if not worker_plan:
             return []
-        
+
         matching = []
         candidate_spans = set(candidate.source_span_ids)
-        
+
         for handoff in worker_plan.handoffs:
             if handoff.mode != "invoke":
                 continue
-            
+
             # Skip handoffs without valid targets
             if not self._handoff_has_valid_target(handoff, worker_plan):
                 continue
-            
+
             # Check invoke hint span overlap
             if handoff.invoke_location_hint:
                 hint_spans = set()
@@ -314,11 +318,11 @@ class WorkerDelegationIRSChecker:
                     hint_spans.add(handoff.invoke_location_hint.after_span_id)
                 if handoff.invoke_location_hint.before_span_id:
                     hint_spans.add(handoff.invoke_location_hint.before_span_id)
-                
+
                 if hint_spans & candidate_spans:
                     matching.append(handoff)
                     continue
-            
+
             # Check target worker owned spans overlap
             if handoff.to_worker:
                 target_worker = next(
@@ -330,7 +334,7 @@ class WorkerDelegationIRSChecker:
                     if worker_spans & candidate_spans:
                         matching.append(handoff)
                         continue
-        
+
         # Unambiguous fallback: single accepted candidate + single invoke handoff with valid target
         if not matching:
             accepted_candidates = [
@@ -338,15 +342,15 @@ class WorkerDelegationIRSChecker:
                 if d.decision == "extract_child_worker"
             ]
             invoke_handoffs = [
-                h for h in worker_plan.handoffs 
+                h for h in worker_plan.handoffs
                 if h.mode == "invoke" and self._handoff_has_valid_target(h, worker_plan)
             ]
-            
-            if (len(accepted_candidates) == 1 
+
+            if (len(accepted_candidates) == 1
                 and accepted_candidates[0] == candidate.candidate_id
                 and len(invoke_handoffs) == 1):
                 matching.append(invoke_handoffs[0])
-        
+
         return matching
 
     def _handoff_has_valid_target(self, handoff, worker_plan):
@@ -385,7 +389,7 @@ class WorkerDelegationIRSChecker:
         """
         candidate = instance.metadata["candidate_ir"]
         slots: list[SlotSatisfaction] = []
-        
+
         # Check responsibility
         responsibility_satisfied = bool(candidate.purpose or candidate.task_text)
         slots.append(SlotSatisfaction(
@@ -394,7 +398,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if responsibility_satisfied else None,
         ))
-        
+
         # Check delegation_signal
         delegation_signal_satisfied = bool(
             candidate.signals or candidate.candidate_kind != "not_a_worker"
@@ -405,7 +409,7 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if delegation_signal_satisfied else None,
         ))
-        
+
         # Check source_evidence
         source_evidence_satisfied = bool(candidate.source_span_ids)
         slots.append(SlotSatisfaction(
@@ -414,11 +418,11 @@ class WorkerDelegationIRSChecker:
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if source_evidence_satisfied else None,
         ))
-        
+
         # Determine completeness
         all_satisfied = all(s.status == "satisfied" for s in slots)
         completeness = "complete" if all_satisfied else "partial"
-        
+
         # WORKER_CANDIDATE is not renderable (analysis construct)
         report_metadata: dict = {
             "candidate_id": candidate.candidate_id,
@@ -446,7 +450,19 @@ class WorkerDelegationIRSChecker:
             frontier_status="leaf",
             metadata=report_metadata,
         )
-    
+
+    @staticmethod
+    def _promotion_contract_side_satisfied(
+        *,
+        fields: list,
+        status: str,
+        risks: list[str],
+        missing_risk: str,
+    ) -> bool:
+        if status == "known_empty":
+            return True
+        return contract_side_satisfied(fields, status) and missing_risk not in risks
+
     def _check_worker_promotion(
         self,
         instance: ConstructInstance,
@@ -454,21 +470,23 @@ class WorkerDelegationIRSChecker:
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
         """Check WORKER_PROMOTION satisfaction.
-        
+
         Promotion is ready when all slots are satisfied:
-            - promotion_input_contract: possible_inputs non-empty, no no_clear_input_contract risk
-            - promotion_output_contract: possible_outputs non-empty, no no_clear_output_contract risk
-            - promotion_invocation_point: no no_parent_invocation_point risk, has handoff evidence
-            - promotion_result_handoff: no unclear_result_handoff risk, has handoff with output_bindings
+            - promotion_input_contract: possible_inputs or known_empty.
+            - promotion_output_contract: possible_outputs or known_empty.
+            - promotion_invocation_point: accepted decision and handoff evidence.
+            - promotion_result_handoff: output bindings or known_empty.
         """
         candidate = instance.metadata["candidate_ir"]
         slots: list[SlotSatisfaction] = []
         missing_slot_names: list[str] = []
-        
+
         # Check promotion_input_contract
-        input_contract_satisfied = (
-            bool(candidate.possible_inputs)
-            and "no_clear_input_contract" not in candidate.risks
+        input_contract_satisfied = self._promotion_contract_side_satisfied(
+            fields=candidate.possible_inputs,
+            status=candidate.input_contract_status,
+            risks=candidate.risks,
+            missing_risk="no_clear_input_contract",
         )
         slot_spec = irs.get_slot("promotion_input_contract")
         slots.append(SlotSatisfaction(
@@ -485,11 +503,13 @@ class WorkerDelegationIRSChecker:
         ))
         if not input_contract_satisfied:
             missing_slot_names.append("promotion_input_contract")
-        
+
         # Check promotion_output_contract
-        output_contract_satisfied = (
-            bool(candidate.possible_outputs)
-            and "no_clear_output_contract" not in candidate.risks
+        output_contract_satisfied = self._promotion_contract_side_satisfied(
+            fields=candidate.possible_outputs,
+            status=candidate.output_contract_status,
+            risks=candidate.risks,
+            missing_risk="no_clear_output_contract",
         )
         slot_spec = irs.get_slot("promotion_output_contract")
         slots.append(SlotSatisfaction(
@@ -506,7 +526,7 @@ class WorkerDelegationIRSChecker:
         ))
         if not output_contract_satisfied:
             missing_slot_names.append("promotion_output_contract")
-        
+
         # Check promotion_invocation_point
         # Requires: accepted decision (or synthetic delegation) + matching
         # handoff with invoke hint.
@@ -523,7 +543,10 @@ class WorkerDelegationIRSChecker:
             )
             # Check for matching handoff with invocation hint
             # Must have real invoke_location_hint with structural fields
-            matching_handoffs = self._matching_handoffs_for_candidate(candidate, context.worker_plan)
+            matching_handoffs = self._matching_handoffs_for_candidate(
+                candidate,
+                context.worker_plan,
+            )
             has_handoff_with_hint = any(
                 h.invoke_location_hint
                 and (
@@ -536,34 +559,45 @@ class WorkerDelegationIRSChecker:
             invocation_point_satisfied = (
                 has_accepted_decision or is_synthetic
             ) and has_handoff_with_hint
-        
+
         slot_spec = irs.get_slot("promotion_invocation_point")
         slots.append(SlotSatisfaction(
             slot_name="promotion_invocation_point",
             status="satisfied" if invocation_point_satisfied else "missing",
             source_span_ids=list(candidate.source_span_ids),
             relation="direct" if invocation_point_satisfied else None,
-            diagnostic_kind=slot_spec.missing_diagnostic if not invocation_point_satisfied else None,
+            diagnostic_kind=(
+                slot_spec.missing_diagnostic
+                if not invocation_point_satisfied
+                else None
+            ),
             diagnostic_blocks_rendering=False,
             explanation=(
-                "Invocation point identified with accepted decision and matching handoff with invoke hint"
+                "Invocation point identified with accepted decision and "
+                "matching handoff with invoke hint"
                 if invocation_point_satisfied
                 else "Missing accepted decision or matching handoff with invocation hint"
             ),
         ))
         if not invocation_point_satisfied:
             missing_slot_names.append("promotion_invocation_point")
-        
+
         # Check promotion_result_handoff
         # Requires: matching handoff with non-empty output_bindings
         result_handoff_satisfied = False
         if context.worker_plan:
-            matching_handoffs = self._matching_handoffs_for_candidate(candidate, context.worker_plan)
+            matching_handoffs = self._matching_handoffs_for_candidate(
+                candidate,
+                context.worker_plan,
+            )
             result_handoff_satisfied = any(
-                h.output_bindings
+                binding_side_satisfied(
+                    h.output_bindings,
+                    h.output_binding_status,
+                )
                 for h in matching_handoffs
             )
-        
+
         slot_spec = irs.get_slot("promotion_result_handoff")
         slots.append(SlotSatisfaction(
             slot_name="promotion_result_handoff",
@@ -580,12 +614,12 @@ class WorkerDelegationIRSChecker:
         ))
         if not result_handoff_satisfied:
             missing_slot_names.append("promotion_result_handoff")
-        
+
         # Determine completeness and promotion status
         all_satisfied = all(s.status == "satisfied" for s in slots)
         completeness = "complete" if all_satisfied else "partial"
         promotion_status = "ready" if all_satisfied else "blocked"
-        
+
         # Build related edges (candidate -> promotion)
         related_edges = [
             ConstructEdge(
@@ -617,7 +651,7 @@ class WorkerDelegationIRSChecker:
                         "edge_source": "worker_plan",
                     },
                 ))
-        
+
         # WORKER_PROMOTION is not renderable (analysis construct)
         report_metadata: dict = {
             "promotion_status": promotion_status,
@@ -657,7 +691,7 @@ class WorkerDelegationIRSChecker:
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
         """Check CHILD_WORKER satisfaction.
-        
+
         A child worker is complete when:
             - responsibility: purpose is non-empty
             - input_contract: input_contract is non-empty
@@ -667,18 +701,27 @@ class WorkerDelegationIRSChecker:
         """
         worker = instance.metadata["worker_ir"]
         slots: list[SlotSatisfaction] = []
-        
-        # Check responsibility
-        responsibility_satisfied = bool(worker.purpose)
+
+        # Check responsibility.  A partial child worker skeleton is meaningful
+        # when it has an auditable responsibility signal, even if contract or
+        # invocation slots are still incomplete.
+        responsibility_satisfied = bool(
+            worker.purpose.strip()
+            or worker.reason.strip()
+            or worker.owned_span_ids
+        )
         slots.append(SlotSatisfaction(
             slot_name="responsibility",
             status="satisfied" if responsibility_satisfied else "missing",
             source_span_ids=list(worker.owned_span_ids),
             relation="direct" if responsibility_satisfied else None,
         ))
-        
+
         # Check input_contract
-        input_contract_satisfied = bool(worker.input_contract)
+        input_contract_satisfied = contract_side_satisfied(
+            worker.input_contract,
+            worker.input_contract_status,
+        )
         slot_spec = irs.get_slot("input_contract")
         slots.append(SlotSatisfaction(
             slot_name="input_contract",
@@ -687,9 +730,12 @@ class WorkerDelegationIRSChecker:
             relation="direct" if input_contract_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not input_contract_satisfied else None,
         ))
-        
+
         # Check output_contract
-        output_contract_satisfied = bool(worker.output_contract)
+        output_contract_satisfied = contract_side_satisfied(
+            worker.output_contract,
+            worker.output_contract_status,
+        )
         slot_spec = irs.get_slot("output_contract")
         slots.append(SlotSatisfaction(
             slot_name="output_contract",
@@ -698,28 +744,35 @@ class WorkerDelegationIRSChecker:
             relation="direct" if output_contract_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not output_contract_satisfied else None,
         ))
-        
+
         # Check invocation_point and result_handoff by looking for handoffs
         worker_plan = context.worker_plan
         invocation_point_satisfied = False
         result_handoff_satisfied = False
-        
+
         if worker_plan:
             for handoff in worker_plan.handoffs:
                 if handoff.mode == "invoke" and handoff.to_worker == worker.worker_id:
                     invocation_point_satisfied = True
-                    if handoff.output_bindings:
+                    if binding_side_satisfied(
+                        handoff.output_bindings,
+                        handoff.output_binding_status,
+                    ):
                         result_handoff_satisfied = True
-        
+
         slot_spec = irs.get_slot("invocation_point")
         slots.append(SlotSatisfaction(
             slot_name="invocation_point",
             status="satisfied" if invocation_point_satisfied else "missing",
             source_span_ids=list(worker.owned_span_ids),
             relation="direct" if invocation_point_satisfied else None,
-            diagnostic_kind=slot_spec.missing_diagnostic if not invocation_point_satisfied else None,
+            diagnostic_kind=(
+                slot_spec.missing_diagnostic
+                if not invocation_point_satisfied
+                else None
+            ),
         ))
-        
+
         slot_spec = irs.get_slot("result_handoff")
         slots.append(SlotSatisfaction(
             slot_name="result_handoff",
@@ -728,7 +781,7 @@ class WorkerDelegationIRSChecker:
             relation="direct" if result_handoff_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not result_handoff_satisfied else None,
         ))
-        
+
         # Determine completeness and frontier
         # Read required-for-partial from IRS spec, not hardcoded
         required_for_partial_names = {
@@ -761,7 +814,10 @@ class WorkerDelegationIRSChecker:
             construct_type=instance.construct_type,
             slots=slots,
             completeness=completeness,
-            renderable=all_satisfied,
+            renderable=(
+                all_satisfied
+                or (irs.partial_rendering_allowed and not partial_slots_missing)
+            ),
             source_span_ids=list(worker.owned_span_ids),
             construct_path=instance.construct_path,
             frontier_status=frontier,
@@ -771,7 +827,7 @@ class WorkerDelegationIRSChecker:
                 "worker_kind": worker.kind,
             },
         )
-    
+
     def _check_worker_handoff(
         self,
         instance: ConstructInstance,
@@ -779,7 +835,7 @@ class WorkerDelegationIRSChecker:
         context: IRSCheckContext,
     ) -> ConstructSatisfactionReport:
         """Check WORKER_HANDOFF satisfaction.
-        
+
         A handoff is complete when:
             - from_worker: from_worker is non-empty and exists in worker_plan
             - target: to_worker (invoke mode) or api_ref (api_call mode) is non-empty
@@ -789,7 +845,7 @@ class WorkerDelegationIRSChecker:
         """
         handoff = instance.metadata["handoff_ir"]
         slots: list[SlotSatisfaction] = []
-        
+
         # Check from_worker
         from_worker_satisfied = False
         handoff_source_spans = list(instance.source_span_ids) if instance.source_span_ids else []
@@ -806,7 +862,7 @@ class WorkerDelegationIRSChecker:
             relation="direct" if from_worker_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not from_worker_satisfied else None,
         ))
-        
+
         # Check target
         target_satisfied = False
         if handoff.mode == "invoke":
@@ -826,9 +882,12 @@ class WorkerDelegationIRSChecker:
             relation="direct" if target_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not target_satisfied else None,
         ))
-        
+
         # Check input_bindings
-        input_bindings_satisfied = bool(handoff.input_bindings)
+        input_bindings_satisfied = binding_side_satisfied(
+            handoff.input_bindings,
+            handoff.input_binding_status,
+        )
         slot_spec = irs.get_slot("input_bindings")
         slots.append(SlotSatisfaction(
             slot_name="input_bindings",
@@ -837,9 +896,12 @@ class WorkerDelegationIRSChecker:
             relation="direct" if input_bindings_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not input_bindings_satisfied else None,
         ))
-        
+
         # Check output_bindings
-        output_bindings_satisfied = bool(handoff.output_bindings)
+        output_bindings_satisfied = binding_side_satisfied(
+            handoff.output_bindings,
+            handoff.output_binding_status,
+        )
         slot_spec = irs.get_slot("output_bindings")
         slots.append(SlotSatisfaction(
             slot_name="output_bindings",
@@ -848,7 +910,7 @@ class WorkerDelegationIRSChecker:
             relation="direct" if output_bindings_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not output_bindings_satisfied else None,
         ))
-        
+
         # Check invocation_site
         # Only use invoke_location_hint structural fields or condition_text
         # Do NOT use ordering (required Literal) as evidence
@@ -871,11 +933,11 @@ class WorkerDelegationIRSChecker:
             relation="direct" if invocation_site_satisfied else None,
             diagnostic_kind=slot_spec.missing_diagnostic if not invocation_site_satisfied else None,
         ))
-        
+
         # Determine completeness
         all_satisfied = all(s.status == "satisfied" for s in slots)
         completeness = "complete" if all_satisfied else "partial"
-        
+
         # Build related edges (handoff -> target worker)
         # Only add edge if target is valid
         related_edges: list[ConstructEdge] = []
@@ -891,7 +953,7 @@ class WorkerDelegationIRSChecker:
                     "edge_source": "worker_plan",
                 },
             ))
-        
+
         return ConstructSatisfactionReport(
             construct_id=instance.construct_id,
             construct_type=instance.construct_type,

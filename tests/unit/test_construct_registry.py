@@ -345,11 +345,13 @@ class TestWorkerCandidateVsChildWorker:
         slot = self.child.get_slot("responsibility")
         assert slot.required_for_partial is True
 
-    def test_child_worker_contracts_not_renderable_without(self):
+    def test_child_worker_incomplete_slots_render_partial_skeleton(self):
         for name in ("input_contract", "output_contract", "invocation_point", "result_handoff"):
             slot = self.child.get_slot(name)
             assert slot is not None, f"Missing slot {name}"
-            assert slot.renderable_without is False, f"{name} should not be renderable_without"
+            assert slot.required_for_partial is False
+            assert slot.required_for_complete is True
+            assert slot.renderable_without is True
 
 
 # ---------------------------------------------------------------------------

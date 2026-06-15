@@ -65,6 +65,9 @@ def worker_plan() -> WorkerPlanIR:
                 input_bindings=[InputBindingIR("user_request", "source_request", True)],
                 output_bindings=[OutputBindingIR("source_evidence", "evidence", True, "set")],
                 invoke_location_hint=InvokeLocationHintIR("main", None, "s1", None, "if"),
+                input_binding_status="known_present",
+                output_binding_status="known_present",
+                materialization_status="complete",
             )
         ],
     )
@@ -112,6 +115,36 @@ def test_handoff_produces_concrete_invoke_worker(
     assert "s2" not in user_prompt
     assert "delegation_candidates" in user_prompt
     assert "dc_child" not in user_prompt
+
+
+def test_partial_unknown_handoff_does_not_produce_legacy_invoke_worker(
+    pipeline_config: MagicMock,
+    mock_client: MagicMock,
+) -> None:
+    spans = [
+        SpanIR("s1", "Decide whether sources are needed."),
+        SpanIR("s2", "Gather source evidence."),
+    ]
+    routes = FieldRouteIR(behavior=["s1", "s2"])
+    flow = FlowStructureIR(main_flow_spans=["s1"])
+    blocks = BlockStructureIR([BlockIR("b1", "IF", "sources are needed", ["s1"])])
+    symbols = SymbolTable()
+    symbols.declare("user_request", "text", "input", "User request")
+    mock_client.call_json.return_value = {"steps": [], "new_variables": []}
+    plan = worker_plan()
+    handoff = plan.handoffs[0]
+    handoff.input_bindings = []
+    handoff.output_bindings = []
+    handoff.input_binding_status = "unknown"
+    handoff.output_binding_status = "unknown"
+    handoff.materialization_status = "partial_contract_unknown"
+
+    steps, updated_symbols = StepExtractor(pipeline_config, mock_client).execute(
+        (spans, routes, flow, blocks, symbols, plan)
+    )
+
+    assert steps == []
+    assert "evidence" not in updated_symbols.variables
 
 
 def test_stage7_rejects_legacy_main_view_with_child_owned_span(
@@ -204,6 +237,9 @@ def test_two_handoffs_to_same_worker_produce_two_invoke_steps(
                 OutputBindingIR("source_evidence", "main_evidence", True, "set")
             ],
             invoke_location_hint=InvokeLocationHintIR("main", None, "s1", None, "if"),
+            input_binding_status="known_present",
+            output_binding_status="known_present",
+            materialization_status="complete",
         ),
         WorkerHandoffIR(
             "h_recovery",
@@ -218,6 +254,9 @@ def test_two_handoffs_to_same_worker_produce_two_invoke_steps(
                 OutputBindingIR("source_evidence", "recovery_evidence", True, "set")
             ],
             invoke_location_hint=InvokeLocationHintIR("main", None, "s3", None, "if"),
+            input_binding_status="known_present",
+            output_binding_status="known_present",
+            materialization_status="complete",
         ),
     ]
 

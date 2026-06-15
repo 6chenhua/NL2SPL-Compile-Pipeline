@@ -72,6 +72,23 @@ class TestR4ConstructRegistry:
         assert irs.get_slot("output_bindings") is not None
         assert irs.get_slot("invocation_site") is not None
 
+    def test_child_worker_contract_slots_allow_partial_rendering(self):
+        """CHILD_WORKER can render a responsibility-only skeleton."""
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("CHILD_WORKER")
+
+        assert irs.partial_rendering_allowed is True
+        input_slot = irs.get_slot("input_contract")
+        output_slot = irs.get_slot("output_contract")
+        assert input_slot is not None
+        assert output_slot is not None
+        assert input_slot.required_for_partial is False
+        assert output_slot.required_for_partial is False
+        assert input_slot.required_for_complete is True
+        assert output_slot.required_for_complete is True
+        assert input_slot.renderable_without is True
+        assert output_slot.renderable_without is True
+
     def test_worker_candidate_updated_description(self):
         """WORKER_CANDIDATE description clarifies candidate vs promotion"""
         registry = SPLConstructRegistry.default()
@@ -945,8 +962,8 @@ class TestR4ChildWorkerAndHandoff:
         assert report.renderable is True
         assert all(s.status == "satisfied" for s in report.slots)
 
-    def test_child_worker_missing_contract_is_blocked(self):
-        """CHILD_WORKER missing input/output contract → blocked / cutline_blocked."""
+    def test_child_worker_missing_contract_is_partial_renderable(self):
+        """CHILD_WORKER missing contract is incomplete but still renderable."""
         worker = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -975,10 +992,10 @@ class TestR4ChildWorkerAndHandoff:
         child = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
         report = checker.check_instance(child, irs, context)
 
-        assert report.completeness == "blocked"
-        assert report.frontier_status == "cutline_blocked"
-        assert report.cutline_reason == "missing_required_for_partial"
-        assert report.renderable is False
+        assert report.completeness == "partial"
+        assert report.frontier_status == "leaf"
+        assert report.cutline_reason is None
+        assert report.renderable is True
         # input/output slots have diagnostic_kind
         for slot in report.slots:
             if slot.slot_name in ("input_contract", "output_contract"):

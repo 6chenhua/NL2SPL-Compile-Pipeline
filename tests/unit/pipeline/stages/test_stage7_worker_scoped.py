@@ -109,6 +109,9 @@ def test_child_origin_handoff_is_injected_into_child_worker(
         input_bindings=[InputBindingIR("child_input", "query", True)],
         output_bindings=[OutputBindingIR("api_result", "child_output", True, "set")],
         invoke_location_hint=InvokeLocationHintIR("main", None, "s2", None, "sequential"),
+        input_binding_status="known_present",
+        output_binding_status="known_present",
+        materialization_status="complete",
     )
 
     worker_step_plan, _ = _extractor(pipeline_config).execute_worker_scoped(
@@ -165,6 +168,9 @@ def test_child_worker_invalid_invoke_step_fails_fast(
         input_bindings=[InputBindingIR("child_input", "child_input", True)],
         output_bindings=[OutputBindingIR("child_output", "child_output", True, "set")],
         invoke_location_hint=InvokeLocationHintIR("main", None, "s1", None, "sequential"),
+        input_binding_status="known_present",
+        output_binding_status="known_present",
+        materialization_status="complete",
     )
     worker_plan = _worker_plan(handoff)
     client = MagicMock()
@@ -243,6 +249,9 @@ def test_d6_worker_scoped_filters_non_executable_spans(
             after_span_id="s1", before_span_id=None,
             block_hint="unknown",
         ),
+        input_binding_status="known_present",
+        output_binding_status="known_present",
+        materialization_status="complete",
     )
     worker_plan = _worker_plan(handoff)
     # Main worker owns both executable process span and non-executable failure span
@@ -340,3 +349,85 @@ def test_d6_worker_scoped_filters_non_executable_spans(
         "Failure span must appear in non-executable context section"
     )
     assert "do NOT create COMMAND" in non_exec_section
+
+
+def test_stage7_unknown_empty_bindings_do_not_generate_invoke_worker() -> None:
+    handoff = WorkerHandoffIR(
+        handoff_id="h_partial",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[],
+        output_bindings=[],
+        input_binding_status="unknown",
+        output_binding_status="unknown",
+        materialization_status="partial_contract_unknown",
+    )
+
+    steps = StepExtractor(MagicMock(), MagicMock())._generate_handoff_steps(
+        _worker_plan(handoff),
+        SymbolTable(),
+    )
+
+    assert steps == {}
+
+
+def test_stage7_known_empty_bindings_generate_invoke_without_with_response() -> None:
+    handoff = WorkerHandoffIR(
+        handoff_id="h_empty",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[],
+        output_bindings=[],
+        input_binding_status="known_empty",
+        output_binding_status="known_empty",
+        input_binding_status_source="adapter_hard_fact",
+        output_binding_status_source="adapter_hard_fact",
+        materialization_status="confirmed_empty_contract",
+    )
+
+    steps = StepExtractor(MagicMock(), MagicMock())._generate_handoff_steps(
+        _worker_plan(handoff),
+        SymbolTable(),
+    )
+
+    invoke_steps = steps["worker_main"]
+    assert len(invoke_steps) == 1
+    assert invoke_steps[0].command_type == "INVOKE_WORKER"
+    assert invoke_steps[0].inputs == []
+    assert invoke_steps[0].outputs == []
+
+
+def test_stage7_known_present_bindings_generate_invoke_with_bindings() -> None:
+    handoff = WorkerHandoffIR(
+        handoff_id="h_complete",
+        from_worker="worker_main",
+        to_worker="worker_child",
+        api_ref=None,
+        mode="invoke",
+        condition_text=None,
+        ordering="after",
+        input_bindings=[InputBindingIR("request", "child_input", True)],
+        output_bindings=[OutputBindingIR("child_output", "result", True, "set")],
+        input_binding_status="known_present",
+        output_binding_status="known_present",
+        materialization_status="complete",
+    )
+
+    steps = StepExtractor(MagicMock(), MagicMock())._generate_handoff_steps(
+        _worker_plan(handoff),
+        SymbolTable(),
+    )
+
+    invoke_steps = steps["worker_main"]
+    assert len(invoke_steps) == 1
+    assert invoke_steps[0].command_type == "INVOKE_WORKER"
+    assert invoke_steps[0].inputs == ["request"]
+    assert invoke_steps[0].outputs == ["result"]

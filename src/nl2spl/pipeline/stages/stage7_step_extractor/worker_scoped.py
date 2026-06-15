@@ -14,6 +14,7 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.worker_contract_status import binding_side_satisfied
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
@@ -463,6 +464,14 @@ Output JSON:"""
         handoff_steps: dict[str, list[StepIR]] = {}
 
         for handoff in worker_plan.handoffs:
+            if not self._handoff_ready_for_executable_step(handoff):
+                self.logger.info(
+                    "Skipping executable handoff step for %s "
+                    "(materialization_status=%s)",
+                    handoff.handoff_id,
+                    getattr(handoff, "materialization_status", "unknown"),
+                )
+                continue
             if handoff.mode == "invoke":
                 step = self._build_invoke_step(handoff, worker_plan)
             elif handoff.mode == "api_call":
@@ -484,6 +493,19 @@ Output JSON:"""
                 symbol_table.add_producer(var_name, step.step_id)
 
         return handoff_steps
+
+    @staticmethod
+    def _handoff_ready_for_executable_step(handoff: WorkerHandoffIR) -> bool:
+        """Return True only when a handoff can materialize an executable step."""
+        if handoff.materialization_status in {"blocked", "partial_contract_unknown"}:
+            return False
+        return binding_side_satisfied(
+            handoff.input_bindings,
+            handoff.input_binding_status,
+        ) and binding_side_satisfied(
+            handoff.output_bindings,
+            handoff.output_binding_status,
+        )
 
     def _build_invoke_step(
         self,

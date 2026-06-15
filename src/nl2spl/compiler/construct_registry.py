@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from nl2spl.compiler.irs.frontier import CutlineReason, FrontierStatus
 from nl2spl.compiler.irs.graph import ConstructEdge
+from nl2spl.compiler.irs.patch_type_meta import PatchTypeMeta
 
 ExistencePolicy = Literal[
     "source_signal_required",
@@ -77,6 +78,11 @@ class RepairAffordanceSpec:
     required_evidence_kind: str = "user_confirmed_repair"
     user_facing: bool = True
     notes: str | None = None
+    patch_type_metadata: tuple[PatchTypeMeta, ...] = ()
+    """Per-patch-type labels, descriptions, and verification lanes.
+    When non-empty, the presentation layer derives individual strategy
+    options from this tuple instead of combining ``supported_patch_types``
+    into a single composite label."""
 
 
 @dataclass
@@ -594,7 +600,7 @@ class SPLConstructRegistry:
             construct_type="CHILD_WORKER",
             existence_policy="source_signal_required",
             source_signals=["delegation", "subtask", "bounded_task", "worker_boundary"],
-            partial_rendering_allowed=False,
+            partial_rendering_allowed=True,
             description=(
                 "An independently callable sub-worker with a clear responsibility, "
                 "input/output contract, invocation point, and result handoff."
@@ -608,31 +614,31 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="input_contract",
-                    required_for_partial=True,
+                    required_for_partial=False,
                     required_for_complete=True,
-                    renderable_without=False,
+                    renderable_without=True,
                     evidence_kinds=["input_contract", "parent_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
                 ),
                 SlotSpec(
                     slot_name="output_contract",
-                    required_for_partial=True,
+                    required_for_partial=False,
                     required_for_complete=True,
-                    renderable_without=False,
+                    renderable_without=True,
                     evidence_kinds=["output_contract", "returned_result"],
                     missing_diagnostic="type_or_contract_ambiguity",
                 ),
                 SlotSpec(
                     slot_name="invocation_point",
                     required_for_complete=True,
-                    renderable_without=False,
+                    renderable_without=True,
                     evidence_kinds=["condition", "handoff_point"],
                     missing_diagnostic="type_or_contract_ambiguity",
                 ),
                 SlotSpec(
                     slot_name="result_handoff",
                     required_for_complete=True,
-                    renderable_without=False,
+                    renderable_without=True,
                     evidence_kinds=["output_binding", "result_binding"],
                     missing_diagnostic="type_or_contract_ambiguity",
                 ),
@@ -726,6 +732,30 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            patch_type_metadata=(
+                                PatchTypeMeta(
+                                    patch_type="CreateWorkerHandoffContract",
+                                    label="Create a worker handoff contract",
+                                    description="Use this if the task should become a separate "
+                                    "worker. The compiler will generate input/output bindings "
+                                    "and an invocation point for the child worker.",
+                                    verification_lane="B",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToMainFlowStep",
+                                    label="Convert to main-flow step",
+                                    description="Use this if the action should stay inside "
+                                    "the main worker instead of being delegated to a child.",
+                                    verification_lane="A",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToRequestInput",
+                                    label="Ask the user for missing information",
+                                    description="Use this if the missing contract details "
+                                    "should be requested at runtime rather than guessed.",
+                                    verification_lane="A",
+                                ),
+                            ),
                             notes=(
                                 "delegation-intent-sourced WORKER_PROMOTION gap. "
                                 "All four promotion slots share the same repair "
@@ -765,6 +795,30 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            patch_type_metadata=(
+                                PatchTypeMeta(
+                                    patch_type="CreateWorkerHandoffContract",
+                                    label="Create a worker handoff contract",
+                                    description="Use this if the task should become a separate "
+                                    "worker. The compiler will generate input/output bindings "
+                                    "and an invocation point for the child worker.",
+                                    verification_lane="B",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToMainFlowStep",
+                                    label="Convert to main-flow step",
+                                    description="Use this if the action should stay inside "
+                                    "the main worker instead of being delegated to a child.",
+                                    verification_lane="A",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToRequestInput",
+                                    label="Ask the user for missing information",
+                                    description="Use this if the missing contract details "
+                                    "should be requested at runtime rather than guessed.",
+                                    verification_lane="A",
+                                ),
+                            ),
                         ),
                     ),
                 ),
@@ -798,6 +852,30 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            patch_type_metadata=(
+                                PatchTypeMeta(
+                                    patch_type="CreateWorkerHandoffContract",
+                                    label="Create a worker handoff contract",
+                                    description="Use this if the task should become a separate "
+                                    "worker. The compiler will generate input/output bindings "
+                                    "and an invocation point for the child worker.",
+                                    verification_lane="B",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToMainFlowStep",
+                                    label="Convert to main-flow step",
+                                    description="Use this if the action should stay inside "
+                                    "the main worker instead of being delegated to a child.",
+                                    verification_lane="A",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToRequestInput",
+                                    label="Ask the user for missing information",
+                                    description="Use this if the missing contract details "
+                                    "should be requested at runtime rather than guessed.",
+                                    verification_lane="A",
+                                ),
+                            ),
                         ),
                     ),
                 ),
@@ -831,6 +909,30 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            patch_type_metadata=(
+                                PatchTypeMeta(
+                                    patch_type="CreateWorkerHandoffContract",
+                                    label="Create a worker handoff contract",
+                                    description="Use this if the task should become a separate "
+                                    "worker. The compiler will generate input/output bindings "
+                                    "and an invocation point for the child worker.",
+                                    verification_lane="B",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToMainFlowStep",
+                                    label="Convert to main-flow step",
+                                    description="Use this if the action should stay inside "
+                                    "the main worker instead of being delegated to a child.",
+                                    verification_lane="A",
+                                ),
+                                PatchTypeMeta(
+                                    patch_type="ConvertDelegationIntentToRequestInput",
+                                    label="Ask the user for missing information",
+                                    description="Use this if the missing contract details "
+                                    "should be requested at runtime rather than guessed.",
+                                    verification_lane="A",
+                                ),
+                            ),
                         ),
                     ),
                 ),
