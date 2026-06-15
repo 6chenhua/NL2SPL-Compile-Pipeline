@@ -221,7 +221,11 @@ Follow this sequence:
 4. Define instance extraction from structured IR only.
 5. Implement `check_instance()` as slot satisfaction, not semantic invention.
 6. Let `DiagnosticProjector` create `CompileDiagnostic`.
-7. Add tests for registry shape, instance extraction, slot satisfaction,
+7. If a missing slot should be repairable through SPL Editing, read
+   `reference/repair-affordances.md` and add `repair_affordances` only for
+   user- or architecture-confirmed repair strategies. Do not invent repair
+   strategies while creating an IRS.
+8. Add tests for registry shape, instance extraction, slot satisfaction,
    projection, and report storage.
 
 Do not start with a diagnostic and then create a construct to host it. Start
@@ -307,15 +311,25 @@ R7 documentation and skill sync is also complete.
 
 ### Repair Affordance on SlotSpec
 
-`SlotSpec.repair_affordances: tuple[RepairAffordanceSpec, ...]` — each slot
-can declare which repair capabilities are allowed.
+`SlotSpec.repair_affordances: tuple[RepairAffordanceSpec, ...]` declares which
+SPL Editing repair capabilities are allowed for a missing slot.
 
-- Contains only string IDs (`affordance_id`, `patch_type`, `handler_id`,
-  `context_id`, `lane`). No callables or class references.
-- `affordance_id` is globally unique across construct types; naming convention
-  is `{construct_type_lower}.{descriptive_suffix}`.
-- IRS only declares affordances — it does NOT execute repairs, call LLMs, or
-  generate suggestions.
+Use `reference/repair-affordances.md` for the required field definitions,
+creation checklist, and confirmation rule.
+
+- Contains only data such as `affordance_id`, `supported_patch_types`,
+  `default_patch_type`, `handler_id`, `context_id`, `target_resolver_id`,
+  verification lanes, editable artifact names, and optional
+  `patch_type_metadata`. No callables or class references.
+- `affordance_id` names a stable repair capability. Related slots may share it
+  only when they expose the same confirmed strategy set; the unique catalog key
+  remains `{construct_type}.{slot_name}.{diagnostic_kind}.{affordance_id}`.
+- IRS only declares affordances; it does NOT execute repairs, call LLMs, mutate
+  IR, or generate suggestions.
+- When this skill is used to create or modify IRS constructs, repair strategies
+  must be confirmed by the user or architecture documentation. If not
+  confirmed, leave `repair_affordances=()` and state that SPL Editing repair is
+  not yet defined for the slot.
 
 ### Diagnostic → IRS Slot Reverse Lookup (DiagnosticIRSRef)
 
