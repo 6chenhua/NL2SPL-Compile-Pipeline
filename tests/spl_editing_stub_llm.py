@@ -28,22 +28,32 @@ class StubSuggestionLLM:
         if self._response is not None:
             return self._response
 
+        previous_block = ""
+        marker = "Already suggested (generate something DIFFERENT):"
+        if marker in user_prompt:
+            previous_block = user_prompt.split(marker, 1)[1]
+        variant = previous_block.count("  - ") + 1
+
         if "Required output:" in user_prompt:
             if "Allowed patch types: BindExistingProducerStep" in user_prompt:
                 return json.dumps({
                     "patch_type": "BindExistingProducerStep",
-                    "title": "Bind existing producer step",
+                    "title": f"Bind existing producer step {variant}",
                     "explanation": (
-                        "Bind an existing renderable step as the output producer."
+                        "Bind an existing renderable step as the output producer "
+                        f"using option {variant}."
                     ),
-                    "payload": {},
+                    "payload": {"step_id": f"st_existing_{variant}"},
                 })
             return json.dumps({
                 "patch_type": "InsertProducerStep",
-                "title": "Add producer step",
-                "explanation": "Create a step that produces the required output.",
+                "title": f"Add producer step {variant}",
+                "explanation": (
+                    "Create a step that produces the required output "
+                    f"using option {variant}."
+                ),
                 "payload": {
-                    "producer_text": "Produce the required output.",
+                    "producer_text": f"Produce the required output, option {variant}.",
                     "command_type": "GENERAL_COMMAND",
                     "inputs": [],
                     "outputs": [],
@@ -52,43 +62,61 @@ class StubSuggestionLLM:
 
         if "Construct type: WORKER_PROMOTION" in user_prompt:
             if "Allowed patch types: CreateWorkerHandoffContract" in user_prompt:
+                invocation_points = ("main", "alternative", "exception")
                 return json.dumps({
                     "patch_type": "CreateWorkerHandoffContract",
-                    "title": "Create worker handoff contract",
-                    "explanation": "Create a handoff contract for the delegated worker.",
+                    "title": f"Create worker handoff contract {variant}",
+                    "explanation": (
+                        "Create a handoff contract for the delegated worker "
+                        f"using option {variant}."
+                    ),
                     "payload": {
                         "input_bindings": {"request": "request"},
                         "output_bindings": {"result": "result"},
-                        "invocation_point": "main",
+                        "invocation_point": invocation_points[
+                            (variant - 1) % len(invocation_points)
+                        ],
                     },
                 })
             if "Allowed patch types: ConvertDelegationIntentToMainFlowStep" in user_prompt:
                 return json.dumps({
                     "patch_type": "ConvertDelegationIntentToMainFlowStep",
-                    "title": "Convert delegation to main-flow step",
-                    "explanation": "Keep the task inside the parent worker.",
+                    "title": f"Convert delegation to main-flow step {variant}",
+                    "explanation": (
+                        "Keep the task inside the parent worker "
+                        f"using option {variant}."
+                    ),
                     "payload": {
-                        "action_text": "Perform the delegated task in the main flow.",
-                        "outputs": [],
+                        "action_text": (
+                            "Perform the delegated task in the main flow, "
+                            f"option {variant}."
+                        ),
+                        "outputs": [f"delegation_result_{variant}"],
                     },
                 })
             if "Allowed patch types: ConvertDelegationIntentToRequestInput" in user_prompt:
                 return json.dumps({
                     "patch_type": "ConvertDelegationIntentToRequestInput",
-                    "title": "Ask the user for delegation details",
-                    "explanation": "Request the missing contract information at runtime.",
+                    "title": f"Ask the user for delegation details {variant}",
+                    "explanation": (
+                        "Request the missing contract information at runtime "
+                        f"using option {variant}."
+                    ),
                     "payload": {
-                        "prompt_text": "Provide the missing delegation details.",
-                        "value_target": "delegation_details",
+                        "prompt_text": (
+                            "Provide the missing delegation details "
+                            f"for option {variant}."
+                        ),
+                        "value_target": f"delegation_details_{variant}",
                     },
                 })
 
         return json.dumps({
             "patch_type": "AddExceptionHandlerStep",
-            "title": "Stub suggestion",
-            "explanation": "This is a stub.",
+            "title": f"Stub suggestion {variant}",
+            "explanation": f"This is stub option {variant}.",
             "payload": {
-                "handler_text": "Stub handler action",
+                "handler_text": f"Stub handler action {variant}",
                 "command_type": "GENERAL_COMMAND",
             },
         })

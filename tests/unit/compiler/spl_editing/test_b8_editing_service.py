@@ -20,11 +20,10 @@ from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot, OverlayE
 from nl2spl.compiler.spl_editing.core.service import SPLEditingService
 from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
 from nl2spl.compiler.spl_editing.verification.lanes import (
-    LaneAReplayAdapter, VerificationArtifacts,
+    LaneAReplayAdapter,
+    VerificationArtifacts,
 )
-from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
-
 
 # ===========================================================================
 # Stubs
@@ -49,7 +48,10 @@ class _StubContextBuilder:
 
 
 class _StubHandler:
-    def generate_suggestions(self, issue, target, context, entries, instruction=None):
+    def generate_suggestions(
+        self, issue, target, context, entries,
+        instruction=None, selected_patch_types=None,
+    ):
         return (RepairSuggestion(
             suggestion_id="sug_0", session_id="",
             affordance_id="exception_flow.add_handler_step",
@@ -77,10 +79,10 @@ class _StubValidator:
 
 class _StubApplier:
     def apply(self, patch, snapshot):
-        from nl2spl.ir.step_ir import StepIR
-        from nl2spl.ir.block_structure_ir import BlockStructureIR
-        from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerStepPlanIR
         from nl2spl.compiler.spl_editing.core.revision import RevisionToken
+        from nl2spl.ir.block_structure_ir import BlockStructureIR
+        from nl2spl.ir.step_ir import StepIR
+        from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerStepPlanIR
 
         sp = WorkerStepPlanIR("w_main", {"w_main": [StepIR(
             "st_repair_1", "Handle error.", [], "GENERAL_COMMAND",

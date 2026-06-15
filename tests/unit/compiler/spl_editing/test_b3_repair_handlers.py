@@ -160,35 +160,25 @@ class TestB3MissingHandlerHandler:
     """B3: Missing handler generates suggestions via stub LLM."""
 
     def test_generates_suggestion_with_stub(self) -> None:
-        llm = StubSuggestionLLM(fixed_response={
-            "patch_type": "AddExceptionHandlerStep",
-            "title": "Ask user for template",
-            "explanation": "The exception occurs when the template is unavailable.",
-            "payload": {
-                "handler_text": "Ask the requestor to provide an approved template.",
-                "command_type": "REQUEST_INPUT",
-                "inputs": [],
-                "outputs": ["approved_template"],
-            },
-        })
+        llm = StubSuggestionLLM()
         handler = MissingHandlerRepairHandler(llm)
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
         )
-        assert len(suggestions) >= 1
+        assert len(suggestions) == handler.policy.max_suggestions
         s = suggestions[0]
-        assert s.title == "Ask user for template"
+        assert s.title == "Stub suggestion 1"
         assert s.patch.patch_type == "AddExceptionHandlerStep"
-        assert s.patch.payload["command_type"] == "REQUEST_INPUT"
+        assert s.patch.payload["command_type"] == "GENERAL_COMMAND"
         assert s.spl_preview is not None
-        assert "REQUEST_INPUT" in s.spl_preview
+        assert "GENERAL_COMMAND" in s.spl_preview
 
     def test_malformed_llm_output_raises(self) -> None:
-        """B3: malformed LLM output is surfaced, not replaced by fallback."""
+        """B3: malformed LLM output is surfaced."""
         llm = StubSuggestionLLM(fixed_response={
             "patch_type": "AddExceptionHandlerStep",
             "title": "T",
-            # missing "explanation" key 鈫?ValueError 鈫?handler retries
+            # missing "explanation" key -> parse failure
         })
         handler = MissingHandlerRepairHandler(llm)
         with pytest.raises(PatchValidationError, match="LLM did not produce"):
@@ -207,18 +197,30 @@ class TestB3MissingHandlerHandler:
             # No IR mutation 鈥?suggestions are pure data
 
     def test_llm_output_truncated_to_max_suggestions(self) -> None:
-        llm = StubSuggestionLLM(fixed_response={
-            "patch_type": "AddExceptionHandlerStep",
-            "title": "T", "explanation": "E",
-            "payload": {"handler_text": "H", "command_type": "GENERAL_COMMAND"},
-        })
+        llm = StubSuggestionLLM()
         handler = MissingHandlerRepairHandler(
             llm, policy=SuggestionPolicy(max_suggestions=2),
         )
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
         )
-        assert len(suggestions) <= 2
+        assert len(suggestions) == 2
+
+    def test_selected_patch_types_filters_correctly(self) -> None:
+        """B3: Missing handler with selected_patch_types still generates suggestions."""
+        llm = StubSuggestionLLM()
+        handler = MissingHandlerRepairHandler(
+            llm, policy=SuggestionPolicy(max_suggestions=2),
+        )
+        suggestions = handler.generate_suggestions(
+            _issue(), _target(), _context(), (_entry(),),
+            selected_patch_types=("AddExceptionHandlerStep",),
+        )
+        assert len(suggestions) == 2
+        assert all(
+            s.patch.patch_type == "AddExceptionHandlerStep"
+            for s in suggestions
+        )
 
 
 # ===========================================================================
@@ -367,6 +369,86 @@ class TestB3AmbiguityHandler:
             handler.generate_suggestions(
                 issue, _target(), _context(), (entry,),
             )
+
+    def test_selected_patch_types_filters_to_single_type(self) -> None:
+        """B3: selected_patch_types restricts output to one patch type."""
+        llm = StubSuggestionLLM()
+        handler = TypeOrContractAmbiguityHandler(
+            llm, policy=SuggestionPolicy(max_suggestions=3),
+        )
+        issue = EditableIssue(
+            issue_id="i1", primary_diagnostic_id="d1",
+            related_diagnostic_ids=("d1",), issue_group_id=None,
+            kind="type_or_contract_ambiguity",
+            target_ref="worker_promotion:cand_1",
+            irs_ref=DiagnosticIRSRef(
+                construct_type="WORKER_PROMOTION",
+                construct_id="x",
+                slot_name="promotion_input_contract",
+            ),
+            missing_slot="promotion_input_contract",
+            source_span_ids=(), message="test",
+        )
+        entry = RepairCatalogEntry(
+            entry_id="WORKER_PROMOTION.promotion_input_contract.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+            affordance_id="worker_promotion.resolve_contract",
+            construct_type="WORKER_PROMOTION",
+            slot_name="promotion_input_contract",
+            diagnostic_kind="type_or_contract_ambiguity",
+            supported_patch_types=(
+                "ConvertDelegationIntentToMainFlowStep",
+                "ConvertDelegationIntentToRequestInput",
+            ),
+        )
+        result = handler.generate_suggestions(
+            issue, _target(), _context(), (entry,),
+            selected_patch_types=("ConvertDelegationIntentToMainFlowStep",),
+        )
+        assert len(result) == 3
+        # All suggestions must be the selected type
+        types = {r.patch.patch_type for r in result}
+        assert types == {"ConvertDelegationIntentToMainFlowStep"}
+
+    def test_selected_patch_type_returns_multiple_suggestions(self) -> None:
+        """B3: Single selected patch type returns multiple unique suggestions."""
+        llm = StubSuggestionLLM()
+        handler = TypeOrContractAmbiguityHandler(
+            llm, policy=SuggestionPolicy(max_suggestions=3),
+        )
+        issue = EditableIssue(
+            issue_id="i1", primary_diagnostic_id="d1",
+            related_diagnostic_ids=("d1",), issue_group_id=None,
+            kind="type_or_contract_ambiguity",
+            target_ref="worker_promotion:cand_1",
+            irs_ref=DiagnosticIRSRef(
+                construct_type="WORKER_PROMOTION",
+                construct_id="x",
+                slot_name="promotion_input_contract",
+            ),
+            missing_slot="promotion_input_contract",
+            source_span_ids=(), message="test",
+        )
+        entry = RepairCatalogEntry(
+            entry_id="WORKER_PROMOTION.promotion_input_contract.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+            affordance_id="worker_promotion.resolve_contract",
+            construct_type="WORKER_PROMOTION",
+            slot_name="promotion_input_contract",
+            diagnostic_kind="type_or_contract_ambiguity",
+            supported_patch_types=(
+                "ConvertDelegationIntentToMainFlowStep",
+                "ConvertDelegationIntentToRequestInput",
+            ),
+        )
+        result = handler.generate_suggestions(
+            issue, _target(), _context(), (entry,),
+            selected_patch_types=("ConvertDelegationIntentToMainFlowStep",),
+        )
+        assert len(result) == 3
+        assert len({r.patch.payload["action_text"] for r in result}) == 3
+        assert all(
+            r.patch.patch_type == "ConvertDelegationIntentToMainFlowStep"
+            for r in result
+        )
 
 
 class TestB3PromptContract:

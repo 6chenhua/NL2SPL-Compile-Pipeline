@@ -234,8 +234,14 @@ class TestC2DemoCLI:
             "snap_mop", "run_mop", 0,
             worker_plan=snap.worker_plan,
             worker_step_plan=WorkerStepPlanIR("w_main", {
-                "w_main": [StepIR("st_existing", "Draft work", ["s1"],
-                                   "GENERAL_COMMAND")],
+                "w_main": [
+                    StepIR("st_existing_1", "Draft work 1", ["s1"],
+                           "GENERAL_COMMAND"),
+                    StepIR("st_existing_2", "Draft work 2", ["s2"],
+                           "GENERAL_COMMAND"),
+                    StepIR("st_existing_3", "Draft work 3", ["s3"],
+                           "GENERAL_COMMAND"),
+                ],
             }),
             worker_flow_plan=snap.worker_flow_plan,
             worker_block_plan=snap.worker_block_plan,
@@ -248,9 +254,12 @@ class TestC2DemoCLI:
         issues = svc.list_editable_issues(run_id)
         assert len(issues) >= 1
         session = svc.create_session(run_id, issues[0])
-        suggestions = svc.generate_suggestions(session.session_id)
+        suggestions = svc.generate_suggestions(
+            session.session_id,
+            selected_patch_types=("BindExistingProducerStep",),
+        )
         patch_types = {s.patch.patch_type for s in suggestions}
-        assert "BindExistingProducerStep" in patch_types
+        assert patch_types == {"BindExistingProducerStep"}
 
         # Find the bind suggestion and apply it
         bind_sug = next(

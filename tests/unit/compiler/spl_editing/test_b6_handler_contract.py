@@ -27,17 +27,7 @@ def test_missing_output_handler_generates_valid_payload() -> None:
     """B6 handler: generated InsertProducerStep suggestion passes validator."""
     catalog = RepairCatalogBuilder.from_construct_registry(
         SPLConstructRegistry.default())
-    stub_llm = StubSuggestionLLM(fixed_response={
-        "patch_type": "InsertProducerStep",
-        "title": "Add producer step",
-        "explanation": "Create a source-backed step for the output.",
-        "payload": {
-            "producer_text": "Produce the draft output.",
-            "command_type": "GENERAL_COMMAND",
-            "inputs": [],
-            "outputs": ["draft"],
-        },
-    })
+    stub_llm = StubSuggestionLLM()
     handler = MissingOutputProducerHandler(stub_llm)
     issue = EditableIssue(
         issue_id="i1", primary_diagnostic_id="d1",
@@ -67,10 +57,12 @@ def test_missing_output_handler_generates_valid_payload() -> None:
         "REQUIRED_OUTPUT", "producer", "missing_output_producer")
 
     suggestions = handler.generate_suggestions(
-        issue, target, context, entries)
+        issue, target, context, entries,
+        selected_patch_types=("InsertProducerStep",),
+    )
 
-    assert len(stub_llm.calls) == 1
-    assert len(suggestions) >= 1
+    assert len(stub_llm.calls) >= 3
+    assert len(suggestions) == 3
 
     from nl2spl.compiler.spl_editing.core.model import RepairPatch
 
