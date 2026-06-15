@@ -1,0 +1,448 @@
+{
+  "stage": "stage2_field_router",
+  "timestamp": "2026-06-15T01:33:02.866442",
+  "metadata": {},
+  "result": {
+    "routes": {
+      "identity": [],
+      "audience": [],
+      "rules": [
+        "s6",
+        "s9",
+        "s10",
+        "s11"
+      ],
+      "domain": [
+        "s1"
+      ],
+      "integrations": [],
+      "behavior": [
+        "s5",
+        "s7",
+        "s8"
+      ],
+      "annotations": [
+        {
+          "span_id": "s1",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_sentence_incident_response_triage_workflows",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s2",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_sentence_user_incident_report",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s3",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_short_triage_response",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s4",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_completion_status",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s5",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_first_read_the_incident_report_then_extract_a_separate_child_worker_named_complianceacknowledgement_this_child_worker_is_required_by_policy_as_a_bounded_subtask",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s6",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_but_this_source_intentionally_does_not_specify_its_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s7",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_main_worker_drafts_the_triage_response",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s9",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_invent_missing_contract_fields",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s10",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_convert_the_child_worker_into_a_generic_main_flow_command",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s11",
+          "field": "rules",
+          "semantic_role": "delegation_boundary_constraint",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_create_an_executable_worker_invocation_unless_the_handoff_contract_is_complete",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        }
+      ],
+      "structural_priors": [
+        {
+          "span_id": "s1",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_sentence_incident_response_triage_workflows",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s2",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_sentence_user_incident_report",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s3",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_short_triage_response",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s4",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_completion_status",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s5",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_first_read_the_incident_report_then_extract_a_separate_child_worker_named_complianceacknowledgement_this_child_worker_is_required_by_policy_as_a_bounded_subtask",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s6",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_but_this_source_intentionally_does_not_specify_its_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s7",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s8",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_main_worker_drafts_the_triage_response",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s9",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_invent_missing_contract_fields",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s10",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_convert_the_child_worker_into_a_generic_main_flow_command",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s11",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_create_an_executable_worker_invocation_unless_the_handoff_contract_is_complete",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "sentence",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        }
+      ],
+      "route_diagnostics": [
+        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested process_step; kept process_step because the text includes explicit instructions and worker extraction action.",
+        "LLM route diagnostic [prior_overridden] span='s6': Structural prior suggested process_step; annotated as constraint because the text is a policy restriction against inventing contracts.",
+        "LLM route diagnostic [prior_overridden] span='s7': Structural prior suggested process_step; kept process_step, but the span is somewhat indirect and references diagnostics behavior.",
+        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested policy/rules; mapped to delegation_boundary_constraint because it conditions executable invocation on contract completeness.",
+        "Post-enrichment: span 's2' (input_contract) has no requiredness metadata"
+      ],
+      "structured_route_diagnostics": [
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested process_step; kept process_step because the text includes explicit instructions and worker extraction action."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s6': Structural prior suggested process_step; annotated as constraint because the text is a policy restriction against inventing contracts."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s7': Structural prior suggested process_step; kept process_step, but the span is somewhat indirect and references diagnostics behavior."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested policy/rules; mapped to delegation_boundary_constraint because it conditions executable invocation on contract completeness."
+        },
+        {
+          "span_id": "s2",
+          "kind": "route_refinement_diagnostic",
+          "message": "Post-enrichment: span 's2' (input_contract) has no requiredness metadata"
+        },
+        {
+          "kind": "annotation_missing_requiredness",
+          "span_id": "s2",
+          "semantic_role": "input_contract",
+          "field_name": "requiredness",
+          "expected": "required | optional | unspecified",
+          "actual": null,
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_sentence_user_incident_report",
+          "message": "Post-enrichment: span 's2' (input_contract) has no requiredness metadata"
+        }
+      ]
+    },
+    "ambiguity_updates": [],
+    "overlaps": [],
+    "adapter_consumed_spans": [],
+    "llm_refinement": {
+      "used": true,
+      "route_diagnostics": [
+        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested process_step; kept process_step because the text includes explicit instructions and worker extraction action.",
+        "LLM route diagnostic [prior_overridden] span='s6': Structural prior suggested process_step; annotated as constraint because the text is a policy restriction against inventing contracts.",
+        "LLM route diagnostic [prior_overridden] span='s7': Structural prior suggested process_step; kept process_step, but the span is somewhat indirect and references diagnostics behavior.",
+        "LLM route diagnostic [prior_overridden] span='s9': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s10': Structural prior suggested policy/rules; mapped to constraint since that is the available semantic role for the prohibition.",
+        "LLM route diagnostic [prior_overridden] span='s11': Structural prior suggested policy/rules; mapped to delegation_boundary_constraint because it conditions executable invocation on contract completeness.",
+        "Post-enrichment: span 's2' (input_contract) has no requiredness metadata"
+      ],
+      "split_recommendations": []
+    }
+  }
+}

@@ -1,0 +1,51 @@
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
+    [DEFINE_PERSONA:]
+        ROLE: Incident-response investigation workflow
+        BoundedChildWorker: Uses a separate child worker for evidence retrieval rather than turning it into a generic main-flow command.
+        ProvenanceFocused: Has explicit responsibility for normalizing provenance and discarding unsupported claims.
+        ContractDisciplined: Does not invent missing contract fields and only creates executable worker invocations when the handoff contract is complete.
+    [END_PERSONA]
+    [DEFINE_CONCEPTS:]
+        Incidentresponseinvestigationworkflows: A workflow family for investigating user incidents, identifying facts that need support, retrieving evidence, and drafting a triage response.
+        Userincidentreport: A report provided by the user that describes the incident and serves as the starting input for investigation.
+        Approvedevidencerepositories: An approved set of repositories that may be queried to find supporting evidence.
+        Triageresponse: A short response drafted from available information to summarize the incident's initial handling.
+        Evidencesummary: A summary of the evidence collected during the investigation.
+        Completionstatus: The final status indicating whether the workflow has completed.
+        EvidenceRetrievalWorker: A separate child worker responsible for querying approved evidence repositories, collecting matching evidence, normalizing provenance, and discarding unsupported claims.
+        Provenance: The source and traceability information associated with collected evidence.
+        Handoffcontract: The defined input/output contract required before a worker invocation can be executed.
+    [END_CONCEPTS]
+    [DEFINE_CONSTRAINTS:]
+        DelegationBoundary: Evidence retrieval must remain a bounded child worker because it is reusable and has its own provenance responsibility.
+        Prohibition: Do not convert evidence retrieval into a generic main-flow command.
+        Prohibition: Do not invent missing contract fields.
+        Gate: Do not create an executable worker invocation unless the handoff contract is complete.
+        Prohibition: Do not invent the child worker input contract or output contract; keep the child worker definition as a renderable skeleton with empty INPUTS and empty OUTPUTS.
+        Requirement: After the child worker definition exists, diagnostics may report that the invocation contract is incomplete.
+    [END_CONSTRAINTS]
+    [DEFINE_VARIABLES:]
+        "A user-provided incident report." user_incident_report: text
+        "A list of approved evidence repositories." approved_evidence_repositories: List [text]
+        "A brief triage response drafted from available information." short_triage_response: text
+        "A summary of the evidence collected for the incident." evidence_summary: text
+        "The final completion status of the workflow." completion_status: text
+    [END_VARIABLES]
+    [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
+        [INPUTS]
+            REQUIRED <REF>user_incident_report</REF>
+            REQUIRED <REF>approved_evidence_repositories</REF>
+        [END_INPUTS]
+        [OUTPUTS]
+            REQUIRED <REF>short_triage_response</REF>
+            REQUIRED <REF>evidence_summary</REF>
+            REQUIRED <REF>completion_status</REF>
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [COMMAND Review the incident report and identify facts requiring support based on <REF>user_incident_report</REF>]
+                COMMAND-2 [COMMAND Draft the triage response from available information RESULT short_triage_response: text SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+    [END_WORKER]
+[END_AGENT]

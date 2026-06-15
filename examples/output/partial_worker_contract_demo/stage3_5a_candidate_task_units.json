@@ -1,0 +1,39 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-06-15T01:33:11.706975",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_compliance_acknowledgement",
+        "source_span_ids": [
+          "s5",
+          "s6",
+          "s7",
+          "s10",
+          "s11"
+        ],
+        "task_text": "A policy-required child worker named ComplianceAcknowledgement that must be defined as a renderable skeleton, with diagnostics reporting the invocation contract as incomplete until the definition exists.",
+        "purpose": "Provide a separately named reusable subtask boundary without inventing missing contract details.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "explicit_delegation",
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "unclear_result_handoff",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ]
+  }
+}

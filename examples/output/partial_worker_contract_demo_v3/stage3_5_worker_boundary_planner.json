@@ -1,0 +1,178 @@
+{
+  "stage": "stage3_5_worker_boundary_planner",
+  "timestamp": "2026-06-15T01:36:45.772950",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s7",
+          "s8a",
+          "s8b",
+          "s10",
+          "s11",
+          "s12",
+          "s13",
+          "s14",
+          "s18",
+          "s19"
+        ],
+        "input_contract": [
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "A user incident report",
+            "source": "input",
+            "contract_demand_id": "rcd_input_s2",
+            "source_span_ids": [
+              "s2"
+            ],
+            "source_section_id": "sec_inputs_for_each_run",
+            "source_packet_id": "p_list_item_user_incident_report",
+            "resource_kind": null,
+            "requiredness": "required"
+          },
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "a list of approved evidence repositories",
+            "source": "input",
+            "contract_demand_id": "rcd_input_s3",
+            "source_span_ids": [
+              "s3"
+            ],
+            "source_section_id": "sec_inputs_for_each_run",
+            "source_packet_id": "p_list_item_list_of_approved_evidence_repositories",
+            "resource_kind": null,
+            "requiredness": "required"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "A short triage response",
+            "source": "output",
+            "contract_demand_id": "rcd_output_s4",
+            "source_span_ids": [
+              "s4"
+            ],
+            "source_section_id": "sec_required_outputs",
+            "source_packet_id": "p_list_item_short_triage_response",
+            "resource_kind": null,
+            "requiredness": "required"
+          },
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "an evidence summary",
+            "source": "output",
+            "contract_demand_id": "rcd_output_s5",
+            "source_span_ids": [
+              "s5"
+            ],
+            "source_section_id": "sec_required_outputs",
+            "source_packet_id": "p_list_item_evidence_summary",
+            "resource_kind": null,
+            "requiredness": "required"
+          },
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "a completion status",
+            "source": "output",
+            "contract_demand_id": "rcd_output_s6",
+            "source_span_ids": [
+              "s6"
+            ],
+            "source_section_id": "sec_required_outputs",
+            "source_packet_id": "p_list_item_completion_status",
+            "resource_kind": null,
+            "requiredness": "required"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": "",
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null,
+        "partial_reason": null
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_evidence_retrieval",
+        "source_span_ids": [
+          "s7",
+          "s10",
+          "s11",
+          "s12",
+          "s13",
+          "s14",
+          "s20"
+        ],
+        "task_text": "Read the incident report, query approved evidence repositories, collect matching evidence, normalize provenance, and discard unsupported claims before returning control to the main worker.",
+        "purpose": "Provide a reusable evidence-gathering sub-process with provenance handling for incident-response triage.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "reuse_potential",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "unclear_result_handoff",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_evidence_retrieval",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_evidence_retrieval",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-06-15T01:33:21.866360",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [
+          "s5",
+          "s8"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": []
+  }
+}

@@ -93,13 +93,16 @@ def main() -> None:
         print("\nThis issue is not fixable in the current snapshot.")
         return
 
-    if input("\nGenerate repair suggestions? [y/N] ").strip().lower() != "y":
-        print("Cancelled. Snapshot was not changed.")
+    option = _choose_fix_option(detail.available_repairs)
+    if option is None:
         return
 
     issue = presentation.issue_by_id(run_id, card.issue_id)
     session = service.create_session(run_id, issue)
-    suggestions = service.generate_suggestions(session.session_id)
+    suggestions = service.generate_suggestions(
+        session.session_id,
+        selected_patch_types=option.patch_types,
+    )
     if not suggestions:
         print("\nNo repair suggestions generated for this issue.")
         return
@@ -107,18 +110,20 @@ def main() -> None:
     suggestion_views = presentation.present_suggestions(suggestions)
     _print_suggestions(suggestion_views)
 
-    suggestion = _choose_suggestion(suggestions)
-    if suggestion is None:
+    applied_suggestion = _choose_suggestion(suggestions)
+    if applied_suggestion is None:
         return
 
-    confirmation = presentation.present_apply_confirmation(suggestion)
+    confirmation = presentation.present_apply_confirmation(applied_suggestion)
     _print_confirmation(confirmation)
     confirm = input("Confirm apply? [y/N] ").strip().lower()
     if confirm != "y":
         print("Cancelled. Snapshot was not changed.")
         return
 
-    updated = service.apply_suggestion(session.session_id, suggestion.suggestion_id)
+    updated = service.apply_suggestion(
+        session.session_id, applied_suggestion.suggestion_id,
+    )
     print(f"Applied. overlay_version={updated.overlay_version}")
 
     result = service.verify_session(session.session_id)
@@ -239,6 +244,37 @@ def _print_issue_detail(detail) -> None:
         print(f"      {option.description}")
         if option.unavailable_reason:
             print(f"      Unavailable: {option.unavailable_reason}")
+
+
+def _choose_fix_option(
+    available_repairs: tuple[object, ...],
+) -> object | None:
+    """Let the user pick one repair option (patch type group).
+
+    Uses the same 1-based numbering shown by ``_print_issue_detail``
+    so the displayed index matches the user's input.  Unavailable
+    options are rejected with their reason shown.
+    """
+    repairs = tuple(available_repairs)
+    available = [r for r in repairs if getattr(r, "unavailable_reason", None) is None]
+    if not available:
+        print("\nNo available repair options for this issue.")
+        return None
+    while True:
+        raw = input("Choose fix option number: ").strip()
+        try:
+            idx = int(raw) - 1
+        except ValueError:
+            print(f"Invalid choice: {raw}")
+            continue
+        if 0 <= idx < len(repairs):
+            choice = repairs[idx]
+            reason = getattr(choice, "unavailable_reason", None)
+            if reason is not None:
+                print(f"Option [{idx + 1}] is not available: {reason}")
+                continue
+            return choice
+        print(f"Invalid choice: {raw}")
 
 
 def _print_suggestions(suggestions: tuple[object, ...]) -> None:

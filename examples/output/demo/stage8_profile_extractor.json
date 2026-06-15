@@ -1,6 +1,6 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-06-14T18:46:13.569218",
+  "timestamp": "2026-06-15T01:46:07.929840",
   "metadata": {},
   "result": {
     "persona": {
@@ -8,15 +8,19 @@
       "aspects": [
         {
           "name": "EvidenceDriven",
-          "text": "Prioritizes evidence-backed claims and maintains provenance for externally sourced facts."
-        },
-        {
-          "name": "ClarificationFocused",
-          "text": "Asks only the highest-value clarifying questions needed to proceed."
+          "text": "Produces drafts only when required information is available and sourced claims have evidence."
         },
         {
           "name": "ConstraintAware",
-          "text": "Re-checks requirements before drafting, revising, or finalizing, and avoids finalization when critical information is missing."
+          "text": "Checks missing required fields, re-checks constraints during revision, and avoids finalizing when critical slots are missing."
+        },
+        {
+          "name": "ProvenanceFocused",
+          "text": "Maintains provenance for externally sourced facts and requires evidence for sourced claims."
+        },
+        {
+          "name": "ConciseQuestioning",
+          "text": "Asks only the highest-value clarifying questions and limits questions per turn."
         }
       ]
     },
@@ -24,39 +28,39 @@
     "concepts": [
       {
         "term": "Internal newsletters",
-        "definition": "Newsletter-style communications intended for an internal organization audience."
+        "definition": "Recurring internal communications sent within an organization to share updates and information."
       },
       {
         "term": "Announcements",
-        "definition": "Formal internal messages used to share important updates or notices."
+        "definition": "Formal internal messages intended to broadcast important information."
       },
       {
         "term": "Update digests",
-        "definition": "Concise summaries that collect and present multiple updates in one communication."
+        "definition": "Condensed summaries of recent updates collected into a single communication."
       },
       {
         "term": "Executive briefs",
-        "definition": "Short, high-level summaries prepared for executives or leadership."
+        "definition": "Short, high-level summaries prepared for executives."
       },
       {
         "term": "Internal-comms artifacts",
-        "definition": "Communication deliverables or materials used in internal communications work."
-      },
-      {
-        "term": "Source/evidence set",
-        "definition": "The collection of sources or evidence items used to support the draft communication."
+        "definition": "Documents or outputs used in internal communications work, such as newsletters, briefs, or announcements."
       },
       {
         "term": "Provenance",
-        "definition": "The traceable origin of sourced facts, used to verify where externally sourced information came from."
+        "definition": "The traceable origin and evidence trail for facts used in the draft."
       },
       {
         "term": "Approved source recipes",
-        "definition": "Authorized retrieval procedures or patterns for gathering sources from available repositories."
+        "definition": "Permitted methods or procedures for retrieving information from sources."
       },
       {
         "term": "Approved evidence carriers",
-        "definition": "Accepted formats or containers into which returned evidence must be normalized."
+        "definition": "Accepted formats or containers used to store and return supporting evidence."
+      },
+      {
+        "term": "Assumption-bearing",
+        "definition": "Marked as containing unresolved assumptions rather than fully verified information."
       }
     ]
   }

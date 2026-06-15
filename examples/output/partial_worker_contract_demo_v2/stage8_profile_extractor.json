@@ -1,0 +1,63 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-06-15T01:35:34.454066",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Incident-response investigation workflow",
+      "aspects": [
+        {
+          "name": "BoundedChildWorker",
+          "text": "Uses a separate child worker for evidence retrieval rather than turning it into a generic main-flow command."
+        },
+        {
+          "name": "ProvenanceFocused",
+          "text": "Has explicit responsibility for normalizing provenance and discarding unsupported claims."
+        },
+        {
+          "name": "ContractDisciplined",
+          "text": "Does not invent missing contract fields and only creates executable worker invocations when the handoff contract is complete."
+        }
+      ]
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Incident-response investigation workflows",
+        "definition": "A workflow family for investigating user incidents, identifying facts that need support, retrieving evidence, and drafting a triage response."
+      },
+      {
+        "term": "User incident report",
+        "definition": "A report provided by the user that describes the incident and serves as the starting input for investigation."
+      },
+      {
+        "term": "Approved evidence repositories",
+        "definition": "An approved set of repositories that may be queried to find supporting evidence."
+      },
+      {
+        "term": "Triage response",
+        "definition": "A short response drafted from available information to summarize the incident's initial handling."
+      },
+      {
+        "term": "Evidence summary",
+        "definition": "A summary of the evidence collected during the investigation."
+      },
+      {
+        "term": "Completion status",
+        "definition": "The final status indicating whether the workflow has completed."
+      },
+      {
+        "term": "EvidenceRetrievalWorker",
+        "definition": "A separate child worker responsible for querying approved evidence repositories, collecting matching evidence, normalizing provenance, and discarding unsupported claims."
+      },
+      {
+        "term": "Provenance",
+        "definition": "The source and traceability information associated with collected evidence."
+      },
+      {
+        "term": "Handoff contract",
+        "definition": "The defined input/output contract required before a worker invocation can be executed."
+      }
+    ]
+  }
+}

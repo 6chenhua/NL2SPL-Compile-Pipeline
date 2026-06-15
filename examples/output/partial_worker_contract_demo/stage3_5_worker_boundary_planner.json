@@ -1,0 +1,138 @@
+{
+  "stage": "stage3_5_worker_boundary_planner",
+  "timestamp": "2026-06-15T01:33:11.710616",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s5",
+          "s7",
+          "s8"
+        ],
+        "input_contract": [
+          {
+            "name": "",
+            "data_type": "",
+            "required": null,
+            "description": "A user incident report",
+            "source": "input",
+            "contract_demand_id": "rcd_input_s2",
+            "source_span_ids": [
+              "s2"
+            ],
+            "source_section_id": "sec_inputs_for_each_run",
+            "source_packet_id": "p_sentence_user_incident_report",
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "output_contract": [
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "A short triage response",
+            "source": "output",
+            "contract_demand_id": "rcd_output_s3",
+            "source_span_ids": [
+              "s3"
+            ],
+            "source_section_id": "sec_required_outputs",
+            "source_packet_id": "p_list_item_short_triage_response",
+            "resource_kind": null,
+            "requiredness": "required"
+          },
+          {
+            "name": "",
+            "data_type": "",
+            "required": true,
+            "description": "a completion status",
+            "source": "output",
+            "contract_demand_id": "rcd_output_s4",
+            "source_span_ids": [
+              "s4"
+            ],
+            "source_section_id": "sec_required_outputs",
+            "source_packet_id": "p_list_item_completion_status",
+            "resource_kind": null,
+            "requiredness": "required"
+          }
+        ],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": "",
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null,
+        "partial_reason": null
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_compliance_acknowledgement",
+        "source_span_ids": [
+          "s5",
+          "s6",
+          "s7",
+          "s10",
+          "s11"
+        ],
+        "task_text": "A policy-required child worker named ComplianceAcknowledgement that must be defined as a renderable skeleton, with diagnostics reporting the invocation contract as incomplete until the definition exists.",
+        "purpose": "Provide a separately named reusable subtask boundary without inventing missing contract details.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "explicit_delegation",
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "unclear_result_handoff",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_compliance_acknowledgement",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_compliance_acknowledgement",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

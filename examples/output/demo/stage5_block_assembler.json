@@ -1,6 +1,6 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-06-14T18:45:59.824465",
+  "timestamp": "2026-06-15T01:45:16.837817",
   "metadata": {},
   "result": {
     "worker_blocks": {
@@ -14,14 +14,6 @@
               "s15",
               "s16"
             ]
-          },
-          {
-            "block_id": "b_2",
-            "block_type": "IF",
-            "condition_text": "the user asks for revision",
-            "spans": [
-              "s17"
-            ]
           }
         ],
         "alternative_flow_blocks": {},
@@ -33,6 +25,28 @@
           "exc_adapter_04": [],
           "exc_adapter_05": []
         }
+      },
+      "draft_communication": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s17"
+            ]
+          },
+          {
+            "block_id": "b_2",
+            "block_type": "IF",
+            "condition_text": "the user asks for revision",
+            "spans": [
+              "s18"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {}
       }
     },
     "control_complexity_regions": [],

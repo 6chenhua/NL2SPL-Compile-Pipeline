@@ -1,62 +1,51 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-06-15T01:46:16.014746",
+  "timestamp": "2026-06-15T01:34:09.790800",
   "metadata": {},
   "result": {
     "constraints": [
       {
         "constraint_id": "c_1",
-        "text": "Do not invent links or unseen facts",
+        "text": "Do not invent unspecified input or output contracts; keep the child worker definition as a renderable skeleton with empty INPUTS and empty OUTPUTS.",
         "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s19"
+          "s6"
         ]
       },
       {
         "constraint_id": "c_2",
-        "text": "Require evidence for sourced claims",
-        "kind": "evidence",
+        "text": "Do not invent missing contract fields.",
+        "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s20"
+          "s9"
         ]
       },
       {
         "constraint_id": "c_3",
-        "text": "Limit questions per turn",
-        "kind": "requirement",
+        "text": "Do not convert the child worker into a generic main-flow command.",
+        "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s21"
+          "s10"
         ]
       },
       {
         "constraint_id": "c_4",
-        "text": "Prefer tool evidence over unnecessary user questioning",
-        "kind": "requirement",
+        "text": "Do not create an executable worker invocation unless the handoff contract is complete.",
+        "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s22"
-        ]
-      },
-      {
-        "constraint_id": "c_5",
-        "text": "Deny finalization if critical slots are missing or provenance fails",
-        "kind": "gate",
-        "targets": [
-          "global"
-        ],
-        "source_span_ids": [
-          "s23"
+          "s11"
         ]
       }
     ]

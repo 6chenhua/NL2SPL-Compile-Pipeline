@@ -1,0 +1,66 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-06-15T01:37:47.961335",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "EvidenceRetrievalWorker is an explicit delegation with a strong semantic boundary, not ordinary sequential step or simple control flow.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s15",
+          "s16"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "Do not invent missing child worker input or output contracts; keep the child worker definition as a renderable skeleton with empty INPUTS and empty OUTPUTS.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s17",
+          "s22"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Evidence retrieval must remain a bounded child worker because it is reusable and has its own provenance responsibility.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s20"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Do not convert evidence retrieval into a generic main-flow command.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s21"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "Do not create an executable worker invocation unless the handoff contract is complete.",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s23"
+        ]
+      }
+    ]
+  }
+}

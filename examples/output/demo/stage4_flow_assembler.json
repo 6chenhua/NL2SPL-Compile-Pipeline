@@ -1,14 +1,13 @@
 {
   "stage": "stage4_flow_assembler",
-  "timestamp": "2026-06-14T18:45:57.569570",
+  "timestamp": "2026-06-15T01:45:01.075052",
   "metadata": {},
   "result": {
     "worker_flows": {
       "worker_main": {
         "main_flow_spans": [
           "s15",
-          "s16",
-          "s17"
+          "s16"
         ],
         "alternative_flows": [],
         "exception_flows": [
@@ -55,6 +54,15 @@
             ]
           }
         ],
+        "delegation_candidates": []
+      },
+      "draft_communication": {
+        "main_flow_spans": [
+          "s17",
+          "s18"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [],
         "delegation_candidates": []
       }
     },

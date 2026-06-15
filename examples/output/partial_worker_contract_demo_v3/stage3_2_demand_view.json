@@ -1,0 +1,101 @@
+{
+  "stage": "stage3_2_demand_view",
+  "timestamp": "2026-06-15T01:36:37.394586",
+  "metadata": {},
+  "result": {
+    "demands": [
+      {
+        "demand_id": "rcd_input_s2",
+        "direction": "input",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "A user incident report",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_incident_report",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s2"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_input_s3",
+        "direction": "input",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "a list of approved evidence repositories",
+        "source_span_ids": [
+          "s3"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_list_of_approved_evidence_repositories",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s3"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s4",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "A short triage response",
+        "source_span_ids": [
+          "s4"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_short_triage_response",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s4"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s5",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "an evidence summary",
+        "source_span_ids": [
+          "s5"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_evidence_summary",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s5"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      },
+      {
+        "demand_id": "rcd_output_s6",
+        "direction": "output",
+        "requiredness": "required",
+        "required": true,
+        "evidence_text": "a completion status",
+        "source_span_ids": [
+          "s6"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_completion_status",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s6"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid"
+      }
+    ],
+    "view_diagnostics": [],
+    "warnings": []
+  }
+}

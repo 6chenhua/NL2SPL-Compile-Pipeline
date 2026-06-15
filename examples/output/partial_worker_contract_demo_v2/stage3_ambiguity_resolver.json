@@ -1,0 +1,650 @@
+{
+  "stage": "stage3_ambiguity_resolver",
+  "timestamp": "2026-06-15T01:35:03.757818",
+  "metadata": {},
+  "result": {
+    "original_spans_count": 20,
+    "resolved_spans_count": 22,
+    "resolved_spans": [
+      {
+        "span_id": "s1",
+        "text": "Incident-response investigation workflows",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_sentence_incident_response_investigation_workflows"
+      },
+      {
+        "span_id": "s2",
+        "text": "A user incident report",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_incident_report"
+      },
+      {
+        "span_id": "s3",
+        "text": "a list of approved evidence repositories",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_list_of_approved_evidence_repositories"
+      },
+      {
+        "span_id": "s4",
+        "text": "A short triage response",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_short_triage_response"
+      },
+      {
+        "span_id": "s5",
+        "text": "an evidence summary",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_evidence_summary"
+      },
+      {
+        "span_id": "s6",
+        "text": "a completion status",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_completion_status"
+      },
+      {
+        "span_id": "s7",
+        "text": "First read the incident report and identify which facts require support",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_sentence_first_read_the_incident_report_and_identify_which_facts_require_support"
+      },
+      {
+        "span_id": "s8",
+        "text": "Then\nextract a separate child worker named EvidenceRetrievalWorker",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_sentence_then_extract_a_separate_child_worker_named_evidenceretrievalworker"
+      },
+      {
+        "span_id": "s9",
+        "text": "This worker owns",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_sentence_this_worker_owns"
+      },
+      {
+        "span_id": "s10",
+        "text": "query approved evidence\nrepositories",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_query_approved_evidence_repositories"
+      },
+      {
+        "span_id": "s11",
+        "text": "collect matching evidence",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_collect_matching_evidence"
+      },
+      {
+        "span_id": "s12",
+        "text": "normalize provenance",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_normalize_provenance"
+      },
+      {
+        "span_id": "s13",
+        "text": "discard\nunsupported claims",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_discard_unsupported_claims"
+      },
+      {
+        "span_id": "s16",
+        "text": "the main worker drafts the triage response from available\ninformation",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_main_worker_drafts_the_triage_response_from_available_information"
+      },
+      {
+        "span_id": "s17",
+        "text": "Evidence retrieval must remain a bounded child worker because it is reusable and\nhas its own provenance responsibility",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_evidence_retrieval_must_remain_a_bounded_child_worker_because_it_is_reusable_and_has_its_own_provenance_responsibility"
+      },
+      {
+        "span_id": "s18",
+        "text": "Do not convert it into a generic main-flow\ncommand",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_do_not_convert_it_into_a_generic_main_flow_command"
+      },
+      {
+        "span_id": "s19",
+        "text": "Do not invent missing contract fields",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_do_not_invent_missing_contract_fields"
+      },
+      {
+        "span_id": "s20",
+        "text": "Do not create an executable\nworker invocation unless the handoff contract is complete",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_do_not_create_an_executable_worker_invocation_unless_the_handoff_contract_is_complete"
+      },
+      {
+        "span_id": "s14a",
+        "text": "return control to the main worker for triage drafting.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_return_control_to_the_main_worker_for_triage_drafting_the_source_intentionally_does_not_specify_the_child_worker_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs"
+      },
+      {
+        "span_id": "s14b",
+        "text": "The source intentionally does not specify the child worker input contract or output contract. Do not invent those contracts. Keep the child worker definition as a renderable skeleton with empty INPUTS and empty OUTPUTS",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_return_control_to_the_main_worker_for_triage_drafting_the_source_intentionally_does_not_specify_the_child_worker_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs"
+      },
+      {
+        "span_id": "s15a",
+        "text": "let diagnostics report that the invocation contract is incomplete.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists"
+      },
+      {
+        "span_id": "s15b",
+        "text": "After the child worker definition exists",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+        "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists"
+      }
+    ],
+    "resolved_routes": {
+      "identity": [],
+      "audience": [],
+      "rules": [
+        "s14b",
+        "s15b",
+        "s17",
+        "s18",
+        "s19",
+        "s20"
+      ],
+      "domain": [
+        "s1"
+      ],
+      "integrations": [],
+      "behavior": [
+        "s7",
+        "s8",
+        "s9",
+        "s10",
+        "s11",
+        "s12",
+        "s13",
+        "s14a",
+        "s15a",
+        "s16"
+      ],
+      "annotations": [
+        {
+          "span_id": "s1",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_sentence_incident_response_investigation_workflows",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s2",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_user_incident_report",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s3",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_list_of_approved_evidence_repositories",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s4",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_short_triage_response",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s5",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_evidence_summary",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s6",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_completion_status",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s7",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_sentence_first_read_the_incident_report_and_identify_which_facts_require_support",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_sentence_then_extract_a_separate_child_worker_named_evidenceretrievalworker",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "field": "behavior",
+          "semantic_role": "worker_handoff_candidate",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_sentence_then_extract_a_separate_child_worker_named_evidenceretrievalworker",
+          "source_hint_ids": [],
+          "construct_target": "WORKER_HANDOFF",
+          "slot_target": "target",
+          "executable": false,
+          "primary": false,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s9",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_sentence_this_worker_owns",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s10",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_query_approved_evidence_repositories",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s11",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_collect_matching_evidence",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s12",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_normalize_provenance",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s13",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_discard_unsupported_claims",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s16",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_main_worker_drafts_the_triage_response_from_available_information",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s17",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_evidence_retrieval_must_remain_a_bounded_child_worker_because_it_is_reusable_and_has_its_own_provenance_responsibility",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s18",
+          "field": "rules",
+          "semantic_role": "delegation_prohibition",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_convert_it_into_a_generic_main_flow_command",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "prohibition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s19",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_invent_missing_contract_fields",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s20",
+          "field": "rules",
+          "semantic_role": "delegation_boundary_constraint",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_sentence_do_not_create_an_executable_worker_invocation_unless_the_handoff_contract_is_complete",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s14a",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_return_control_to_the_main_worker_for_triage_drafting_the_source_intentionally_does_not_specify_the_child_worker_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "_raw_": {}
+          }
+        },
+        {
+          "span_id": "s14b",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_return_control_to_the_main_worker_for_triage_drafting_the_source_intentionally_does_not_specify_the_child_worker_input_contract_or_output_contract_do_not_invent_those_contracts_keep_the_child_worker_definition_as_a_renderable_skeleton_with_empty_inputs_and_empty_outputs",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "_raw_": {}
+          }
+        },
+        {
+          "span_id": "s15a",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "_raw_": {}
+          }
+        },
+        {
+          "span_id": "s15b",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_an_independently_reusable_source_gathering_lifecycle",
+          "source_packet_id": "p_list_item_let_diagnostics_report_that_the_invocation_contract_is_incomplete_after_the_child_worker_definition_exists",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "_raw_": {}
+          }
+        }
+      ],
+      "structural_priors": [],
+      "route_diagnostics": [],
+      "structured_route_diagnostics": []
+    },
+    "overlaps": []
+  }
+}

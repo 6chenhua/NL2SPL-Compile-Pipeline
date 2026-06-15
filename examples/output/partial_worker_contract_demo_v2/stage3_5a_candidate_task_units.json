@@ -1,0 +1,42 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-06-15T01:35:07.166808",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_evidence_retrieval",
+        "source_span_ids": [
+          "s8",
+          "s9",
+          "s10",
+          "s11",
+          "s12",
+          "s13",
+          "s17"
+        ],
+        "task_text": "Retrieve and normalize evidence for incident-response triage by querying approved evidence repositories, collecting matching evidence, normalizing provenance, and discarding unsupported claims.",
+        "purpose": "Provide a reusable evidence-gathering subtask with its own provenance responsibility for triage workflows.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "explicit_delegation",
+          "multi_step_process",
+          "reuse_potential",
+          "bounded_io"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "unclear_result_handoff",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ]
+  }
+}
