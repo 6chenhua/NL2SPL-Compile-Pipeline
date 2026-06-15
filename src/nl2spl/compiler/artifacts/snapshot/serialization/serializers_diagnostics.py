@@ -121,7 +121,7 @@ class TraceRecordSerializer(ArtifactSerializer):
 
     def to_canonical(self, obj: Any) -> dict[str, Any]:
         t: TraceRecord = obj
-        return {
+        result: dict[str, Any] = {
             "$type": self.type_id,
             "target_ref": t.target_ref,
             "source_span_ids": t.source_span_ids,
@@ -131,6 +131,9 @@ class TraceRecordSerializer(ArtifactSerializer):
             "explanation": t.explanation,
             "needs_confirmation": t.needs_confirmation,
         }
+        if t.metadata:
+            result["metadata"] = t.metadata
+        return result
 
     def from_canonical(self, data: dict[str, Any]) -> Any:
         return TraceRecord(
@@ -141,6 +144,7 @@ class TraceRecordSerializer(ArtifactSerializer):
             relation=data.get("relation", "direct"),
             explanation=data.get("explanation", ""),
             needs_confirmation=data.get("needs_confirmation", False),
+            metadata=data.get("metadata", {}),
         )
 
 

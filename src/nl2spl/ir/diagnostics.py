@@ -165,6 +165,9 @@ class TraceRecord:
             ``assumed`` (compiler-created suggestion)
         explanation: Human-readable description of the provenance
         needs_confirmation: Whether the provenance requires user confirmation
+        metadata: Extension data for structured evidence details.
+            For ``user_confirmed_repair`` steps, carries
+            ``repair_patch_id``, ``related_diagnostic_id``, ``user_text``.
     """
 
     target_ref: str
@@ -174,6 +177,7 @@ class TraceRecord:
     relation: str = "direct"
     explanation: str = ""
     needs_confirmation: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

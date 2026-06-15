@@ -279,6 +279,7 @@ class ProvenanceAggregator:
         diags: list[CompileDiagnostic],
     ) -> None:
         for step in steps:
+            repair_metadata: dict[str, Any] = {}
             if step.source_span_ids:
                 relation = "direct"
                 explanation = (
@@ -296,6 +297,19 @@ class ProvenanceAggregator:
                     f"Step '{step.step_id}' is compiler unpack "
                     f"scaffolding."
                 )
+            elif step.metadata.get("origin") == "user_confirmed_repair":
+                relation = "user_confirmed_repair"
+                repair_id = step.metadata.get("repair_patch_id", "unknown")
+                diag_id = step.metadata.get("related_diagnostic_id", "")
+                explanation = (
+                    f"Step '{step.step_id}' is user-confirmed repair "
+                    f"(patch: {repair_id})."
+                )
+                repair_metadata = {
+                    "repair_patch_id": repair_id,
+                    "related_diagnostic_id": diag_id,
+                    "user_text": step.metadata.get("user_text", ""),
+                }
             else:
                 relation = "assumed"
                 explanation = (
@@ -314,6 +328,7 @@ class ProvenanceAggregator:
                     relation=relation,
                     explanation=explanation,
                     needs_confirmation=(relation == "assumed"),
+                    metadata=repair_metadata if repair_metadata else {},
                 )
             )
 
