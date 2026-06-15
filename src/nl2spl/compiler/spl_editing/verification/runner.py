@@ -7,9 +7,16 @@ per-patch verifiers inside their patch directories.
 from __future__ import annotations
 
 from nl2spl.compiler.spl_editing.core.errors import PatchValidationError
-from nl2spl.compiler.spl_editing.core.model import RepairPatch, VerificationResult
+from nl2spl.compiler.spl_editing.core.model import (
+    RepairPatch,
+    VerificationResult,
+    PatchApplyResult,
+)
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.verification.diagnostic_diff import DiagnosticDiff
+from nl2spl.compiler.spl_editing.verification.generic_evidence_verifier import (
+    GenericEvidenceVerifier,
+)
 from nl2spl.compiler.spl_editing.verification.lanes import (
     LaneAReplayAdapter,
     LaneBReplayAdapter,
@@ -27,17 +34,20 @@ class VerificationRunner:
     3. Run ``DiagnosticDiff`` on before/after diagnostics.
     4. Check target diagnostic resolved.
     5. Run patch-specific verifier.
-    6. Produce ``VerificationResult``.
+    6. Run ``GenericEvidenceVerifier`` on PatchApplyResult.
+    7. Produce ``VerificationResult``.
     """
 
     def __init__(
         self,
         lane_a: LaneReplayAdapter | None = None,
         lane_b: LaneReplayAdapter | None = None,
+        evidence_verifier: GenericEvidenceVerifier | None = None,
     ) -> None:
         self._lane_a = lane_a or LaneAReplayAdapter()
         self._lane_b = lane_b or LaneBReplayAdapter()
         self._diff = DiagnosticDiff()
+        self._evidence_verifier = evidence_verifier or GenericEvidenceVerifier()
 
     def verify(
         self,
@@ -45,8 +55,24 @@ class VerificationRunner:
         base_snapshot: ArtifactSnapshot,
         patched_snapshot: ArtifactSnapshot,
         patch_verifier: object | None = None,
+        *,
+        apply_result: PatchApplyResult | None = None,
     ) -> VerificationResult:
-        """Run verification for one applied patch."""
+        """Run verification for one applied patch.
+
+        Args:
+            patch: The applied repair patch.
+            base_snapshot: Snapshot BEFORE the patch was applied.
+            patched_snapshot: Snapshot AFTER the patch was applied.
+            patch_verifier: Optional patch-specific verifier with a
+                ``verify(patch, base, patched, artifacts) -> tuple[str,...]`` method.
+            apply_result: Optional structured ``PatchApplyResult`` with
+                ``changed_refs`` / ``evidence_refs`` for generic evidence audit.
+
+        Returns:
+            ``VerificationResult`` with ``accepted=True`` only when all
+            checks pass.
+        """
         lane = self._select_lane(patch.verification_lane)
 
         patched_artifacts = lane.replay(patched_snapshot)
@@ -96,6 +122,11 @@ class VerificationRunner:
                     )
                 else:
                     failure_reasons.extend(patch_failures)
+
+        # Generic evidence verifier (U3.5): audit changed refs
+        if apply_result is not None:
+            evidence_failures = self._evidence_verifier.verify(patch, apply_result)
+            failure_reasons.extend(evidence_failures)
 
         return VerificationResult(
             session_id="",

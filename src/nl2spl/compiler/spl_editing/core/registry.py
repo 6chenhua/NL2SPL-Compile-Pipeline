@@ -68,6 +68,29 @@ class PatchRegistry(_BaseRegistry):
                 f"PatchBundle.patch_type '{bundle_patch_type}' does not "
                 f"match registry key '{key}'"
             )
+        # U3.5/U6: enforce PatchTypeContract
+        contract = getattr(bundle, "contract", None)
+        if contract is not None:
+            contract_type = getattr(contract, "patch_type", None)
+            if contract_type is not None and contract_type != key:
+                raise ValueError(
+                    f"PatchTypeContract.patch_type '{contract_type}' does not "
+                    f"match registry key '{key}'"
+                )
+            # Reject unconfigured default contract.
+            # A contract is "unconfigured" when it declares no productions
+            # AND no evidence targets — the factory default.
+            produces_step = bool(getattr(contract, "produces_step_ir", False))
+            produces_handoff = bool(getattr(contract, "produces_handoff_ir", False))
+            ev_targets = tuple(getattr(contract, "evidence_targets", ()))
+            if not produces_step and not produces_handoff and not ev_targets:
+                raise ValueError(
+                    f"PatchBundle '{key}' has an unconfigured PatchTypeContract "
+                    f"(produces_step_ir=False, produces_handoff_ir=False, "
+                    f"evidence_targets=()). "
+                    f"Every patch must explicitly declare what artifacts it "
+                    f"produces or modifies via its PatchTypeContract."
+                )
         super().register(key, bundle)
 
 

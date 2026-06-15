@@ -225,3 +225,68 @@ class VerificationResult:
     new_blocking_diagnostic_ids: tuple[str, ...] = ()
     diagnostic_diff_summary: str = ""
     failure_reasons: tuple[str, ...] = ()
+
+
+# ---------------------------------------------------------------------------
+# PatchApplyResult — structured return from patch applier (U3.5)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RepairEvidenceRef:
+    """Evidence reference for a changed artifact.
+
+    Ties a changed artifact back to the repair patch and diagnostic
+    that motivated the change.  Used by ``GenericEvidenceVerifier``
+    to confirm every changed artifact carries the required evidence.
+    """
+
+    artifact_ref: str
+    """Stable reference like ``step:{worker_id}:{step_id}`` or ``handoff:{handoff_id}``."""
+
+    evidence_kind: Literal["user_confirmed_repair"] = "user_confirmed_repair"
+    repair_patch_id: str = ""
+    related_diagnostic_id: str = ""
+    user_text: str = ""
+
+
+@dataclass(frozen=True)
+class PatchApplyResult:
+    """Structured result returned by a patch applier.
+
+    In addition to the patched snapshot and overlay event, exposes
+    ``changed_refs`` and ``evidence_refs`` so that verification and
+    provenance can generically audit repair evidence without needing
+    patch-specific knowledge.
+    """
+
+    patched_snapshot: Any  # ArtifactSnapshot (forward-ref to avoid circular import)
+    overlay_event: Any  # OverlayEvent
+    changed_refs: tuple[str, ...] = ()
+    """Stable refs for changed artifacts, e.g. ``step:{wid}:{step_id}``."""
+
+    changed_step_ids: tuple[str, ...] = ()
+    """Step IDs created or modified by this patch."""
+
+    changed_handoff_ids: tuple[str, ...] = ()
+    """Handoff IDs created or modified by this patch."""
+
+    evidence_refs: tuple[RepairEvidenceRef, ...] = ()
+    """Per-artifact evidence references for GenericEvidenceVerifier."""
+
+
+@dataclass(frozen=True)
+class PatchTypeContract:
+    """Declarative contract for a patch bundle type.
+
+    Registered at bundle creation time so that the registry, audit
+    tests, and GenericEvidenceVerifier can check evidence obligations
+    without patch-specific knowledge.
+    """
+
+    patch_type: str
+    produces_step_ir: bool = False
+    produces_handoff_ir: bool = False
+    requires_user_confirmed_evidence: bool = True
+    evidence_targets: tuple[str, ...] = ()
+    """Expected kinds of evidence targets (e.g. ``("step",)``, ``("handoff",)``)."""

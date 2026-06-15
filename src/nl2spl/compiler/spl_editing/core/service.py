@@ -26,6 +26,7 @@ from nl2spl.compiler.spl_editing.core.errors import (
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     EditingSession,
+    PatchApplyResult,
     RepairEvidence,
     RepairPatch,
     RepairSuggestion,
@@ -91,6 +92,7 @@ class SPLEditingService:
         self._verifier = VerificationRunner(lane_a=lane_a)
         self._extractor = EditableIssueExtractor(self._catalog)
         self._applied_patches: dict[str, RepairPatch] = {}
+        self._apply_results: dict[str, PatchApplyResult] = {}
         self._verification_results = VerificationResultStore()
         self._session_overlays: dict[str, list[str]] = {}
         # compile_run_id → snapshot_id
@@ -258,11 +260,23 @@ class SPLEditingService:
         self,
         session_id: str,
         suggestion_id: str,
+        *,
+        user_text: str | None = None,
     ) -> EditingSession:
         """Apply a confirmed suggestion.
 
-        Returns an updated session with incremented overlay_version.
-        Raises StaleRevisionError if the base snapshot has changed.
+        Args:
+            session_id: Editing session ID.
+            suggestion_id: Suggestion ID to apply.
+            user_text: Optional user-provided clarification text associated
+                with the confirmation.  Preserved in ``RepairEvidence.user_text``
+                and carried through to ``StepIR.metadata["user_text"]``.
+
+        Returns:
+            Updated session with incremented overlay_version.
+
+        Raises:
+            StaleRevisionError if the base snapshot has changed.
         """
         session = self._sessions.get(session_id)
         suggestion = self._suggestions.get(suggestion_id)
@@ -293,7 +307,7 @@ class SPLEditingService:
             preconditions=patch.preconditions,
             evidence=RepairEvidence(
                 evidence_kind="user_confirmed_repair",
-                user_text="",
+                user_text=user_text or "",
                 related_diagnostic_id=session.issue.primary_diagnostic_id,
             ),
             verification_lane=patch.verification_lane,
@@ -316,6 +330,20 @@ class SPLEditingService:
 
         applier = bundle.applier
         patched_snap, overlay_event = applier.apply(confirmed_patch, snap)
+
+        # Build PatchApplyResult by diffing snapshots (real changed refs).
+        # Falls back to a minimal result when the applier doesn't support
+        # build_apply_result (e.g. test stubs).
+        if hasattr(applier, "build_apply_result"):
+            apply_result = applier.build_apply_result(
+                confirmed_patch, snap, patched_snap, overlay_event,
+            )
+        else:
+            apply_result = PatchApplyResult(
+                patched_snapshot=patched_snap,
+                overlay_event=overlay_event,
+            )
+
         self._snapshots.put(patched_snap)
         self._overlays.register_snapshot(
             patched_snap.compile_run_id, patched_snap.snapshot_id,
@@ -324,6 +352,7 @@ class SPLEditingService:
 
         # Persist applied patch for verification
         self._applied_patches[overlay_event.overlay_id] = confirmed_patch
+        self._apply_results[overlay_event.overlay_id] = apply_result
         self._session_overlays.setdefault(session_id, []).append(
             overlay_event.overlay_id,
         )
@@ -379,8 +408,10 @@ class SPLEditingService:
             )
         else:
             bundle = self._runtime.patches.get(last_event.patch_type)
+            apply_result = self._apply_results.get(last_ov_id)
             result = self._verifier.verify(
                 patch, base, snap, bundle.verifier,
+                apply_result=apply_result,
             )
         self._persist_verification_if_configured(session_id, result)
         self._verification_results.append(session_id, result)
@@ -520,3 +551,4 @@ class SPLEditingService:
         if cid is None:
             raise UnsupportedIssueError("No context_id in catalog entry")
         return cid
+
