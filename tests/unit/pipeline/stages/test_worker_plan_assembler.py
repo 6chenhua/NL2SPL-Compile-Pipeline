@@ -50,7 +50,7 @@ def test_worker_assembler_uses_worker_plan_contracts() -> None:
                 "worker_unused",
                 "UnusedWorker",
                 "child",
-                "Should not render without a handoff",
+                "Render from WorkerSpecIR even without a handoff",
                 owned_span_ids=["s3"],
                 input_contract=[field("unused_input")],
                 output_contract=[field("unused_output", "output")],
@@ -96,7 +96,15 @@ def test_worker_assembler_uses_worker_plan_contracts() -> None:
     assert worker.worker_name == "CoordinatorWorker"
     assert worker.inputs[0].name == "user_request"
     assert worker.outputs[0].name == "draft"
-    assert worker.child_worker_refs == ["SourceWorker"]
-    assert [child.worker_name for child in worker.child_workers] == ["SourceWorker"]
-    assert worker.child_workers[0].inputs[0].name == "source_request"
-    assert worker.child_workers[0].outputs[0].name == "source_evidence"
+    assert worker.child_worker_refs == ["SourceWorker", "UnusedWorker"]
+    assert [child.worker_name for child in worker.child_workers] == [
+        "SourceWorker",
+        "UnusedWorker",
+    ]
+
+    source_child = worker.child_workers[0]
+    unused_child = worker.child_workers[1]
+    assert source_child.inputs[0].name == "source_request"
+    assert source_child.outputs[0].name == "source_evidence"
+    assert unused_child.inputs[0].name == "unused_input"
+    assert unused_child.outputs[0].name == "unused_output"

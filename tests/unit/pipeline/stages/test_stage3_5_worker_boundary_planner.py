@@ -29,6 +29,7 @@ from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import (
     WorkerBoundaryPlanner,
 )
 
+
 def field(name: str, source: str = "input") -> dict[str, Any]:
     return {
         "name": name,
@@ -277,15 +278,16 @@ def test_split_materializer_rejects_accepted_candidate_without_output_contract(
 
     plan = planner.execute((spans, routes))
 
-    assert [worker.kind for worker in plan.workers] == ["main"]
-    assert plan.handoffs == []
-    assert plan.decisions[0].decision == "keep_in_main_worker"
-    assert plan.decisions[0].rejection_reason == "no_clear_output_contract"
-    assert all(
-        field.name != "output"
-        for worker in plan.workers
-        for field in worker.output_contract
-    )
+    # Partial child worker preserved (was rejected pre-Phase4)
+    kinds = [worker.kind for worker in plan.workers]
+    assert "main" in kinds
+    child = next((w for w in plan.workers if w.kind == "child"), None)
+    assert child is not None, "Partial child worker should be preserved"
+    assert child.output_contract == []
+    assert getattr(child, "output_contract_status", "unknown") == "unknown"
+    assert getattr(child, "partial_reason", None) == "missing_output_contract"
+    # Validator accepts partial workers (warnings only, no error)
+    assert not plan.decisions or plan.decisions[0].decision != "keep_in_main_worker"
 
 
 def test_split_materializer_recovers_contract_from_hard_fact_name_match(
@@ -1046,7 +1048,9 @@ class TestStage35PromptInjection:
             purpose="Normalize procurement request.",
             candidate_kind="bounded_subtask",
             possible_inputs=[ContractFieldIR("purchase_request", "text", True, "Request", "input")],
-            possible_outputs=[ContractFieldIR("normalized_request", "text", True, "Result", "output")],
+            possible_outputs=[
+                ContractFieldIR("normalized_request", "text", True, "Result", "output")
+            ],
             signals=["bounded_io"],
             risks=[],
         )

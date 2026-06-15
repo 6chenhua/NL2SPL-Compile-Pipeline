@@ -86,6 +86,9 @@ def test_worker_scoped_preserves_multi_output_handoff_step() -> None:
                     OutputBindingIR("child_two", "out_two", True, "set"),
                 ],
                 invoke_location_hint=InvokeLocationHintIR("main", None, "s1", None, None),
+                input_binding_status="known_present",
+                output_binding_status="known_present",
+                materialization_status="complete",
             )
         ],
     )
@@ -148,6 +151,180 @@ def test_worker_scoped_preserves_multi_output_handoff_step() -> None:
     assert getattr(normalizer, "construct_findings", {}).get(
         "missing_output_producer"
     ) in (None, [])
+
+
+def _normalizer_base_ir(
+    handoff: WorkerHandoffIR,
+    step_plan: WorkerStepPlanIR,
+) -> tuple[
+    WorkerPlanIR,
+    WorkerFlowPlanIR,
+    WorkerBlockPlanIR,
+    ResourceRegistryIR,
+    SymbolTable,
+]:
+    resources = ResourceRegistryIR(
+        variables=[
+            VariableSpec("request", "text", True, "Request", "input"),
+            VariableSpec("result", "text", True, "Result", "output"),
+        ]
+    )
+    symbols = SymbolTable()
+    for variable in resources.variables:
+        symbols.declare(
+            variable.name,
+            variable.data_type,
+            variable.source,
+            variable.description,
+        )
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[
+            WorkerSpecIR(
+                "worker_main",
+                "MainWorker",
+                "main",
+                "Main",
+                owned_span_ids=["s1"],
+                input_contract=[field("request")],
+                output_contract=[field("result", "output")],
+                boundary_kind="main_worker",
+            ),
+            WorkerSpecIR(
+                "worker_child",
+                "ChildWorker",
+                "child",
+                "Child",
+                owned_span_ids=["s2"],
+                input_contract=[],
+                output_contract=[],
+                input_contract_status="known_empty",
+                output_contract_status="known_empty",
+                input_contract_status_source="adapter_hard_fact",
+                output_contract_status_source="adapter_hard_fact",
+                boundary_kind="bounded_subtask",
+            ),
+        ],
+        handoffs=[handoff],
+    )
+    flow_plan = WorkerFlowPlanIR(
+        {"worker_main": FlowStructureIR(["s1"]), "worker_child": FlowStructureIR(["s2"])}
+    )
+    block_plan = WorkerBlockPlanIR(
+        {
+            "worker_main": BlockStructureIR([BlockIR("b_main", "SEQUENTIAL", spans=["s1"])]),
+            "worker_child": BlockStructureIR([BlockIR("b_child", "SEQUENTIAL", spans=["s2"])]),
+        }
+    )
+    return plan, flow_plan, block_plan, resources, symbols
+
+
+def test_stage9_5_partial_unknown_handoff_without_step_is_not_error() -> None:
+    handoff = WorkerHandoffIR(
+        "h_partial",
+        "worker_main",
+        "worker_child",
+        None,
+        "invoke",
+        None,
+        "after",
+        input_bindings=[],
+        output_bindings=[],
+        input_binding_status="unknown",
+        output_binding_status="unknown",
+        materialization_status="partial_contract_unknown",
+    )
+    step_plan = WorkerStepPlanIR("worker_main", {"worker_main": [], "worker_child": []})
+    plan, flow_plan, block_plan, resources, symbols = _normalizer_base_ir(
+        handoff,
+        step_plan,
+    )
+
+    _, _, _, _, errors, warnings = IRNormalizer().normalize_worker_scoped(
+        flow_plan, block_plan, step_plan, plan, resources, symbols,
+    )
+
+    assert errors == []
+    assert any("partial_contract_unknown" in warning for warning in warnings)
+
+
+def test_stage9_5_complete_handoff_without_step_is_error() -> None:
+    handoff = WorkerHandoffIR(
+        "h_complete",
+        "worker_main",
+        "worker_child",
+        None,
+        "invoke",
+        None,
+        "after",
+        input_bindings=[],
+        output_bindings=[],
+        input_binding_status="known_empty",
+        output_binding_status="known_empty",
+        input_binding_status_source="adapter_hard_fact",
+        output_binding_status_source="adapter_hard_fact",
+        materialization_status="confirmed_empty_contract",
+    )
+    step_plan = WorkerStepPlanIR("worker_main", {"worker_main": [], "worker_child": []})
+    plan, flow_plan, block_plan, resources, symbols = _normalizer_base_ir(
+        handoff,
+        step_plan,
+    )
+
+    _, _, _, _, errors, _warnings = IRNormalizer().normalize_worker_scoped(
+        flow_plan, block_plan, step_plan, plan, resources, symbols,
+    )
+
+    assert any("has no corresponding step" in error for error in errors)
+
+
+def test_stage9_5_confirmed_empty_handoff_validates_empty_step() -> None:
+    handoff = WorkerHandoffIR(
+        "h_empty",
+        "worker_main",
+        "worker_child",
+        None,
+        "invoke",
+        None,
+        "after",
+        input_bindings=[],
+        output_bindings=[],
+        input_binding_status="known_empty",
+        output_binding_status="known_empty",
+        input_binding_status_source="adapter_hard_fact",
+        output_binding_status_source="adapter_hard_fact",
+        materialization_status="confirmed_empty_contract",
+    )
+    step_plan = WorkerStepPlanIR(
+        "worker_main",
+        {
+            "worker_main": [
+                StepIR(
+                    "st_handoff",
+                    "Invoke child",
+                    ["s1"],
+                    "INVOKE_WORKER",
+                    inputs=[],
+                    outputs=[],
+                    integration_ref="ChildWorker",
+                    handoff_id="h_empty",
+                )
+            ],
+            "worker_child": [],
+        },
+    )
+    plan, flow_plan, block_plan, resources, symbols = _normalizer_base_ir(
+        handoff,
+        step_plan,
+    )
+
+    _, _, _, _, errors, warnings = IRNormalizer().normalize_worker_scoped(
+        flow_plan, block_plan, step_plan, plan, resources, symbols,
+    )
+
+    assert errors == []
+    assert not any("no input_bindings" in warning for warning in warnings)
+    assert not any("no output_bindings" in warning for warning in warnings)
 
 
 def test_worker_scoped_multi_output_cleans_self_inputs_only() -> None:
@@ -453,7 +630,10 @@ def test_worker_scoped_duplicate_producer_allows_ordered_update() -> None:
     )
 
     assert errors == []
-    assert not any("variable 'status' produced by multiple steps" in warning for warning in warnings)
+    assert not any(
+        "variable 'status' produced by multiple steps" in warning
+        for warning in warnings
+    )
 
 
 def test_worker_scoped_duplicate_producer_warns_for_overwrite() -> None:
@@ -492,7 +672,13 @@ def test_worker_scoped_duplicate_producer_warns_for_overwrite() -> None:
         {
             "worker_main": [
                 StepIR("st_create", "Create status", ["s1"], "GENERAL_COMMAND", outputs=["status"]),
-                StepIR("st_overwrite", "Overwrite status", ["s2"], "GENERAL_COMMAND", outputs=["status"]),
+                StepIR(
+                    "st_overwrite",
+                    "Overwrite status",
+                    ["s2"],
+                    "GENERAL_COMMAND",
+                    outputs=["status"],
+                ),
             ]
         },
     )

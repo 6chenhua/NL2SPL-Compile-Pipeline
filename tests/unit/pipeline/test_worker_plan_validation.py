@@ -208,6 +208,7 @@ def test_reject_accepted_handoff_without_bindings() -> None:
     handoff = invoke_handoff()
     handoff.input_bindings = []
     handoff.output_bindings = []
+    handoff.materialization_status = "complete"  # not partial
     plan = WorkerPlanIR(
         main_worker_id="worker_main",
         workers=[main_worker(), child_worker()],
@@ -461,4 +462,156 @@ def test_reject_accepted_decision_in_rejected_candidates() -> None:
     assert any(
         "Accepted decision appears in rejected_candidates" in error
         for error in validate(plan)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: status-aware validation
+# ---------------------------------------------------------------------------
+
+
+def _partial_child(
+    worker_id: str = "worker_child",
+    inputs: list | None = None,
+    outputs: list | None = None,
+    in_status: str = "unknown",
+    out_status: str = "unknown",
+    partial_reason: str | None = "missing_input_contract",
+) -> WorkerSpecIR:
+    w = child_worker(worker_id)
+    w.input_contract = inputs if inputs is not None else []
+    w.output_contract = outputs if outputs is not None else []
+    w.input_contract_status = in_status
+    w.output_contract_status = out_status
+    w.partial_reason = partial_reason
+    return w
+
+
+def test_known_empty_contract_accepted() -> None:
+    """known_empty + empty list → satisfied, no error."""
+    worker = _partial_child(
+        in_status="known_empty", out_status="known_empty",
+        partial_reason=None,
+    )
+    worker.input_contract_status_source = "user_confirmed_repair"
+    worker.output_contract_status_source = "user_confirmed_repair"
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[main_worker(), worker],
+        candidates=[],
+        decisions=[],
+        handoffs=[],
+    )
+    errors = validate(plan)
+    assert not any("empty" in e for e in errors), f"known_empty should not error: {errors}"
+
+
+def test_confirmed_empty_handoff_accepted() -> None:
+    """confirmed_empty_contract handoff with known_empty bindings is valid."""
+    worker = _partial_child(
+        in_status="known_empty", out_status="known_empty",
+        partial_reason=None,
+    )
+    worker.input_contract_status_source = "user_confirmed_repair"
+    worker.output_contract_status_source = "user_confirmed_repair"
+    handoff = invoke_handoff()
+    handoff.input_bindings = []
+    handoff.output_bindings = []
+    handoff.input_binding_status = "known_empty"
+    handoff.output_binding_status = "known_empty"
+    handoff.input_binding_status_source = "user_confirmed_repair"
+    handoff.output_binding_status_source = "user_confirmed_repair"
+    handoff.materialization_status = "confirmed_empty_contract"
+    accepted = accepted_decision("candidate_child")
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[main_worker(), worker],
+        candidates=[CandidateTaskUnitIR("candidate_child", ["s2"], "T", "P", "bounded_subtask")],
+        decisions=[accepted],
+        handoffs=[handoff],
+    )
+    errors = validate(plan, {"s1", "s2"})
+    assert not errors, f"confirmed_empty should be valid: {errors}"
+
+
+def test_materialization_status_mismatch_rejected() -> None:
+    """mat_status != derived value → error."""
+    handoff = invoke_handoff()
+    handoff.input_bindings = []
+    handoff.output_bindings = []
+    handoff.input_binding_status = "known_empty"
+    handoff.output_binding_status = "known_empty"
+    handoff.input_binding_status_source = "user_confirmed_repair"
+    handoff.output_binding_status_source = "user_confirmed_repair"
+    handoff.materialization_status = "complete"  # wrong: should be confirmed_empty_contract
+    accepted = accepted_decision("candidate_child")
+    worker = _partial_child(
+        in_status="known_empty", out_status="known_empty",
+        partial_reason=None,
+    )
+    worker.input_contract_status_source = "user_confirmed_repair"
+    worker.output_contract_status_source = "user_confirmed_repair"
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[main_worker(), worker],
+        candidates=[
+            CandidateTaskUnitIR(
+                "candidate_child", ["s2"], "T", "P", "bounded_subtask",
+            )
+        ],
+        decisions=[accepted],
+        handoffs=[handoff],
+    )
+    errors = validate(plan, {"s1", "s2"})
+    assert any("materialization_status mismatch" in e for e in errors), (
+        f"Should reject mat_status mismatch: {errors}"
+    )
+
+
+def test_candidate_known_present_empty_list_rejected() -> None:
+    """Candidate with known_present but empty list → error."""
+    candidate = CandidateTaskUnitIR(
+        "c1", ["s2"], "T", "P", "bounded_subtask",
+        possible_inputs=[],
+        input_contract_status="known_present",
+    )
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[main_worker()],
+        candidates=[candidate],
+        decisions=[],
+        handoffs=[],
+    )
+    errors = validate(plan)
+    assert any("known_present" in e and "empty" in e for e in errors), (
+        f"Should reject known_present + empty list: {errors}"
+    )
+
+
+def test_accepted_child_blocked_handoff_rejected() -> None:
+    """Accepted child decision cannot rely on a blocked invoke handoff."""
+    accepted = accepted_decision("candidate_child")
+    handoff = invoke_handoff()
+    handoff.input_binding_status = "known_present"
+    handoff.output_binding_status = "known_present"
+    handoff.materialization_status = "blocked"
+    worker = child_worker()
+    worker.input_contract_status = "known_present"
+    worker.output_contract_status = "known_present"
+    plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[main_worker(), worker],
+        candidates=[
+            CandidateTaskUnitIR(
+                "candidate_child", ["s2"], "T", "P", "bounded_subtask",
+            )
+        ],
+        decisions=[accepted],
+        handoffs=[handoff],
+    )
+
+    errors = validate(plan, {"s1", "s2"})
+
+    assert any("handoff is blocked" in e for e in errors), (
+        f"Should reject blocked handoff for accepted child: {errors}"
     )
