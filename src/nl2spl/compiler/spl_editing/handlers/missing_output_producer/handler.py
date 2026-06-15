@@ -44,6 +44,8 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
         selected_patch_types: tuple[str, ...] | None = None,
+        *,
+        rendered_user_prompt: str | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         allowed = tuple(pt for e in catalog_entries for pt in e.supported_patch_types)
         if selected_patch_types:

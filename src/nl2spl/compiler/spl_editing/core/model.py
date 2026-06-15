@@ -6,8 +6,9 @@ as a primary field — structured payloads have dedicated types.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
 
@@ -211,6 +212,39 @@ class RepairSuggestion:
 # ---------------------------------------------------------------------------
 # VerificationResult
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SuggestionGenerationResult:
+    """Structured result of suggestion generation.
+
+    Carries readiness status and suggestions (if any).  Blocked/unavailable
+    states carry empty suggestions and reasons — never squashed to ``()``.
+    """
+
+    status: str
+    """ready | ready_low_confidence | generation_blocked | repair_unavailable."""
+    suggestions: tuple[Any, ...] = ()  # RepairSuggestion instances
+    reasons: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(self.suggestions)
+
+    def __len__(self) -> int:
+        return len(self.suggestions)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.suggestions)
+
+    @overload
+    def __getitem__(self, index: int) -> Any: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> tuple[Any, ...]: ...
+
+    def __getitem__(self, index: int | slice) -> Any | tuple[Any, ...]:
+        return self.suggestions[index]
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 """SPL Editing runtime registries.
 
-Four registries wire service IDs to implementation objects / factories.
+Runtime registries wire service IDs to implementation objects / factories.
 All registries are mutable at setup time (``register()``) and read-only
 during the editing session (``get()`` / ``has()``).
 
@@ -11,7 +11,6 @@ imports, no lazy instantiation that triggers side effects.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 
@@ -128,13 +127,31 @@ class ContextBuilderRegistry(_BaseRegistry):
         super().__init__("ContextBuilderRegistry")
 
 
+class LLMContextBuilderRegistry(_BaseRegistry):
+    """Registry of ``handler_id`` -> ``LLMRepairContextBuilder`` instance.
+
+    LLM context construction is service-owned.  Handlers must not carry
+    private builder references or construct prompts themselves.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("LLMContextBuilderRegistry")
+
+
+class PromptRendererRegistry(_BaseRegistry):
+    """Registry of ``handler_id`` -> ``PromptRenderer`` instance."""
+
+    def __init__(self) -> None:
+        super().__init__("PromptRendererRegistry")
+
+
 # ---------------------------------------------------------------------------
 # Aggregate
 # ---------------------------------------------------------------------------
 
 
 class SPLEditingRuntimeRegistry:
-    """Holds all four sub-registries for an editing session.
+    """Holds all sub-registries for an editing session.
 
     Built once at service startup.  Individual sub-registries can be
     populated incrementally as patch families are implemented.
@@ -145,3 +162,5 @@ class SPLEditingRuntimeRegistry:
         self.handlers = HandlerRegistry()
         self.target_resolvers = TargetResolverRegistry()
         self.context_builders = ContextBuilderRegistry()
+        self.llm_context_builders = LLMContextBuilderRegistry()
+        self.prompt_renderers = PromptRendererRegistry()

@@ -302,7 +302,13 @@ def run_auto(svc, run_id: str, preferred_patch_type: str | None = None) -> None:
     print(f"Target: {issue.target_ref}")
 
     session = svc.create_session(run_id, issue)
-    suggestions = svc.generate_suggestions(session.session_id)
+    generation = svc.generate_suggestions(session.session_id)
+    if generation.status in ("generation_blocked", "repair_unavailable"):
+        raise RuntimeError(
+            "Suggestion generation unavailable: "
+            f"{generation.status}; {'; '.join(generation.reasons)}"
+        )
+    suggestions = generation.suggestions
     if not suggestions:
         raise RuntimeError("No repair suggestions generated.")
 

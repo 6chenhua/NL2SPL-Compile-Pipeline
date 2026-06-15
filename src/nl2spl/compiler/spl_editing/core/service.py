@@ -30,6 +30,7 @@ from nl2spl.compiler.spl_editing.core.model import (
     RepairEvidence,
     RepairPatch,
     RepairSuggestion,
+    SuggestionGenerationResult,
     VerificationResult,
 )
 from nl2spl.compiler.spl_editing.core.registry import (
@@ -190,8 +191,12 @@ class SPLEditingService:
         session_id: str,
         user_instruction: str | None = None,
         selected_patch_types: tuple[str, ...] | None = None,
-    ) -> tuple[RepairSuggestion, ...]:
-        """Generate repair suggestions for the issue in *session_id*."""
+    ) -> SuggestionGenerationResult:
+        """Generate repair suggestions for the issue in *session_id*.
+
+        The return value preserves context-readiness state.  Blocked or
+        unavailable generation is not collapsed into an empty tuple.
+        """
         session = self._sessions.get(session_id)
         issue = session.issue
 
@@ -205,10 +210,10 @@ class SPLEditingService:
         snap = self._get_snapshot(session.compile_run_id)
         target = resolver.resolve(issue, snap)
 
-        # Build context
+        # Build RepairContext
         context_id = self._resolve_context_id(issue)
-        context_builder = self._runtime.context_builders.get(context_id)
-        context = context_builder.build(issue, target, snap, user_instruction)
+        ctx_builder = self._runtime.context_builders.get(context_id)
+        context = ctx_builder.build(issue, target, snap, user_instruction)
 
         # Find catalog entries
         entries = self._catalog.find_by_construct_slot_kind(
@@ -217,10 +222,59 @@ class SPLEditingService:
             issue.kind,
         )
 
-        # Generate
+        # Build LLMRepairContext for prompt rendering when formally registered.
+        rendered_prompt: str | None = None
+        readiness_status = "ready"
+        readiness_reasons: tuple[str, ...] = ()
+        readiness_warnings: tuple[str, ...] = ()
+        if self._runtime.llm_context_builders.has(
+            handler_id,
+        ) and self._runtime.prompt_renderers.has(handler_id):
+            llm_ctx_builder = self._runtime.llm_context_builders.get(handler_id)
+            llm_ctx_renderer = self._runtime.prompt_renderers.get(handler_id)
+            selected_patch_type = self._selected_patch_type(
+                entries,
+                selected_patch_types,
+            )
+            if not selected_patch_type:
+                return SuggestionGenerationResult(
+                    status="repair_unavailable",
+                    reasons=("No repair patch type is available for this issue.",),
+                )
+            llm_ctx = llm_ctx_builder.build(
+                session_id=session_id,
+                issue=issue, target=target,
+                repair_context=context,
+                artifact_snapshot=snap,
+                selected_patch_type=selected_patch_type,
+                affordance_id=entries[0].affordance_id if entries else "",
+                user_instruction=user_instruction,
+                source_spans=context.source_spans,
+                catalog_entry=entries[0] if entries else None,
+                patch_registry=self._runtime.patches,
+            )
+            readiness_status = llm_ctx.generation_readiness.status
+            readiness_reasons = llm_ctx.generation_readiness.reasons
+            readiness_warnings = llm_ctx.quality.warnings
+            if llm_ctx.generation_readiness.status in (
+                "generation_blocked", "repair_unavailable",
+            ):
+                return SuggestionGenerationResult(
+                    status=readiness_status,
+                    reasons=readiness_reasons,
+                    warnings=readiness_warnings,
+                )
+            rendered_prompt = llm_ctx_renderer.render(llm_ctx)
+
+        # Generate — pass rendered_prompt only when handler accepts it
         suggestions = handler.generate_suggestions(
-            issue, target, context, entries, user_instruction,
+            issue,
+            target,
+            context,
+            entries,
+            user_instruction,
             selected_patch_types=selected_patch_types,
+            rendered_user_prompt=rendered_prompt,
         )
 
         # Stamp with session metadata, revision, and evidence
@@ -254,7 +308,12 @@ class SPLEditingService:
             )
             self._suggestions.put(stamped)
             result.append(stamped)
-        return tuple(result)
+        return SuggestionGenerationResult(
+            status=readiness_status,
+            suggestions=tuple(result),
+            reasons=readiness_reasons,
+            warnings=readiness_warnings,
+        )
 
     def apply_suggestion(
         self,
@@ -551,4 +610,21 @@ class SPLEditingService:
         if cid is None:
             raise UnsupportedIssueError("No context_id in catalog entry")
         return cid
+
+    @staticmethod
+    def _selected_patch_type(
+        entries,
+        selected_patch_types: tuple[str, ...] | None,
+    ) -> str:
+        supported = tuple(
+            patch_type
+            for entry in entries
+            for patch_type in entry.supported_patch_types
+        )
+        if selected_patch_types:
+            for patch_type in selected_patch_types:
+                if patch_type in supported:
+                    return patch_type
+            return ""
+        return supported[0] if supported else ""
 

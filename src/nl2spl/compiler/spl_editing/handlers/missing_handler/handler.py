@@ -1,7 +1,8 @@
 """Missing handler repair handler.
 
-Generates ``AddExceptionHandlerStep`` suggestions for exception flows
-that have a condition but no handler action.
+Thin LLM caller: receives a rendered prompt plus target context, calls LLM,
+parses JSON, and assembles ``RepairSuggestion`` objects.  Prompt construction
+and business-context extraction are owned by the service LLM-context layer.
 """
 
 from __future__ import annotations
@@ -25,13 +26,15 @@ from nl2spl.compiler.spl_editing.handlers.base import (
 from nl2spl.compiler.spl_editing.handlers.llm_adapter import SuggestionLLM
 from nl2spl.compiler.spl_editing.handlers.missing_handler.prompt import (
     MISSING_HANDLER_SYSTEM_PROMPT,
-    build_missing_handler_user_prompt,
 )
 from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
+from nl2spl.compiler.spl_editing.llm_context.rendering import (
+    append_previous_suggestions,
+)
 
 
 class MissingHandlerRepairHandler(IssueRepairHandler):
-    """Generate AddExceptionHandlerStep suggestions."""
+    """Generate ``AddExceptionHandlerStep`` suggestions from rendered prompts."""
 
     handler_id = "missing_handler"
 
@@ -55,9 +58,18 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
         selected_patch_types: tuple[str, ...] | None = None,
+        *,
+        rendered_user_prompt: str | None = None,
     ) -> tuple[RepairSuggestion, ...]:
+        """Generate suggestions from a service-rendered prompt."""
+        if rendered_user_prompt is None:
+            raise PatchValidationError(
+                "MissingHandlerRepairHandler requires a rendered_user_prompt "
+                "from LLMRepairContext."
+            )
+
         allowed = tuple(
-            pt for e in catalog_entries for pt in e.supported_patch_types
+            pt for entry in catalog_entries for pt in entry.supported_patch_types
         )
         if selected_patch_types:
             allowed = tuple(pt for pt in allowed if pt in selected_patch_types)
@@ -73,34 +85,30 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         for _ in range(max_attempts):
             if len(suggestions) >= self._policy.max_suggestions:
                 break
+
             raw = self._llm.generate_json(
                 system_prompt=MISSING_HANDLER_SYSTEM_PROMPT,
-                user_prompt=build_missing_handler_user_prompt(
-                    condition_text=issue.message,
-                    target_ref=issue.target_ref,
-                    allowed_patch_types=allowed,
-                    user_instruction=user_instruction,
-                    previous_suggestions=tuple(previous_summaries),
+                user_prompt=append_previous_suggestions(
+                    rendered_user_prompt,
+                    tuple(previous_summaries),
                 ),
             )
             try:
                 data = parse_suggestion_payload(raw, allowed)
             except UnsupportedPatchTypeError:
-                # LLM returned a wrong patch type — reject explicitly.
                 raise
             except PatchValidationError:
-                # Parse / schema error on this attempt — may retry.
                 parse_failures += 1
                 continue
 
             entry = catalog_entries[0]
-            # Inject target context fields from the issue that LLM cannot know
             payload = dict(data["payload"])
             payload.setdefault("worker_id", target.worker_id or "")
-            payload.setdefault("exception_flow_id",
-                                self._flow_id_from_target(issue))
+            payload.setdefault(
+                "exception_flow_id",
+                self._flow_id_from_target(target),
+            )
 
-            # Skip duplicate payloads
             if payload in previous_payloads:
                 parse_failures += 1
                 continue
@@ -110,44 +118,44 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
             )
             previous_payloads.append(payload)
 
-            suggestion = RepairSuggestion(
-                suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
-                session_id="",
-                affordance_id=entry.affordance_id,
-                title=data["title"],
-                explanation=data["explanation"],
-                patch=RepairPatch(
-                    patch_id="",
+            suggestions.append(
+                RepairSuggestion(
+                    suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
+                    session_id="",
                     affordance_id=entry.affordance_id,
-                    patch_type=data["patch_type"],
-                    target_ref=issue.target_ref,
-                    irs_ref=issue.irs_ref,
-                    base_compile_run_id="",
-                    artifact_snapshot_id="",
-                    overlay_version=0,
-                    payload=payload,
-                    verification_lane=entry.default_verification_lane,
-                ),
-                spl_preview=self._build_preview(data),
+                    title=data["title"],
+                    explanation=data["explanation"],
+                    patch=RepairPatch(
+                        patch_id="",
+                        affordance_id=entry.affordance_id,
+                        patch_type=data["patch_type"],
+                        target_ref=issue.target_ref,
+                        irs_ref=issue.irs_ref,
+                        base_compile_run_id="",
+                        artifact_snapshot_id="",
+                        overlay_version=0,
+                        payload=payload,
+                        verification_lane=entry.default_verification_lane,
+                    ),
+                    spl_preview=self._build_preview(data),
+                )
             )
-            suggestions.append(suggestion)
 
-        if len(suggestions) < self._policy.max_suggestions:
+        if not suggestions:
             raise PatchValidationError(
-                "LLM did not produce a valid AddExceptionHandlerStep "
-                f"suggestion set ({len(suggestions)} unique suggestions, "
-                f"expected {self._policy.max_suggestions}; "
-                f"{parse_failures} parse/schema/duplicate failures)."
+                "LLM did not produce any valid AddExceptionHandlerStep "
+                f"suggestions ({parse_failures} parse/schema/duplicate failures)."
             )
 
         return tuple(suggestions[: self._policy.max_suggestions])
 
     @staticmethod
-    def _flow_id_from_target(issue: EditableIssue) -> str:
-        """Extract exception_flow_id from target_ref
-        like ``worker:{id}.exception_flow:{fid}``."""
-        ref = issue.target_ref
+    def _flow_id_from_target(target: RepairTarget) -> str:
+        cpath = target.construct_path or ()
+        if len(cpath) >= 4 and cpath[-2] == "exception_flows":
+            return str(cpath[-1])
         marker = ".exception_flow:"
+        ref = target.target_ref
         idx = ref.find(marker)
         if idx > 0:
             return ref[idx + len(marker):]

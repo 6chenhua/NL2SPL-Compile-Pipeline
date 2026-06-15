@@ -219,6 +219,7 @@ class TestMissingHandlerLLMFailure:
             handler.generate_suggestions(
                 _exception_issue(), _exception_target(),
                 _exception_context(), (_exception_entry(),),
+                rendered_user_prompt="Allowed patch types: AddExceptionHandlerStep",
             )
 
 

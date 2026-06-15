@@ -69,32 +69,33 @@ class TestC3ServiceLevelPersistence:
 
     def _make_mh_service(self):
         reg = SPLEditingRuntimeRegistry()
-        from nl2spl.compiler.spl_editing.targets.exception_flow import (
-            ExceptionFlowTargetResolver,
-        )
         from nl2spl.compiler.spl_editing.context.exception_flow_context import (
             ExceptionFlowContextBuilder,
         )
-        from tests.spl_editing_stub_llm import StubSuggestionLLM
         from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
             MissingHandlerRepairHandler,
-        )
-        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
-            AddExceptionHandlerStepValidator,
         )
         from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
             AddExceptionHandlerStepApplier,
         )
-        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
-            AddExceptionHandlerStepVerifier,
-        )
         from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
             AddExceptionHandlerStepPreviewer,
         )
-        from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
-        from nl2spl.compiler.spl_editing.verification.lanes import (
-            LaneAReplayAdapter, VerificationArtifacts,
+        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
+            AddExceptionHandlerStepValidator,
         )
+        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
+            AddExceptionHandlerStepVerifier,
+        )
+        from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
+        from nl2spl.compiler.spl_editing.targets.exception_flow import (
+            ExceptionFlowTargetResolver,
+        )
+        from nl2spl.compiler.spl_editing.verification.lanes import (
+            LaneAReplayAdapter,
+            VerificationArtifacts,
+        )
+        from tests.spl_editing_stub_llm import StubSuggestionLLM
 
         class _StubLane(LaneAReplayAdapter):
             def replay(self, snapshot):
@@ -103,15 +104,30 @@ class TestC3ServiceLevelPersistence:
         reg.target_resolvers.register("exception_flow_target", ExceptionFlowTargetResolver())
         reg.context_builders.register("exception_flow_context", ExceptionFlowContextBuilder())
         reg.handlers.register("missing_handler", MissingHandlerRepairHandler(StubSuggestionLLM()))
-        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
+        from nl2spl.compiler.spl_editing.cli import (
+            _build_missing_handler_context_builder,
+            _build_missing_handler_prompt_renderer,
+        )
+        reg.llm_context_builders.register(
+            "missing_handler",
+            _build_missing_handler_context_builder(),
+        )
+        reg.prompt_renderers.register(
+            "missing_handler",
+            _build_missing_handler_prompt_renderer(),
+        )
+        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
         reg.patches.register("AddExceptionHandlerStep", PatchBundle(
             patch_type="AddExceptionHandlerStep",
             validator=AddExceptionHandlerStepValidator(),
             applier=AddExceptionHandlerStepApplier(),
             verifier=AddExceptionHandlerStepVerifier(),
             previewer=AddExceptionHandlerStepPreviewer(),
-            contract=_PTC(patch_type="AddExceptionHandlerStep",
-                           produces_step_ir=True, evidence_targets=("step",)),
+            contract=PatchTypeContract(
+                patch_type="AddExceptionHandlerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ))
         return SPLEditingService(reg, lane_a=_StubLane())
 
@@ -151,8 +167,11 @@ class TestC3ServiceLevelPersistence:
         from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.ir.worker_ir import ExceptionFlowRef
         from nl2spl.ir.worker_plan_ir import (
-            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR,
-            WorkerSpecIR, WorkerStepPlanIR,
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerPlanIR,
+            WorkerSpecIR,
+            WorkerStepPlanIR,
         )
         snap = ArtifactSnapshot(
             "snap_1", "run_1", 0,

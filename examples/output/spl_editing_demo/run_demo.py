@@ -99,10 +99,16 @@ def main() -> None:
 
     issue = presentation.issue_by_id(run_id, card.issue_id)
     session = service.create_session(run_id, issue)
-    suggestions = service.generate_suggestions(
+    generation = service.generate_suggestions(
         session.session_id,
         selected_patch_types=option.patch_types,
     )
+    if generation.status in ("generation_blocked", "repair_unavailable"):
+        print(f"\nSuggestion generation unavailable: {generation.status}")
+        if generation.reasons:
+            print(f"  reasons: {'; '.join(generation.reasons)}")
+        return
+    suggestions = generation.suggestions
     if not suggestions:
         print("\nNo repair suggestions generated for this issue.")
         return

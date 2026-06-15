@@ -73,6 +73,8 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
         selected_patch_types: tuple[str, ...] | None = None,
+        *,
+        rendered_user_prompt: str | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         key = self._subtype_key(issue, catalog_entries)
         if key not in _MVP_SUBTYPES:

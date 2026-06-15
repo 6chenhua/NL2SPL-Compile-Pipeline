@@ -3,7 +3,6 @@
 from nl2spl.compiler.spl_editing.core.model import (
     RepairEvidence,
     RepairPatch,
-    RepairSuggestion,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
@@ -12,7 +11,6 @@ from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier impo
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
@@ -72,32 +70,31 @@ class TestB10AntiFabrication:
     def test_generate_suggestions_does_not_mutate_artifacts(self) -> None:
         """B10: Service-level generate_suggestions does not change
         snapshot or SPL output."""
-        from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
-        from nl2spl.compiler.spl_editing.core.service import SPLEditingService
-        from nl2spl.compiler.spl_editing.targets.exception_flow import (
-            ExceptionFlowTargetResolver,
-        )
         from nl2spl.compiler.spl_editing.context.exception_flow_context import (
             ExceptionFlowContextBuilder,
         )
-        from tests.spl_editing_stub_llm import StubSuggestionLLM
+        from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
+        from nl2spl.compiler.spl_editing.core.service import SPLEditingService
         from nl2spl.compiler.spl_editing.handlers.missing_handler.handler import (
             MissingHandlerRepairHandler,
-        )
-        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
-            AddExceptionHandlerStepValidator,
         )
         from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
             AddExceptionHandlerStepApplier,
         )
-        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
-            AddExceptionHandlerStepVerifier,
-        )
         from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
             AddExceptionHandlerStepPreviewer,
         )
+        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.validator import (
+            AddExceptionHandlerStepValidator,
+        )
+        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
+            AddExceptionHandlerStepVerifier,
+        )
         from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
-        from nl2spl.ir.diagnostics import CompileDiagnostic
+        from nl2spl.compiler.spl_editing.targets.exception_flow import (
+            ExceptionFlowTargetResolver,
+        )
+        from tests.spl_editing_stub_llm import StubSuggestionLLM
 
         reg = SPLEditingRuntimeRegistry()
         reg.target_resolvers.register("exception_flow_target",
@@ -106,15 +103,30 @@ class TestB10AntiFabrication:
                                         ExceptionFlowContextBuilder())
         reg.handlers.register("missing_handler",
                                MissingHandlerRepairHandler(StubSuggestionLLM()))
-        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
+        from nl2spl.compiler.spl_editing.cli import (
+            _build_missing_handler_context_builder,
+            _build_missing_handler_prompt_renderer,
+        )
+        reg.llm_context_builders.register(
+            "missing_handler",
+            _build_missing_handler_context_builder(),
+        )
+        reg.prompt_renderers.register(
+            "missing_handler",
+            _build_missing_handler_prompt_renderer(),
+        )
+        from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
         reg.patches.register("AddExceptionHandlerStep", PatchBundle(
             patch_type="AddExceptionHandlerStep",
             validator=AddExceptionHandlerStepValidator(),
             applier=AddExceptionHandlerStepApplier(),
             verifier=AddExceptionHandlerStepVerifier(),
             previewer=AddExceptionHandlerStepPreviewer(),
-            contract=_PTC(patch_type="AddExceptionHandlerStep",
-                           produces_step_ir=True, evidence_targets=("step",)),
+            contract=PatchTypeContract(
+                patch_type="AddExceptionHandlerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ))
 
         svc = SPLEditingService(reg)

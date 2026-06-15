@@ -70,6 +70,14 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         TypeOrContractAmbiguityHandler,
     )
     reg.handlers.register("missing_handler", MissingHandlerRepairHandler(suggestion_llm))
+    reg.llm_context_builders.register(
+        "missing_handler",
+        _build_missing_handler_context_builder(),
+    )
+    reg.prompt_renderers.register(
+        "missing_handler",
+        _build_missing_handler_prompt_renderer(),
+    )
     reg.handlers.register(
         "missing_output_producer",
         MissingOutputProducerHandler(suggestion_llm),
@@ -80,6 +88,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     )
 
     # Patches (validators + appliers + verifiers)
+    from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
         AddExceptionHandlerStepApplier,
     )
@@ -92,15 +101,17 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
         AddExceptionHandlerStepVerifier,
     )
-    from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
     reg.patches.register("AddExceptionHandlerStep", PatchBundle(
         patch_type="AddExceptionHandlerStep",
         validator=AddExceptionHandlerStepValidator(),
         applier=AddExceptionHandlerStepApplier(),
         verifier=AddExceptionHandlerStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
-        contract=_PTC(patch_type="AddExceptionHandlerStep",
-                       produces_step_ir=True, evidence_targets=("step",)),
+        contract=PatchTypeContract(
+            patch_type="AddExceptionHandlerStep",
+            produces_step_ir=True,
+            evidence_targets=("step",),
+        ),
     ))
 
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
@@ -121,8 +132,11 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=InsertProducerStepApplier(),
         verifier=InsertProducerStepVerifier(),
         previewer=InsertProducerStepPreviewer(),
-        contract=_PTC(patch_type="InsertProducerStep",
-                       produces_step_ir=True, evidence_targets=("step",)),
+        contract=PatchTypeContract(
+            patch_type="InsertProducerStep",
+            produces_step_ir=True,
+            evidence_targets=("step",),
+        ),
     ))
     from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
         BindExistingProducerStepApplier,
@@ -142,8 +156,10 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=BindExistingProducerStepApplier(),
         verifier=BindExistingProducerStepVerifier(),
         previewer=BindExistingProducerStepPreviewer(),
-        contract=_PTC(patch_type="BindExistingProducerStep",
-                       evidence_targets=("step",)),
+        contract=PatchTypeContract(
+            patch_type="BindExistingProducerStep",
+            evidence_targets=("step",),
+        ),
     ))
 
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
@@ -164,8 +180,11 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=ConvertDelegationToMainFlowStepApplier(),
         verifier=ConvertDelegationToMainFlowStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
-        contract=_PTC(patch_type="ConvertDelegationIntentToMainFlowStep",
-                       produces_step_ir=True, evidence_targets=("step",)),
+        contract=PatchTypeContract(
+            patch_type="ConvertDelegationIntentToMainFlowStep",
+            produces_step_ir=True,
+            evidence_targets=("step",),
+        ),
     ))
 
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
@@ -183,11 +202,40 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=ConvertDelegationToRequestInputApplier(),
         verifier=ConvertDelegationToRequestInputVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
-        contract=_PTC(patch_type="ConvertDelegationIntentToRequestInput",
-                       produces_step_ir=True, evidence_targets=("step",)),
+        contract=PatchTypeContract(
+            patch_type="ConvertDelegationIntentToRequestInput",
+            produces_step_ir=True,
+            evidence_targets=("step",),
+        ),
     ))
 
     return SPLEditingService(reg)
+
+
+def _build_missing_handler_context_builder():
+    from nl2spl.compiler.spl_editing.llm_context.builder import LLMRepairContextBuilder
+    from nl2spl.compiler.spl_editing.llm_context.providers.exception_flow_handler import (
+        ExceptionFlowHandlerContextProvider,
+    )
+    from nl2spl.compiler.spl_editing.llm_context.registry import (
+        LLMRepairContextExtensionRegistry,
+    )
+    reg = LLMRepairContextExtensionRegistry()
+    reg.register(ExceptionFlowHandlerContextProvider())
+    return LLMRepairContextBuilder(provider_registry=reg)
+
+
+def _build_missing_handler_prompt_renderer():
+    from nl2spl.compiler.spl_editing.llm_context.renderers.exception_flow_handler_section import (
+        ExceptionFlowHandlerSectionRenderer,
+    )
+    from nl2spl.compiler.spl_editing.llm_context.rendering import PromptRenderer
+    from nl2spl.compiler.spl_editing.llm_context.section_renderer import (
+        SectionRendererRegistry,
+    )
+    sreg = SectionRendererRegistry()
+    sreg.register(ExceptionFlowHandlerSectionRenderer())
+    return PromptRenderer(section_renderer_registry=sreg)
 
 
 def demo_flow(snapshot: ArtifactSnapshot, instruction: str | None = None) -> None:
@@ -212,7 +260,8 @@ def demo_flow(snapshot: ArtifactSnapshot, instruction: str | None = None) -> Non
     session = svc.create_session(run_id, issue)
     print(f"Session created: {session.session_id}")
 
-    suggestions = svc.generate_suggestions(session.session_id, instruction)
+    generation = svc.generate_suggestions(session.session_id, instruction)
+    suggestions = generation.suggestions
     print(f"\nAI repair suggestions ({len(suggestions)}):")
     for idx, s in enumerate(suggestions, 1):
         print(f"  [{idx}] {s.title}")

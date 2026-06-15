@@ -27,6 +27,11 @@ from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler imp
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
 from tests.spl_editing_stub_llm import StubSuggestionLLM
 
+_RENDERED_MISSING_HANDLER_PROMPT = (
+    "Allowed patch types: AddExceptionHandlerStep\n"
+    "Return JSON for AddExceptionHandlerStep."
+)
+
 
 def _issue(**kw: object) -> EditableIssue:
     d: dict[str, object] = dict(
@@ -164,6 +169,7 @@ class TestB3MissingHandlerHandler:
         handler = MissingHandlerRepairHandler(llm)
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
+            rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
         )
         assert len(suggestions) == handler.policy.max_suggestions
         s = suggestions[0]
@@ -184,6 +190,7 @@ class TestB3MissingHandlerHandler:
         with pytest.raises(PatchValidationError, match="LLM did not produce"):
             handler.generate_suggestions(
                 _issue(), _target(), _context(), (_entry(),),
+                rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
             )
 
     def test_handler_does_not_write_ir(self) -> None:
@@ -191,6 +198,7 @@ class TestB3MissingHandlerHandler:
         handler = MissingHandlerRepairHandler(StubSuggestionLLM())
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
+            rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
         )
         for s in suggestions:
             assert isinstance(s, RepairSuggestion)
@@ -203,6 +211,7 @@ class TestB3MissingHandlerHandler:
         )
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
+            rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
         )
         assert len(suggestions) == 2
 
@@ -215,6 +224,7 @@ class TestB3MissingHandlerHandler:
         suggestions = handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
             selected_patch_types=("AddExceptionHandlerStep",),
+            rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
         )
         assert len(suggestions) == 2
         assert all(
@@ -245,6 +255,7 @@ class TestB3ErrorPropagation:
         with pytest.raises(UnsupportedPatchTypeError):
             handler.generate_suggestions(
                 _issue(), _target(), _context(), (_entry(),),
+                rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
             )
 
 
@@ -497,6 +508,7 @@ class TestB3StubAdapterContract:
         handler = MissingHandlerRepairHandler(llm, policy=SuggestionPolicy(max_suggestions=1))
         handler.generate_suggestions(
             _issue(), _target(), _context(), (_entry(),),
+            rendered_user_prompt=_RENDERED_MISSING_HANDLER_PROMPT,
         )
         user_prompt = llm.calls[0]["user_prompt"]
         assert "Allowed patch types" in user_prompt

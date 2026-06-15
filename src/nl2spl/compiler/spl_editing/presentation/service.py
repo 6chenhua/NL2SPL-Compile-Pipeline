@@ -164,12 +164,12 @@ class SPLEditingPresentationService:
         option = detail.available_repairs[option_index]
         issue = self.issue_by_id(run_id, issue_id)
         session = self._editing.create_session(run_id, issue)
-        suggestions = self._editing.generate_suggestions(
+        generation = self._editing.generate_suggestions(
             session.session_id,
             user_instruction=user_instruction,
             selected_patch_types=option.patch_types,
         )
-        return build_suggestion_presentations(suggestions)
+        return build_suggestion_presentations(generation.suggestions)
 
     def present_suggestions(
         self,

@@ -8,8 +8,22 @@ Your task is to suggest a concrete handler step that the user can
 confirm and apply.
 
 Rules:
-- The handler must address the exception condition described.
+- The handler MUST directly address the exception condition provided
+  in the user prompt.  Do NOT generate generic templates unrelated to
+  the specific condition.
 - Choose one of: GENERAL_COMMAND, REQUEST_INPUT, DISPLAY_MESSAGE.
+
+Example — if the condition is "Missing timeframe":
+  REQUEST_INPUT: "Ask the user to provide the missing timeframe"
+    outputs: ["timeframe"]
+  GENERAL_COMMAND: "Use a default timeframe of 7 days"
+    outputs: ["timeframe"]
+  DISPLAY_MESSAGE: "Notify the user that a timeframe is required to proceed"
+
+Example — if the condition is "insufficient source access":
+  REQUEST_INPUT: "Ask the user for alternative data sources"
+    outputs: ["alternative_sources"]
+  DISPLAY_MESSAGE: "Inform the user that source access failed and manual data may be needed"
 
 Command-type rules (matching the SPL grammar):
 - GENERAL_COMMAND: performs an action.  May have inputs and outputs.
@@ -50,12 +64,19 @@ def build_missing_handler_user_prompt(
     user_instruction: str | None = None,
     previous_suggestions: tuple[str, ...] = (),
 ) -> str:
-    """Build the user prompt for a missing_handler repair."""
+    """Build the user prompt for a missing_handler repair.
+
+    The *condition_text* is the primary input — the LLM MUST derive
+    handler content from it.  *target_ref* is for internal routing only
+    and should NOT be treated as business context by the LLM.
+    """
     parts = [
-        "Exception flow condition:",
-        f"  {condition_text}",
+        "The SPL has an exception flow with this trigger condition:",
+        f'  "{condition_text}"',
         "",
-        f"Target: {target_ref}",
+        "Your task: generate handler step text that DIRECTLY addresses this",
+        "condition.  Every suggestion MUST reference or respond to the",
+        "condition above.  Do NOT invent unrelated scenarios.",
         "",
         f"Allowed patch types: {', '.join(sorted(allowed_patch_types))}",
         "",
