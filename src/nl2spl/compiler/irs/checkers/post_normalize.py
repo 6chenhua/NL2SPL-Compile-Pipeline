@@ -13,6 +13,7 @@ from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
     SlotSatisfaction,
 )
+from nl2spl.compiler.evidence import StepEvidence, classify_step_evidence
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.compiler.producer_index import ProducerIndex
@@ -620,24 +621,45 @@ class PostNormalizeIRSCheckerV6:
         declared_apis = {api.api_name for api in resources.apis}
         extra_api_names = self._collect_extra_api_names(worker_plan)
         api_handoff_refs = self._build_api_handoff_refs(worker_plan)
-        valid_handoff_ids = {
-            h.handoff_id for h in (worker_plan.handoffs if worker_plan else [])
+        # None → no handoff index available (compat mode).
+        # set (possibly empty) → index explicitly present.
+        if worker_plan is not None:
+            _handoff_ids = {h.handoff_id for h in worker_plan.handoffs}
+        else:
+            _handoff_ids = None
+        handoff_index = {
+            h.handoff_id: h
+            for h in (worker_plan.handoffs if worker_plan else [])
         }
+        child_worker_names = self._child_worker_names(worker_plan)
+        worker_by_id = self._worker_id_to_name(worker_plan)
 
         if step.command_type == "CALL_API":
-            return self._check_call_api(instance, step, irs, declared_apis, extra_api_names, api_handoff_refs)
+            return self._check_call_api(
+                instance, step, irs,
+                declared_apis=declared_apis,
+                extra_api_names=extra_api_names,
+                api_handoff_refs=api_handoff_refs,
+                valid_handoff_ids=_handoff_ids,
+            )
         if step.command_type == "INVOKE_WORKER":
-            return self._check_invoke_worker(instance, step, irs)
+            return self._check_invoke_worker(
+                instance, step, irs,
+                handoff_index=handoff_index,
+                child_worker_names=child_worker_names,
+                worker_by_id=worker_by_id,
+                valid_handoff_ids=_handoff_ids,
+            )
         if step.command_type == "REQUEST_INPUT":
-            return self._check_request_input(instance, step, irs, valid_handoff_ids)
-        return self._check_general_command(instance, step, irs, valid_handoff_ids)
+            return self._check_request_input(instance, step, irs, _handoff_ids)
+        return self._check_general_command(instance, step, irs, _handoff_ids)
 
     @staticmethod
     def _check_general_command(
         instance: ConstructInstance,
         step: StepIR,
         irs: ConstructIRS,
-        valid_handoff_ids: set[str],
+        valid_handoff_ids: set[str] | None,
     ) -> ConstructSatisfactionReport:
         action = SlotSatisfaction(
             slot_name="action_text",
@@ -663,38 +685,50 @@ class PostNormalizeIRSCheckerV6:
         instance: ConstructInstance,
         step: StepIR,
         irs: ConstructIRS,
-        valid_handoff_ids: set[str],
+        valid_handoff_ids: set[str] | None,
     ) -> ConstructSatisfactionReport:
+        """Check REQUEST_INPUT with layered evidence+structure separation (U1).
+
+        Evidence and structure are independent axes:
+        * ``prompt_text`` — satisfied when ``step.text`` is non-empty (structural).
+        * ``value_target`` — satisfied when ``step.outputs`` is non-empty (structural).
+        * ``source_evidence`` — satisfied via the unified evidence model.
+
+        ``user_confirmed_repair`` satisfies the evidence slot but never
+        compensates for missing structural slots.
+        """
         prompt_spec = irs.get_slot("prompt_text")
         value_spec = irs.get_slot("value_target")
-        source_backed = bool(step.source_span_ids)
+
+        has_prompt_text = bool(step.text and step.text.strip())
+        has_value_target = bool(step.outputs)
+
         prompt = SlotSatisfaction(
             slot_name="prompt_text",
-            status="satisfied" if source_backed else "missing",
+            status="satisfied" if has_prompt_text else "missing",
             source_span_ids=list(step.source_span_ids),
-            diagnostic_kind=None if source_backed else (
+            diagnostic_kind=None if has_prompt_text else (
                 prompt_spec.missing_diagnostic
                 if prompt_spec else "assumed_command_not_renderable"
             ),
             diagnostic_required_for=step.step_id,
             diagnostic_blocks_rendering=True,
-            explanation=None if source_backed else (
-                f"Step '{step.step_id}' has no source-span evidence."
+            explanation=None if has_prompt_text else (
+                f"Step '{step.step_id}' has no prompt text."
             ),
         )
         value_target = SlotSatisfaction(
             slot_name="value_target",
-            status="satisfied" if source_backed else "missing",
+            status="satisfied" if has_value_target else "missing",
             source_span_ids=list(step.source_span_ids),
-            diagnostic_kind=None if source_backed else (
+            diagnostic_kind=None if has_value_target else (
                 value_spec.missing_diagnostic
                 if value_spec else "type_or_contract_ambiguity"
             ),
             diagnostic_required_for=step.step_id,
             diagnostic_blocks_rendering=False,
-            explanation=None if source_backed else (
-                "REQUEST_INPUT step has no source-span evidence -- "
-                "may be an assumed interaction."
+            explanation=None if has_value_target else (
+                "REQUEST_INPUT step has no value target (outputs)."
             ),
         )
         evidence = PostNormalizeIRSCheckerV6._source_evidence_slot(
@@ -706,11 +740,13 @@ class PostNormalizeIRSCheckerV6:
         # construct; keep the cross-cutting evidence slot non-diagnostic here.
         if prompt.diagnostic_kind:
             evidence.diagnostic_kind = None
+
+        renderable = has_prompt_text and has_value_target and evidence.status != "missing"
         return PostNormalizeIRSCheckerV6._step_report(
             instance,
             step,
             [prompt, value_target, evidence],
-            source_backed,
+            renderable,
         )
 
     @staticmethod
@@ -721,7 +757,22 @@ class PostNormalizeIRSCheckerV6:
         declared_apis: set[str],
         extra_api_names: set[str],
         api_handoff_refs: dict[str, str],
+        *,
+        valid_handoff_ids: set[str] | None = None,
     ) -> ConstructSatisfactionReport:
+        """Check CALL_API with unified evidence model (U1+r2).
+
+        ``valid_handoff_ids=None`` → no handoff index, compat mode.
+        ``valid_handoff_ids`` is a set (possibly empty) → index present.
+
+        * ``api_name`` — satisfied when ``integration_ref`` is declared (structural).
+        * ``call_action`` — satisfied when ``step.text`` is non-empty AND evidence
+          satisfied via ``classify_step_evidence`` (validating handoffs against
+          ``valid_handoff_ids``, NOT treating any handoff_id as valid).
+
+        ``user_confirmed_repair`` satisfies evidence but never compensates for
+        missing integration_ref or undeclared API.
+        """
         api_spec = irs.get_slot("api_name")
         action_spec = irs.get_slot("call_action")
         has_api = bool(step.integration_ref)
@@ -741,6 +792,26 @@ class PostNormalizeIRSCheckerV6:
             f"CALL_API references undeclared API '{step.integration_ref}'."
             if not declared else None
         )
+
+        # call_action: structural (has text) AND evidence satisfied
+        has_call_text = bool(step.text and step.text.strip())
+        # Use unified evidence model — validates handoff against valid_handoff_ids.
+        # None → compat (no index); set (possibly empty) → explicit index.
+        evidence = PostNormalizeIRSCheckerV6._confirmed_evidence(
+            step,
+            valid_handoff_ids=valid_handoff_ids,
+        )
+        has_call_action = has_call_text and evidence.satisfied
+
+        call_explanation: str | None = None
+        if not has_call_action:
+            if not has_call_text:
+                call_explanation = "CALL_API has no call action text."
+            elif not evidence.satisfied:
+                call_explanation = (
+                    "CALL_API has no valid source-span, handoff, or user-confirmed evidence."
+                )
+
         slots = [
             SlotSatisfaction(
                 slot_name="api_name",
@@ -756,20 +827,18 @@ class PostNormalizeIRSCheckerV6:
             ),
             SlotSatisfaction(
                 slot_name="call_action",
-                status="satisfied" if step.source_span_ids else "missing",
+                status="satisfied" if has_call_action else "missing",
                 source_span_ids=list(step.source_span_ids),
-                diagnostic_kind=None if step.source_span_ids else (
+                diagnostic_kind=None if has_call_action else (
                     action_spec.missing_diagnostic
                     if action_spec else "type_or_contract_ambiguity"
                 ),
                 diagnostic_required_for=step.step_id,
                 diagnostic_blocks_rendering=True,
-                explanation=None if step.source_span_ids else (
-                    "CALL_API has no source-span evidence for executable call action."
-                ),
+                explanation=call_explanation,
             ),
         ]
-        renderable = not api_missing and bool(step.source_span_ids)
+        renderable = not api_missing and has_call_action
         return PostNormalizeIRSCheckerV6._step_report(instance, step, slots, renderable)
 
     @staticmethod
@@ -777,71 +846,240 @@ class PostNormalizeIRSCheckerV6:
         instance: ConstructInstance,
         step: StepIR,
         irs: ConstructIRS,
+        *,
+        handoff_index: dict[str, object] | None = None,
+        child_worker_names: set[str] | None = None,
+        worker_by_id: dict[str, str] | None = None,
+        valid_handoff_ids: set[str] | None = None,
     ) -> ConstructSatisfactionReport:
+        """Check INVOKE_WORKER with full handoff contract validation (U1+r2).
+
+        * ``target_worker`` — satisfied when ``integration_ref`` is present
+          AND points to a declared child worker (when workers are known).
+          Additionally, when the handoff is available, ``step.integration_ref``
+          must match the resolved handoff's target worker name.
+        * ``handoff_id`` — satisfied when ``handoff_id`` exists AND
+          resolves to a handoff in ``handoff_index``.  When the handoff is
+          available, ``handoff.to_worker`` must resolve to a declared child.
+        * ``user_confirmed_repair`` does NOT bypass handoff contract slots.
+        """
         target_spec = irs.get_slot("target_worker")
         handoff_spec = irs.get_slot("handoff_id")
+
+        has_target_ref = bool(step.integration_ref)
+        has_handoff = bool(step.handoff_id)
+        handoff_valid = (
+            has_handoff
+            and (
+                handoff_index is None
+                or step.handoff_id in handoff_index
+            )
+        )
+
+        # ------------------------------------------------------------------
+        # Resolve the handoff object for deeper contract checks
+        # ------------------------------------------------------------------
+        handoff = handoff_index.get(step.handoff_id) if (
+            handoff_index is not None and step.handoff_id
+        ) else None
+
+        # Handoff to_worker must resolve to a declared child
+        handoff_to_worker_exists = True
+        if handoff is not None:
+            h_to_worker = getattr(handoff, "to_worker", None)
+            if h_to_worker and worker_by_id:
+                resolved_name = worker_by_id.get(h_to_worker)
+                if resolved_name is None and child_worker_names:
+                    # to_worker not found by id; check if it names a child directly
+                    if h_to_worker not in (child_worker_names or set()):
+                        handoff_to_worker_exists = False
+
+        # step.integration_ref must match the resolved handoff target
+        target_matches_handoff = True
+        if handoff is not None and has_target_ref:
+            h_to_worker = getattr(handoff, "to_worker", None)
+            if h_to_worker and worker_by_id:
+                resolved_name = worker_by_id.get(h_to_worker, h_to_worker)
+                if resolved_name and resolved_name != step.integration_ref:
+                    target_matches_handoff = False
+                elif not resolved_name:
+                    target_matches_handoff = False
+
+        # ------------------------------------------------------------------
+        # Input/output binding validation (U1+r2)
+        # ------------------------------------------------------------------
+        inputs_match_bindings = True
+        outputs_match_bindings = True
+        if handoff is not None and handoff_valid:
+            input_bindings = getattr(handoff, "input_bindings", [])
+            output_bindings = getattr(handoff, "output_bindings", [])
+            if input_bindings:
+                binding_parent_vars = {
+                    getattr(ib, "parent_variable", "") for ib in input_bindings
+                }
+                step_inputs = set(step.inputs)
+                if binding_parent_vars and not binding_parent_vars.issubset(step_inputs):
+                    inputs_match_bindings = False
+            if output_bindings:
+                binding_parent_vars = {
+                    getattr(ob, "parent_variable", "") for ob in output_bindings
+                }
+                step_outputs = set(step.outputs)
+                if binding_parent_vars and not binding_parent_vars.issubset(step_outputs):
+                    outputs_match_bindings = False
+
+        # ------------------------------------------------------------------
+        # Structural checks for target_worker
+        # ------------------------------------------------------------------
+        target_exists = (
+            has_target_ref
+            and (child_worker_names is None or step.integration_ref in child_worker_names)
+        )
+        target_worker_satisfied = has_target_ref and target_exists and target_matches_handoff
+        # When we have the handoff, require that to_worker can be resolved
+        if handoff is not None and target_worker_satisfied:
+            target_worker_satisfied = handoff_to_worker_exists
+
+        # ------------------------------------------------------------------
+        # Explanations
+        # ------------------------------------------------------------------
+        if not has_target_ref:
+            target_explanation = "INVOKE_WORKER step has no concrete worker target."
+        elif not target_exists:
+            target_explanation = (
+                f"INVOKE_WORKER target '{step.integration_ref}' "
+                "is not a declared child worker."
+            )
+        elif not target_matches_handoff:
+            h_to_worker = getattr(handoff, "to_worker", "?") if handoff else "?"
+            target_explanation = (
+                f"INVOKE_WORKER target '{step.integration_ref}' "
+                f"does not match handoff '{step.handoff_id}' "
+                f"target worker '{h_to_worker}'."
+            )
+        elif not handoff_to_worker_exists:
+            h_to_worker = getattr(handoff, "to_worker", "?") if handoff else "?"
+            target_explanation = (
+                f"INVOKE_WORKER handoff '{step.handoff_id}' "
+                f"to_worker '{h_to_worker}' does not resolve to a declared child."
+            )
+        else:
+            target_explanation = None
+
+        if not has_handoff:
+            handoff_explanation = "INVOKE_WORKER step has no handoff_id."
+        elif not handoff_valid:
+            handoff_explanation = (
+                f"INVOKE_WORKER handoff '{step.handoff_id}' "
+                "not found in worker plan."
+            )
+        else:
+            handoff_explanation = None
+
+        # Binding slot explanations
+        binding_explanation = None
+        if handoff is not None and handoff_valid:
+            if not inputs_match_bindings:
+                binding_explanation = (
+                    f"Step inputs {step.inputs} do not cover handoff "
+                    f"input_bindings parent variables."
+                )
+            elif not outputs_match_bindings:
+                binding_explanation = (
+                    f"Step outputs {step.outputs} do not cover handoff "
+                    f"output_bindings parent variables."
+                )
+
+        binding_spec = irs.get_slot("input_bindings") or irs.get_slot("output_bindings")
+        bindings_satisfied = inputs_match_bindings and outputs_match_bindings
+
         slots = [
             SlotSatisfaction(
                 slot_name="target_worker",
-                status="satisfied" if step.integration_ref else "missing",
+                status="satisfied" if target_worker_satisfied else "missing",
                 source_span_ids=list(step.source_span_ids),
-                diagnostic_kind=None if step.integration_ref else (
+                diagnostic_kind=None if target_worker_satisfied else (
                     target_spec.missing_diagnostic
                     if target_spec else "type_or_contract_ambiguity"
                 ),
                 diagnostic_required_for=step.step_id,
                 diagnostic_blocks_rendering=True,
-                explanation=None if step.integration_ref else (
-                    "INVOKE_WORKER step has no concrete worker target."
-                ),
+                explanation=target_explanation,
             ),
             SlotSatisfaction(
                 slot_name="handoff_id",
-                status="satisfied" if step.handoff_id else "missing",
-                diagnostic_kind=None if step.handoff_id else (
+                status="satisfied" if handoff_valid else "missing",
+                diagnostic_kind=None if handoff_valid else (
                     handoff_spec.missing_diagnostic
                     if handoff_spec else "type_or_contract_ambiguity"
                 ),
                 diagnostic_required_for=step.step_id,
                 diagnostic_blocks_rendering=True,
-                explanation=None if step.handoff_id else (
-                    "INVOKE_WORKER step has no handoff_id."
+                explanation=handoff_explanation,
+            ),
+            SlotSatisfaction(
+                slot_name="input_bindings",
+                status="satisfied" if bindings_satisfied else "missing",
+                diagnostic_kind=None if bindings_satisfied else (
+                    binding_spec.missing_diagnostic
+                    if binding_spec else "type_or_contract_ambiguity"
                 ),
+                diagnostic_required_for=step.step_id,
+                diagnostic_blocks_rendering=True,
+                explanation=binding_explanation,
             ),
         ]
+        renderable = target_worker_satisfied and handoff_valid and bindings_satisfied
         return PostNormalizeIRSCheckerV6._step_report(
             instance,
             step,
             slots,
-            bool(step.integration_ref and step.handoff_id),
+            renderable,
+        )
+
+    # ------------------------------------------------------------------
+    # Unified evidence helpers (Phase U0 — compiler.evidence integration)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _confirmed_evidence(
+        step: StepIR,
+        valid_handoff_ids: set[str] | None,
+    ) -> StepEvidence:
+        """Classify step evidence through the unified model.
+
+        ``valid_handoff_ids=None`` means "no handoff index available"
+        (compat mode — any handoff_id is treated as satisfied).
+
+        ``valid_handoff_ids`` is a set means the index is explicitly
+        present. An empty set means there are zero valid handoffs
+        (handoffs must be validated).
+        """
+        return classify_step_evidence(
+            step,
+            valid_handoff_ids=valid_handoff_ids,
+            allow_unknown_handoff_when_no_index=True,
         )
 
     @staticmethod
-    def _source_evidence_slot(
+    def _source_evidence_slot_from_evidence(
         step: StepIR,
         irs: ConstructIRS,
-        valid_handoff_ids: set[str],
+        evidence: StepEvidence,
     ) -> SlotSatisfaction:
-        if step.source_span_ids:
+        """Convert unified ``StepEvidence`` to a ``SlotSatisfaction``.
+
+        This is the IRS-specific adapter; it lives in post_normalize.py
+        per the implementation plan §7.7 to keep ``compiler.evidence``
+        free of IRS types.
+        """
+        if evidence.satisfied:
             return SlotSatisfaction(
                 slot_name="source_evidence",
                 status="satisfied",
-                source_span_ids=list(step.source_span_ids),
-                relation="direct",
-            )
-        if step.handoff_id is not None and step.handoff_id in valid_handoff_ids:
-            return SlotSatisfaction(slot_name="source_evidence", status="satisfied")
-        if step.handoff_id is not None and not valid_handoff_ids:
-            return SlotSatisfaction(slot_name="source_evidence", status="satisfied")
-        if step.metadata.get("origin") == "compiler_unpack":
-            return SlotSatisfaction(slot_name="source_evidence", status="satisfied")
-        # R6: user-confirmed repair steps have valid evidence.
-        if step.metadata.get("origin") == "user_confirmed_repair":
-            return SlotSatisfaction(
-                slot_name="source_evidence",
-                status="satisfied",
-                relation="inferred",
-                explanation="Step evidence provided by user-confirmed repair.",
+                source_span_ids=list(evidence.source_span_ids),
+                relation=evidence.relation or "inferred",
+                explanation=evidence.explanation,
             )
 
         evidence_spec = irs.get_slot("source_evidence")
@@ -854,11 +1092,32 @@ class PostNormalizeIRSCheckerV6:
             ),
             diagnostic_required_for=step.step_id,
             diagnostic_blocks_rendering=True,
-            explanation=f"Step '{step.step_id}' has no source-span evidence.",
+            explanation=(
+                evidence.explanation
+                or f"Step '{step.step_id}' has no source-span evidence."
+            ),
             suggested_resolution=(
                 "Provide a source span that describes this behavior, or remove "
                 "the step if the behavior is not required."
             ),
+        )
+
+    @staticmethod
+    def _source_evidence_slot(
+        step: StepIR,
+        irs: ConstructIRS,
+        valid_handoff_ids: set[str] | None,
+    ) -> SlotSatisfaction:
+        """Compatibility facade over the unified evidence model.
+
+        Delegates to ``_confirmed_evidence`` + ``_source_evidence_slot_from_evidence``,
+        keeping the old call signature intact for all existing callers.
+        """
+        evidence = PostNormalizeIRSCheckerV6._confirmed_evidence(
+            step, valid_handoff_ids,
+        )
+        return PostNormalizeIRSCheckerV6._source_evidence_slot_from_evidence(
+            step, irs, evidence,
         )
 
     @staticmethod
@@ -902,12 +1161,20 @@ class PostNormalizeIRSCheckerV6:
             f"worker:{worker_id}.step:{step.step_id}"
             if worker_id else f"step:{step.step_id}"
         )
+        # A step is "demanded" when it has source-span evidence, a valid
+        # handoff, compiler-unpack origin, or user-confirmed-repair origin.
+        source_demanded = bool(
+            step.source_span_ids
+            or step.handoff_id is not None
+            or step.metadata.get("origin") == "compiler_unpack"
+            or step.metadata.get("origin") == "user_confirmed_repair"
+        )
         instances.append(ConstructInstance(
             construct_id=construct_id,
             construct_type=step.command_type,
             ir_ref=step,
             materialized=True,
-            source_demanded=bool(step.source_span_ids),
+            source_demanded=source_demanded,
             primary_parent_id=f"worker:{worker_id}" if worker_id else None,
             construct_path=("worker", worker_id or "main", "steps", step.step_id),
             source_span_ids=list(step.source_span_ids),
@@ -974,6 +1241,26 @@ class PostNormalizeIRSCheckerV6:
             and w.boundary_kind != "main_worker"
             and w.boundary_kind != "not_a_worker"
         }
+
+    @staticmethod
+    def _child_worker_names(worker_plan: WorkerPlanIR | None) -> set[str]:
+        """Return the set of declared child worker names from the plan."""
+        if worker_plan is None:
+            return set()
+        return {
+            w.worker_name
+            for w in worker_plan.workers
+            if w.worker_id != worker_plan.main_worker_id
+            and w.boundary_kind != "main_worker"
+            and w.boundary_kind != "not_a_worker"
+        }
+
+    @staticmethod
+    def _worker_id_to_name(worker_plan: WorkerPlanIR | None) -> dict[str, str]:
+        """Return a mapping from worker_id to worker_name."""
+        if worker_plan is None:
+            return {}
+        return {w.worker_id: w.worker_name for w in worker_plan.workers}
 
     @staticmethod
     def _collect_extra_api_names(worker_plan: WorkerPlanIR | None) -> set[str]:
