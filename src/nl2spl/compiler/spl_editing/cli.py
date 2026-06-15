@@ -103,12 +103,15 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
         AddExceptionHandlerStepVerifier,
     )
+    from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
     reg.patches.register("AddExceptionHandlerStep", PatchBundle(
         patch_type="AddExceptionHandlerStep",
         validator=AddExceptionHandlerStepValidator(),
         applier=AddExceptionHandlerStepApplier(),
         verifier=AddExceptionHandlerStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
+        contract=_PTC(patch_type="AddExceptionHandlerStep",
+                       produces_step_ir=True, evidence_targets=("step",)),
     ))
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
         InsertProducerStepApplier,
@@ -128,6 +131,8 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=InsertProducerStepApplier(),
         verifier=InsertProducerStepVerifier(),
         previewer=InsertProducerStepPreviewer(),
+        contract=_PTC(patch_type="InsertProducerStep",
+                       produces_step_ir=True, evidence_targets=("step",)),
     ))
     from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
         BindExistingProducerStepApplier,
@@ -147,6 +152,8 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=BindExistingProducerStepApplier(),
         verifier=BindExistingProducerStepVerifier(),
         previewer=BindExistingProducerStepPreviewer(),
+        contract=_PTC(patch_type="BindExistingProducerStep",
+                       evidence_targets=("step",)),
     ))
 
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
@@ -164,6 +171,8 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=ConvertDelegationToMainFlowStepApplier(),
         verifier=ConvertDelegationToMainFlowStepVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
+        contract=_PTC(patch_type="ConvertDelegationIntentToMainFlowStep",
+                       produces_step_ir=True, evidence_targets=("step",)),
     ))
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
         ConvertDelegationToRequestInputApplier,
@@ -180,6 +189,8 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=ConvertDelegationToRequestInputApplier(),
         verifier=ConvertDelegationToRequestInputVerifier(),
         previewer=AddExceptionHandlerStepPreviewer(),
+        contract=_PTC(patch_type="ConvertDelegationIntentToRequestInput",
+                       produces_step_ir=True, evidence_targets=("step",)),
     ))
 
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
@@ -200,6 +211,9 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         applier=CreateWorkerHandoffContractApplier(),
         verifier=CreateWorkerHandoffContractVerifier(),
         previewer=_HandoffPreviewer(),
+        contract=_PTC(patch_type="CreateWorkerHandoffContract",
+                       produces_step_ir=True, produces_handoff_ir=True,
+                       evidence_targets=("step", "handoff")),
     ))
 
     return SPLEditingService(reg, lane_a=LaneAReplayAdapter())
