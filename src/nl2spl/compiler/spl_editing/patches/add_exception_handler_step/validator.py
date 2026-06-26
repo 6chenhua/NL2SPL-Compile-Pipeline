@@ -46,17 +46,13 @@ class AddExceptionHandlerStepValidator(PatchValidator):
         if command_type == "REQUEST_INPUT":
             outputs = payload.get("outputs", [])
             if not outputs:
-                raise PatchValidationError(
-                    "REQUEST_INPUT handler must have at least one output"
-                )
+                raise PatchValidationError("REQUEST_INPUT handler must have at least one output")
 
         # DISPLAY_MESSAGE must not have outputs
         if command_type == "DISPLAY_MESSAGE":
             outputs = payload.get("outputs", [])
             if outputs:
-                raise PatchValidationError(
-                    "DISPLAY_MESSAGE handler must not have outputs"
-                )
+                raise PatchValidationError("DISPLAY_MESSAGE handler must not have outputs")
 
         # inputs/outputs must be lists of non-empty strings
         for field in ("inputs", "outputs"):
@@ -97,13 +93,10 @@ class AddExceptionHandlerStepValidator(PatchValidator):
             )
         if patch.affordance_id != "exception_flow.add_handler_step":
             raise PatchValidationError(
-                f"Affordance '{patch.affordance_id}' != "
-                f"'exception_flow.add_handler_step'"
+                f"Affordance '{patch.affordance_id}' != 'exception_flow.add_handler_step'"
             )
         if not patch.evidence.related_diagnostic_id:
-            raise PatchValidationError(
-                "related_diagnostic_id is required in patch evidence"
-            )
+            raise PatchValidationError("related_diagnostic_id is required in patch evidence")
 
         # --- snapshot preconditions ---
         step_plan = snapshot.worker_step_plan
@@ -117,9 +110,7 @@ class AddExceptionHandlerStepValidator(PatchValidator):
         worker_flows = getattr(flow_plan, "worker_flows", {})
         fs = worker_flows.get(worker_id)
         if fs is None:
-            raise PatchValidationError(
-                f"Worker '{worker_id}' not found in worker_flow_plan"
-            )
+            raise PatchValidationError(f"Worker '{worker_id}' not found in worker_flow_plan")
         exc_flows = getattr(fs, "exception_flows", [])
         if not any(getattr(ef, "flow_id", None) == flow_id for ef in exc_flows):
             raise PatchValidationError(
@@ -130,8 +121,7 @@ class AddExceptionHandlerStepValidator(PatchValidator):
         expected_ref = f"worker:{worker_id}.exception_flow:{flow_id}"
         if patch.target_ref != expected_ref:
             raise PatchValidationError(
-                f"target_ref '{patch.target_ref}' does not match "
-                f"expected '{expected_ref}'"
+                f"target_ref '{patch.target_ref}' does not match expected '{expected_ref}'"
             )
 
         # irs_ref construct_type and slot_name must match
@@ -142,8 +132,7 @@ class AddExceptionHandlerStepValidator(PatchValidator):
             )
         if patch.irs_ref.slot_name != "handler_action":
             raise PatchValidationError(
-                f"irs_ref.slot_name must be handler_action, "
-                f"got '{patch.irs_ref.slot_name}'"
+                f"irs_ref.slot_name must be handler_action, got '{patch.irs_ref.slot_name}'"
             )
 
         # Check that a handler for this flow doesn't already exist
@@ -151,16 +140,11 @@ class AddExceptionHandlerStepValidator(PatchValidator):
         for step in existing_steps:
             if step.flow_ref == flow_id:
                 raise PatchValidationError(
-                    f"Exception flow '{flow_id}' already has a handler step "
-                    f"({step.step_id})"
+                    f"Exception flow '{flow_id}' already has a handler step ({step.step_id})"
                 )
 
         # Check exact step_id uniqueness
-        generated_step_id = (
-            f"st_repair_{snapshot.overlay_version + 1}_{worker_id}"
-        )
+        generated_step_id = f"st_repair_{snapshot.overlay_version + 1}_{worker_id}"
         for step in existing_steps:
             if step.step_id == generated_step_id:
-                raise PatchValidationError(
-                    f"Step id '{generated_step_id}' already in use"
-                )
+                raise PatchValidationError(f"Step id '{generated_step_id}' already in use")

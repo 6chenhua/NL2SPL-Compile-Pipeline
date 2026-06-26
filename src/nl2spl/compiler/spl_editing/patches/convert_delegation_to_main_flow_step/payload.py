@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Literal
+
 from nl2spl.compiler.spl_editing.patches.base import PatchPayload
 
 

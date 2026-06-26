@@ -32,18 +32,13 @@ class SuggestionStore:
 
     def put(self, suggestion: RepairSuggestion) -> None:
         if suggestion.suggestion_id in self._suggestions:
-            raise KeyError(
-                f"Suggestion '{suggestion.suggestion_id}' already exists"
-            )
+            raise KeyError(f"Suggestion '{suggestion.suggestion_id}' already exists")
         if suggestion.session_id not in self._known_sessions:
             raise KeyError(
-                f"Session '{suggestion.session_id}' is not registered "
-                f"in SuggestionStore"
+                f"Session '{suggestion.session_id}' is not registered in SuggestionStore"
             )
         self._suggestions[suggestion.suggestion_id] = suggestion
-        self._by_session.setdefault(suggestion.session_id, []).append(
-            suggestion.suggestion_id
-        )
+        self._by_session.setdefault(suggestion.session_id, []).append(suggestion.suggestion_id)
 
     def get(self, suggestion_id: str) -> RepairSuggestion:
         return self._suggestions[suggestion_id]
@@ -53,8 +48,6 @@ class SuggestionStore:
 
     def list_for_session(self, session_id: str) -> tuple[RepairSuggestion, ...]:
         if session_id not in self._known_sessions:
-            raise KeyError(
-                f"Session '{session_id}' is not registered in SuggestionStore"
-            )
+            raise KeyError(f"Session '{session_id}' is not registered in SuggestionStore")
         ids = self._by_session.get(session_id, [])
         return tuple(self._suggestions[sid] for sid in ids)

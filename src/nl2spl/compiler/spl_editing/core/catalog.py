@@ -67,6 +67,11 @@ class RepairCatalogEntry:
     default_verification_lane: str = "A"
     required_evidence_kind: str = "user_confirmed_repair"
     user_facing: bool = True
+    materialization_plan_id: str | None = None
+    selectable_ref_policy_id: str | None = None
+    intent_schema_id: str | None = None
+    required_context_facts: tuple[str, ...] = ()
+    stage_authority: str | None = None
     description: str = ""
     patch_type_metadata: tuple = ()
     """Per-patch-type labels, descriptions, and verification lanes copied from
@@ -103,7 +108,8 @@ class RepairCatalog:
         return self._by_entry_id.get(entry_id)
 
     def find_by_affordance_id(
-        self, affordance_id: str,
+        self,
+        affordance_id: str,
     ) -> tuple[RepairCatalogEntry, ...]:
         """Return all entries for a given affordance ID.
 
@@ -163,8 +169,7 @@ class RepairCatalog:
             # entry_id must be unique
             if e.entry_id in by_entry_id:
                 raise ValueError(
-                    f"Duplicate entry_id '{e.entry_id}' — "
-                    f"already used by {by_entry_id[e.entry_id]}"
+                    f"Duplicate entry_id '{e.entry_id}' — already used by {by_entry_id[e.entry_id]}"
                 )
             by_entry_id[e.entry_id] = e
 
@@ -225,6 +230,9 @@ class RepairCatalogBuilder:
                     # crash the build.
                     continue
                 for aff in slot.repair_affordances:
+                    plan_id = aff.materialization_plan_id
+                    user_facing = aff.user_facing and bool(plan_id and plan_id.strip())
+
                     entry = RepairCatalogEntry(
                         entry_id=RepairCatalogBuilder._make_entry_id(
                             construct_type=irs.construct_type,
@@ -244,9 +252,14 @@ class RepairCatalogBuilder:
                         editable_artifacts=aff.editable_artifacts,
                         default_verification_lane=aff.default_verification_lane,
                         required_evidence_kind=aff.required_evidence_kind,
-                        user_facing=aff.user_facing,
+                        user_facing=user_facing,
                         description=aff.description,
                         patch_type_metadata=aff.patch_type_metadata,
+                        materialization_plan_id=aff.materialization_plan_id,
+                        selectable_ref_policy_id=aff.selectable_ref_policy_id,
+                        intent_schema_id=aff.intent_schema_id,
+                        required_context_facts=aff.required_context_facts,
+                        stage_authority=aff.stage_authority,
                     )
                     entries.append(entry)
 
@@ -266,5 +279,5 @@ class RepairCatalogBuilder:
         Examples:
             - ``EXCEPTION_FLOW.handler_action.missing_handler.exception_flow.add_handler_step``
             - ``WORKER_PROMOTION.promotion_input_contract.type_or_contract_ambiguity.worker_promotion.resolve_contract``
-        """
+        """  # noqa: E501
         return ".".join([construct_type, slot_name, diagnostic_kind, affordance_id])

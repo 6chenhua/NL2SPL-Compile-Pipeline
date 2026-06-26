@@ -10,9 +10,7 @@ _REASONS = {
     RepairOptionAvailability.UNAVAILABLE_SNAPSHOT_CAPABILITY: (
         "Required snapshot capability is unavailable."
     ),
-    RepairOptionAvailability.UNAVAILABLE_MISSING_HANDLER: (
-        "The repair handler is not registered."
-    ),
+    RepairOptionAvailability.UNAVAILABLE_MISSING_HANDLER: ("The repair handler is not registered."),
     RepairOptionAvailability.UNAVAILABLE_MISSING_TARGET_RESOLVER: (
         "The target resolver is not registered."
     ),
@@ -22,9 +20,7 @@ _REASONS = {
     RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE: (
         "No supported patch type is registered for this run."
     ),
-    RepairOptionAvailability.REVIEW_ONLY: (
-        "This item is review-only and cannot be fixed here."
-    ),
+    RepairOptionAvailability.REVIEW_ONLY: ("This item is review-only and cannot be fixed here."),
 }
 
 

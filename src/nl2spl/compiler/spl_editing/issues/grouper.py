@@ -19,7 +19,6 @@ from nl2spl.ir.diagnostics import (
     METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
     METADATA_KEY_REPAIRABILITY,
     CompileDiagnostic,
-    IssueRole,
     Repairability,
 )
 
@@ -79,9 +78,7 @@ class ProducerIssueGrouper:
 
         Non-producer diagnostics are left untouched.
         """
-        producer_diags = [
-            d for d in diagnostics if d.kind in _PRODUCER_DIAGNOSTIC_KINDS
-        ]
+        producer_diags = [d for d in diagnostics if d.kind in _PRODUCER_DIAGNOSTIC_KINDS]
         if not producer_diags:
             return
 
@@ -164,9 +161,7 @@ class ProducerIssueGrouper:
         """
         # Strategy 1: target_ref parsing
         if diagnostic.target_ref:
-            name = ProducerIssueGrouper._name_from_target_ref(
-                diagnostic.target_ref
-            )
+            name = ProducerIssueGrouper._name_from_target_ref(diagnostic.target_ref)
             if name:
                 return name
 

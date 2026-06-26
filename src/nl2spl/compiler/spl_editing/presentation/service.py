@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
@@ -62,11 +63,7 @@ class SPLEditingPresentationService:
     ) -> RunPresentationView:
         snapshot = self._editing._get_snapshot(run_id)
         issue_list = self.list_issue_presentations(run_id)
-        editable = any(
-            card.can_fix
-            for section in issue_list.sections
-            for card in section.items
-        )
+        editable = any(card.can_fix for section in issue_list.sections for card in section.items)
         return build_run_presentation(
             snapshot=snapshot,
             issue_summary=issue_list.summary,
@@ -81,9 +78,7 @@ class SPLEditingPresentationService:
         for run_id in sorted(self._editing._run_snapshot):
             run_dir = self._editing._run_dirs.get(run_id)
             snapshot_path = (
-                Path(run_dir) / "spl_editing_snapshot.json"
-                if run_dir is not None
-                else None
+                Path(run_dir) / "spl_editing_snapshot.json" if run_dir is not None else None
             )
             views.append(
                 self.get_run_presentation(
@@ -180,8 +175,9 @@ class SPLEditingPresentationService:
     def present_apply_confirmation(
         self,
         suggestion: RepairSuggestion,
+        confirmation_context: Any | None = None,
     ) -> ApplyConfirmationView:
-        return build_apply_confirmation(suggestion)
+        return build_apply_confirmation(suggestion, confirmation_context)
 
     def present_verification(
         self,

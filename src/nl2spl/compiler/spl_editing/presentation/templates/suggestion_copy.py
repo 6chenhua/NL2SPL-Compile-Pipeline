@@ -9,7 +9,7 @@ def expected_effects(patch_type: str) -> tuple[str, ...]:
             "The exception flow will no longer be empty.",
             "The new step will be marked as user-confirmed repair evidence.",
         )
-    if patch_type in {"InsertProducerStep", "BindExistingProducerStep"}:
+    if patch_type == "InsertProducerStep":
         return (
             "The required output will have a renderable producer.",
             "Producer verification will run through the compiler authority.",

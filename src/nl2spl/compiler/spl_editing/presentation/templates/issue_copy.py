@@ -23,8 +23,7 @@ _IMPACT = {
         "This output is declared, but no renderable step produces it."
     ),
     IssueCategory.WORKER_DELEGATION: (
-        "The compiler detected a possible delegated worker, but the handoff "
-        "contract is incomplete."
+        "The compiler detected a possible delegated worker, but the handoff contract is incomplete."
     ),
     IssueCategory.OTHER_EDITABLE: "This issue can be reviewed for repair.",
     IssueCategory.REVIEW_ONLY: "This item needs review but cannot be fixed here.",
@@ -86,9 +85,7 @@ def what_detected_text(category: IssueCategory) -> str:
 
 
 def why_it_matters_text(category: IssueCategory) -> str:
-    return _WHY_IT_MATTERS.get(
-        category, _WHY_IT_MATTERS[IssueCategory.OTHER_EDITABLE]
-    )
+    return _WHY_IT_MATTERS.get(category, _WHY_IT_MATTERS[IssueCategory.OTHER_EDITABLE])
 
 
 def issue_title(

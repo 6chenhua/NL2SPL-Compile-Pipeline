@@ -9,22 +9,14 @@ from __future__ import annotations
 _PATCH_LABELS = {
     "AddExceptionHandlerStep": "Add handler step",
     "InsertProducerStep": "Insert producer step",
-    "BindExistingProducerStep": "Bind existing producer step",
     "CreateWorkerHandoffContract": "Create worker handoff contract",
     "ConvertDelegationIntentToMainFlowStep": "Convert to main-flow step",
     "ConvertDelegationIntentToRequestInput": "Ask user for missing information",
 }
 
 _PATCH_DESCRIPTIONS = {
-    "AddExceptionHandlerStep": (
-        "Use this to add an explicit action inside the exception flow."
-    ),
-    "InsertProducerStep": (
-        "Use this to create a new step that produces the required output."
-    ),
-    "BindExistingProducerStep": (
-        "Use this to mark an existing renderable step as the output producer."
-    ),
+    "AddExceptionHandlerStep": ("Use this to add an explicit action inside the exception flow."),
+    "InsertProducerStep": ("Use this to create a new step that produces the required output."),
     "CreateWorkerHandoffContract": (
         "Use this if the task should become a separate worker handoff."
     ),

@@ -100,9 +100,7 @@ def document_from_artifact_snapshot(
         return new_base_document(identity, payload=payload)
 
     base_identity = _base_identity(parent_document)
-    overlay_id = (
-        f"{parent_document.identity.base_snapshot_id}_ov{snapshot.overlay_version}"
-    )
+    overlay_id = f"{parent_document.identity.base_snapshot_id}_ov{snapshot.overlay_version}"
     identity = new_overlay_identity(
         base_identity,
         overlay_id,
@@ -123,9 +121,7 @@ def document_with_verification_record(
     updated_history = SnapshotEditingHistory(
         overlay_events=history.overlay_events,
         accepted_patches=history.accepted_patches,
-        verification_history=(
-            history.verification_history + _verification_dtos(result, event)
-        ),
+        verification_history=(history.verification_history + _verification_dtos(result, event)),
     )
     updated_payload = replace(
         payload,
@@ -150,15 +146,11 @@ def _payload_from_artifact_snapshot(
     verification_result: VerificationResult | None,
 ) -> SnapshotPayload:
     parent_history = (
-        parent_document.editing_history
-        if parent_document is not None
-        else SnapshotEditingHistory()
+        parent_document.editing_history if parent_document is not None else SnapshotEditingHistory()
     )
     history = SnapshotEditingHistory(
         overlay_events=parent_history.overlay_events + _overlay_dtos(overlay_event),
-        accepted_patches=(
-            parent_history.accepted_patches + _accepted_patch_dtos(accepted_patch)
-        ),
+        accepted_patches=(parent_history.accepted_patches + _accepted_patch_dtos(accepted_patch)),
         verification_history=(
             parent_history.verification_history
             + _verification_dtos(verification_result, overlay_event)

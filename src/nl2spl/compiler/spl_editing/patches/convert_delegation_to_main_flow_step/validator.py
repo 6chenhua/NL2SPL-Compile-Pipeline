@@ -6,8 +6,10 @@ from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.patches.base import PatchValidator
 
 _PROMOTION_SLOTS = {
-    "promotion_input_contract", "promotion_output_contract",
-    "promotion_invocation_point", "promotion_result_handoff",
+    "promotion_input_contract",
+    "promotion_output_contract",
+    "promotion_invocation_point",
+    "promotion_result_handoff",
 }
 
 
@@ -43,33 +45,34 @@ class ConvertDelegationToMainFlowStepValidator(PatchValidator):
                     raise PatchValidationError(f"payload.{field} must be a list")
                 for item in val:
                     if not isinstance(item, str) or not item.strip():
-                        raise PatchValidationError(f"payload.{field} items must be non-empty strings")
+                        raise PatchValidationError(
+                            f"payload.{field} items must be non-empty strings"
+                        )
 
         if patch.patch_type != "ConvertDelegationIntentToMainFlowStep":
-            raise PatchValidationError(f"Wrong patch_type")
+            raise PatchValidationError("Wrong patch_type")
         if patch.affordance_id != "worker_promotion.resolve_contract":
-            raise PatchValidationError(f"Wrong affordance")
+            raise PatchValidationError("Wrong affordance")
         if not patch.evidence.related_diagnostic_id:
             raise PatchValidationError("related_diagnostic_id required")
 
         # IRS boundary
         if patch.irs_ref.construct_type != "WORKER_PROMOTION":
             raise PatchValidationError(
-                f"construct_type must be WORKER_PROMOTION, "
-                f"got '{patch.irs_ref.construct_type}'")
+                f"construct_type must be WORKER_PROMOTION, got '{patch.irs_ref.construct_type}'"
+            )
         if patch.irs_ref.slot_name not in _PROMOTION_SLOTS:
             raise PatchValidationError(
-                f"slot_name must be a WORKER_PROMOTION slot, "
-                f"got '{patch.irs_ref.slot_name}'")
+                f"slot_name must be a WORKER_PROMOTION slot, got '{patch.irs_ref.slot_name}'"
+            )
         # construct_id must identify the WORKER_PROMOTION candidate
         cid = patch.irs_ref.construct_id
         if not cid or not cid.startswith("worker_promotion:"):
             raise PatchValidationError(
-                f"irs_ref.construct_id must be 'worker_promotion:{{id}}', "
-                f"got '{cid}'")
+                f"irs_ref.construct_id must be 'worker_promotion:{{id}}', got '{cid}'"
+            )
         if patch.target_ref != cid:
-            raise PatchValidationError(
-                f"target_ref '{patch.target_ref}' != construct_id '{cid}'")
+            raise PatchValidationError(f"target_ref '{patch.target_ref}' != construct_id '{cid}'")
 
         # Stale revision
         if patch.base_compile_run_id != snapshot.compile_run_id:

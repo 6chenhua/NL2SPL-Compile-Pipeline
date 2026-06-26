@@ -1,13 +1,23 @@
 """Shared parser for LLM suggestion output.
 
-The parser flow is:
-    raw LLM output → parse JSON → reject unsupported patch_type
-    against allowed_patch_types → validate payload schema → return.
+Two parsing paths:
+
+1. ``parse_suggestion_envelope()`` (R6)
+   Parses the outer JSON envelope (patch_type, title, explanation) but does
+   NOT validate the inner payload schema.  The handler routes the raw
+   payload to either ``parse_raw_intent()`` (InsertProducerStep) or the
+   legacy per-patch-type validators.
+
+2. ``parse_suggestion_payload()`` (legacy)
+   Full parse including inner payload schema validation via
+   ``_validate_*_payload()``.  Used by handlers that have not yet migrated
+   to the intent path.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from nl2spl.compiler.spl_editing.core.errors import (
@@ -16,24 +26,45 @@ from nl2spl.compiler.spl_editing.core.errors import (
 )
 
 # ---------------------------------------------------------------------------
+# R6: Envelope DTO
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SuggestionEnvelope:
+    """Parsed outer JSON envelope from LLM output.
+
+    The inner ``raw_payload`` is NOT schema-validated — the handler
+    decides whether to route it to ``parse_raw_intent()`` (intent path)
+    or a legacy ``_validate_*_payload()`` validator.
+    """
+
+    patch_type: str
+    title: str
+    explanation: str
+    raw_payload: Any  # dict — unvalidated
+
+
+# ---------------------------------------------------------------------------
 # Per-patch-type payload validators
 # ---------------------------------------------------------------------------
 
-_VALID_COMMAND_TYPES = frozenset({
-    "GENERAL_COMMAND", "REQUEST_INPUT", "DISPLAY_MESSAGE",
-})
+_VALID_COMMAND_TYPES = frozenset(
+    {
+        "GENERAL_COMMAND",
+        "REQUEST_INPUT",
+        "DISPLAY_MESSAGE",
+    }
+)
 
 
 def _validate_add_exception_handler_payload(payload: object) -> None:
     if not isinstance(payload, dict):
-        raise PatchValidationError(
-            "AddExceptionHandlerStep payload must be a JSON object"
-        )
+        raise PatchValidationError("AddExceptionHandlerStep payload must be a JSON object")
     handler_text = payload.get("handler_text")
     if not isinstance(handler_text, str) or not handler_text.strip():
         raise PatchValidationError(
-            "AddExceptionHandlerStep payload requires a non-empty "
-            "string 'handler_text'"
+            "AddExceptionHandlerStep payload requires a non-empty string 'handler_text'"
         )
     command_type = payload.get("command_type")
     if not isinstance(command_type, str) or command_type not in _VALID_COMMAND_TYPES:
@@ -46,23 +77,15 @@ def _validate_add_exception_handler_payload(payload: object) -> None:
     # Per-command-type rules matching SPL grammar
     if command_type == "DISPLAY_MESSAGE":
         if payload.get("outputs"):
-            raise PatchValidationError(
-                "DISPLAY_MESSAGE must not have outputs"
-            )
+            raise PatchValidationError("DISPLAY_MESSAGE must not have outputs")
         if payload.get("inputs"):
-            raise PatchValidationError(
-                "DISPLAY_MESSAGE must not have inputs"
-            )
+            raise PatchValidationError("DISPLAY_MESSAGE must not have inputs")
     elif command_type == "REQUEST_INPUT":
         if payload.get("inputs"):
-            raise PatchValidationError(
-                "REQUEST_INPUT must not have inputs"
-            )
+            raise PatchValidationError("REQUEST_INPUT must not have inputs")
         outputs = payload.get("outputs", [])
         if not outputs or not isinstance(outputs, (list, tuple)) or len(outputs) == 0:
-            raise PatchValidationError(
-                "REQUEST_INPUT must have at least one output"
-            )
+            raise PatchValidationError("REQUEST_INPUT must have at least one output")
 
     for field in ("inputs", "outputs"):
         val = payload.get(field)
@@ -108,16 +131,6 @@ def _validate_insert_producer_payload(payload: object) -> None:
                     )
 
 
-def _validate_bind_existing_producer_payload(payload: object) -> None:
-    if not isinstance(payload, dict):
-        raise PatchValidationError("BindExistingProducerStep payload must be a JSON object")
-    step_id = payload.get("step_id")
-    if not isinstance(step_id, str) or not step_id.strip():
-        raise PatchValidationError(
-            "BindExistingProducerStep payload requires a non-empty string 'step_id'"
-        )
-
-
 def _validate_convert_to_main_flow_payload(payload: object) -> None:
     if not isinstance(payload, dict):
         raise PatchValidationError(
@@ -152,15 +165,12 @@ def _validate_convert_to_request_input_payload(payload: object) -> None:
 
 def _validate_create_handoff_payload(payload: object) -> None:
     if not isinstance(payload, dict):
-        raise PatchValidationError(
-            "CreateWorkerHandoffContract payload must be a JSON object"
-        )
+        raise PatchValidationError("CreateWorkerHandoffContract payload must be a JSON object")
 
     def _side_valid(bindings, status, source, side_name):
         if not isinstance(bindings, dict):
             raise PatchValidationError(
-                f"CreateWorkerHandoffContract payload '{side_name}_bindings' "
-                "must be a JSON object"
+                f"CreateWorkerHandoffContract payload '{side_name}_bindings' must be a JSON object"
             )
         if status == "known_empty":
             if not isinstance(source, str) or not source.strip():
@@ -198,15 +208,13 @@ def _validate_create_handoff_payload(payload: object) -> None:
     invocation_point = payload.get("invocation_point")
     if not isinstance(invocation_point, str) or not invocation_point.strip():
         raise PatchValidationError(
-            "CreateWorkerHandoffContract payload requires a non-empty string "
-            "'invocation_point'"
+            "CreateWorkerHandoffContract payload requires a non-empty string 'invocation_point'"
         )
 
 
 _PAYLOAD_VALIDATORS: dict[str, Any] = {
     "AddExceptionHandlerStep": _validate_add_exception_handler_payload,
     "InsertProducerStep": _validate_insert_producer_payload,
-    "BindExistingProducerStep": _validate_bind_existing_producer_payload,
     "ConvertDelegationIntentToMainFlowStep": _validate_convert_to_main_flow_payload,
     "ConvertDelegationIntentToRequestInput": _validate_convert_to_request_input_payload,
     "CreateWorkerHandoffContract": _validate_create_handoff_payload,
@@ -216,6 +224,69 @@ _PAYLOAD_VALIDATORS: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+
+def parse_suggestion_envelope(
+    raw: str,
+    allowed_patch_types: tuple[str, ...],
+) -> SuggestionEnvelope:
+    """Parse the outer JSON envelope only — no inner payload validation.
+
+    The caller is responsible for routing ``raw_payload`` to the correct
+    validator: ``parse_raw_intent()`` for intent-aware patch types, or a
+    legacy ``_validate_*_payload()`` for types that have not migrated yet.
+
+    Args:
+        raw: Raw LLM output string (JSON expected).
+        allowed_patch_types: Patch types allowed by the catalog entry.
+
+    Returns:
+        A ``SuggestionEnvelope`` with unvalidated ``raw_payload``.
+
+    Raises:
+        UnsupportedPatchTypeError: If ``patch_type`` is not in
+            *allowed_patch_types*.
+        PatchValidationError: If JSON is malformed, type mismatches, or
+            required keys (patch_type / title / explanation / payload)
+            are missing or invalid.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise PatchValidationError(f"Failed to parse LLM output as JSON: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise PatchValidationError("LLM output must be a JSON object")
+
+    patch_type = data.get("patch_type")
+    if not isinstance(patch_type, str):
+        raise PatchValidationError("Missing or invalid 'patch_type' in LLM output")
+
+    if patch_type not in allowed_patch_types:
+        raise UnsupportedPatchTypeError(
+            f"LLM returned patch_type '{patch_type}', which is not in "
+            f"the allowed set: {sorted(allowed_patch_types)}"
+        )
+
+    for required_key in ("title", "explanation", "payload"):
+        if required_key not in data:
+            raise PatchValidationError(f"LLM output missing required key '{required_key}'")
+
+    for field in ("title", "explanation"):
+        val = data.get(field)
+        if not isinstance(val, str) or not val.strip():
+            raise PatchValidationError(f"LLM output '{field}' must be a non-empty string")
+
+    raw_payload = data["payload"]
+    if not isinstance(raw_payload, dict):
+        raise PatchValidationError("LLM output 'payload' must be a JSON object")
+
+    return SuggestionEnvelope(
+        patch_type=patch_type,
+        title=str(data["title"]).strip(),
+        explanation=str(data["explanation"]).strip(),
+        raw_payload=raw_payload,
+    )
 
 
 def parse_suggestion_payload(
@@ -242,18 +313,14 @@ def parse_suggestion_payload(
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise PatchValidationError(
-            f"Failed to parse LLM output as JSON: {exc}"
-        ) from exc
+        raise PatchValidationError(f"Failed to parse LLM output as JSON: {exc}") from exc
 
     if not isinstance(data, dict):
         raise PatchValidationError("LLM output must be a JSON object")
 
     patch_type = data.get("patch_type")
     if not isinstance(patch_type, str):
-        raise PatchValidationError(
-            "Missing or invalid 'patch_type' in LLM output"
-        )
+        raise PatchValidationError("Missing or invalid 'patch_type' in LLM output")
 
     if patch_type not in allowed_patch_types:
         raise UnsupportedPatchTypeError(
@@ -263,17 +330,13 @@ def parse_suggestion_payload(
 
     for required_key in ("title", "explanation", "payload"):
         if required_key not in data:
-            raise PatchValidationError(
-                f"LLM output missing required key '{required_key}'"
-            )
+            raise PatchValidationError(f"LLM output missing required key '{required_key}'")
 
     # Validate title / explanation are non-empty strings
     for field in ("title", "explanation"):
         val = data.get(field)
         if not isinstance(val, str) or not val.strip():
-            raise PatchValidationError(
-                f"LLM output '{field}' must be a non-empty string"
-            )
+            raise PatchValidationError(f"LLM output '{field}' must be a non-empty string")
 
     # Validate payload schema per patch type
     validator = _PAYLOAD_VALIDATORS.get(patch_type)

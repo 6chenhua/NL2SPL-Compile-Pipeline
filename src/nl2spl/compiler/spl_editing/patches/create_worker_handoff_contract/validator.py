@@ -23,8 +23,8 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
             raise PatchValidationError("Wrong affordance")
         if patch.irs_ref.construct_type != "WORKER_PROMOTION":
             raise PatchValidationError(
-                f"construct_type must be WORKER_PROMOTION, "
-                f"got '{patch.irs_ref.construct_type}'")
+                f"construct_type must be WORKER_PROMOTION, got '{patch.irs_ref.construct_type}'"
+            )
         if not patch.evidence.related_diagnostic_id:
             raise PatchValidationError("related_diagnostic_id required")
 
@@ -44,12 +44,11 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
         # IRS boundary
         if patch.irs_ref.construct_type != "WORKER_PROMOTION":
             raise PatchValidationError(
-                f"construct_type must be WORKER_PROMOTION, "
-                f"got '{patch.irs_ref.construct_type}'")
+                f"construct_type must be WORKER_PROMOTION, got '{patch.irs_ref.construct_type}'"
+            )
         expected_ref = f"worker_promotion:{p['worker_promotion_id']}"
         if patch.target_ref != expected_ref:
-            raise PatchValidationError(
-                f"target_ref '{patch.target_ref}' != '{expected_ref}'")
+            raise PatchValidationError(f"target_ref '{patch.target_ref}' != '{expected_ref}'")
 
         # Worker existence check
         plan = snapshot.worker_plan
@@ -57,11 +56,9 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
         parent_id = p.get("parent_worker_id", "")
         child_id = p.get("child_worker_id", "")
         if parent_id not in worker_ids:
-            raise PatchValidationError(
-                f"parent_worker_id '{parent_id}' not in worker plan")
+            raise PatchValidationError(f"parent_worker_id '{parent_id}' not in worker plan")
         if child_id not in worker_ids:
-            raise PatchValidationError(
-                f"child_worker_id '{child_id}' not in worker plan")
+            raise PatchValidationError(f"child_worker_id '{child_id}' not in worker plan")
 
         # Binding status consistency
         valid_binding_status = frozenset({"known_present", "known_empty"})
@@ -69,20 +66,24 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
         out_status = p.get("output_binding_status", "known_present")
         if in_status not in valid_binding_status:
             raise PatchValidationError(
-                f"input_binding_status '{in_status}' is not a valid BindingSideStatus")
+                f"input_binding_status '{in_status}' is not a valid BindingSideStatus"
+            )
         if out_status not in valid_binding_status:
             raise PatchValidationError(
-                f"output_binding_status '{out_status}' is not a valid BindingSideStatus")
+                f"output_binding_status '{out_status}' is not a valid BindingSideStatus"
+            )
 
         in_bindings = p.get("input_bindings", {}) or {}
         out_bindings = p.get("output_bindings", {}) or {}
 
         if in_status == "known_present" and not in_bindings:
             raise PatchValidationError(
-                "input_binding_status='known_present' requires non-empty input_bindings")
+                "input_binding_status='known_present' requires non-empty input_bindings"
+            )
         if out_status == "known_present" and not out_bindings:
             raise PatchValidationError(
-                "output_binding_status='known_present' requires non-empty output_bindings")
+                "output_binding_status='known_present' requires non-empty output_bindings"
+            )
 
         for side, status, bindings in [
             ("input", in_status, in_bindings),
@@ -93,8 +94,10 @@ class CreateWorkerHandoffContractValidator(PatchValidator):
                 if not isinstance(source, str) or not source.strip():
                     raise PatchValidationError(
                         f"{side}_binding_status='known_empty' requires "
-                        f"non-empty {side}_binding_status_source")
+                        f"non-empty {side}_binding_status_source"
+                    )
                 if bindings:
                     raise PatchValidationError(
                         f"{side}_binding_status='known_empty' requires "
-                        f"empty {side}_bindings, got {len(bindings)} entries")
+                        f"empty {side}_bindings, got {len(bindings)} entries"
+                    )

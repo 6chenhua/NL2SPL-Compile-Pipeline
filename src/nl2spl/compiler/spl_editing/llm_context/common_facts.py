@@ -9,26 +9,20 @@ Each builder extracts from structured backend state — NEVER from:
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any
 
 from nl2spl.compiler.spl_editing.llm_context.model import (
-    ArtifactFacts,
     InternalRoutingFacts,
     IssueFacts,
     PreviousSuggestionFacts,
     RepairActionFacts,
     SafetyFacts,
-    SelectableReference,
     SourceFacts,
+    StepEvidenceStatus,
     StepSummary,
     TargetFacts,
     WorkflowFacts,
-    StepEvidenceStatus,
 )
-from nl2spl.compiler.spl_editing.llm_context.selectable import (
-    build_step_reference,
-)
-
 
 # =============================================================================
 # IssueFacts
@@ -49,7 +43,7 @@ def build_issue_facts(
         user_facing_title = getattr(issue, "kind", "unknown") or "unknown"
     if not what_detected:
         # Use structured fields only — never raw diagnostic.message
-        what_detected = getattr(issue, "suggested_resolution", "") or ""
+        what_detected = _detected_summary_from_structured_issue(issue)
 
     return IssueFacts(
         issue_category=getattr(issue, "kind", "unknown") or "unknown",
@@ -57,9 +51,7 @@ def build_issue_facts(
         what_was_detected=what_detected,
         missing_items=(getattr(issue, "missing_slot", "") or "",),
         suggested_resolution=getattr(issue, "suggested_resolution", None) or None,
-        repairability=(
-            "editable" if getattr(issue, "repairable", False) else "non_repairable"
-        ),
+        repairability=("editable" if getattr(issue, "repairable", False) else "non_repairable"),
     )
 
 
@@ -116,10 +108,7 @@ def build_target_facts(
             slot_name = getattr(irs_ref, "slot_name", "") or ""
 
     # Human-readable summary — never use target_ref or raw message as business text
-    summary = (
-        getattr(issue, "suggested_resolution", "")
-        or f"{construct_type} missing {slot_name}"
-    )
+    summary = _target_summary(construct_type, slot_name)
 
     return TargetFacts(
         construct_type=construct_type,
@@ -164,17 +153,18 @@ def build_workflow_facts(
             steps = getattr(step_plan, "worker_steps", {}).get(wid, [])
             for s in steps[:5]:
                 evidence: StepEvidenceStatus = (
-                    "source_backed" if getattr(s, "source_span_ids", None)
-                    else "assumed"
+                    "source_backed" if getattr(s, "source_span_ids", None) else "assumed"
                 )
-                nearby_steps.append(StepSummary(
-                    step_id_internal=getattr(s, "step_id", ""),
-                    text=getattr(s, "text", ""),
-                    command_type=getattr(s, "command_type", "GENERAL_COMMAND"),
-                    outputs=tuple(getattr(s, "outputs", [])),
-                    inputs=tuple(getattr(s, "inputs", [])),
-                    evidence_status=evidence,
-                ))
+                nearby_steps.append(
+                    StepSummary(
+                        step_id_internal=getattr(s, "step_id", ""),
+                        text=getattr(s, "text", ""),
+                        command_type=getattr(s, "command_type", "GENERAL_COMMAND"),
+                        outputs=tuple(getattr(s, "outputs", [])),
+                        inputs=tuple(getattr(s, "inputs", [])),
+                        evidence_status=evidence,
+                    )
+                )
                 for o in getattr(s, "outputs", []):
                     if o and o not in available_outputs:
                         available_outputs.append(o)
@@ -207,6 +197,7 @@ def build_repair_action_facts(
     patch_registry: Any | None = None,
     catalog_entry: Any | None = None,
     verification_lane: str = "A",
+    selectable_refset: Any | None = None,  # R6: SelectableRefSet | None
 ) -> RepairActionFacts:
     """Build RepairActionFacts from RepairCatalog / PatchRegistry.
 
@@ -216,12 +207,7 @@ def build_repair_action_facts(
     # Derive from catalog entry — NO hardcoded defaults
     allowed_cmd_types: tuple[str, ...] = ()
     if catalog_entry is not None:
-        allowed_cmd_types = tuple(
-            getattr(catalog_entry, "supported_command_types", ()) or ()
-        )
-    # When catalog entry provides no command types, leave empty.
-    # The renderer will omit the "allowed command types" section
-    # and the LLM must rely on the system prompt for this guidance.
+        allowed_cmd_types = tuple(getattr(catalog_entry, "supported_command_types", ()) or ())
 
     # Derive payload schema from patch registry
     patch_schema: dict = {}
@@ -236,12 +222,22 @@ def build_repair_action_facts(
     if catalog_entry is not None:
         lane = getattr(catalog_entry, "default_verification_lane", None) or lane
 
+    # R6: Adapt SelectableRefSet to LLM context SelectableReferences
+    selectable_references: tuple[Any, ...] = ()
+    if selectable_refset is not None:
+        from nl2spl.compiler.spl_editing.llm_context.selectable_ref_adapter import (
+            adapt_refset_to_selectable_references,
+        )
+
+        selectable_references = adapt_refset_to_selectable_references(selectable_refset)
+
     return RepairActionFacts(
         affordance_id=affordance_id,
         selected_patch_type=selected_patch_type,
         patch_payload_schema=patch_schema,
         allowed_command_types=allowed_cmd_types,
         verification_lane=lane,
+        selectable_references=selectable_references,
     )
 
 
@@ -275,3 +271,30 @@ def build_previous_facts(
     previous_summaries: tuple[str, ...] = (),
 ) -> PreviousSuggestionFacts:
     return PreviousSuggestionFacts(previous_summaries=previous_summaries)
+
+
+def _detected_summary_from_structured_issue(issue: Any) -> str:
+    kind_raw = getattr(issue, "kind", "") or "unknown"
+    kind = kind_raw if isinstance(kind_raw, str) and kind_raw else "unknown"
+    slot_raw = getattr(issue, "missing_slot", "") or ""
+    slot = slot_raw if isinstance(slot_raw, str) else ""
+    irs_ref = getattr(issue, "irs_ref", None)
+    construct_raw = getattr(irs_ref, "construct_type", "") if irs_ref else ""
+    construct_type = construct_raw if isinstance(construct_raw, str) else ""
+    if kind == "missing_handler" and construct_type == "EXCEPTION_FLOW":
+        return "Exception flow has no handler action."
+    if kind == "missing_output_producer":
+        return "Required output has no renderable producer."
+    if kind == "type_or_contract_ambiguity":
+        return "Construct type or contract information is incomplete."
+    if construct_type and slot:
+        return f"{construct_type} is missing {slot}."
+    return kind
+
+
+def _target_summary(construct_type: str, slot_name: str) -> str:
+    if construct_type and slot_name:
+        return f"{construct_type} missing {slot_name}"
+    if construct_type:
+        return construct_type
+    return "Target construct"

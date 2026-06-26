@@ -9,8 +9,9 @@ or verification modules.  It is pure data projection.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal, Mapping
+from typing import Literal
 
 # ---------------------------------------------------------------------------
 # Scalar value types
@@ -30,13 +31,16 @@ GenerationStatus = Literal[
     "repair_unavailable",
 ]
 
-BlockingAuthority = Literal[
-    "repair_catalog",
-    "patch_registry",
-    "target_resolver",
-    "context_provider",
-    "patch_precondition",
-] | None
+BlockingAuthority = (
+    Literal[
+        "repair_catalog",
+        "patch_registry",
+        "target_resolver",
+        "context_provider",
+        "patch_precondition",
+    ]
+    | None
+)
 
 ContextConfidence = Literal["high", "medium", "low"]
 
@@ -168,7 +172,7 @@ class RepairActionFacts:
     allowed_worker_ids: tuple[str, ...] = ()
     allowed_step_ids: tuple[str, ...] = ()
     allowed_output_names: tuple[str, ...] = ()
-    selectable_references: tuple["SelectableReference", ...] = ()
+    selectable_references: tuple[SelectableReference, ...] = ()
     forbidden_actions: tuple[str, ...] = ()
     verification_lane: str = "A"
 
@@ -323,7 +327,8 @@ class LLMRepairContext:
     artifact_facts: ArtifactFacts = field(default_factory=ArtifactFacts)
     repair_action_facts: RepairActionFacts = field(
         default_factory=lambda: RepairActionFacts(
-            affordance_id="", selected_patch_type="",
+            affordance_id="",
+            selected_patch_type="",
         ),
     )
     safety_facts: SafetyFacts = field(default_factory=SafetyFacts)
@@ -337,11 +342,16 @@ class LLMRepairContext:
 
     primary_extension: LLMRepairContextExtension = field(
         default_factory=lambda: LLMRepairContextExtension(
-            extension_id="", provider_id="",
+            extension_id="",
+            provider_id="",
             role="primary",
-            affordance_id="", construct_type="", slot_name="",
-            diagnostic_kind="", patch_type="",
-            facts_schema_id="", facts_schema_version="",
+            affordance_id="",
+            construct_type="",
+            slot_name="",
+            diagnostic_kind="",
+            patch_type="",
+            facts_schema_id="",
+            facts_schema_version="",
         ),
     )
     auxiliary_extensions: tuple[LLMRepairContextExtension, ...] = ()

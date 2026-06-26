@@ -37,6 +37,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.targets.worker_promotion import (
         WorkerPromotionTargetResolver,
     )
+
     reg.target_resolvers.register("exception_flow_target", ExceptionFlowTargetResolver())
     reg.target_resolvers.register("required_output_target", RequiredOutputTargetResolver())
     reg.target_resolvers.register("worker_promotion_target", WorkerPromotionTargetResolver())
@@ -55,6 +56,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
         WorkerPromotionContextBuilder,
     )
+
     reg.context_builders.register("exception_flow_context", ExceptionFlowContextBuilder())
     reg.context_builders.register("required_output_context", RequiredOutputContextBuilder())
     reg.context_builders.register("worker_promotion_context", WorkerPromotionContextBuilder())
@@ -69,6 +71,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler import (
         TypeOrContractAmbiguityHandler,
     )
+
     reg.handlers.register("missing_handler", MissingHandlerRepairHandler(suggestion_llm))
     reg.llm_context_builders.register(
         "missing_handler",
@@ -82,9 +85,25 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         "missing_output_producer",
         MissingOutputProducerHandler(suggestion_llm),
     )
+    reg.llm_context_builders.register(
+        "missing_output_producer",
+        _build_generic_context_builder(),
+    )
+    reg.prompt_renderers.register(
+        "missing_output_producer",
+        _build_generic_prompt_renderer(),
+    )
     reg.handlers.register(
         "type_or_contract_ambiguity",
         TypeOrContractAmbiguityHandler(suggestion_llm),
+    )
+    reg.llm_context_builders.register(
+        "type_or_contract_ambiguity",
+        _build_generic_context_builder(),
+    )
+    reg.prompt_renderers.register(
+        "type_or_contract_ambiguity",
+        _build_generic_prompt_renderer(),
     )
 
     # Patches (validators + appliers + verifiers)
@@ -101,18 +120,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
         AddExceptionHandlerStepVerifier,
     )
-    reg.patches.register("AddExceptionHandlerStep", PatchBundle(
-        patch_type="AddExceptionHandlerStep",
-        validator=AddExceptionHandlerStepValidator(),
-        applier=AddExceptionHandlerStepApplier(),
-        verifier=AddExceptionHandlerStepVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "AddExceptionHandlerStep",
+        PatchBundle(
             patch_type="AddExceptionHandlerStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=AddExceptionHandlerStepValidator(),
+            applier=AddExceptionHandlerStepApplier(),
+            verifier=AddExceptionHandlerStepVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="AddExceptionHandlerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
 
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
         InsertProducerStepApplier,
@@ -126,41 +149,23 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.verifier import (
         InsertProducerStepVerifier,
     )
-    reg.patches.register("InsertProducerStep", PatchBundle(
-        patch_type="InsertProducerStep",
-        validator=InsertProducerStepValidator(),
-        applier=InsertProducerStepApplier(),
-        verifier=InsertProducerStepVerifier(),
-        previewer=InsertProducerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "InsertProducerStep",
+        PatchBundle(
             patch_type="InsertProducerStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=InsertProducerStepValidator(),
+            applier=InsertProducerStepApplier(),
+            verifier=InsertProducerStepVerifier(),
+            previewer=InsertProducerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="InsertProducerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
-        BindExistingProducerStepApplier,
     )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.preview import (
-        BindExistingProducerStepPreviewer,
-    )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.validator import (
-        BindExistingProducerStepValidator,
-    )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.verifier import (
-        BindExistingProducerStepVerifier,
-    )
-    reg.patches.register("BindExistingProducerStep", PatchBundle(
-        patch_type="BindExistingProducerStep",
-        validator=BindExistingProducerStepValidator(),
-        applier=BindExistingProducerStepApplier(),
-        verifier=BindExistingProducerStepVerifier(),
-        previewer=BindExistingProducerStepPreviewer(),
-        contract=PatchTypeContract(
-            patch_type="BindExistingProducerStep",
-            evidence_targets=("step",),
-        ),
-    ))
+
 
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.preview import (
         AddExceptionHandlerStepPreviewer,
@@ -174,18 +179,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.verifier import (
         ConvertDelegationToMainFlowStepVerifier,
     )
-    reg.patches.register("ConvertDelegationIntentToMainFlowStep", PatchBundle(
-        patch_type="ConvertDelegationIntentToMainFlowStep",
-        validator=ConvertDelegationToMainFlowStepValidator(),
-        applier=ConvertDelegationToMainFlowStepApplier(),
-        verifier=ConvertDelegationToMainFlowStepVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "ConvertDelegationIntentToMainFlowStep",
+        PatchBundle(
             patch_type="ConvertDelegationIntentToMainFlowStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=ConvertDelegationToMainFlowStepValidator(),
+            applier=ConvertDelegationToMainFlowStepApplier(),
+            verifier=ConvertDelegationToMainFlowStepVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="ConvertDelegationIntentToMainFlowStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
 
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
         ConvertDelegationToRequestInputApplier,
@@ -196,18 +205,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.verifier import (
         ConvertDelegationToRequestInputVerifier,
     )
-    reg.patches.register("ConvertDelegationIntentToRequestInput", PatchBundle(
-        patch_type="ConvertDelegationIntentToRequestInput",
-        validator=ConvertDelegationToRequestInputValidator(),
-        applier=ConvertDelegationToRequestInputApplier(),
-        verifier=ConvertDelegationToRequestInputVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "ConvertDelegationIntentToRequestInput",
+        PatchBundle(
             patch_type="ConvertDelegationIntentToRequestInput",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=ConvertDelegationToRequestInputValidator(),
+            applier=ConvertDelegationToRequestInputApplier(),
+            verifier=ConvertDelegationToRequestInputVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="ConvertDelegationIntentToRequestInput",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
 
     return SPLEditingService(reg)
 
@@ -220,6 +233,7 @@ def _build_missing_handler_context_builder():
     from nl2spl.compiler.spl_editing.llm_context.registry import (
         LLMRepairContextExtensionRegistry,
     )
+
     reg = LLMRepairContextExtensionRegistry()
     reg.register(ExceptionFlowHandlerContextProvider())
     return LLMRepairContextBuilder(provider_registry=reg)
@@ -233,9 +247,29 @@ def _build_missing_handler_prompt_renderer():
     from nl2spl.compiler.spl_editing.llm_context.section_renderer import (
         SectionRendererRegistry,
     )
+
     sreg = SectionRendererRegistry()
     sreg.register(ExceptionFlowHandlerSectionRenderer())
     return PromptRenderer(section_renderer_registry=sreg)
+
+
+def _build_generic_context_builder():
+    """Build a generic LLMRepairContextBuilder with no extra providers."""
+    from nl2spl.compiler.spl_editing.llm_context.builder import LLMRepairContextBuilder
+    from nl2spl.compiler.spl_editing.llm_context.registry import (
+        LLMRepairContextExtensionRegistry,
+    )
+
+    reg = LLMRepairContextExtensionRegistry()
+    return LLMRepairContextBuilder(provider_registry=reg)
+
+
+def _build_generic_prompt_renderer():
+    """Build a generic PromptRenderer with no extra section renderers."""
+    from nl2spl.compiler.spl_editing.llm_context.rendering import PromptRenderer
+
+    return PromptRenderer(section_renderer_registry=None)
+
 
 
 def demo_flow(snapshot: ArtifactSnapshot, instruction: str | None = None) -> None:
@@ -262,7 +296,8 @@ def demo_flow(snapshot: ArtifactSnapshot, instruction: str | None = None) -> Non
 
     generation = svc.generate_suggestions(session.session_id, instruction)
     suggestions = generation.suggestions
-    print(f"\nAI repair suggestions ({len(suggestions)}):")
+    label = "suggestion" if len(suggestions) == 1 else "suggestions"
+    print(f"\nAI repair {label} ({len(suggestions)}):")
     for idx, s in enumerate(suggestions, 1):
         print(f"  [{idx}] {s.title}")
         if s.spl_preview:

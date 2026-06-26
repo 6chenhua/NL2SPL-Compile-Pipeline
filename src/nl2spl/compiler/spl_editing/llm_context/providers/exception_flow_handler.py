@@ -9,7 +9,6 @@ from __future__ import annotations
 from nl2spl.compiler.spl_editing.llm_context.model import (
     ContextQuality,
     LLMRepairContextExtension,
-    StepSummary,
 )
 
 
@@ -33,9 +32,6 @@ class ExceptionFlowHandlerContextProvider:
         "properties": {
             "exception_condition_text": {"type": "string"},
             "exception_source_excerpt": {"type": "string"},
-            "parent_worker_purpose": {"type": "string"},
-            "nearby_main_flow_steps": {"type": "array"},
-            "available_variables_relevant_to_condition": {"type": "array"},
             "allowed_handler_command_types": {"type": "array"},
         },
     }
@@ -49,9 +45,6 @@ class ExceptionFlowHandlerContextProvider:
     optional_fact_keys = (
         "exception_condition_text",
         "exception_source_excerpt",
-        "parent_worker_purpose",
-        "nearby_main_flow_steps",
-        "available_variables_relevant_to_condition",
         "allowed_handler_command_types",
     )
 
@@ -66,38 +59,17 @@ class ExceptionFlowHandlerContextProvider:
     ) -> LLMRepairContextExtension:
         condition_text = ""
         source_excerpt = ""
-        parent_worker_purpose = ""
-        available_vars: list[str] = []
-
         if artifact_snapshot is not None:
+            span_index = _span_index(artifact_snapshot)
             # 1. Extract condition from structured exception flows (WorkerIR)
             final_worker = getattr(artifact_snapshot, "final_worker", None)
             flow_id = _flow_id_from_target(target, issue)
             if final_worker is not None and flow_id:
                 condition_text, source_excerpt = _find_in_worker_exception_flows(
-                    final_worker, flow_id,
+                    final_worker,
+                    flow_id,
+                    span_index,
                 )
-
-            # 2. Worker purpose from plan
-            worker_plan = getattr(artifact_snapshot, "worker_plan", None)
-            parent_wid = getattr(target, "worker_id", None) if target else None
-            if worker_plan is not None and parent_wid:
-                for w in getattr(worker_plan, "workers", []):
-                    if getattr(w, "worker_id", None) == parent_wid:
-                        parent_worker_purpose = getattr(w, "purpose", "") or ""
-                        break
-
-            # 3. Available variables from step plan
-            step_plan = getattr(artifact_snapshot, "worker_step_plan", None)
-            if step_plan is not None:
-                wid = parent_wid or "worker_main"
-                for s in getattr(step_plan, "worker_steps", {}).get(wid, []):
-                    for o in getattr(s, "outputs", []):
-                        if o and o not in available_vars:
-                            available_vars.append(o)
-
-        # 4. Build nearby step summaries
-        nearby_steps = _build_nearby_steps(artifact_snapshot, target)
 
         # 5. Quality — condition_text is the critical fact
         has_primary_fact = bool(condition_text)
@@ -105,9 +77,7 @@ class ExceptionFlowHandlerContextProvider:
             confidence="medium" if has_primary_fact else "low",
             has_primary_business_fact=has_primary_fact,
             has_source_excerpt=bool(source_excerpt),
-            missing_context_fields=(
-                () if has_primary_fact else ("exception_condition_text",)
-            ),
+            missing_context_fields=(() if has_primary_fact else ("exception_condition_text",)),
         )
 
         return LLMRepairContextExtension(
@@ -125,18 +95,10 @@ class ExceptionFlowHandlerContextProvider:
             facts={
                 "exception_condition_text": condition_text,
                 "exception_source_excerpt": source_excerpt or None,
-                "parent_worker_purpose": parent_worker_purpose or None,
-                "nearby_main_flow_steps": [
-                    {
-                        "text": s.text,
-                        "outputs": list(s.outputs),
-                        "command_type": s.command_type,
-                    }
-                    for s in nearby_steps
-                ],
-                "available_variables_relevant_to_condition": available_vars[:10],
                 "allowed_handler_command_types": [
-                    "GENERAL_COMMAND", "REQUEST_INPUT", "DISPLAY_MESSAGE",
+                    "GENERAL_COMMAND",
+                    "REQUEST_INPUT",
+                    "DISPLAY_MESSAGE",
                 ],
             },
             required_fact_keys=self.required_fact_keys,
@@ -185,7 +147,9 @@ def _flow_id_from_target(target, issue) -> str | None:
 
 
 def _find_in_worker_exception_flows(
-    final_worker, flow_id: str,
+    final_worker,
+    flow_id: str,
+    span_index: dict[str, str],
 ) -> tuple[str, str]:
     """Find condition_text and source excerpt from WorkerIR.exception_flows."""
     cond = ""
@@ -196,35 +160,22 @@ def _find_in_worker_exception_flows(
         if fid == flow_id:
             cond = getattr(ef, "condition_text", "") or ""
             spans = getattr(ef, "spans", []) or []
-            if spans:
-                excerpt = str(spans[0]) if hasattr(spans[0], "__str__") else ""
+            for span_id in spans:
+                span_text = span_index.get(str(span_id), "")
+                if span_text:
+                    excerpt = span_text
+                    break
             break
     return cond, excerpt
 
 
-def _build_nearby_steps(
-    artifact_snapshot,
-    target,
-) -> list[StepSummary]:
-    result: list[StepSummary] = []
+def _span_index(artifact_snapshot) -> dict[str, str]:
+    result: dict[str, str] = {}
     if artifact_snapshot is None:
         return result
-    step_plan = getattr(artifact_snapshot, "worker_step_plan", None)
-    if step_plan is None:
-        return result
-    parent_wid = getattr(target, "worker_id", None) or "worker_main" if target else "worker_main"
-    steps = getattr(step_plan, "worker_steps", {}).get(parent_wid, [])
-    for s in steps[:5]:
-        flow_ref = getattr(s, "flow_ref", None) or ""
-        if flow_ref == "main" or flow_ref == "":
-            result.append(StepSummary(
-                step_id_internal=getattr(s, "step_id", ""),
-                text=getattr(s, "text", ""),
-                command_type=getattr(s, "command_type", "GENERAL_COMMAND"),
-                outputs=tuple(getattr(s, "outputs", [])),
-                evidence_status=(
-                    "source_backed" if getattr(s, "source_span_ids", None)
-                    else "assumed"
-                ),
-            ))
+    for span in getattr(artifact_snapshot, "spans", ()) or ():
+        span_id = getattr(span, "span_id", "") or getattr(span, "id", "") or ""
+        text = getattr(span, "text", "") or ""
+        if span_id and text:
+            result[str(span_id)] = str(text)
     return result

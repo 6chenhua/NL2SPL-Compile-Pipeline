@@ -1,6 +1,15 @@
-"""Missing output producer repair handler."""
+"""Missing output producer repair handler.
+
+R6: InsertProducerStep goes through the intent path (ConstructRepairIntent).
+Insert NEVER falls back to dict payload — missing refset/catalog/policy
+results in generation_blocked, not silent degradation.
+"""
 
 from __future__ import annotations
+
+import json
+from dataclasses import replace
+from typing import Any
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.errors import (
@@ -17,10 +26,16 @@ from nl2spl.compiler.spl_editing.core.model import (
 from nl2spl.compiler.spl_editing.handlers.base import IssueRepairHandler, SuggestionPolicy
 from nl2spl.compiler.spl_editing.handlers.llm_adapter import SuggestionLLM
 from nl2spl.compiler.spl_editing.handlers.missing_output_producer.prompt import (
-    MISSING_OUTPUT_SYSTEM_PROMPT,
+    INSERT_PRODUCER_SYSTEM_PROMPT,
     build_missing_output_user_prompt,
 )
-from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
+from nl2spl.compiler.spl_editing.handlers.parser import (
+    parse_suggestion_envelope,
+)
+from nl2spl.compiler.spl_editing.intent import (
+    IntentValidator,
+    parse_raw_intent,
+)
 
 
 class MissingOutputProducerHandler(IssueRepairHandler):
@@ -39,13 +54,17 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         return self._policy
 
     def generate_suggestions(
-        self, issue: EditableIssue, target: RepairTarget,
+        self,
+        issue: EditableIssue,
+        target: RepairTarget,
         context: RepairContext,
         catalog_entries: tuple[RepairCatalogEntry, ...],
         user_instruction: str | None = None,
         selected_patch_types: tuple[str, ...] | None = None,
         *,
         rendered_user_prompt: str | None = None,
+        selectable_refset: Any | None = None,
+        catalog_entry: Any | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         allowed = tuple(pt for e in catalog_entries for pt in e.supported_patch_types)
         if selected_patch_types:
@@ -53,92 +72,48 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         if not allowed:
             return ()
 
-        entry = catalog_entries[0]
+        entry = catalog_entry or catalog_entries[0]
         output_name = self._output_name_from_target(issue)
         suggestions: list[RepairSuggestion] = []
         parse_failures = 0
         previous_summaries: list[str] = []
-        previous_payloads: list[dict] = []
+        previous_payloads: list[Any] = []
         max_attempts = self._policy.max_suggestions * self._policy.max_attempts_ratio
-        bindable_step_ids = tuple(
-            step.step_id for step in self._bindable_steps(context)
-        )
 
-        # Build ordered sequence of patch types to try.
-        # Focused: all attempts on selected type(s).
-        # Unfiltered: round-robin to cover every supported type.
-        patch_type_sequence = [
-            allowed[i % len(allowed)]
-            for i in range(max_attempts)
-        ]
+        patch_type_sequence = [allowed[i % len(allowed)] for i in range(max_attempts)]
 
         for allowed_patch_type in patch_type_sequence:
             if len(suggestions) >= self._policy.max_suggestions:
                 break
-            if (
-                allowed_patch_type == "BindExistingProducerStep"
-                and self._find_bindable_step(context) is None
-            ):
-                continue
-            raw = self._llm.generate_json(
-                system_prompt=MISSING_OUTPUT_SYSTEM_PROMPT,
-                user_prompt=build_missing_output_user_prompt(
+
+            # ── InsertProducerStep: intent path (R6) ─────────────────────
+            if allowed_patch_type == "InsertProducerStep":
+                suggestions_from_insert = self._try_insert_intent(
+                    issue=issue,
+                    target=target,
                     output_name=output_name,
-                    target_ref=issue.target_ref,
-                    allowed_patch_types=(allowed_patch_type,),
+                    entry=entry,
+                    selectable_refset=selectable_refset,
                     user_instruction=user_instruction,
-                    previous_suggestions=tuple(previous_summaries),
-                    bindable_step_ids=bindable_step_ids,
-                ),
-            )
-            try:
-                data = parse_suggestion_payload(raw, (allowed_patch_type,))
-            except UnsupportedPatchTypeError:
-                raise
-            except PatchValidationError:
+                    previous_summaries=previous_summaries,
+                    previous_payloads=previous_payloads,
+                    rendered_user_prompt=rendered_user_prompt,
+                )
+                for sug in suggestions_from_insert:
+                    if len(suggestions) >= self._policy.max_suggestions:
+                        break
+                    suggestions.append(sug)
+                    previous_summaries.append(f"{sug.title}: {sug.explanation}")
+                if suggestions_from_insert:
+                    continue
                 parse_failures += 1
                 continue
 
-            pt = data["patch_type"]
-            payload = self._payload_for(
-                pt, issue, target, context, data["payload"],
-            )
-            if payload is None:
+            # ── Unknown / future patch types ─────────────────────────────
+            else:
                 parse_failures += 1
                 continue
 
-            # Skip duplicate payloads
-            if payload in previous_payloads:
-                parse_failures += 1
-                continue
-
-            previous_summaries.append(
-                f"{data['title']}: {data['explanation']}"
-            )
-            previous_payloads.append(payload)
-            preview = (
-                f"Bind existing step '{payload.get('step_id', '?')}' "
-                f"as producer of '{output_name}'"
-                if pt == "BindExistingProducerStep"
-                else f"[{payload.get('command_type', 'GENERAL_COMMAND')}] "
-                     f"{payload.get('producer_text', 'Produce output.')}"
-            )
-            suggestions.append(RepairSuggestion(
-                suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
-                session_id="",
-                affordance_id=entry.affordance_id,
-                title=data["title"],
-                explanation=data["explanation"],
-                patch=RepairPatch(
-                    patch_id="", affordance_id=entry.affordance_id,
-                    patch_type=pt, target_ref=issue.target_ref,
-                    irs_ref=issue.irs_ref,
-                    base_compile_run_id="", artifact_snapshot_id="",
-                    overlay_version=0, payload=payload,
-                    verification_lane=entry.default_verification_lane,
-                ),
-                spl_preview=preview,
-            ))
         if len(suggestions) < self._policy.max_suggestions:
             raise PatchValidationError(
                 "LLM did not produce a valid missing_output_producer "
@@ -148,69 +123,123 @@ class MissingOutputProducerHandler(IssueRepairHandler):
             )
         return tuple(suggestions)
 
+    # ── InsertProducerStep intent path (R6) ─────────────────────────────
+
+    def _try_insert_intent(
+        self,
+        *,
+        issue: EditableIssue,
+        target: RepairTarget,
+        output_name: str,
+        entry: RepairCatalogEntry,
+        selectable_refset: Any,
+        user_instruction: str | None,
+        previous_summaries: list[str],
+        previous_payloads: list[Any],
+        rendered_user_prompt: str | None,
+    ) -> list[RepairSuggestion]:
+        """Attempt one InsertProducerStep via the intent path.
+
+        Returns an empty list on any failure — NEVER falls back to dict
+        payload.
+        """
+        # ── Hard requirement: refset + catalog must be available ─────
+        if selectable_refset is None:
+            return []
+        if not selectable_refset.is_available:
+            return []
+        if (
+            entry.selectable_ref_policy_id
+            and entry.selectable_ref_policy_id != selectable_refset.policy_id
+        ):
+            return []
+
+        # ── Call LLM with intent-aware prompt ─────────────────────────
+        raw = self._llm.generate_json(
+            system_prompt=INSERT_PRODUCER_SYSTEM_PROMPT,
+            user_prompt=rendered_user_prompt
+            or build_missing_output_user_prompt(
+                output_name=output_name,
+                target_ref=issue.target_ref,
+                allowed_patch_types=("InsertProducerStep",),
+                user_instruction=user_instruction,
+                previous_suggestions=tuple(previous_summaries),
+            ),
+        )
+
+        # ── Parse envelope ────────────────────────────────────────────
+        try:
+            envelope = parse_suggestion_envelope(raw, ("InsertProducerStep",))
+        except (PatchValidationError, UnsupportedPatchTypeError):
+            return []
+
+        # ── Route inner payload to intent parser ──────────────────────
+        intent_json = json.dumps({"payload": envelope.raw_payload})
+        parse_result = parse_raw_intent(
+            raw_json=intent_json,
+            issue_id=issue.issue_id,
+            patch_type="InsertProducerStep",
+            affordance_id=entry.affordance_id,
+        )
+        if not parse_result.is_success or parse_result.intent is None:
+            return []
+
+        intent = parse_result.intent
+
+        # ── Server authority override ─────────────────────────────────
+        intent = replace(
+            intent,
+            affordance_id=entry.affordance_id,
+            patch_type="InsertProducerStep",
+            target_construct_type=entry.construct_type,
+            target_construct_id=issue.irs_ref.construct_id,
+            target_slot_name=entry.slot_name,
+            materialization_plan_id=entry.materialization_plan_id,
+        )
+
+        # ── Validate against refset + catalog ─────────────────────────
+        val_result = IntentValidator.validate(intent, selectable_refset, entry)
+        if not val_result.is_success:
+            return []
+
+        # ── Deduplicate ────────────────────────────────────────────────
+        if intent in previous_payloads:
+            return []
+
+        preview = (
+            f"[GENERAL_COMMAND] {intent.repair_goal or intent.intent_summary or 'Produce output.'}"
+        )
+        suggestion = RepairSuggestion(
+            suggestion_id=f"{issue.issue_id}_sug_{len(previous_payloads):02d}",
+            session_id="",
+            affordance_id=entry.affordance_id,
+            title=envelope.title,
+            explanation=envelope.explanation,
+            patch=RepairPatch(
+                patch_id="",
+                affordance_id=entry.affordance_id,
+                patch_type="InsertProducerStep",
+                target_ref=issue.target_ref,
+                irs_ref=issue.irs_ref,
+                base_compile_run_id="",
+                artifact_snapshot_id="",
+                overlay_version=0,
+                payload=intent,  # ConstructRepairIntent — not dict
+                verification_lane=entry.default_verification_lane,
+            ),
+            spl_preview=preview,
+        )
+        return [suggestion]
+
+    # ── Helpers ────────────────────────────────────────────────────────
+
     @staticmethod
     def _output_name_from_target(issue) -> str:
-        """Extract the real output name from target_ref
-        like ``worker:{id}.output:{name}``."""
         ref = issue.target_ref
         marker = ".output:"
         idx = ref.find(marker)
         if idx > 0:
-            return ref[idx + len(marker):]
+            return ref[idx + len(marker) :]
         return issue.missing_slot or "unknown_output"
 
-    @staticmethod
-    def _payload_for(pt: str, issue, target, context, llm_payload):
-        output_name = MissingOutputProducerHandler._output_name_from_target(issue)
-        if pt == "InsertProducerStep":
-            producer_text = llm_payload.get("producer_text") or llm_payload.get("handler_text")
-            command_type = llm_payload.get("command_type", "GENERAL_COMMAND")
-            if not isinstance(producer_text, str) or not producer_text.strip():
-                return None
-            if command_type not in {"GENERAL_COMMAND", "REQUEST_INPUT"}:
-                return None
-            return {
-                "worker_id": target.worker_id or "",
-                "output_name": output_name,
-                "producer_text": producer_text,
-                "command_type": command_type,
-                "inputs": tuple(llm_payload.get("inputs", ())),
-                "outputs": tuple(llm_payload.get("outputs", ())),
-            }
-        if pt == "BindExistingProducerStep":
-            requested_step_id = llm_payload.get("step_id")
-            if not isinstance(requested_step_id, str) or not requested_step_id.strip():
-                return None
-            candidate = None
-            for step in MissingOutputProducerHandler._bindable_steps(context):
-                if step.step_id == requested_step_id:
-                    candidate = step
-                    break
-            if candidate is None:
-                return None
-            return {
-                "worker_id": target.worker_id or "",
-                "step_id": candidate.step_id,
-                "output_name": output_name,
-                "binding_text": f"Bind step '{candidate.step_id}' as producer of '{output_name}'.",
-            }
-        return None
-
-    @staticmethod
-    def _find_bindable_step(context):
-        """Find a renderable existing step that can be bound as producer."""
-        steps = MissingOutputProducerHandler._bindable_steps(context)
-        return steps[0] if steps else None
-
-    @staticmethod
-    def _bindable_steps(context):
-        """Find renderable existing steps that can be bound as producers."""
-        steps = context.related_steps
-        if not steps:
-            return ()
-        result = []
-        for step in steps:
-            if step.source_span_ids or step.metadata.get("origin") == "user_confirmed_repair":
-                result.append(step)
-        return tuple(result)
 

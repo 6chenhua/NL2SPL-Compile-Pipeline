@@ -31,8 +31,7 @@ class ArtifactSnapshotStore:
         key = (run_id, sid, snapshot.overlay_version)
         if key in self._snapshots:
             raise KeyError(
-                f"Snapshot ('{run_id}', '{sid}', "
-                f"v{snapshot.overlay_version}) already exists"
+                f"Snapshot ('{run_id}', '{sid}', v{snapshot.overlay_version}) already exists"
             )
         self._snapshots[key] = snapshot
         run_key = (run_id, sid)
@@ -57,9 +56,7 @@ class ArtifactSnapshotStore:
         run_key = (compile_run_id, snapshot_id)
         latest = self._latest.get(run_key)
         if latest is None:
-            raise KeyError(
-                f"Snapshot '{compile_run_id}/{snapshot_id}' not found"
-            )
+            raise KeyError(f"Snapshot '{compile_run_id}/{snapshot_id}' not found")
         return self._snapshots[(compile_run_id, snapshot_id, latest)]
 
     def has(
@@ -73,11 +70,35 @@ class ArtifactSnapshotStore:
         return (compile_run_id, snapshot_id) in self._latest
 
     def get_latest_overlay_version(
-        self, compile_run_id: str, snapshot_id: str,
+        self,
+        compile_run_id: str,
+        snapshot_id: str,
     ) -> int:
         run_key = (compile_run_id, snapshot_id)
         if run_key not in self._latest:
-            raise KeyError(
-                f"Snapshot '{compile_run_id}/{snapshot_id}' not found"
-            )
+            raise KeyError(f"Snapshot '{compile_run_id}/{snapshot_id}' not found")
         return self._latest[run_key]
+
+    def remove(
+        self,
+        compile_run_id: str,
+        snapshot_id: str,
+        overlay_version: int,
+    ) -> None:
+        """Remove a specific snapshot version.
+
+        Synchronises the ``_latest`` index: if the removed version was the
+        latest, ``_latest`` is recalculated from the remaining entries.
+        """
+        key = (compile_run_id, snapshot_id, overlay_version)
+        self._snapshots.pop(key, None)
+        run_key = (compile_run_id, snapshot_id)
+        remaining = [
+            v
+            for (r, s, v), _ in self._snapshots.items()
+            if r == compile_run_id and s == snapshot_id
+        ]
+        if remaining:
+            self._latest[run_key] = max(remaining)
+        else:
+            self._latest.pop(run_key, None)

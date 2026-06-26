@@ -14,27 +14,31 @@ class WorkerPromotionTargetResolver(IssueTargetResolver):
     resolver_id = "worker_promotion_target"
 
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         self._guard_construct(issue)
         candidate_id = self._extract_candidate_id(issue.target_ref)
         if candidate_id is None:
             raise UnsupportedIssueError(
-                f"Cannot parse 'worker_promotion:{{id}}' from "
-                f"target_ref '{issue.target_ref}'"
+                f"Cannot parse 'worker_promotion:{{id}}' from target_ref '{issue.target_ref}'"
             )
+        parent_worker_id = (
+            snapshot.worker_plan.main_worker_id if snapshot.worker_plan is not None else None
+        )
         return RepairTarget(
             target_ref=issue.target_ref,
             target_kind="WORKER_PROMOTION",
             irs_ref=issue.irs_ref,
-            affordance_id=(
-                issue.default_affordance_id
-                or "worker_promotion.resolve_contract"
-            ),
+            affordance_id=(issue.default_affordance_id or "worker_promotion.resolve_contract"),
             construct_path=issue.irs_ref.construct_path,
-            worker_id=candidate_id,
+            worker_id=parent_worker_id,
+            canonical_name=candidate_id,
             editable_artifacts=(
-                "WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR",
+                "WorkerPlanIR",
+                "WorkerHandoffIR",
+                "WorkerStepPlanIR",
             ),
             subtype="delegation_intent_contract",
         )
@@ -42,7 +46,7 @@ class WorkerPromotionTargetResolver(IssueTargetResolver):
     @staticmethod
     def _extract_candidate_id(ref: str) -> str | None:
         if ref.startswith("worker_promotion:"):
-            cid = ref[len("worker_promotion:"):]
+            cid = ref[len("worker_promotion:") :]
             return cid if cid else None
         return None
 

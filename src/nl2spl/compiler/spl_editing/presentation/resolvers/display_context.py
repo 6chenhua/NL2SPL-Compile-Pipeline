@@ -60,11 +60,7 @@ def build_display_context(
             category=category,
             condition_text=condition,
             source_excerpt=source,
-            quality=(
-                PresentationQuality.COMPLETE
-                if condition
-                else PresentationQuality.DEGRADED
-            ),
+            quality=(PresentationQuality.COMPLETE if condition else PresentationQuality.DEGRADED),
             degradation_reason=None if condition else "Condition unavailable",
         )
 
@@ -74,11 +70,7 @@ def build_display_context(
             category=category,
             output_name=output_name,
             source_excerpt=source,
-            quality=(
-                PresentationQuality.COMPLETE
-                if output_name
-                else PresentationQuality.DEGRADED
-            ),
+            quality=(PresentationQuality.COMPLETE if output_name else PresentationQuality.DEGRADED),
             degradation_reason=None if output_name else "Output name unavailable",
         )
 
@@ -132,9 +124,7 @@ def _exception_condition(
         return meta_condition
 
     worker_id = (
-        target.worker_id
-        if target is not None
-        else _worker_from_target_ref(issue.target_ref)
+        target.worker_id if target is not None else _worker_from_target_ref(issue.target_ref)
     )
     flow_id = _flow_id_from_exception_target(issue.target_ref)
     if not worker_id or not flow_id:
@@ -190,7 +180,7 @@ def _worker_delegation_missing_items(
 def _worker_from_target_ref(ref: str) -> str | None:
     if not ref.startswith("worker:"):
         return None
-    rest = ref[len("worker:"):]
+    rest = ref[len("worker:") :]
     marker = ".exception_flow:"
     if marker not in rest:
         return None

@@ -7,11 +7,11 @@ the ``payload_field`` where the LLM may use it.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from nl2spl.compiler.spl_editing.llm_context.model import (
     SelectableReference,
-    SelectableKind,
 )
 
 
@@ -38,7 +38,9 @@ def build_step_reference(
 
     return SelectableReference(
         id=step_id,
-        label="Existing step" if not renderability_status else f"Existing step ({renderability_status})",
+        label="Existing step"
+        if not renderability_status
+        else f"Existing step ({renderability_status})",
         summary=step_text or f"Step {step_id}",
         kind="step",
         payload_field="step_id",

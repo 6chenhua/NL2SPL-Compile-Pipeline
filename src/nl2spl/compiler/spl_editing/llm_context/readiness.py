@@ -44,9 +44,7 @@ def evaluate_readiness(
     if required_facts_missing:
         return GenerationReadiness(
             status="generation_blocked",
-            reasons=tuple(
-                f"Missing required fact: '{f}'" for f in required_facts_missing
-            ),
+            reasons=tuple(f"Missing required fact: '{f}'" for f in required_facts_missing),
             missing_required_facts=required_facts_missing,
             blocking_authority=blocking_authority or "context_provider",
         )
@@ -54,8 +52,7 @@ def evaluate_readiness(
     if quality is not None and quality.confidence == "low":
         status: GenerationStatus = "ready_low_confidence"
         reasons = tuple(
-            f"Missing context field: '{f}'"
-            for f in quality.missing_context_fields
+            f"Missing context field: '{f}'" for f in quality.missing_context_fields
         ) or ("Context quality is low.",)
         return GenerationReadiness(
             status=status,

@@ -116,12 +116,14 @@ class PromptRenderer:
 
     def _render_target(self, ctx: LLMRepairContext) -> str:
         f = ctx.target_facts
-        return "\n".join([
-            "## Target Construct",
-            f"Construct type: {f.construct_type}",
-            f"Missing slot: {f.slot_name}",
-            f"Summary: {f.human_readable_target_summary}",
-        ])
+        return "\n".join(
+            [
+                "## Target Construct",
+                f"Construct type: {f.construct_type}",
+                f"Missing slot: {f.slot_name}",
+                f"Summary: {f.human_readable_target_summary}",
+            ]
+        )
 
     def _render_workflow(self, ctx: LLMRepairContext) -> str:
         f = ctx.workflow_facts
@@ -184,15 +186,13 @@ class PromptRenderer:
             return ""
         # Minimal schema rendering — PatchRegistry provides the schema
         schema_keys = list(f.patch_payload_schema.keys())
-        required = (
-            ", ".join(schema_keys)
-            if schema_keys
-            else "As defined by PatchRegistry"
+        required = ", ".join(schema_keys) if schema_keys else "As defined by PatchRegistry"
+        return "\n".join(
+            [
+                "## Payload Schema",
+                f"Required keys: {required}",
+            ]
         )
-        return "\n".join([
-            "## Payload Schema",
-            f"Required keys: {required}",
-        ])
 
     def _render_safety(self, ctx: LLMRepairContext) -> str:
         f = ctx.safety_facts
@@ -211,10 +211,14 @@ class PromptRenderer:
         f = ctx.previous_suggestion_facts
         if not f.previous_summaries:
             return ""
-        lines = ["## Previous Suggestions (generate something DIFFERENT)"]
-        for s in f.previous_summaries:
-            lines.append(f"  - {s}")
-        return "\n".join(lines)
+        return "\n".join(
+            [
+                "## Previous Candidate Attempts",
+                f"Previous candidate count: {len(f.previous_summaries)}.",
+                "Generate a fresh valid candidate using the same structured context.",
+                "Do not invent new facts just to make it different.",
+            ]
+        )
 
     def _render_internal_ids(self, ctx: LLMRepairContext) -> str:
         refs = ctx.repair_action_facts.selectable_references
@@ -224,10 +228,7 @@ class PromptRenderer:
             return ""
         lines = [INTERNAL_IDS_SECTION_HEADER, ""]
         for ref in refs:
-            lines.append(
-                f"  id: {ref.id}  (use as: {ref.payload_field})\n"
-                f"    {ref.summary}"
-            )
+            lines.append(f"  id: {ref.id}  (use as: {ref.payload_field})\n    {ref.summary}")
         return "\n".join(lines)
 
     def _render_json_only(self) -> str:
@@ -249,7 +250,8 @@ def append_previous_suggestions(
     lines = [
         rendered_prompt,
         "",
-        "Already suggested (generate something DIFFERENT):",
+        f"Previous candidate count: {len(previous_summaries)}.",
+        "Generate a fresh valid candidate using the same structured context.",
+        "Do not invent new facts just to make it different.",
     ]
-    lines.extend(f"  - {summary}" for summary in previous_summaries)
     return "\n".join(lines)

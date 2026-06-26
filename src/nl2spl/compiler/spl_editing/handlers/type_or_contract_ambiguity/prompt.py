@@ -61,9 +61,11 @@ def build_type_or_contract_user_prompt(
     ]
     if previous_suggestions:
         parts.append("")
-        parts.append("Already suggested (generate something DIFFERENT):")
-        for prev in previous_suggestions:
-            parts.append(f"  - {prev}")
+        parts.append(f"Previous candidate count: {len(previous_suggestions)}.")
+        parts.append(
+            "Generate a fresh valid candidate using the same structured "
+            "context. Do not invent new facts just to make it different."
+        )
     if user_instruction:
         parts.append(f"\nAdditional user instruction: {user_instruction}")
     return "\n".join(parts)

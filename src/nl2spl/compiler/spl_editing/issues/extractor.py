@@ -44,7 +44,8 @@ class EditableIssueExtractor:
         """
         # 1. Filter to candidate diagnostics
         candidates = [
-            d for d in diagnostics
+            d
+            for d in diagnostics
             if _f.has_irs_ref(d)
             and _f.authority_is_accepted(d)
             and _f.kind_is_not_excluded(d)
@@ -124,9 +125,7 @@ class EditableIssueExtractor:
         return EditableIssue(
             issue_id=primary.diagnostic_id,
             primary_diagnostic_id=primary.diagnostic_id,
-            related_diagnostic_ids=tuple(
-                sorted({d.diagnostic_id for d in group})
-            ),
+            related_diagnostic_ids=tuple(sorted({d.diagnostic_id for d in group})),
             issue_group_id=primary.metadata.get("issue_group_id"),
             kind=primary.kind,
             target_ref=primary.target_ref or primary.diagnostic_id,

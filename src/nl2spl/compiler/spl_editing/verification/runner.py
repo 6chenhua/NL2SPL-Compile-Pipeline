@@ -1,6 +1,6 @@
-"""Verification runner — orchestrates Lane A/B replay and diagnostics diff.
+﻿"""Verification runner --orchestrates Lane A/B replay and diagnostics diff.
 
-Does NOT contain patch-specific success rules — those live in
+Does NOT contain patch-specific success rules --those live in
 per-patch verifiers inside their patch directories.
 """
 
@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from nl2spl.compiler.spl_editing.core.errors import PatchValidationError
 from nl2spl.compiler.spl_editing.core.model import (
+    PatchApplyResult,
     RepairPatch,
     VerificationResult,
-    PatchApplyResult,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.verification.diagnostic_diff import DiagnosticDiff
@@ -21,6 +21,12 @@ from nl2spl.compiler.spl_editing.verification.lanes import (
     LaneAReplayAdapter,
     LaneBReplayAdapter,
     LaneReplayAdapter,
+)
+from nl2spl.compiler.spl_editing.verification.materialization_authority_verifier import (
+    MaterializationAuthorityVerifier,
+)
+from nl2spl.compiler.spl_editing.verification.selected_ref_verifier import (
+    SelectedRefVerifier,
 )
 
 _VALID_LANES = frozenset({"A", "B"})
@@ -43,11 +49,15 @@ class VerificationRunner:
         lane_a: LaneReplayAdapter | None = None,
         lane_b: LaneReplayAdapter | None = None,
         evidence_verifier: GenericEvidenceVerifier | None = None,
+        selected_ref_verifier: SelectedRefVerifier | None = None,
+        authority_verifier: MaterializationAuthorityVerifier | None = None,
     ) -> None:
         self._lane_a = lane_a or LaneAReplayAdapter()
         self._lane_b = lane_b or LaneBReplayAdapter()
         self._diff = DiagnosticDiff()
         self._evidence_verifier = evidence_verifier or GenericEvidenceVerifier()
+        self._selected_ref_verifier = selected_ref_verifier or SelectedRefVerifier()
+        self._authority_verifier = authority_verifier or MaterializationAuthorityVerifier()
 
     def verify(
         self,
@@ -87,39 +97,34 @@ class VerificationRunner:
         # Generic: no new blocking diagnostics
         if diff_result.has_new_blocking:
             failure_reasons.append(
-                f"New blocking diagnostics: "
-                f"{', '.join(diff_result.new_blocking_ids)}"
+                f"New blocking diagnostics: {', '.join(diff_result.new_blocking_ids)}"
             )
 
         # Generic: target diagnostic must be resolved.
-        # Require non-empty related_diagnostic_id — a patch without
+        # Require non-empty related_diagnostic_id --a patch without
         # a target diagnostic cannot prove it fixed anything.
         target_id = patch.evidence.related_diagnostic_id
         if not target_id:
             failure_reasons.append(
-                "Patch has no related_diagnostic_id in evidence — "
-                "cannot verify target resolution."
+                "Patch has no related_diagnostic_id in evidence --cannot verify target resolution."
             )
         elif target_id not in diff_result.resolved_ids:
-            failure_reasons.append(
-                f"Target diagnostic '{target_id}' was not resolved"
-            )
+            failure_reasons.append(f"Target diagnostic '{target_id}' was not resolved")
 
         # Patch-specific verifier
         if patch_verifier is not None:
             verifier_fn = getattr(patch_verifier, "verify", None)
             if verifier_fn is None:
-                failure_reasons.append(
-                    "Patch verifier does not expose a 'verify' method"
-                )
+                failure_reasons.append("Patch verifier does not expose a 'verify' method")
             else:
                 patch_failures = verifier_fn(
-                    patch, base_snapshot, patched_snapshot, patched_artifacts,
+                    patch,
+                    base_snapshot,
+                    patched_snapshot,
+                    patched_artifacts,
                 )
                 if not isinstance(patch_failures, tuple):
-                    failure_reasons.append(
-                        "Patch verifier must return tuple[str, ...]"
-                    )
+                    failure_reasons.append("Patch verifier must return tuple[str, ...]")
                 else:
                     failure_reasons.extend(patch_failures)
 
@@ -127,6 +132,10 @@ class VerificationRunner:
         if apply_result is not None:
             evidence_failures = self._evidence_verifier.verify(patch, apply_result)
             failure_reasons.extend(evidence_failures)
+            ref_failures = self._selected_ref_verifier.verify(patch, apply_result)
+            failure_reasons.extend(ref_failures)
+            authority_failures = self._authority_verifier.verify(patch, apply_result)
+            failure_reasons.extend(authority_failures)
 
         return VerificationResult(
             session_id="",
@@ -146,7 +155,6 @@ class VerificationRunner:
     def _select_lane(self, lane_name: str) -> LaneReplayAdapter:
         if lane_name not in _VALID_LANES:
             raise PatchValidationError(
-                f"Unknown verification lane '{lane_name}'. "
-                f"Must be one of {sorted(_VALID_LANES)}."
+                f"Unknown verification lane '{lane_name}'. Must be one of {sorted(_VALID_LANES)}."
             )
         return self._lane_a if lane_name == "A" else self._lane_b

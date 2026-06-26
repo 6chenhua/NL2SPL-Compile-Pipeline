@@ -31,8 +31,7 @@ def build_sections(
     editable = tuple(
         c
         for c in cards
-        if c.repairability == "editable"
-        and c.category != IssueCategory.DEVELOPER_DIAGNOSTIC
+        if c.repairability == "editable" and c.category != IssueCategory.DEVELOPER_DIAGNOSTIC
     )
     review = tuple(
         c

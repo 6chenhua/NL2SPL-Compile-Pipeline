@@ -41,7 +41,9 @@ class LiveSuggestionLLM:
         self._client = client
 
     def generate_json(
-        self, system_prompt: str, user_prompt: str,
+        self,
+        system_prompt: str,
+        user_prompt: str,
     ) -> str:
         import json as _json
 

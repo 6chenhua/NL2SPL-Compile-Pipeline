@@ -58,6 +58,7 @@ class LLMRepairContextBuilder:
         source_spans: tuple[Any, ...] = (),
         catalog_entry: Any | None = None,  # RepairCatalogEntry
         patch_registry: Any | None = None,  # PatchRegistry
+        selectable_refset: Any | None = None,  # R6: SelectableRefSet | None
     ) -> LLMRepairContext:
         """Build the complete LLMRepairContext."""
 
@@ -70,6 +71,7 @@ class LLMRepairContextBuilder:
             selected_patch_type=selected_patch_type,
             patch_registry=patch_registry,
             catalog_entry=catalog_entry,
+            selectable_refset=selectable_refset,  # R6
         )
         safety_facts = build_safety_facts()
         previous_facts = build_previous_facts(previous_summaries)
@@ -101,11 +103,13 @@ class LLMRepairContextBuilder:
         readiness = evaluate_readiness(
             repair_available=bool(selected_patch_type),
             required_facts_present=tuple(
-                k for k in primary_ext.required_fact_keys
+                k
+                for k in primary_ext.required_fact_keys
                 if k in primary_ext.facts and primary_ext.facts[k]
             ),
             required_facts_missing=tuple(
-                k for k in primary_ext.required_fact_keys
+                k
+                for k in primary_ext.required_fact_keys
                 if k not in primary_ext.facts or not primary_ext.facts[k]
             ),
             quality=quality,
@@ -182,9 +186,14 @@ class LLMRepairContextBuilder:
 
 def _empty_primary_extension() -> LLMRepairContextExtension:
     return LLMRepairContextExtension(
-        extension_id="", provider_id="",
+        extension_id="",
+        provider_id="",
         role="primary",
-        affordance_id="", construct_type="", slot_name="",
-        diagnostic_kind="", patch_type="",
-        facts_schema_id="", facts_schema_version="",
+        affordance_id="",
+        construct_type="",
+        slot_name="",
+        diagnostic_kind="",
+        patch_type="",
+        facts_schema_id="",
+        facts_schema_version="",
     )

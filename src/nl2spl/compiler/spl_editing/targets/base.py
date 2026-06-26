@@ -23,6 +23,8 @@ class IssueTargetResolver(ABC):
 
     @abstractmethod
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         """Resolve the editable artifact target for *issue*."""

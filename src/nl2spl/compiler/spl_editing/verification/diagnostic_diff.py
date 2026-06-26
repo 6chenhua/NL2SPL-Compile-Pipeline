@@ -45,12 +45,8 @@ class DiagnosticDiff:
 
         resolved = tuple(sorted(before_ids - after_ids))
 
-        before_blocking = {
-            d.diagnostic_id for d in before if d.blocks_completion
-        }
-        after_blocking = {
-            d.diagnostic_id for d in after if d.blocks_completion
-        }
+        before_blocking = {d.diagnostic_id for d in before if d.blocks_completion}
+        after_blocking = {d.diagnostic_id for d in after if d.blocks_completion}
         new_blocking = tuple(sorted(after_blocking - before_blocking))
 
         unchanged = len(before_ids & after_ids)

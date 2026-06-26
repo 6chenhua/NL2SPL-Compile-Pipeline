@@ -11,7 +11,10 @@ class InvokeWorkerContextBuilder(RepairContextBuilder):
     context_id = "invoke_worker_context"
 
     def build(
-        self, issue: EditableIssue, target: RepairTarget,
-        snapshot: ArtifactSnapshot, user_instruction: str | None = None,
+        self,
+        issue: EditableIssue,
+        target: RepairTarget,
+        snapshot: ArtifactSnapshot,
+        user_instruction: str | None = None,
     ) -> RepairContext:
         return RepairContext(issue=issue, target=target, user_instruction=user_instruction)

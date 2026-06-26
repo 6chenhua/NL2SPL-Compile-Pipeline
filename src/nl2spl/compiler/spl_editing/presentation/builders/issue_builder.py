@@ -171,7 +171,8 @@ class IssuePresentationBuilder:
                 continue
             try:
                 return self._runtime.target_resolvers.get(resolver_id).resolve(
-                    issue, snapshot,
+                    issue,
+                    snapshot,
                 )
             except (AttributeError, KeyError, SPLEditingError, TypeError):
                 return None
@@ -192,7 +193,9 @@ class IssuePresentationBuilder:
                 continue
             try:
                 return self._runtime.context_builders.get(context_id).build(
-                    issue, target, snapshot,
+                    issue,
+                    target,
+                    snapshot,
                 )
             except (AttributeError, KeyError, SPLEditingError, TypeError):
                 return None

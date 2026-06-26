@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 
 from nl2spl.compiler.artifacts.snapshot.persistence.loader import SnapshotLoader
@@ -55,6 +56,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.targets.worker_promotion import (
         WorkerPromotionTargetResolver,
     )
+
     reg.target_resolvers.register("exception_flow_target", ExceptionFlowTargetResolver())
     reg.target_resolvers.register("required_output_target", RequiredOutputTargetResolver())
     reg.target_resolvers.register("worker_promotion_target", WorkerPromotionTargetResolver())
@@ -68,6 +70,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
         WorkerPromotionContextBuilder,
     )
+
     reg.context_builders.register("exception_flow_context", ExceptionFlowContextBuilder())
     reg.context_builders.register("required_output_context", RequiredOutputContextBuilder())
     reg.context_builders.register("worker_promotion_context", WorkerPromotionContextBuilder())
@@ -81,6 +84,7 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.handler import (
         TypeOrContractAmbiguityHandler,
     )
+
     reg.handlers.register("missing_handler", MissingHandlerRepairHandler(suggestion_llm))
     reg.llm_context_builders.register(
         "missing_handler",
@@ -94,9 +98,25 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         "missing_output_producer",
         MissingOutputProducerHandler(suggestion_llm),
     )
+    reg.llm_context_builders.register(
+        "missing_output_producer",
+        _build_generic_context_builder(),
+    )
+    reg.prompt_renderers.register(
+        "missing_output_producer",
+        _build_generic_prompt_renderer(),
+    )
     reg.handlers.register(
         "type_or_contract_ambiguity",
         TypeOrContractAmbiguityHandler(suggestion_llm),
+    )
+    reg.llm_context_builders.register(
+        "type_or_contract_ambiguity",
+        _build_generic_context_builder(),
+    )
+    reg.prompt_renderers.register(
+        "type_or_contract_ambiguity",
+        _build_generic_prompt_renderer(),
     )
 
     from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
@@ -112,18 +132,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.verifier import (
         AddExceptionHandlerStepVerifier,
     )
-    reg.patches.register("AddExceptionHandlerStep", PatchBundle(
-        patch_type="AddExceptionHandlerStep",
-        validator=AddExceptionHandlerStepValidator(),
-        applier=AddExceptionHandlerStepApplier(),
-        verifier=AddExceptionHandlerStepVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "AddExceptionHandlerStep",
+        PatchBundle(
             patch_type="AddExceptionHandlerStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=AddExceptionHandlerStepValidator(),
+            applier=AddExceptionHandlerStepApplier(),
+            verifier=AddExceptionHandlerStepVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="AddExceptionHandlerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
         InsertProducerStepApplier,
     )
@@ -136,41 +160,23 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.insert_producer_step.verifier import (
         InsertProducerStepVerifier,
     )
-    reg.patches.register("InsertProducerStep", PatchBundle(
-        patch_type="InsertProducerStep",
-        validator=InsertProducerStepValidator(),
-        applier=InsertProducerStepApplier(),
-        verifier=InsertProducerStepVerifier(),
-        previewer=InsertProducerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "InsertProducerStep",
+        PatchBundle(
             patch_type="InsertProducerStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=InsertProducerStepValidator(),
+            applier=InsertProducerStepApplier(),
+            verifier=InsertProducerStepVerifier(),
+            previewer=InsertProducerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="InsertProducerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.applier import (
-        BindExistingProducerStepApplier,
     )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.preview import (
-        BindExistingProducerStepPreviewer,
-    )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.validator import (
-        BindExistingProducerStepValidator,
-    )
-    from nl2spl.compiler.spl_editing.patches.bind_existing_producer_step.verifier import (
-        BindExistingProducerStepVerifier,
-    )
-    reg.patches.register("BindExistingProducerStep", PatchBundle(
-        patch_type="BindExistingProducerStep",
-        validator=BindExistingProducerStepValidator(),
-        applier=BindExistingProducerStepApplier(),
-        verifier=BindExistingProducerStepVerifier(),
-        previewer=BindExistingProducerStepPreviewer(),
-        contract=PatchTypeContract(
-            patch_type="BindExistingProducerStep",
-            evidence_targets=("step",),
-        ),
-    ))
+
 
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
         ConvertDelegationToMainFlowStepApplier,
@@ -181,18 +187,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.verifier import (
         ConvertDelegationToMainFlowStepVerifier,
     )
-    reg.patches.register("ConvertDelegationIntentToMainFlowStep", PatchBundle(
-        patch_type="ConvertDelegationIntentToMainFlowStep",
-        validator=ConvertDelegationToMainFlowStepValidator(),
-        applier=ConvertDelegationToMainFlowStepApplier(),
-        verifier=ConvertDelegationToMainFlowStepVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "ConvertDelegationIntentToMainFlowStep",
+        PatchBundle(
             patch_type="ConvertDelegationIntentToMainFlowStep",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=ConvertDelegationToMainFlowStepValidator(),
+            applier=ConvertDelegationToMainFlowStepApplier(),
+            verifier=ConvertDelegationToMainFlowStepVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="ConvertDelegationIntentToMainFlowStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
         ConvertDelegationToRequestInputApplier,
     )
@@ -202,18 +212,22 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.verifier import (
         ConvertDelegationToRequestInputVerifier,
     )
-    reg.patches.register("ConvertDelegationIntentToRequestInput", PatchBundle(
-        patch_type="ConvertDelegationIntentToRequestInput",
-        validator=ConvertDelegationToRequestInputValidator(),
-        applier=ConvertDelegationToRequestInputApplier(),
-        verifier=ConvertDelegationToRequestInputVerifier(),
-        previewer=AddExceptionHandlerStepPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "ConvertDelegationIntentToRequestInput",
+        PatchBundle(
             patch_type="ConvertDelegationIntentToRequestInput",
-            produces_step_ir=True,
-            evidence_targets=("step",),
+            validator=ConvertDelegationToRequestInputValidator(),
+            applier=ConvertDelegationToRequestInputApplier(),
+            verifier=ConvertDelegationToRequestInputVerifier(),
+            previewer=AddExceptionHandlerStepPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="ConvertDelegationIntentToRequestInput",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         ),
-    ))
+    )
 
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
         CreateWorkerHandoffContractApplier,
@@ -224,22 +238,27 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.verifier import (
         CreateWorkerHandoffContractVerifier,
     )
+
     class _HandoffPreviewer:
         def preview(self, payload):
             return f"[INVOKE {payload.get('child_worker_id', '?')}]"
-    reg.patches.register("CreateWorkerHandoffContract", PatchBundle(
-        patch_type="CreateWorkerHandoffContract",
-        validator=CreateWorkerHandoffContractValidator(),
-        applier=CreateWorkerHandoffContractApplier(),
-        verifier=CreateWorkerHandoffContractVerifier(),
-        previewer=_HandoffPreviewer(),
-        contract=PatchTypeContract(
+
+    reg.patches.register(
+        "CreateWorkerHandoffContract",
+        PatchBundle(
             patch_type="CreateWorkerHandoffContract",
-            produces_step_ir=True,
-            produces_handoff_ir=True,
-            evidence_targets=("step", "handoff"),
+            validator=CreateWorkerHandoffContractValidator(),
+            applier=CreateWorkerHandoffContractApplier(),
+            verifier=CreateWorkerHandoffContractVerifier(),
+            previewer=_HandoffPreviewer(),
+            contract=PatchTypeContract(
+                patch_type="CreateWorkerHandoffContract",
+                produces_step_ir=True,
+                produces_handoff_ir=True,
+                evidence_targets=("step", "handoff"),
+            ),
         ),
-    ))
+    )
 
     return SPLEditingService(reg, lane_a=LaneAReplayAdapter())
 
@@ -253,6 +272,7 @@ def _build_missing_handler_context_builder():
     from nl2spl.compiler.spl_editing.llm_context.registry import (
         LLMRepairContextExtensionRegistry,
     )
+
     reg = LLMRepairContextExtensionRegistry()
     reg.register(ExceptionFlowHandlerContextProvider())
     return LLMRepairContextBuilder(provider_registry=reg)
@@ -267,9 +287,29 @@ def _build_missing_handler_prompt_renderer():
     from nl2spl.compiler.spl_editing.llm_context.section_renderer import (
         SectionRendererRegistry,
     )
+
     sreg = SectionRendererRegistry()
     sreg.register(ExceptionFlowHandlerSectionRenderer())
     return PromptRenderer(section_renderer_registry=sreg)
+
+
+def _build_generic_context_builder():
+    """Build a generic LLMRepairContextBuilder with no extra providers."""
+    from nl2spl.compiler.spl_editing.llm_context.builder import LLMRepairContextBuilder
+    from nl2spl.compiler.spl_editing.llm_context.registry import (
+        LLMRepairContextExtensionRegistry,
+    )
+
+    reg = LLMRepairContextExtensionRegistry()
+    return LLMRepairContextBuilder(provider_registry=reg)
+
+
+def _build_generic_prompt_renderer():
+    """Build a generic PromptRenderer with no extra section renderers."""
+    from nl2spl.compiler.spl_editing.llm_context.rendering import PromptRenderer
+
+    return PromptRenderer(section_renderer_registry=None)
+
 
 
 def _load_snapshot(run_dir: str) -> ArtifactSnapshot:
@@ -298,100 +338,264 @@ def _run_demo(snapshot: ArtifactSnapshot) -> None:
     _run_demo_for_run(svc, run_id)
 
 
-def _run_demo_for_run(svc: SPLEditingService, run_id: str) -> None:
-    """Run the interactive demo flow for a registered compile run."""
-    issues = svc.list_editable_issues(run_id)
+def _run_demo_for_run(
+    svc: SPLEditingService,
+    run_id: str,
+    snapshot_path: Path | None = None,
+) -> None:
+    from nl2spl.compiler.spl_editing.presentation import (
+        SPLEditingPresentationService,
+    )
 
-    if not issues:
-        print("No user-facing editable issues found.")
+    presentation = SPLEditingPresentationService(svc)
+
+    run_dir = svc._run_dirs.get(run_id)
+    run_label = Path(run_dir).name if run_dir is not None else run_id
+    if snapshot_path is None and run_dir is not None:
+        snapshot_path = Path(run_dir) / "spl_editing_snapshot.json"
+
+    run_view = presentation.get_run_presentation(
+        run_id,
+        run_label=run_label,
+        snapshot_path=snapshot_path,
+    )
+    issue_list = presentation.list_issue_presentations(run_id)
+
+    _print_run_summary(run_view)
+    selectable = _print_issue_list(issue_list)
+    if not selectable:
+        print("No editable issues found in this snapshot.")
         return
 
-    print("Editable issues:")
-    for idx, issue in enumerate(issues, 1):
-        print(f"  [{idx}] {issue.kind}")
-        print(f"       target: {issue.target_ref}")
-        print(f"       summary: {issue.message[:100]}")
-        print(f"       repairability: {issue.repairability}")
-        print()
-
-    issue = _choose_issue(issues)
-    if issue is None:
+    card = _choose_issue(selectable)
+    if card is None:
         return
 
+    detail = presentation.get_issue_detail_presentation(run_id, card.issue_id)
+    _print_issue_detail(detail)
+    if not card.can_fix:
+        print("\nThis issue is not fixable in the current snapshot.")
+        return
+
+    option = _choose_fix_option(detail.available_repairs)
+    if option is None:
+        return
+
+    issue = presentation.issue_by_id(run_id, card.issue_id)
     session = svc.create_session(run_id, issue)
-    generation = svc.generate_suggestions(session.session_id)
+    generation = svc.generate_suggestions(
+        session.session_id,
+        selected_patch_types=option.patch_types,
+    )
     if generation.status in ("generation_blocked", "repair_unavailable"):
-        print(f"Suggestion generation unavailable: {generation.status}")
+        print(f"\nSuggestion generation unavailable: {generation.status}")
         if generation.reasons:
             print(f"  reasons: {'; '.join(generation.reasons)}")
         return
     suggestions = generation.suggestions
     if not suggestions:
-        print("No suggestions generated.")
+        print("\nNo repair suggestions generated for this issue.")
         return
 
-    print("AI repair suggestions:")
-    for idx, s in enumerate(suggestions, 1):
-        print(f"  [{idx}] {s.title}")
-        if s.spl_preview:
+    suggestion_views = presentation.present_suggestions(suggestions)
+    _print_suggestions(suggestion_views)
+
+    applied_suggestion = _choose_suggestion(suggestions)
+    if applied_suggestion is None:
+        return
+
+    confirmation = presentation.present_apply_confirmation(applied_suggestion)
+    _print_confirmation(confirmation)
+    confirm = input("Confirm apply? [y/N] ").strip().lower()
+    if confirm != "y":
+        print("Cancelled. Snapshot was not changed.")
+        return
+
+    print("Applying suggestion...", flush=True)
+    updated = svc.apply_suggestion(
+        session.session_id, applied_suggestion.suggestion_id,
+    )
+    print(f"Applied. overlay_version={updated.overlay_version}")
+
+    print("Verifying patched snapshot...", flush=True)
+    result = svc.verify_session(session.session_id)
+    patched_spl = None
+    if result.accepted:
+        patched_spl = svc.get_patched_spl(run_id) or "(empty)"
+    verification_view = presentation.present_verification(
+        run_id,
+        result,
+        updated_spl=patched_spl,
+    )
+    _print_verification(verification_view, failures=result.failure_reasons)
+
+
+def _print_run_summary(view) -> None:
+    print("\nSPL Editing snapshot")
+    print(f"  Run: {view.run_label}")
+    print(f"  Snapshot: {view.snapshot_id}")
+    print(f"  Version: overlay {view.overlay_version}")
+    print(f"  Editable issues: {view.issue_count}")
+    if view.issue_summary:
+        print("\nIssue summary")
+        for item in view.issue_summary:
+            print(f"  {item.label}: {item.count}")
+
+
+def _print_issue_list(view) -> list[object]:
+    selectable: list[object] = []
+    print("\nEditable issues")
+    for section in view.sections:
+        if not section.visible_by_default or not section.items:
+            continue
+        print(f"\n{section.label}")
+        for card in section.items:
+            print(f"  [{card.display_id}] {card.title}")
+            print(f"       {card.impact}")
+            if card.can_fix:
+                print(f"       Fix with AI: {card.fix_label}")
+            else:
+                print(f"       Status: {card.fix_label}")
+            if card.missing_items:
+                print(f"       Missing: {', '.join(card.missing_items)}")
+            if card.suggested_resolution:
+                print(f"       Suggested resolution: {card.suggested_resolution}")
+            selectable.append(card)
+    return selectable
+
+
+def _choose_issue(selectable: list[object]) -> object | None:
+    while True:
+        try:
+            raw = input("Select issue number to inspect or fix: ").strip()
+            if not raw:
+                return None
+            display_id = int(raw)
+        except (ValueError, EOFError):
+            return None
+        for card in selectable:
+            if card.display_id == display_id:
+                return card
+        print(f"Invalid choice: {raw}")
+
+
+def _print_issue_detail(detail) -> None:
+    print(f"\nIssue: {detail.title}")
+    print("\nWhat was detected:")
+    print(f"  {detail.what_was_detected}")
+    if detail.missing_items:
+        print("\nMissing information:")
+        for item in detail.missing_items:
+            print(f"  - {item}")
+    print("\nWhy this matters:")
+    print(f"  {detail.why_it_matters}")
+    if detail.source_context:
+        print("\nSource context:")
+        print(f"  {detail.source_context}")
+    if detail.suggested_resolution:
+        print("\nSuggested resolution:")
+        print(f"  {detail.suggested_resolution}")
+    print("\nAvailable fixes:")
+    for index, option in enumerate(detail.available_repairs, 1):
+        print(f"  [{index}] {option.label}")
+        print(f"      {option.description}")
+        if option.unavailable_reason:
+            print(f"      Unavailable: {option.unavailable_reason}")
+
+
+def _choose_fix_option(available_repairs: Iterable[object]) -> object | None:
+    repairs = tuple(available_repairs)
+    available = [r for r in repairs if getattr(r, "unavailable_reason", None) is None]
+    if not available:
+        print("\nNo available repair options for this issue.")
+        return None
+    while True:
+        try:
+            raw = input("Choose fix option number: ").strip()
+            if not raw:
+                return None
+            idx = int(raw) - 1
+        except (ValueError, EOFError):
+            return None
+        if 0 <= idx < len(repairs):
+            choice = repairs[idx]
+            reason = getattr(choice, "unavailable_reason", None)
+            if reason is not None:
+                print(f"Option [{idx + 1}] is not available: {reason}")
+                continue
+            return choice
+        print(f"Invalid choice: {raw}")
+
+
+def _print_suggestions(suggestions: Iterable[object]) -> None:
+    print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")
+    for index, suggestion in enumerate(suggestions, 1):
+        print(f"  [{index}] {suggestion.title}")
+        if suggestion.explanation:
+            print(f"       {suggestion.explanation}")
+        if suggestion.expected_effect:
+            print("       Expected effect:")
+            for item in suggestion.expected_effect:
+                print(f"         - {item}")
+        if suggestion.risks:
+            print("       Risks:")
+            for item in suggestion.risks:
+                print(f"         - {item}")
+        if suggestion.preview:
             print("       Preview:")
-            for line in s.spl_preview.split("\n"):
+            for line in suggestion.preview.splitlines():
                 print(f"         {line}")
         print()
 
-    sug = _choose_suggestion(suggestions)
-    if sug is None:
-        return
 
-    print(f"\nApply suggestion: {sug.title}")
-    confirm = input("Confirm apply? [y/N] ").strip().lower()
-    if confirm != "y":
-        print("Cancelled.")
-        return
-
-    updated = svc.apply_suggestion(session.session_id, sug.suggestion_id)
-    print(f"Applied — overlay version {updated.overlay_version}")
-
-    result = svc.verify_session(session.session_id)
-    print(f"\nVerification: {'accepted' if result.accepted else 'rejected'}")
-    print(f"  lane: {result.lane}")
-    if result.resolved_diagnostic_ids:
-        print(f"  resolved diagnostics: {', '.join(result.resolved_diagnostic_ids)}")
-    if result.new_blocking_diagnostic_ids:
-        print(f"  new blocking diagnostics: {', '.join(result.new_blocking_diagnostic_ids)}")
-    if result.failure_reasons:
-        print(f"  failures: {'; '.join(result.failure_reasons)}")
-
-    # Print patched SPL via service (real Lane A replay)
-    if result.accepted:
-        spl = svc.get_patched_spl(run_id)
-        print("\n--- Patched SPL ---")
-        print(spl or "(no SPL produced)")
-    print()
+def _choose_suggestion(suggestions: Iterable[object]):
+    values = tuple(suggestions)
+    if len(values) == 1:
+        return values[0]
+    while True:
+        try:
+            raw = input("Apply suggestion number: ").strip()
+            if not raw:
+                return None
+            idx = int(raw) - 1
+        except (ValueError, EOFError):
+            return None
+        if 0 <= idx < len(values):
+            return values[idx]
+        print(f"Invalid choice: {raw}")
 
 
-def _choose_issue(issues):
-    try:
-        choice = input("Select issue number: ").strip()
-        idx = int(choice) - 1
-        if 0 <= idx < len(issues):
-            return issues[idx]
-        print(f"Invalid choice: {choice}")
-    except (ValueError, EOFError):
-        pass
-    return None
+def _print_confirmation(view) -> None:
+    print(f"\nApply suggestion: {view.title}")
+    print("\nThis will:")
+    for item in view.will_do:
+        print(f"  - {item}")
+    print("\nThis will not:")
+    for item in view.will_not_do:
+        print(f"  - {item}")
+    print(f"\nVerification lane: {view.verification_lane}")
 
 
-def _choose_suggestion(suggestions):
-    try:
-        choice = input("Apply suggestion number: ").strip()
-        idx = int(choice) - 1
-        if 0 <= idx < len(suggestions):
-            return suggestions[idx]
-        print(f"Invalid choice: {choice}")
-    except (ValueError, EOFError):
-        pass
-    return None
+def _print_verification(view, *, failures: tuple[str, ...]) -> None:
+    print("\nVerification result")
+    print(f"  status: {view.status}")
+    if view.resolved:
+        print(f"  resolved: {', '.join(view.resolved)}")
+    if view.new_blocking_diagnostics:
+        print(f"  new blocking: {', '.join(view.new_blocking_diagnostics)}")
+    if failures:
+        print(f"  failures: {'; '.join(failures)}")
+    if view.authority_summary:
+        print("\nCompiler authorities:")
+        for item in view.authority_summary:
+            print(f"  - {item}")
+    if view.new_snapshot_id is not None:
+        print("\nNew snapshot:")
+        print(f"  snapshot_id: {view.new_snapshot_id}")
+        print(f"  overlay_version: {view.overlay_version}")
+    if view.updated_spl:
+        print("\nUpdated SPL")
+        print(view.updated_spl)
 
 
 def main() -> None:
@@ -399,8 +603,12 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     demo_p = sub.add_parser("demo", help="Interactive SPL editing demo")
-    demo_p.add_argument("--run", required=True, dest="run_dir",
-                        help="Path to structured artifact snapshot directory")
+    demo_p.add_argument(
+        "--run",
+        required=True,
+        dest="run_dir",
+        help="Path to structured artifact snapshot directory",
+    )
 
     args = parser.parse_args()
 
@@ -412,7 +620,7 @@ def main() -> None:
         except (FileNotFoundError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
-        _run_demo_for_run(svc, run_id)
+        _run_demo_for_run(svc, run_id, snapshot_path)
 
 
 if __name__ == "__main__":

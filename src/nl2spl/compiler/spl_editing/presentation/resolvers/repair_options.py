@@ -78,9 +78,8 @@ def _availability(
         return RepairOptionAvailability.UNAVAILABLE_SNAPSHOT_CAPABILITY
     if entry.handler_id is None or not runtime.handlers.has(entry.handler_id):
         return RepairOptionAvailability.UNAVAILABLE_MISSING_HANDLER
-    if (
-        entry.target_resolver_id is None
-        or not runtime.target_resolvers.has(entry.target_resolver_id)
+    if entry.target_resolver_id is None or not runtime.target_resolvers.has(
+        entry.target_resolver_id
     ):
         return RepairOptionAvailability.UNAVAILABLE_MISSING_TARGET_RESOLVER
     if entry.context_id is None or not runtime.context_builders.has(entry.context_id):

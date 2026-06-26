@@ -1,9 +1,7 @@
 """BindExistingProducerStep verifier."""
 
-from nl2spl.compiler.spl_editing.core.model import RepairPatch
-from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
-from nl2spl.compiler.spl_editing.patches.base import PatchVerifier
 from nl2spl.compiler.producer_index import ProducerIndex
+from nl2spl.compiler.spl_editing.patches.base import PatchVerifier
 
 
 class BindExistingProducerStepVerifier(PatchVerifier):
@@ -21,8 +19,7 @@ class BindExistingProducerStepVerifier(PatchVerifier):
         gated_steps = list(getattr(gated, "steps", []))
         index = ProducerIndex(steps=gated_steps)
         if not index.is_produced(output_name):
-            failures.append(
-                f"ProducerIndex does not recognize '{output_name}' as produced")
+            failures.append(f"ProducerIndex does not recognize '{output_name}' as produced")
 
         bound = next((s for s in gated_steps if s.step_id == step_id), None)
         if bound is None:
@@ -33,19 +30,19 @@ class BindExistingProducerStepVerifier(PatchVerifier):
             entry = bindings.get(output_name, {})
             if not entry:
                 failures.append(
-                    f"Step '{step_id}' has no repair_output_bindings for "
-                    f"'{output_name}'")
+                    f"Step '{step_id}' has no repair_output_bindings for '{output_name}'"
+                )
             else:
                 if entry.get("repair_patch_id") != patch.patch_id:
                     failures.append(
                         f"repair_patch_id mismatch: "
-                        f"'{entry.get('repair_patch_id')}' != '{patch.patch_id}'")
+                        f"'{entry.get('repair_patch_id')}' != '{patch.patch_id}'"
+                    )
                 if entry.get("related_diagnostic_id") != patch.evidence.related_diagnostic_id:
                     failures.append(
                         f"related_diagnostic_id mismatch: "
                         f"'{entry.get('related_diagnostic_id')}' "
-                        f"!= '{patch.evidence.related_diagnostic_id}'")
+                        f"!= '{patch.evidence.related_diagnostic_id}'"
+                    )
 
         return tuple(failures)
-
-

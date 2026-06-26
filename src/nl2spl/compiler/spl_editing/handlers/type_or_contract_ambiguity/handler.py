@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.errors import (
     PatchValidationError,
@@ -25,17 +27,25 @@ from nl2spl.compiler.spl_editing.handlers.type_or_contract_ambiguity.prompt impo
     TYPE_OR_CONTRACT_SYSTEM_PROMPT,
     build_type_or_contract_user_prompt,
 )
+from nl2spl.compiler.spl_editing.intent.model import (
+    ConstructRepairIntent,
+    ConvertDelegationToMainFlowStepIntentPayload,
+    ConvertDelegationToRequestInputIntentPayload,
+    CreateWorkerHandoffContractIntentPayload,
+)
 
-_MVP_SUBTYPES: frozenset[tuple[str, str, str]] = frozenset({
-    ("WORKER_PROMOTION", "promotion_input_contract", "worker_promotion.resolve_contract"),
-    ("WORKER_PROMOTION", "promotion_output_contract", "worker_promotion.resolve_contract"),
-    ("WORKER_PROMOTION", "promotion_invocation_point", "worker_promotion.resolve_contract"),
-    ("WORKER_PROMOTION", "promotion_result_handoff", "worker_promotion.resolve_contract"),
-    ("WORKER_HANDOFF", "target", "worker_handoff.specify_target"),
-    ("WORKER_HANDOFF", "input_bindings", "worker_handoff.specify_input_bindings"),
-    ("WORKER_HANDOFF", "output_bindings", "worker_handoff.specify_output_bindings"),
-    ("WORKER_HANDOFF", "invocation_site", "worker_handoff.specify_invocation_site"),
-})
+_MVP_SUBTYPES: frozenset[tuple[str, str, str]] = frozenset(
+    {
+        ("WORKER_PROMOTION", "promotion_input_contract", "worker_promotion.resolve_contract"),
+        ("WORKER_PROMOTION", "promotion_output_contract", "worker_promotion.resolve_contract"),
+        ("WORKER_PROMOTION", "promotion_invocation_point", "worker_promotion.resolve_contract"),
+        ("WORKER_PROMOTION", "promotion_result_handoff", "worker_promotion.resolve_contract"),
+        ("WORKER_HANDOFF", "target", "worker_handoff.specify_target"),
+        ("WORKER_HANDOFF", "input_bindings", "worker_handoff.specify_input_bindings"),
+        ("WORKER_HANDOFF", "output_bindings", "worker_handoff.specify_output_bindings"),
+        ("WORKER_HANDOFF", "invocation_site", "worker_handoff.specify_invocation_site"),
+    }
+)
 
 
 class TypeOrContractAmbiguityHandler(IssueRepairHandler):
@@ -75,6 +85,8 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         selected_patch_types: tuple[str, ...] | None = None,
         *,
         rendered_user_prompt: str | None = None,
+        selectable_refset: Any | None = None,  # R6: not consumed
+        catalog_entry: Any | None = None,  # R6: not consumed
     ) -> tuple[RepairSuggestion, ...]:
         key = self._subtype_key(issue, catalog_entries)
         if key not in _MVP_SUBTYPES:
@@ -88,13 +100,11 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 "WORKER_HANDOFF suggestions are not wired for this handler."
             )
         if ct != "WORKER_PROMOTION":
-            raise UnsupportedIssueError(
-                f"Construct type '{ct}' has no suggestion handler."
-            )
+            raise UnsupportedIssueError(f"Construct type '{ct}' has no suggestion handler.")
         if not catalog_entries:
             return ()
 
-        entry = catalog_entries[0]
+        entry = catalog_entry or catalog_entries[0]
         child_id = _string_or_none(context.metadata.get("derived_child_worker_id"))
         child_inputs = _string_tuple(context.metadata.get("child_input_fields"))
         child_outputs = _string_tuple(context.metadata.get("child_output_fields"))
@@ -102,8 +112,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         patch_types_to_generate = list(entry.supported_patch_types)
         if selected_patch_types:
             patch_types_to_generate = [
-                pt for pt in patch_types_to_generate
-                if pt in selected_patch_types
+                pt for pt in patch_types_to_generate if pt in selected_patch_types
             ]
         suggestions: list[RepairSuggestion] = []
         parse_failures = 0
@@ -115,8 +124,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         # Focused: all attempts on selected type(s).
         # Unfiltered: round-robin to cover every supported type.
         patch_type_sequence = [
-            patch_types_to_generate[i % len(patch_types_to_generate)]
-            for i in range(max_attempts)
+            patch_types_to_generate[i % len(patch_types_to_generate)] for i in range(max_attempts)
         ]
 
         for patch_type in patch_type_sequence:
@@ -134,7 +142,8 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                     allowed_patch_types=(patch_type,),
                     parent_worker_id=_string_or_none(
                         context.metadata.get("parent_worker_id"),
-                    ) or target.worker_id,
+                    )
+                    or target.worker_id,
                     child_worker_id=child_id,
                     child_input_fields=child_inputs,
                     child_output_fields=child_outputs,
@@ -151,23 +160,52 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 continue
 
             payload = self._payload_for(
-                patch_type, issue, target, context,
-                data["payload"], child_id,
+                patch_type,
+                issue,
+                target,
+                context,
+                data["payload"],
+                child_id,
             )
             if payload is None:
                 parse_failures += 1
                 continue
 
+            if (
+                patch_type
+                in {
+                    "CreateWorkerHandoffContract",
+                    "ConvertDelegationIntentToMainFlowStep",
+                    "ConvertDelegationIntentToRequestInput",
+                }
+                and selectable_refset is not None
+                and selectable_refset.is_available
+                and entry.materialization_plan_id
+            ):
+                intent = self._intent_for_worker_promotion_resolution(
+                    issue=issue,
+                    target=target,
+                    entry=entry,
+                    selectable_refset=selectable_refset,
+                    patch_type=patch_type,
+                    payload=payload,
+                )
+                if intent is None:
+                    parse_failures += 1
+                    continue
+                payload_for_patch = intent
+            else:
+                payload_for_patch = payload
+
             # Skip duplicate payloads
-            if payload in previous_payloads:
+            if payload_for_patch in previous_payloads:
                 parse_failures += 1
                 continue
 
-            previous_summaries.append(
-                f"{data['title']}: {data['explanation']}"
-            )
-            previous_payloads.append(payload)
-            suggestions.append(RepairSuggestion(
+            previous_summaries.append(f"{data['title']}: {data['explanation']}")
+            previous_payloads.append(payload_for_patch)
+            suggestions.append(
+                RepairSuggestion(
                     suggestion_id=f"{issue.issue_id}_sug_{len(suggestions):02d}",
                     session_id="",
                     affordance_id=entry.affordance_id,
@@ -182,11 +220,12 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                         base_compile_run_id="",
                         artifact_snapshot_id="",
                         overlay_version=0,
-                        payload=payload,
+                        payload=payload_for_patch,
                         verification_lane=entry.default_verification_lane,
                     ),
                     spl_preview=self._preview_for(patch_type, payload),
-                ))
+                )
+            )
 
         if len(suggestions) < self._policy.max_suggestions:
             raise PatchValidationError(
@@ -196,6 +235,78 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 f"{parse_failures} parse/schema/duplicate failures)."
             )
         return tuple(suggestions)
+
+    @staticmethod
+    def _intent_for_worker_promotion_resolution(
+        *,
+        issue: EditableIssue,
+        target: RepairTarget,
+        entry: RepairCatalogEntry,
+        selectable_refset: object,
+        patch_type: str,
+        payload: dict,
+    ) -> ConstructRepairIntent | None:
+        target_refs = [ref for ref in selectable_refset.refs if ref.ref_role == "target_worker"]
+        if len(target_refs) != 1:
+            return None
+        if patch_type == "CreateWorkerHandoffContract":
+            input_bindings = tuple(
+                (str(parent), str(child))
+                for parent, child in payload.get("input_bindings", {}).items()
+            )
+            output_bindings = tuple(
+                (str(child), str(parent))
+                for child, parent in payload.get("output_bindings", {}).items()
+            )
+            intent_payload = CreateWorkerHandoffContractIntentPayload(
+                target_worker_promotion_ref_id=target_refs[0].ref_id,
+                parent_worker_id=str(payload.get("parent_worker_id", "")),
+                child_worker_id=str(payload.get("child_worker_id", "")),
+                input_bindings=input_bindings,
+                output_bindings=output_bindings,
+                invocation_point=str(payload.get("invocation_point", "main")),
+                input_binding_status=str(payload.get("input_binding_status", "known_present")),
+                output_binding_status=str(payload.get("output_binding_status", "known_present")),
+            )
+            summary = "Create worker handoff contract."
+        elif patch_type == "ConvertDelegationIntentToMainFlowStep":
+            intent_payload = ConvertDelegationToMainFlowStepIntentPayload(
+                target_worker_promotion_ref_id=target_refs[0].ref_id,
+                worker_id=str(payload.get("worker_id", "")),
+                action_text=str(payload.get("action_text", "")),
+                outputs=tuple(str(o) for o in payload.get("outputs", ())),
+            )
+            summary = "Convert delegation to main-flow step."
+        elif patch_type == "ConvertDelegationIntentToRequestInput":
+            outputs = tuple(str(o) for o in payload.get("outputs", ()))
+            value_target = str(payload.get("value_target", ""))
+            if value_target and value_target not in outputs:
+                outputs = outputs + (value_target,)
+            intent_payload = ConvertDelegationToRequestInputIntentPayload(
+                target_worker_promotion_ref_id=target_refs[0].ref_id,
+                worker_id=str(payload.get("worker_id", "")),
+                prompt_text=str(payload.get("prompt_text", "")),
+                value_target=value_target,
+                outputs=outputs,
+            )
+            summary = "Convert delegation to request input."
+        else:
+            return None
+        return ConstructRepairIntent(
+            intent_id=f"int_{issue.issue_id}",
+            issue_id=issue.issue_id,
+            patch_type=patch_type,
+            affordance_id=entry.affordance_id,
+            target_construct_type=entry.construct_type,
+            target_construct_id=issue.irs_ref.construct_id,
+            target_slot_name=entry.slot_name,
+            target_ref_id=target_refs[0].ref_id,
+            selected_ref_ids=(),
+            intent_summary=summary,
+            repair_goal=summary,
+            materialization_plan_id=entry.materialization_plan_id,
+            payload=intent_payload,
+        )
 
     @staticmethod
     def _payload_for(
@@ -245,7 +356,9 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 "worker_promotion_id": issue.target_ref.replace("worker_promotion:", ""),
                 "parent_worker_id": _string_or_none(
                     context.metadata.get("parent_worker_id"),
-                ) or target.worker_id or "",
+                )
+                or target.worker_id
+                or "",
                 "child_worker_id": child_id,
                 "input_bindings": input_bindings,
                 "output_bindings": output_bindings,
@@ -276,8 +389,7 @@ def _string_mapping(value: object) -> dict[str, str]:
     return {
         k: v
         for k, v in value.items()
-        if isinstance(k, str) and k.strip()
-        and isinstance(v, str) and v.strip()
+        if isinstance(k, str) and k.strip() and isinstance(v, str) and v.strip()
     }
 
 

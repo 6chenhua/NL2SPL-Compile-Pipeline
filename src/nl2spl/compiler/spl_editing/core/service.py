@@ -1,11 +1,16 @@
-"""SPL Editing service — wires extractors, handlers, patches, and verification.
+﻿"""SPL Editing service --wires extractors, handlers, patches, and verification.
 
 No diagnostic-kind if-else in this module.  All dispatch goes through
 registries keyed by handler_id / affordance_id / patch_type.
+
+Materialized construct repair goes through the materialization path.
+Patch types without a materialization context are rejected.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 
 from nl2spl.compiler.artifacts.snapshot.model.document import SnapshotDocument
@@ -17,6 +22,11 @@ from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import (
     RepairCatalog,
     RepairCatalogBuilder,
+    RepairCatalogEntry,
+)
+from nl2spl.compiler.spl_editing.core.confirmation_context import (
+    ConfirmationContextStore,
+    RepairConfirmationContext,
 )
 from nl2spl.compiler.spl_editing.core.errors import (
     SPLEditingError,
@@ -45,7 +55,20 @@ from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
     document_from_artifact_snapshot,
     document_with_verification_record,
 )
+from nl2spl.compiler.spl_editing.intent import (
+    ConstructRepairIntent,
+    create_evidence_packet,
+)
 from nl2spl.compiler.spl_editing.issues.extractor import EditableIssueExtractor
+from nl2spl.compiler.spl_editing.materialization import (
+    MaterializationRequest,
+    RepairMaterializationService,
+    build_default_materialization_registry,
+)
+from nl2spl.compiler.spl_editing.selectable_refs import (
+    SelectableRefSetBuilder,
+    resolve_ref_ids_to_result,
+)
 from nl2spl.compiler.spl_editing.storage.artifact_snapshot_store import (
     ArtifactSnapshotStore,
 )
@@ -81,6 +104,7 @@ class SPLEditingService:
         lane_a: LaneReplayAdapter | None = None,
         snapshot_repository: JsonFileSnapshotRepository | None = None,
         snapshot_run_dir: Path | None = None,
+        materialization_service: RepairMaterializationService | None = None,
     ) -> None:
         self._runtime = runtime
         self._catalog = catalog or RepairCatalogBuilder.from_construct_registry(
@@ -96,7 +120,7 @@ class SPLEditingService:
         self._apply_results: dict[str, PatchApplyResult] = {}
         self._verification_results = VerificationResultStore()
         self._session_overlays: dict[str, list[str]] = {}
-        # compile_run_id → snapshot_id
+        # compile_run_id 鈫?snapshot_id
         self._run_snapshot: dict[str, str] = {}
         self._snapshot_repository = snapshot_repository
         self._snapshot_run_dir = Path(snapshot_run_dir) if snapshot_run_dir else None
@@ -104,6 +128,11 @@ class SPLEditingService:
         self._session_current_snapshot_id: dict[str, str] = {}
         self._run_current_snapshot_id: dict[str, str] = {}
         self._run_dirs: dict[str, Path] = {}
+        # R6: Materialization path
+        self._materialization = materialization_service or RepairMaterializationService(
+            build_default_materialization_registry()
+        )
+        self._confirmation_contexts = ConfirmationContextStore()
 
     # ------------------------------------------------------------------
     # Public API
@@ -127,16 +156,15 @@ class SPLEditingService:
         self._snapshots.put(snapshot)
         self._run_snapshot[snapshot.compile_run_id] = snapshot.snapshot_id
         self._overlays.register_snapshot(
-            snapshot.compile_run_id, snapshot.snapshot_id,
+            snapshot.compile_run_id,
+            snapshot.snapshot_id,
         )
         return snapshot.compile_run_id
 
     def register_snapshot_file(self, path: Path) -> str:
         """Load a canonical JSON snapshot file and register it for editing."""
         path = Path(path)
-        self._snapshot_repository = (
-            self._snapshot_repository or JsonFileSnapshotRepository()
-        )
+        self._snapshot_repository = self._snapshot_repository or JsonFileSnapshotRepository()
         document = SnapshotLoader(self._snapshot_repository).load(path)
         snapshot = artifact_snapshot_from_document(document)
         run_id = self.register_artifact_snapshot(snapshot)
@@ -181,8 +209,8 @@ class SPLEditingService:
         )
         self._sessions.put(session)
         self._suggestions.register_session(session.session_id)
-        self._session_current_snapshot_id[session.session_id] = (
-            self._run_current_snapshot_id.get(compile_run_id, snap.snapshot_id)
+        self._session_current_snapshot_id[session.session_id] = self._run_current_snapshot_id.get(
+            compile_run_id, snap.snapshot_id
         )
         return session
 
@@ -215,12 +243,26 @@ class SPLEditingService:
         ctx_builder = self._runtime.context_builders.get(context_id)
         context = ctx_builder.build(issue, target, snap, user_instruction)
 
-        # Find catalog entries
+        # Find catalog entries --resolve the primary entry for this issue.
         entries = self._catalog.find_by_construct_slot_kind(
             issue.irs_ref.construct_type,
             issue.irs_ref.slot_name,
             issue.kind,
         )
+        if not entries:
+            raise UnsupportedIssueError(f"No catalog entries for {issue.kind}")
+        default_affordance = issue.default_affordance_id or entries[0].affordance_id
+        default_patch_type = entries[0].default_patch_type or entries[0].supported_patch_types[0]
+        entry = self._resolve_catalog_entry(issue, default_affordance, default_patch_type)
+
+        # R6: Build SelectableRefSet for intent-aware repair
+        selectable_refset = None
+        if entry and entry.selectable_ref_policy_id:
+            selectable_refset = SelectableRefSetBuilder.build(
+                snapshot=snap,
+                context=context,
+                policy_id=entry.selectable_ref_policy_id,
+            )
 
         # Build LLMRepairContext for prompt rendering when formally registered.
         rendered_prompt: str | None = None
@@ -243,21 +285,24 @@ class SPLEditingService:
                 )
             llm_ctx = llm_ctx_builder.build(
                 session_id=session_id,
-                issue=issue, target=target,
+                issue=issue,
+                target=target,
                 repair_context=context,
                 artifact_snapshot=snap,
                 selected_patch_type=selected_patch_type,
-                affordance_id=entries[0].affordance_id if entries else "",
+                affordance_id=entry.affordance_id if entry else "",
                 user_instruction=user_instruction,
                 source_spans=context.source_spans,
-                catalog_entry=entries[0] if entries else None,
+                catalog_entry=entry,
                 patch_registry=self._runtime.patches,
+                selectable_refset=selectable_refset,  # R6
             )
             readiness_status = llm_ctx.generation_readiness.status
             readiness_reasons = llm_ctx.generation_readiness.reasons
             readiness_warnings = llm_ctx.quality.warnings
             if llm_ctx.generation_readiness.status in (
-                "generation_blocked", "repair_unavailable",
+                "generation_blocked",
+                "repair_unavailable",
             ):
                 return SuggestionGenerationResult(
                     status=readiness_status,
@@ -266,7 +311,7 @@ class SPLEditingService:
                 )
             rendered_prompt = llm_ctx_renderer.render(llm_ctx)
 
-        # Generate — pass rendered_prompt only when handler accepts it
+        # Generate --pass rendered_prompt + R6 params
         suggestions = handler.generate_suggestions(
             issue,
             target,
@@ -275,14 +320,73 @@ class SPLEditingService:
             user_instruction,
             selected_patch_types=selected_patch_types,
             rendered_user_prompt=rendered_prompt,
+            selectable_refset=selectable_refset,  # R6
+            catalog_entry=entry,  # R6
         )
 
         # Stamp with session metadata, revision, and evidence
         snap = self._get_snapshot(session.compile_run_id)
         result: list[RepairSuggestion] = []
         for s in suggestions:
+            payload = s.patch.payload
+
+            # R6: Server overrides intent_id before sealing
+            if selectable_refset is not None and isinstance(payload, ConstructRepairIntent):
+                server_intent_id = f"int_{session_id}_{snap.snapshot_id}_{len(result):04d}"
+                payload = replace(payload, intent_id=server_intent_id)
+
+            # R6: Validate + seal context BEFORE writing to stores.
+            # If ref resolution fails, the suggestion is NOT saved.
+            stamped_suggestion_id = f"{session_id}_sug_{len(result):02d}"
+            stamped_patch_id = f"{session_id}_patch_{len(result):02d}"
+            ctx_sealed = False
+            if (
+                selectable_refset is not None
+                and isinstance(payload, ConstructRepairIntent)
+                and entry is not None
+            ):
+                resolution = resolve_ref_ids_to_result(
+                    selectable_refset,
+                    payload.selected_ref_ids,
+                    "selectable_input",
+                )
+                if resolution.is_success:
+                    target_role = "target_output"
+                    if payload.patch_type == "AddExceptionHandlerStep":
+                        target_role = "target_exception_flow"
+                    elif payload.patch_type == "CreateWorkerHandoffContract":
+                        target_role = "target_worker"
+                    target_resolution = resolve_ref_ids_to_result(
+                        selectable_refset,
+                        (payload.target_ref_id,),
+                        target_role,
+                    )
+                    if target_resolution.is_success:
+                        self._confirmation_contexts.seal(
+                            RepairConfirmationContext(
+                                context_id=f"ctx_{stamped_suggestion_id}",
+                                session_id=session_id,
+                                suggestion_id=stamped_suggestion_id,
+                                patch_id=stamped_patch_id,
+                                compile_run_id=snap.compile_run_id,
+                                intent_id=payload.intent_id,
+                                issue=issue,
+                                target=target,
+                                catalog_entry=entry,
+                                refset=selectable_refset,
+                                selected_ref_ids=payload.selected_ref_ids,
+                                resolved_refs=resolution.resolved_refs,
+                                snapshot_id=snap.snapshot_id,
+                                overlay_version=snap.overlay_version,
+                                created_at=datetime.now(UTC).isoformat(),
+                            )
+                        )
+                        ctx_sealed = True
+                if not ctx_sealed:
+                    continue  # reject this suggestion --don't write to store
+
             stamped_patch = RepairPatch(
-                patch_id=f"{session_id}_patch_{len(result):02d}",
+                patch_id=stamped_patch_id,
                 affordance_id=s.patch.affordance_id,
                 patch_type=s.patch.patch_type,
                 target_ref=s.patch.target_ref,
@@ -290,13 +394,13 @@ class SPLEditingService:
                 base_compile_run_id=snap.compile_run_id,
                 artifact_snapshot_id=snap.snapshot_id,
                 overlay_version=snap.overlay_version,
-                payload=s.patch.payload,
+                payload=payload,
                 preconditions=s.patch.preconditions,
-                evidence=s.patch.evidence,  # no confirmed evidence yet
+                evidence=s.patch.evidence,
                 verification_lane=s.patch.verification_lane,
             )
             stamped = RepairSuggestion(
-                suggestion_id=f"{session_id}_sug_{len(result):02d}",
+                suggestion_id=stamped_suggestion_id,
                 session_id=session_id,
                 affordance_id=s.affordance_id,
                 title=s.title,
@@ -324,35 +428,15 @@ class SPLEditingService:
     ) -> EditingSession:
         """Apply a confirmed suggestion.
 
-        Args:
-            session_id: Editing session ID.
-            suggestion_id: Suggestion ID to apply.
-            user_text: Optional user-provided clarification text associated
-                with the confirmation.  Preserved in ``RepairEvidence.user_text``
-                and carried through to ``StepIR.metadata["user_text"]``.
-
-        Returns:
-            Updated session with incremented overlay_version.
-
-        Raises:
-            StaleRevisionError if the base snapshot has changed.
+        Materialized construct repair goes through the materialization path.
+        Patch types without a materialization context are rejected.
         """
         session = self._sessions.get(session_id)
         suggestion = self._suggestions.get(suggestion_id)
 
-        # Cross-session guard
-        if suggestion.session_id != session_id:
-            raise SPLEditingError(
-                f"Suggestion '{suggestion_id}' belongs to session "
-                f"'{suggestion.session_id}', not '{session_id}'"
-            )
-
         snap = self._get_snapshot(session.compile_run_id)
         patch = suggestion.patch
 
-        # User-confirmed evidence stamped at apply time.
-        # Preserve the original patch revision — do NOT rewrite it to
-        # current snapshot.  Stale check below rejects outdated revisions.
         confirmed_patch = RepairPatch(
             patch_id=patch.patch_id,
             affordance_id=patch.affordance_id,
@@ -372,7 +456,31 @@ class SPLEditingService:
             verification_lane=patch.verification_lane,
         )
 
-        # Stale revision check — exact match required
+        # 鈹€鈹€ R6: Insert dispatch BEFORE stale prechecks 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+        # Insert path handles cross-session/stale via the context state
+        # machine (expire/reject), not via pre-check exceptions.
+        if confirmed_patch.patch_type == "InsertProducerStep" or isinstance(
+            confirmed_patch.payload, ConstructRepairIntent
+        ):
+            if not isinstance(confirmed_patch.payload, ConstructRepairIntent):
+                raise SPLEditingError(
+                    f"{patch.patch_type} payload must be ConstructRepairIntent, "
+                    f"got {type(confirmed_patch.payload).__name__}"
+                )
+            return self._apply_via_materialization(
+                session_id,
+                suggestion_id,
+                confirmed_patch,
+                user_text,
+            )
+
+        # 鈹€鈹€ Non-materialized payload prechecks 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
+        if suggestion.session_id != session_id:
+            raise SPLEditingError(
+                f"Suggestion '{suggestion_id}' belongs to session "
+                f"'{suggestion.session_id}', not '{session_id}'"
+            )
+
         if confirmed_patch.base_compile_run_id != snap.compile_run_id:
             raise StaleRevisionError("compile_run_id mismatch")
         if confirmed_patch.artifact_snapshot_id != snap.snapshot_id:
@@ -383,56 +491,153 @@ class SPLEditingService:
                 f"snapshot {snap.overlay_version}"
             )
 
-        # Find bundle and run validator BEFORE apply
-        bundle = self._runtime.patches.get(confirmed_patch.patch_type)
-        bundle.validator.validate(confirmed_patch, snap)
+        # 鈹€鈹€ No direct mutation bridge 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
+        raise SPLEditingError(
+            f"Patch type '{confirmed_patch.patch_type}' has no "
+            "materialization plan/context and cannot be applied directly."
+        )
 
-        applier = bundle.applier
-        patched_snap, overlay_event = applier.apply(confirmed_patch, snap)
+    # 鈹€鈹€ R6: Materialization apply path 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
 
-        # Build PatchApplyResult by diffing snapshots (real changed refs).
-        # Falls back to a minimal result when the applier doesn't support
-        # build_apply_result (e.g. test stubs).
-        if hasattr(applier, "build_apply_result"):
-            apply_result = applier.build_apply_result(
-                confirmed_patch, snap, patched_snap, overlay_event,
+    def _apply_via_materialization(
+        self,
+        session_id: str,
+        suggestion_id: str,
+        patch: RepairPatch,
+        user_text: str | None,
+    ) -> EditingSession:
+        session = self._sessions.get(session_id)
+        snap = self._get_snapshot(session.compile_run_id)
+        ctx_id = f"ctx_{suggestion_id}"
+
+        # 1. begin_apply --atomically occupy context
+        ctx = self._confirmation_contexts.begin_apply(ctx_id)
+
+        try:
+            # 2. Validation: session match, stale, payload, intent
+            if ctx.session_id != session_id:
+                self._confirmation_contexts.reject(ctx_id, "Cross-session access")
+                raise SPLEditingError("Confirmation context session mismatch")
+            if ctx.snapshot_id != snap.snapshot_id or ctx.overlay_version != snap.overlay_version:
+                self._confirmation_contexts.expire(ctx_id, "Stale revision")
+                raise StaleRevisionError(
+                    f"Confirmation context revision stale: "
+                    f"ctx={ctx.snapshot_id}@{ctx.overlay_version}, "
+                    f"snap={snap.snapshot_id}@{snap.overlay_version}"
+                )
+
+            intent = patch.payload
+            if not isinstance(intent, ConstructRepairIntent):
+                self._confirmation_contexts.reject(ctx_id, "Payload is not ConstructRepairIntent")
+                raise SPLEditingError(
+                    f"{patch.patch_type} payload must be ConstructRepairIntent, "
+                    f"got {type(intent).__name__}"
+                )
+            if intent.intent_id != ctx.intent_id:
+                self._confirmation_contexts.reject(ctx_id, "Intent ID mismatch")
+                raise SPLEditingError("Intent ID does not match sealed context")
+            if intent.selected_ref_ids != ctx.selected_ref_ids:
+                self._confirmation_contexts.reject(ctx_id, "Selected ref IDs mismatch")
+                raise SPLEditingError("Selected ref IDs do not match sealed context")
+
+            # 3. Create evidence packet
+            evidence_packet = create_evidence_packet(
+                intent=intent,
+                repair_patch_id=patch.patch_id,
+                related_diagnostic_id=patch.evidence.related_diagnostic_id,
+                user_text=user_text or "",
             )
-        else:
-            apply_result = PatchApplyResult(
-                patched_snapshot=patched_snap,
-                overlay_event=overlay_event,
+
+            # 4. Build MaterializationRequest with SEALED resolved_refs
+            request = MaterializationRequest(
+                snapshot=snap,
+                issue=ctx.issue,
+                target=ctx.target,
+                catalog_entry=ctx.catalog_entry,
+                intent=intent,
+                refset=ctx.refset,
+                resolved_refs=ctx.resolved_refs,
+                evidence_packet=evidence_packet,
             )
 
-        self._snapshots.put(patched_snap)
-        self._overlays.register_snapshot(
-            patched_snap.compile_run_id, patched_snap.snapshot_id,
-        )
-        self._overlays.append(overlay_event)
+            # 5. Execute materialization
+            result = self._materialization.materialize(request)
 
-        # Persist applied patch for verification
-        self._applied_patches[overlay_event.overlay_id] = confirmed_patch
-        self._apply_results[overlay_event.overlay_id] = apply_result
-        self._session_overlays.setdefault(session_id, []).append(
-            overlay_event.overlay_id,
-        )
-        self._persist_overlay_snapshot_if_configured(
-            session_id=session_id,
-            patched_snapshot=patched_snap,
-            overlay_event=overlay_event,
-            patch=confirmed_patch,
-        )
+            # 6. Persistence with rollback
+            run_id = result.patched_snapshot.compile_run_id
+            sid = result.patched_snapshot.snapshot_id
+            ov = result.patched_snapshot.overlay_version
+            ov_id = result.overlay_event.overlay_id
 
-        # Persist updated session
-        updated = EditingSession(
-            session_id=session.session_id,
-            compile_run_id=session.compile_run_id,
-            artifact_snapshot_id=patched_snap.snapshot_id,
-            overlay_version=patched_snap.overlay_version,
-            issue=session.issue,
-            created_at=session.created_at,
-        )
-        self._sessions.replace(updated)
-        return updated
+            snapshot_written = False
+            overlay_appended = False
+            try:
+                self._snapshots.put(result.patched_snapshot)
+                snapshot_written = True
+
+                self._overlays.register_snapshot(run_id, sid)
+                self._overlays.append(result.overlay_event)
+                overlay_appended = True
+
+                apply_result = PatchApplyResult(
+                    patched_snapshot=result.patched_snapshot,
+                    overlay_event=result.overlay_event,
+                    changed_refs=result.changed_refs,
+                    changed_step_ids=result.changed_step_ids,
+                    changed_handoff_ids=result.changed_handoff_ids,
+                    evidence_refs=result.evidence_refs,
+                    audit_metadata={
+                        "materialization_plan_id": result.materialization_plan_id,
+                        "materializer_id": result.materializer_id,
+                        "materialization_authority": result.materialization_authority,
+                        "evidence_packet_id": result.evidence_packet_id,
+                        "consumed_selected_ref_ids": result.consumed_selected_ref_ids,
+                    },
+                )
+                self._applied_patches[ov_id] = patch
+                self._apply_results[ov_id] = apply_result
+                self._session_overlays.setdefault(session_id, []).append(ov_id)
+
+                self._persist_overlay_snapshot_if_configured(
+                    session_id=session_id,
+                    patched_snapshot=result.patched_snapshot,
+                    overlay_event=result.overlay_event,
+                    patch=patch,
+                )
+
+                updated = EditingSession(
+                    session_id=session.session_id,
+                    compile_run_id=session.compile_run_id,
+                    artifact_snapshot_id=result.patched_snapshot.snapshot_id,
+                    overlay_version=result.patched_snapshot.overlay_version,
+                    issue=session.issue,
+                    created_at=session.created_at,
+                )
+                self._sessions.replace(updated)
+
+            except Exception:
+                # Rollback in reverse order
+                if overlay_appended:
+                    self._overlays.remove_event(ov_id)
+                if snapshot_written:
+                    self._snapshots.remove(run_id, sid, ov)
+                self._applied_patches.pop(ov_id, None)
+                self._apply_results.pop(ov_id, None)
+                if (
+                    session_id in self._session_overlays
+                    and ov_id in self._session_overlays[session_id]
+                ):
+                    self._session_overlays[session_id].remove(ov_id)
+                raise
+
+            # 7. commit_consumed --only after ALL persistence succeeds
+            self._confirmation_contexts.commit_consumed(ctx_id)
+            return updated
+
+        except Exception:
+            # abort_apply --returns to SEALED for transient failures
+            self._confirmation_contexts.abort_apply(ctx_id)
+            raise
 
     def verify_session(
         self,
@@ -445,8 +650,11 @@ class SPLEditingService:
         session_ov_ids = self._session_overlays.get(session_id, [])
         if not session_ov_ids:
             result = VerificationResult(
-                session_id=session_id, patch_id="", accepted=False,
-                lane="A", failure_reasons=("No overlay events for this session",),
+                session_id=session_id,
+                patch_id="",
+                accepted=False,
+                lane="A",
+                failure_reasons=("No overlay events for this session",),
             )
             self._verification_results.append(session_id, result)
             return result
@@ -455,21 +663,28 @@ class SPLEditingService:
         ov = last_event.overlay_version
         snap = self._snapshots.get(session.compile_run_id, sid, overlay_version=ov)
         base = self._snapshots.get(
-            session.compile_run_id, sid, overlay_version=0,
+            session.compile_run_id,
+            sid,
+            overlay_version=0,
         )
 
         patch = self._applied_patches.get(last_ov_id)
         if patch is None:
             result = VerificationResult(
-                session_id=session_id, patch_id=last_event.patch_id,
-                accepted=False, lane="A",
+                session_id=session_id,
+                patch_id=last_event.patch_id,
+                accepted=False,
+                lane="A",
                 failure_reasons=("Applied patch not found in storage",),
             )
         else:
             bundle = self._runtime.patches.get(last_event.patch_type)
             apply_result = self._apply_results.get(last_ov_id)
             result = self._verifier.verify(
-                patch, base, snap, bundle.verifier,
+                patch,
+                base,
+                snap,
+                bundle.verifier,
                 apply_result=apply_result,
             )
         self._persist_verification_if_configured(session_id, result)
@@ -481,14 +696,15 @@ class SPLEditingService:
         return self._verification_results.get_latest(session_id)
 
     def list_verifications(
-        self, session_id: str,
+        self,
+        session_id: str,
     ) -> tuple[VerificationResult, ...]:
         """Return all verification results for *session_id*."""
         return self._verification_results.list_all(session_id)
 
     def get_patched_spl(self, run_id: str) -> str:
         """Return the rendered SPL from real Lane A replay of the latest
-        patched snapshot.  Raises if replay fails — caller should handle
+        patched snapshot.  Raises if replay fails --caller should handle
         or display the error."""
         from nl2spl.compiler.spl_editing.verification.lanes import LaneAReplayAdapter
 
@@ -533,7 +749,8 @@ class SPLEditingService:
         if run_dir is None:
             return
         self._snapshot_repository.save_overlay(
-            document, self._overlay_path(run_dir, document.identity.snapshot_id),
+            document,
+            self._overlay_path(run_dir, document.identity.snapshot_id),
         )
         self._snapshot_documents[(run_id, document.identity.snapshot_id)] = document
         self._session_current_snapshot_id[session_id] = document.identity.snapshot_id
@@ -560,11 +777,10 @@ class SPLEditingService:
         if run_dir is None:
             return
         self._snapshot_repository.save_overlay(
-            updated, self._overlay_path(run_dir, updated.identity.snapshot_id),
+            updated,
+            self._overlay_path(run_dir, updated.identity.snapshot_id),
         )
-        self._snapshot_documents[
-            (session.compile_run_id, updated.identity.snapshot_id)
-        ] = updated
+        self._snapshot_documents[(session.compile_run_id, updated.identity.snapshot_id)] = updated
 
     @staticmethod
     def _overlay_path(run_dir: Path, snapshot_id: str) -> Path:
@@ -574,7 +790,17 @@ class SPLEditingService:
     # Registry resolution helpers
     # ------------------------------------------------------------------
 
-    def _resolve_handler_id(self, issue: EditableIssue) -> str:
+    def _resolve_catalog_entry(
+        self,
+        issue: EditableIssue,
+        affordance_id: str,
+        patch_type: str,
+    ) -> RepairCatalogEntry:
+        """Resolve exactly one catalog entry by affordance_id + patch_type.
+
+        Zero or multiple matches 鈫?fail-fast.  Never falls back to
+        ``entries[0]``.
+        """
         entries = self._catalog.find_by_construct_slot_kind(
             issue.irs_ref.construct_type,
             issue.irs_ref.slot_name,
@@ -582,12 +808,42 @@ class SPLEditingService:
         )
         if not entries:
             raise UnsupportedIssueError(
-                f"No catalog entries for {issue.kind}")
-        hid = entries[0].handler_id
-        if hid is None:
+                f"No catalog entries for construct={issue.irs_ref.construct_type}, "
+                f"slot={issue.irs_ref.slot_name}, kind={issue.kind}"
+            )
+        matches = [
+            e
+            for e in entries
+            if e.affordance_id == affordance_id and patch_type in e.supported_patch_types
+        ]
+        if len(matches) == 0:
             raise UnsupportedIssueError(
-                f"No handler_id in catalog entry for {issue.kind}")
-        return hid
+                f"No catalog entry matches affordance_id='{affordance_id}' "
+                f"and patch_type='{patch_type}'"
+            )
+        if len(matches) > 1:
+            raise UnsupportedIssueError(
+                f"Multiple catalog entries match affordance_id='{affordance_id}' "
+                f"and patch_type='{patch_type}': "
+                f"{[m.entry_id for m in matches]}"
+            )
+        return matches[0]
+
+    def _resolve_handler_id(self, issue: EditableIssue) -> str:
+        entries = self._catalog.find_by_construct_slot_kind(
+            issue.irs_ref.construct_type,
+            issue.irs_ref.slot_name,
+            issue.kind,
+        )
+        if not entries:
+            raise UnsupportedIssueError(f"No catalog entries for {issue.kind}")
+        # All entries for the same construct_slot_kind must agree on handler_id.
+        handler_ids = {e.handler_id for e in entries if e.handler_id}
+        if len(handler_ids) == 0:
+            raise UnsupportedIssueError(f"No handler_id in catalog entries for {issue.kind}")
+        if len(handler_ids) > 1:
+            raise UnsupportedIssueError(f"Conflicting handler_ids for {issue.kind}: {handler_ids}")
+        return next(iter(handler_ids))
 
     def _resolve_target_resolver_id(self, issue: EditableIssue) -> str:
         entries = self._catalog.find_by_construct_slot_kind(
@@ -595,10 +851,14 @@ class SPLEditingService:
             issue.irs_ref.slot_name,
             issue.kind,
         )
-        tid = entries[0].target_resolver_id
-        if tid is None:
-            raise UnsupportedIssueError("No target_resolver_id in catalog entry")
-        return tid
+        if not entries:
+            raise UnsupportedIssueError(f"No catalog entries for {issue.kind}")
+        tids = {e.target_resolver_id for e in entries if e.target_resolver_id}
+        if len(tids) == 0:
+            raise UnsupportedIssueError("No target_resolver_id in catalog entries")
+        if len(tids) > 1:
+            raise UnsupportedIssueError(f"Conflicting target_resolver_ids: {tids}")
+        return next(iter(tids))
 
     def _resolve_context_id(self, issue: EditableIssue) -> str:
         entries = self._catalog.find_by_construct_slot_kind(
@@ -606,10 +866,14 @@ class SPLEditingService:
             issue.irs_ref.slot_name,
             issue.kind,
         )
-        cid = entries[0].context_id
-        if cid is None:
-            raise UnsupportedIssueError("No context_id in catalog entry")
-        return cid
+        if not entries:
+            raise UnsupportedIssueError(f"No catalog entries for {issue.kind}")
+        cids = {e.context_id for e in entries if e.context_id}
+        if len(cids) == 0:
+            raise UnsupportedIssueError("No context_id in catalog entries")
+        if len(cids) > 1:
+            raise UnsupportedIssueError(f"Conflicting context_ids: {cids}")
+        return next(iter(cids))
 
     @staticmethod
     def _selected_patch_type(
@@ -617,9 +881,7 @@ class SPLEditingService:
         selected_patch_types: tuple[str, ...] | None,
     ) -> str:
         supported = tuple(
-            patch_type
-            for entry in entries
-            for patch_type in entry.supported_patch_types
+            patch_type for entry in entries for patch_type in entry.supported_patch_types
         )
         if selected_patch_types:
             for patch_type in selected_patch_types:
@@ -627,4 +889,3 @@ class SPLEditingService:
                     return patch_type
             return ""
         return supported[0] if supported else ""
-

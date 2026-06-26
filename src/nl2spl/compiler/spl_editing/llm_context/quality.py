@@ -15,11 +15,13 @@ def evaluate_quality(
     warnings: tuple[str, ...] = (),
 ) -> ContextQuality:
     """Evaluate context quality from boolean dimensions."""
-    positives = sum([
-        has_primary_business_fact,
-        has_source_excerpt,
-        has_workflow_context,
-    ])
+    positives = sum(
+        [
+            has_primary_business_fact,
+            has_source_excerpt,
+            has_workflow_context,
+        ]
+    )
     if positives >= 3:
         confidence = "high"
     elif positives >= 1:

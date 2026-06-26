@@ -18,7 +18,9 @@ class ExceptionFlowTargetResolver(IssueTargetResolver):
     resolver_id = "exception_flow_target"
 
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         self._guard_construct(issue)
         worker_id, flow_id = self._parse_target(issue.target_ref)
@@ -31,12 +33,10 @@ class ExceptionFlowTargetResolver(IssueTargetResolver):
             target_ref=issue.target_ref,
             target_kind="EXCEPTION_FLOW",
             irs_ref=issue.irs_ref,
-            affordance_id=(
-                issue.default_affordance_id
-                or "exception_flow.add_handler_step"
-            ),
+            affordance_id=(issue.default_affordance_id or "exception_flow.add_handler_step"),
             construct_path=issue.irs_ref.construct_path,
             worker_id=worker_id,
+            canonical_name=flow_id,
             editable_artifacts=("WorkerStepPlanIR", "WorkerBlockPlanIR"),
         )
 
@@ -49,13 +49,13 @@ class ExceptionFlowTargetResolver(IssueTargetResolver):
         """
         if not ref.startswith("worker:"):
             return None, None
-        rest = ref[len("worker:"):]
+        rest = ref[len("worker:") :]
         marker = ".exception_flow:"
         idx = rest.find(marker)
         if idx <= 0:
             return None, None
         worker_id = rest[:idx]
-        flow_id = rest[idx + len(marker):]
+        flow_id = rest[idx + len(marker) :]
         if not worker_id or not flow_id:
             return None, None
         return worker_id, flow_id

@@ -13,19 +13,23 @@ from nl2spl.ir.diagnostics import CompileDiagnostic
 # Accepted authorities — diagnostics from these sources are eligible
 # ---------------------------------------------------------------------------
 
-_ACCEPTED_AUTHORITIES: frozenset[str] = frozenset({
-    "post_normalize_irs",
-    "producer_index",
-    "producer_index_backed_irs",
-    "selected_promoted_stage_local_irs",
-})
+_ACCEPTED_AUTHORITIES: frozenset[str] = frozenset(
+    {
+        "post_normalize_irs",
+        "producer_index",
+        "producer_index_backed_irs",
+        "selected_promoted_stage_local_irs",
+    }
+)
 
 # Diagnostic kinds that are NEVER editable (compiler health signals).
-_EXCLUDED_KINDS: frozenset[str] = frozenset({
-    "route_refinement_corrected",
-    "missing_provenance",
-    "assumed_command_not_renderable",
-})
+_EXCLUDED_KINDS: frozenset[str] = frozenset(
+    {
+        "route_refinement_corrected",
+        "missing_provenance",
+        "assumed_command_not_renderable",
+    }
+)
 
 
 def has_irs_ref(diagnostic: CompileDiagnostic) -> bool:
@@ -46,7 +50,8 @@ def kind_is_not_excluded(diagnostic: CompileDiagnostic) -> bool:
 
 
 def has_repair_affordance(
-    diagnostic: CompileDiagnostic, catalog: RepairCatalog,
+    diagnostic: CompileDiagnostic,
+    catalog: RepairCatalog,
 ) -> bool:
     """True when the catalog has at least one entry for this diagnostic."""
     irs_ref = diagnostic.metadata.get("irs_ref")
@@ -93,7 +98,8 @@ def is_primary_issue(diagnostic: CompileDiagnostic) -> bool:
 
 
 def catalog_entry_is_user_facing(
-    diagnostic: CompileDiagnostic, catalog: RepairCatalog,
+    diagnostic: CompileDiagnostic,
+    catalog: RepairCatalog,
 ) -> bool:
     """True when at least one matching catalog entry has ``user_facing=True``
     and non-None ``handler_id``, ``context_id``, ``target_resolver_id``.

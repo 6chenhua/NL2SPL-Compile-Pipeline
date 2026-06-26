@@ -12,8 +12,7 @@ from nl2spl.compiler.spl_editing.presentation.contract.availability import (
 def has_available_repair_option(options: Iterable[object]) -> bool:
     """Return True iff at least one option is currently actionable."""
     return any(
-        getattr(option, "availability", None)
-        == RepairOptionAvailability.AVAILABLE
+        getattr(option, "availability", None) == RepairOptionAvailability.AVAILABLE
         for option in options
     )
 
@@ -26,10 +25,7 @@ def expected_can_fix(options: Iterable[object]) -> bool:
 def assert_can_fix_invariant(*, can_fix: bool, options: Iterable[object]) -> None:
     expected = expected_can_fix(options)
     if can_fix != expected:
-        raise ValueError(
-            f"can_fix invariant violated: can_fix={can_fix!r}, "
-            f"expected={expected!r}"
-        )
+        raise ValueError(f"can_fix invariant violated: can_fix={can_fix!r}, expected={expected!r}")
 
 
 __all__ = [

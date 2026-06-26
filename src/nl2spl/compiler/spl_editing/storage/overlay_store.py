@@ -19,20 +19,20 @@ class OverlayStore:
     """
 
     def __init__(self) -> None:
-        self._events: dict[str, OverlayEvent] = {}           # overlay_id → event
+        self._events: dict[str, OverlayEvent] = {}  # overlay_id → event
         self._by_run_snap: dict[tuple[str, str], list[str]] = {}  # (run, snap) → [overlay_id]
-        self._known: set[tuple[str, str]] = set()            # registered (run, snap)
+        self._known: set[tuple[str, str]] = set()  # registered (run, snap)
 
     def register_snapshot(
-        self, compile_run_id: str, snapshot_id: str,
+        self,
+        compile_run_id: str,
+        snapshot_id: str,
     ) -> None:
         self._known.add((compile_run_id, snapshot_id))
 
     def append(self, event: OverlayEvent) -> None:
         if event.overlay_id in self._events:
-            raise KeyError(
-                f"Overlay event '{event.overlay_id}' already exists"
-            )
+            raise KeyError(f"Overlay event '{event.overlay_id}' already exists")
         run_key = (event.base_compile_run_id, event.base_artifact_snapshot_id)
         if run_key not in self._known:
             raise KeyError(
@@ -59,25 +59,27 @@ class OverlayStore:
         return overlay_id in self._events
 
     def list_for_snapshot(
-        self, compile_run_id: str, snapshot_id: str,
+        self,
+        compile_run_id: str,
+        snapshot_id: str,
     ) -> tuple[OverlayEvent, ...]:
         run_key = (compile_run_id, snapshot_id)
         if run_key not in self._known:
             raise KeyError(
-                f"Snapshot '{compile_run_id}/{snapshot_id}' "
-                f"is not registered in OverlayStore"
+                f"Snapshot '{compile_run_id}/{snapshot_id}' is not registered in OverlayStore"
             )
         ids = self._by_run_snap.get(run_key, [])
         return tuple(self._events[sid] for sid in ids)
 
     def latest_overlay_version(
-        self, compile_run_id: str, snapshot_id: str,
+        self,
+        compile_run_id: str,
+        snapshot_id: str,
     ) -> int:
         run_key = (compile_run_id, snapshot_id)
         if run_key not in self._known:
             raise KeyError(
-                f"Snapshot '{compile_run_id}/{snapshot_id}' "
-                f"is not registered in OverlayStore"
+                f"Snapshot '{compile_run_id}/{snapshot_id}' is not registered in OverlayStore"
             )
         return self._latest_version(run_key)
 
@@ -86,3 +88,20 @@ class OverlayStore:
         if not ids:
             return 0
         return max(self._events[sid].overlay_version for sid in ids)
+
+    def remove_event(self, overlay_id: str) -> None:
+        """Remove an overlay event and synchronise internal indices.
+
+        If the removed event leaves its run/snapshot group empty, the
+        group list is cleaned up.  The ``_known`` set is NOT modified —
+        a registered snapshot may legitimately have zero overlay events.
+        """
+        event = self._events.pop(overlay_id, None)
+        if event is None:
+            return
+        run_key = (event.base_compile_run_id, event.base_artifact_snapshot_id)
+        ids = self._by_run_snap.get(run_key, [])
+        if overlay_id in ids:
+            ids.remove(overlay_id)
+        if not ids:
+            self._by_run_snap.pop(run_key, None)

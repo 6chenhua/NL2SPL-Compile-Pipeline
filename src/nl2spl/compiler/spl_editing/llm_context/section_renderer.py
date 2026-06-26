@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-
 # =============================================================================
 # Section Renderer Protocol
 # =============================================================================
@@ -65,21 +64,14 @@ class SectionRendererRegistry:
         """
         rid = getattr(renderer, "renderer_id", None)
         if not rid:
-            raise ValueError(
-                "Section renderer must have a non-empty renderer_id"
-            )
+            raise ValueError("Section renderer must have a non-empty renderer_id")
         schema_ids = getattr(renderer, "facts_schema_ids", ())
         if not schema_ids:
-            raise ValueError(
-                f"Section renderer '{rid}' must declare at least one "
-                f"facts_schema_id"
-            )
+            raise ValueError(f"Section renderer '{rid}' must declare at least one facts_schema_id")
         for schema_id in schema_ids:
             key = _renderer_key(rid, schema_id)
             if key in self._renderers:
-                raise KeyError(
-                    f"Duplicate section renderer key: {key}"
-                )
+                raise KeyError(f"Duplicate section renderer key: {key}")
             self._renderers[key] = renderer
 
     def get(

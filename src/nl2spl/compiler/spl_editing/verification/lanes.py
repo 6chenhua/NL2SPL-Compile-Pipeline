@@ -60,28 +60,26 @@ class LaneAReplayAdapter(LaneReplayAdapter):
         if snapshot.symbol_table is None:
             missing.append("symbol_table")
         if missing:
-            raise PatchValidationError(
-                f"Lane A replay requires artifacts: {', '.join(missing)}"
-            )
+            raise PatchValidationError(f"Lane A replay requires artifacts: {', '.join(missing)}")
         return self._replay_real(snapshot)
 
     @staticmethod
     def _replay_real(snapshot: ArtifactSnapshot) -> VerificationArtifacts:
-        from nl2spl.pipeline.stages.stage10_worker_assembler.assembler import (
-            WorkerAssembler,
-        )
-        from nl2spl.pipeline.executable_gate import ExecutableElementGate
-        from nl2spl.compiler.irs.factory import build_irs_subsystem
-        from nl2spl.compiler.irs.policy import IRSRuntimeConfig
         from nl2spl.compiler.diagnostic_consolidator import (
             DiagnosticConsolidationInput,
             DiagnosticConsolidator,
         )
+        from nl2spl.compiler.irs.factory import build_irs_subsystem
+        from nl2spl.compiler.irs.policy import IRSRuntimeConfig
+        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
+        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+        from nl2spl.pipeline.executable_gate import ExecutableElementGate
+        from nl2spl.pipeline.stages.stage10_worker_assembler.assembler import (
+            WorkerAssembler,
+        )
         from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import (
             SPLRenderer,
         )
-        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
-        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 
         # 1. Stage 10: Assemble WorkerIR
         assembler = WorkerAssembler()
@@ -97,7 +95,8 @@ class LaneAReplayAdapter(LaneReplayAdapter):
         # 2. Gate
         gate = ExecutableElementGate()
         gated, render_info_list, gate_diags = gate.apply(
-            pre_gate, snapshot.worker_plan,
+            pre_gate,
+            snapshot.worker_plan,
         )
         render_info = tuple(render_info_list)
         gate_diagnostics = tuple(gate_diags)
@@ -136,7 +135,10 @@ class LaneAReplayAdapter(LaneReplayAdapter):
 
         renderer = SPLRenderer()
         spl_text, _errors, _warnings = renderer.render(
-            gated, profile, resources, symbol_table,
+            gated,
+            profile,
+            resources,
+            symbol_table,
             list(gated.steps),
             list(snapshot.constraints),
         )
@@ -183,31 +185,29 @@ class LaneBReplayAdapter(LaneReplayAdapter):
         if snapshot.symbol_table is None:
             missing.append("symbol_table")
         if missing:
-            raise PatchValidationError(
-                f"Lane B replay requires artifacts: {', '.join(missing)}"
-            )
+            raise PatchValidationError(f"Lane B replay requires artifacts: {', '.join(missing)}")
         return self._replay_real(snapshot)
 
     @staticmethod
     def _replay_real(snapshot: ArtifactSnapshot) -> VerificationArtifacts:
+        from nl2spl.compiler.diagnostic_consolidator import (
+            DiagnosticConsolidationInput,
+            DiagnosticConsolidator,
+        )
+        from nl2spl.compiler.irs.factory import build_irs_subsystem
+        from nl2spl.compiler.irs.policy import IRSRuntimeConfig
+        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
+        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+        from nl2spl.pipeline.executable_gate import ExecutableElementGate
         from nl2spl.pipeline.stages.stage9_5_normalizer.normalizer import (
             IRNormalizer,
         )
         from nl2spl.pipeline.stages.stage10_worker_assembler.assembler import (
             WorkerAssembler,
         )
-        from nl2spl.pipeline.executable_gate import ExecutableElementGate
-        from nl2spl.compiler.irs.factory import build_irs_subsystem
-        from nl2spl.compiler.irs.policy import IRSRuntimeConfig
-        from nl2spl.compiler.diagnostic_consolidator import (
-            DiagnosticConsolidationInput,
-            DiagnosticConsolidator,
-        )
         from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import (
             SPLRenderer,
         )
-        from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
-        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 
         # 1. Stage 9.5: Normalize worker-scoped IRs
         normalizer = IRNormalizer()
@@ -225,9 +225,9 @@ class LaneBReplayAdapter(LaneReplayAdapter):
             from nl2spl.compiler.spl_editing.core.errors import (
                 PatchValidationError,
             )
+
             raise PatchValidationError(
-                f"Lane B normalizer returned {len(errors)} error(s): "
-                f"{'; '.join(errors[:3])}"
+                f"Lane B normalizer returned {len(errors)} error(s): {'; '.join(errors[:3])}"
             )
 
         # 2. Stage 10: Assemble WorkerIR from normalized IRs
@@ -244,7 +244,8 @@ class LaneBReplayAdapter(LaneReplayAdapter):
         # 3. Gate
         gate = ExecutableElementGate()
         gated, render_info_list, gate_diags = gate.apply(
-            pre_gate, snapshot.worker_plan,
+            pre_gate,
+            snapshot.worker_plan,
         )
         render_info = tuple(render_info_list)
         gate_diagnostics = tuple(gate_diags)
@@ -282,7 +283,10 @@ class LaneBReplayAdapter(LaneReplayAdapter):
 
         renderer = SPLRenderer()
         spl_text, _r_errs, _r_warns = renderer.render(
-            gated, profile, resources, nf_symbols,
+            gated,
+            profile,
+            resources,
+            nf_symbols,
             list(gated.steps),
             list(snapshot.constraints),
         )

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from nl2spl.compiler.spl_editing.llm_context.errors import SchemaValidationError
 

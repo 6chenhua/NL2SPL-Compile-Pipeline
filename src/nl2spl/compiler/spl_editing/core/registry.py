@@ -23,9 +23,7 @@ class _BaseRegistry:
 
     def register(self, key: str, item: Any) -> None:
         if key in self._items:
-            raise KeyError(
-                f"{self._name} already has entry for '{key}'"
-            )
+            raise KeyError(f"{self._name} already has entry for '{key}'")
         self._items[key] = item
 
     def get(self, key: str) -> Any:
@@ -64,8 +62,7 @@ class PatchRegistry(_BaseRegistry):
         bundle_patch_type = getattr(bundle, "patch_type", None)
         if bundle_patch_type is not None and bundle_patch_type != key:
             raise ValueError(
-                f"PatchBundle.patch_type '{bundle_patch_type}' does not "
-                f"match registry key '{key}'"
+                f"PatchBundle.patch_type '{bundle_patch_type}' does not match registry key '{key}'"
             )
         # U3.5/U6: enforce PatchTypeContract
         contract = getattr(bundle, "contract", None)

@@ -13,9 +13,7 @@ class SessionStore:
 
     def put(self, session: EditingSession) -> None:
         if session.session_id in self._sessions:
-            raise KeyError(
-                f"Session '{session.session_id}' already exists"
-            )
+            raise KeyError(f"Session '{session.session_id}' already exists")
         self._sessions[session.session_id] = session
 
     def get(self, session_id: str) -> EditingSession:

@@ -149,10 +149,7 @@ class WorkerDelegationPromoter:
         if isinstance(irs_ref, dict):
             return irs_ref.get("construct_type") == "WORKER_PROMOTION"
         # Fallback: check target_ref prefix
-        return (
-            d.target_ref is not None
-            and d.target_ref.startswith("worker_promotion:")
-        )
+        return d.target_ref is not None and d.target_ref.startswith("worker_promotion:")
 
     @staticmethod
     def _promotion_candidate_key(d: CompileDiagnostic) -> str:
@@ -181,14 +178,18 @@ class WorkerDelegationPromoter:
         in that order is the primary; the rest are aliases.  All are
         ``editable``.
         """
+
         # Sort by canonical slot order
         def _slot_order(d: CompileDiagnostic) -> int:
             slot_name = ""
             missing_slot = d.missing_slot
             if missing_slot is not None:
                 slot_name = missing_slot.slot_name
-            return _WORKER_PROMOTION_SLOT_ORDER.index(slot_name) \
-                if slot_name in _WORKER_PROMOTION_SLOT_ORDER else 99
+            return (
+                _WORKER_PROMOTION_SLOT_ORDER.index(slot_name)
+                if slot_name in _WORKER_PROMOTION_SLOT_ORDER
+                else 99
+            )
 
         sorted_group = sorted(group, key=_slot_order)
         primary = sorted_group[0]
@@ -215,9 +216,7 @@ class WorkerDelegationPromoter:
 
         # Individual issue group based on target_ref
         target = d.target_ref or d.diagnostic_id
-        d.metadata[METADATA_KEY_ISSUE_GROUP_ID] = (
-            f"worker_delegation_group:{target}"
-        )
+        d.metadata[METADATA_KEY_ISSUE_GROUP_ID] = f"worker_delegation_group:{target}"
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +237,4 @@ def is_worker_delegation_editable(diagnostic: CompileDiagnostic) -> bool:
 
 def has_delegation_provenance(diagnostic: CompileDiagnostic) -> bool:
     """Return True when the diagnostic carries delegation_intent provenance."""
-    return (
-        diagnostic.metadata.get("original_semantic_role") == "delegation_intent"
-    )
+    return diagnostic.metadata.get("original_semantic_role") == "delegation_intent"

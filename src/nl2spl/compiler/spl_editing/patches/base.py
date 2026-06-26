@@ -14,15 +14,14 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from nl2spl.compiler.spl_editing.core.model import (
-    RepairPatch,
-    VerificationResult,
     PatchApplyResult,
     RepairEvidenceRef,
+    RepairPatch,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot, OverlayEvent
 
 
-class PatchPayload(ABC):
+class PatchPayload:
     """Typed payload for a specific patch type."""
 
 
@@ -85,26 +84,25 @@ class PatchApplier(ABC):
             for wid, steps in before_wsp.worker_steps.items():
                 for s in steps:
                     before_index[(wid, s.step_id)] = s
-            for worker_id, steps in after_wsp.worker_steps.items():
+            for _worker_id, steps in after_wsp.worker_steps.items():
                 for s in steps:
-                    before_s = before_index.get((worker_id, s.step_id))
+                    before_s = before_index.get((worker_id, s.step_id))  # noqa: F821
                     is_new = before_s is None
-                    is_modified = (
-                        before_s is not None
-                        and _step_content_changed(before_s, s)
-                    )
+                    is_modified = before_s is not None and _step_content_changed(before_s, s)
                     if is_new or is_modified:
                         changed_step_ids.append(s.step_id)
                         if s.metadata.get("origin") == "user_confirmed_repair":
                             # New step: UCR metadata on the step itself
-                            evidence_refs.append(RepairEvidenceRef(
-                                artifact_ref=f"step:{worker_id}:{s.step_id}",
-                                repair_patch_id=s.metadata.get("repair_patch_id", ""),
-                                related_diagnostic_id=s.metadata.get(
-                                    "related_diagnostic_id", ""
-                                ),
-                                user_text=s.metadata.get("user_text", ""),
-                            ))
+                            evidence_refs.append(
+                                RepairEvidenceRef(
+                                    artifact_ref=f"step:{worker_id}:{s.step_id}",  # noqa: F821
+                                    repair_patch_id=s.metadata.get("repair_patch_id", ""),
+                                    related_diagnostic_id=s.metadata.get(
+                                        "related_diagnostic_id", ""
+                                    ),
+                                    user_text=s.metadata.get("user_text", ""),
+                                )
+                            )
                         elif "repair_output_bindings" in s.metadata and is_modified:
                             # Modified step: only include bindings that are NEW
                             # or CHANGED relative to before.  Historical bindings
@@ -112,10 +110,9 @@ class PatchApplier(ABC):
                             # the current patch.
                             after_bindings = s.metadata["repair_output_bindings"]
                             before_bindings = (
-                                getattr(before_s, "metadata", {}).get(
-                                    "repair_output_bindings", {}
-                                )
-                                if before_s is not None else {}
+                                getattr(before_s, "metadata", {}).get("repair_output_bindings", {})
+                                if before_s is not None
+                                else {}
                             )
                             if isinstance(after_bindings, dict):
                                 for out_name, binding in after_bindings.items():
@@ -123,32 +120,35 @@ class PatchApplier(ABC):
                                         continue
                                     before_binding = (
                                         before_bindings.get(out_name, {})
-                                        if isinstance(before_bindings, dict) else {}
+                                        if isinstance(before_bindings, dict)
+                                        else {}
                                     )
                                     is_new_binding = out_name not in (
                                         before_bindings if isinstance(before_bindings, dict) else {}
                                     )
                                     is_changed_binding = (
-                                        not is_new_binding
-                                        and before_binding != binding
+                                        not is_new_binding and before_binding != binding
                                     )
                                     if is_new_binding or is_changed_binding:
                                         b_pid = binding.get("repair_patch_id")
                                         if b_pid:
-                                            evidence_refs.append(RepairEvidenceRef(
-                                                artifact_ref=(
-                                                    f"step:{worker_id}:{s.step_id}"
-                                                    f":output_binding:{out_name}"
-                                                ),
-                                                repair_patch_id=b_pid,
-                                                related_diagnostic_id=binding.get(
-                                                    "related_diagnostic_id", "",
-                                                ),
-                                                user_text=binding.get("user_text", ""),
-                                            ))
+                                            evidence_refs.append(
+                                                RepairEvidenceRef(
+                                                    artifact_ref=(
+                                                        f"step:{worker_id}:{s.step_id}"  # noqa: F821
+                                                        f":output_binding:{out_name}"
+                                                    ),
+                                                    repair_patch_id=b_pid,
+                                                    related_diagnostic_id=binding.get(
+                                                        "related_diagnostic_id",
+                                                        "",
+                                                    ),
+                                                    user_text=binding.get("user_text", ""),
+                                                )
+                                            )
         elif after_wsp is not None:
             # No before plan → all steps are new
-            for worker_id, steps in after_wsp.worker_steps.items():
+            for _worker_id, steps in after_wsp.worker_steps.items():
                 for s in steps:
                     changed_step_ids.append(s.step_id)
 
@@ -161,12 +161,14 @@ class PatchApplier(ABC):
                 if h.handoff_id not in before_hids:
                     changed_handoff_ids.append(h.handoff_id)
                     # Generate evidence ref for every new handoff
-                    evidence_refs.append(RepairEvidenceRef(
-                        artifact_ref=f"handoff:{h.handoff_id}",
-                        repair_patch_id=patch.patch_id,
-                        related_diagnostic_id=patch.evidence.related_diagnostic_id,
-                        user_text=patch.evidence.user_text,
-                    ))
+                    evidence_refs.append(
+                        RepairEvidenceRef(
+                            artifact_ref=f"handoff:{h.handoff_id}",
+                            repair_patch_id=patch.patch_id,
+                            related_diagnostic_id=patch.evidence.related_diagnostic_id,
+                            user_text=patch.evidence.user_text,
+                        )
+                    )
         elif after_plan is not None:
             for h in after_plan.handoffs:
                 changed_handoff_ids.append(h.handoff_id)
@@ -174,11 +176,8 @@ class PatchApplier(ABC):
         return PatchApplyResult(
             patched_snapshot=after,
             overlay_event=overlay_event,
-            changed_refs=tuple(
-                f"step:{sid}" for sid in changed_step_ids
-            ) + tuple(
-                f"handoff:{hid}" for hid in changed_handoff_ids
-            ),
+            changed_refs=tuple(f"step:{sid}" for sid in changed_step_ids)
+            + tuple(f"handoff:{hid}" for hid in changed_handoff_ids),
             changed_step_ids=tuple(changed_step_ids),
             changed_handoff_ids=tuple(changed_handoff_ids),
             evidence_refs=tuple(evidence_refs),

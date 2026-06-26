@@ -16,7 +16,7 @@ from nl2spl.compiler.spl_editing.patches.base import (
 )
 
 
-def _default_contract_for(bundle: "PatchBundle") -> PatchTypeContract:
+def _default_contract_for(bundle: PatchBundle) -> PatchTypeContract:
     """Derive a minimal contract from the bundle's patch_type.
 
     Real patch families should override this with explicit

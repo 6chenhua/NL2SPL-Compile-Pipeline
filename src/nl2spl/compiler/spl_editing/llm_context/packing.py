@@ -34,9 +34,7 @@ class ContextPacker:
             return text
         return text[: self.max_source_excerpt_chars] + "…"
 
-    def trim_nearby_steps(
-        self, steps: tuple[StepSummary, ...]
-    ) -> tuple[StepSummary, ...]:
+    def trim_nearby_steps(self, steps: tuple[StepSummary, ...]) -> tuple[StepSummary, ...]:
         return steps[: self.max_nearby_steps]
 
     def trim_variables(self, variables: tuple[str, ...]) -> tuple[str, ...]:

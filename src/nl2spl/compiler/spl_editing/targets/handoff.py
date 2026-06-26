@@ -13,7 +13,9 @@ class HandoffTargetResolver(IssueTargetResolver):
     resolver_id = "handoff_target_generic"
 
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         return RepairTarget(
             target_ref=issue.target_ref,

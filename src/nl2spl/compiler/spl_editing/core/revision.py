@@ -11,7 +11,7 @@ the latest stored version for the same snapshot.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from nl2spl.compiler.spl_editing.core.errors import (
@@ -131,37 +131,27 @@ class ArtifactSnapshot:
 
     def require_worker_plan(self) -> Any:
         if self.worker_plan is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires worker_plan but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires worker_plan but it is None")
         return self.worker_plan
 
     def require_worker_flow_plan(self) -> Any:
         if self.worker_flow_plan is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires worker_flow_plan but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires worker_flow_plan but it is None")
         return self.worker_flow_plan
 
     def require_worker_block_plan(self) -> Any:
         if self.worker_block_plan is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires worker_block_plan but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires worker_block_plan but it is None")
         return self.worker_block_plan
 
     def require_worker_step_plan(self) -> Any:
         if self.worker_step_plan is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires worker_step_plan but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires worker_step_plan but it is None")
         return self.worker_step_plan
 
     def require_resources(self) -> Any:
         if self.resources is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires resources but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires resources but it is None")
         return self.resources
 
     def require_compile_diagnostics(self) -> tuple[CompileDiagnostic, ...]:
@@ -169,9 +159,7 @@ class ArtifactSnapshot:
 
     def require_final_worker(self) -> Any:
         if self.final_worker is None:
-            raise PatchValidationError(
-                "ArtifactSnapshot requires final_worker but it is None"
-            )
+            raise PatchValidationError("ArtifactSnapshot requires final_worker but it is None")
         return self.final_worker
 
     # ------------------------------------------------------------------
@@ -219,8 +207,7 @@ class ArtifactSnapshot:
             )
         if token.overlay_version <= self.overlay_version:
             raise StaleRevisionError(
-                f"Overlay version must increase: "
-                f"{self.overlay_version} -> {token.overlay_version}"
+                f"Overlay version must increase: {self.overlay_version} -> {token.overlay_version}"
             )
 
         def _val(arg: Any, base: Any) -> Any:

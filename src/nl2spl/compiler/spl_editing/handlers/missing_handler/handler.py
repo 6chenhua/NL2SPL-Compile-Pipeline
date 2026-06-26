@@ -1,11 +1,10 @@
-"""Missing handler repair handler.
-
-Thin LLM caller: receives a rendered prompt plus target context, calls LLM,
-parses JSON, and assembles ``RepairSuggestion`` objects.  Prompt construction
-and business-context extraction are owned by the service LLM-context layer.
-"""
+"""Missing handler repair handler."""
 
 from __future__ import annotations
+
+import json
+from dataclasses import replace
+from typing import Any
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.errors import (
@@ -28,13 +27,14 @@ from nl2spl.compiler.spl_editing.handlers.missing_handler.prompt import (
     MISSING_HANDLER_SYSTEM_PROMPT,
 )
 from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
+from nl2spl.compiler.spl_editing.intent import IntentValidator, parse_raw_intent
 from nl2spl.compiler.spl_editing.llm_context.rendering import (
     append_previous_suggestions,
 )
 
 
 class MissingHandlerRepairHandler(IssueRepairHandler):
-    """Generate ``AddExceptionHandlerStep`` suggestions from rendered prompts."""
+    """Generate AddExceptionHandlerStep suggestions from rendered prompts."""
 
     handler_id = "missing_handler"
 
@@ -60,26 +60,26 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         selected_patch_types: tuple[str, ...] | None = None,
         *,
         rendered_user_prompt: str | None = None,
+        selectable_refset: Any | None = None,
+        catalog_entry: Any | None = None,
     ) -> tuple[RepairSuggestion, ...]:
         """Generate suggestions from a service-rendered prompt."""
         if rendered_user_prompt is None:
             raise PatchValidationError(
-                "MissingHandlerRepairHandler requires a rendered_user_prompt "
-                "from LLMRepairContext."
+                "MissingHandlerRepairHandler requires a rendered_user_prompt from LLMRepairContext."
             )
 
-        allowed = tuple(
-            pt for entry in catalog_entries for pt in entry.supported_patch_types
-        )
+        allowed = tuple(pt for entry in catalog_entries for pt in entry.supported_patch_types)
         if selected_patch_types:
             allowed = tuple(pt for pt in allowed if pt in selected_patch_types)
         if not allowed:
             return ()
 
+        entry = catalog_entry or catalog_entries[0]
         suggestions: list[RepairSuggestion] = []
         parse_failures = 0
         previous_summaries: list[str] = []
-        previous_payloads: list[dict] = []
+        previous_payloads: list[Any] = []
         max_attempts = self._policy.max_suggestions * self._policy.max_attempts_ratio
 
         for _ in range(max_attempts):
@@ -101,7 +101,35 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
                 parse_failures += 1
                 continue
 
-            entry = catalog_entries[0]
+            if data["patch_type"] != "AddExceptionHandlerStep":
+                parse_failures += 1
+                continue
+
+            if (
+                selectable_refset is not None
+                and selectable_refset.is_available
+                and entry.materialization_plan_id
+            ):
+                suggestion = self._build_intent_suggestion(
+                    issue=issue,
+                    target=target,
+                    entry=entry,
+                    selectable_refset=selectable_refset,
+                    data=data,
+                    suggestion_index=len(suggestions),
+                )
+                if suggestion is None:
+                    parse_failures += 1
+                    continue
+                payload_key = suggestion.patch.payload
+                if payload_key in previous_payloads:
+                    parse_failures += 1
+                    continue
+                previous_payloads.append(payload_key)
+                previous_summaries.append(f"{data['title']}: {data['explanation']}")
+                suggestions.append(suggestion)
+                continue
+
             payload = dict(data["payload"])
             payload.setdefault("worker_id", target.worker_id or "")
             payload.setdefault(
@@ -113,9 +141,7 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
                 parse_failures += 1
                 continue
 
-            previous_summaries.append(
-                f"{data['title']}: {data['explanation']}"
-            )
+            previous_summaries.append(f"{data['title']}: {data['explanation']}")
             previous_payloads.append(payload)
 
             suggestions.append(
@@ -149,8 +175,88 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
 
         return tuple(suggestions[: self._policy.max_suggestions])
 
+    def _build_intent_suggestion(
+        self,
+        *,
+        issue: EditableIssue,
+        target: RepairTarget,
+        entry: RepairCatalogEntry,
+        selectable_refset: Any,
+        data: dict,
+        suggestion_index: int,
+    ) -> RepairSuggestion | None:
+        if not selectable_refset.is_available:
+            return None
+        if (
+            entry.selectable_ref_policy_id
+            and entry.selectable_ref_policy_id != selectable_refset.policy_id
+        ):
+            return None
+
+        target_refs = [
+            ref for ref in selectable_refset.refs if ref.ref_role == "target_exception_flow"
+        ]
+        if len(target_refs) != 1:
+            return None
+
+        llm_payload = data.get("payload", {})
+        handler_goal = str(llm_payload.get("handler_goal") or llm_payload.get("handler_text") or "")
+        raw_intent = json.dumps(
+            {
+                "payload": {
+                    "target_exception_flow_ref_id": target_refs[0].ref_id,
+                    "selected_input_ref_ids": (),
+                    "handler_goal": handler_goal,
+                }
+            }
+        )
+        parse_result = parse_raw_intent(
+            raw_json=raw_intent,
+            issue_id=issue.issue_id,
+            patch_type="AddExceptionHandlerStep",
+            affordance_id=entry.affordance_id,
+        )
+        if not parse_result.is_success or parse_result.intent is None:
+            return None
+
+        intent = replace(
+            parse_result.intent,
+            affordance_id=entry.affordance_id,
+            patch_type="AddExceptionHandlerStep",
+            target_construct_type=entry.construct_type,
+            target_construct_id=issue.irs_ref.construct_id,
+            target_slot_name=entry.slot_name,
+            materialization_plan_id=entry.materialization_plan_id,
+        )
+        val_result = IntentValidator.validate(intent, selectable_refset, entry)
+        if not val_result.is_success:
+            return None
+
+        return RepairSuggestion(
+            suggestion_id=f"{issue.issue_id}_sug_{suggestion_index:02d}",
+            session_id="",
+            affordance_id=entry.affordance_id,
+            title=data["title"],
+            explanation=data["explanation"],
+            patch=RepairPatch(
+                patch_id="",
+                affordance_id=entry.affordance_id,
+                patch_type="AddExceptionHandlerStep",
+                target_ref=issue.target_ref,
+                irs_ref=issue.irs_ref,
+                base_compile_run_id="",
+                artifact_snapshot_id="",
+                overlay_version=0,
+                payload=intent,
+                verification_lane=entry.default_verification_lane,
+            ),
+            spl_preview=f"[GENERAL_COMMAND] {handler_goal.strip()}",
+        )
+
     @staticmethod
     def _flow_id_from_target(target: RepairTarget) -> str:
+        if target.canonical_name:
+            return target.canonical_name
         cpath = target.construct_path or ()
         if len(cpath) >= 4 and cpath[-2] == "exception_flows":
             return str(cpath[-1])
@@ -158,14 +264,14 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
         ref = target.target_ref
         idx = ref.find(marker)
         if idx > 0:
-            return ref[idx + len(marker):]
+            return ref[idx + len(marker) :]
         return ""
 
     @staticmethod
     def _build_preview(data: dict) -> str:
         payload = data.get("payload", {})
         cmd = payload.get("command_type", "GENERAL_COMMAND")
-        text = payload.get("handler_text", "")
+        text = payload.get("handler_text", payload.get("handler_goal", ""))
         inputs = ", ".join(payload.get("inputs", []))
         outputs = ", ".join(payload.get("outputs", []))
         parts = [f"[{cmd}] {text}"]

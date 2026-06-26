@@ -59,9 +59,7 @@ class GenericEvidenceVerifier:
                                         f"expected '{patch.patch_id}'"
                                     )
                             elif is_modified:
-                                has_repair_bindings = (
-                                    "repair_output_bindings" in s.metadata
-                                )
+                                has_repair_bindings = "repair_output_bindings" in s.metadata
                                 has_repair_meta = (
                                     s.metadata.get("repair_patch_id") is not None
                                     or s.metadata.get("related_diagnostic_id") is not None
@@ -93,7 +91,7 @@ class GenericEvidenceVerifier:
                                         if sep == -1:
                                             continue
                                         ref_wid = step_prefix[:sep]
-                                        ref_sid = step_prefix[sep + 1:]
+                                        ref_sid = step_prefix[sep + 1 :]
                                         # Only match evidence_refs belonging to this step
                                         if ref_wid == worker_id and ref_sid == s.step_id:
                                             claimed_binding_names.add(bname)
@@ -199,7 +197,10 @@ class GenericEvidenceVerifier:
                                                 continue
                                             # This binding belongs to the current patch
                                             # (or has no/missing patch_id — broken).
-                                            if bname not in claimed_binding_names and b_pid == patch.patch_id:
+                                            if (
+                                                bname not in claimed_binding_names
+                                                and b_pid == patch.patch_id
+                                            ):
                                                 failures.append(
                                                     f"Modified step '{s.step_id}' "
                                                     f"binding '{bname}' has "
@@ -279,18 +280,14 @@ class GenericEvidenceVerifier:
         #    the lack of evidence_refs is a reporting gap, not an evidence gap.
         if apply_result.changed_step_ids and not apply_result.evidence_refs:
             step_evidence_failures = [
-                f for f in failures
-                if "Modified step" in f or "New step" in f
+                f for f in failures if "Modified step" in f or "New step" in f
             ]
             if step_evidence_failures:
                 # Evidence refs are missing AND the verifier found evidence
                 # problems on the steps themselves — real gap.
                 pass  # failures already appended above
         if apply_result.changed_handoff_ids and not apply_result.evidence_refs:
-            handoff_failures = [
-                f for f in failures
-                if "Changed handoff" in f
-            ]
+            handoff_failures = [f for f in failures if "Changed handoff" in f]
             if handoff_failures:
                 pass  # failures already appended above
 

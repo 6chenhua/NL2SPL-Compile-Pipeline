@@ -1,6 +1,7 @@
 """InsertProducerStep previewer."""
 
 from typing import Any
+
 from nl2spl.compiler.spl_editing.patches.base import PatchPreviewer
 
 

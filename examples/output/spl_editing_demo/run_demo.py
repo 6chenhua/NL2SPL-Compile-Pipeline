@@ -127,11 +127,13 @@ def main() -> None:
         print("Cancelled. Snapshot was not changed.")
         return
 
+    print("Applying suggestion...", flush=True)
     updated = service.apply_suggestion(
         session.session_id, applied_suggestion.suggestion_id,
     )
     print(f"Applied. overlay_version={updated.overlay_version}")
 
+    print("Verifying patched snapshot...", flush=True)
     result = service.verify_session(session.session_id)
     patched_spl = None
     if result.accepted:
@@ -284,7 +286,7 @@ def _choose_fix_option(
 
 
 def _print_suggestions(suggestions: tuple[object, ...]) -> None:
-    print("\nRepair suggestions")
+    print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")
     for index, suggestion in enumerate(suggestions, 1):
         print(f"  [{index}] {suggestion.title}")
         if suggestion.explanation:
@@ -306,6 +308,8 @@ def _print_suggestions(suggestions: tuple[object, ...]) -> None:
 
 def _choose_suggestion(suggestions: Iterable[object]):
     values = tuple(suggestions)
+    if len(values) == 1:
+        return values[0]
     while True:
         raw = input("Apply suggestion number: ").strip()
         try:

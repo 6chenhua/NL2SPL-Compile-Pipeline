@@ -22,7 +22,9 @@ class StepTargetResolver(IssueTargetResolver):
     resolver_id = "step_target"
 
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         return RepairTarget(
             target_ref=issue.target_ref,

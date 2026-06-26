@@ -14,23 +14,21 @@ class WorkerHandoffTargetResolver(IssueTargetResolver):
     resolver_id = "handoff_target"
 
     def resolve(
-        self, issue: EditableIssue, snapshot: ArtifactSnapshot,
+        self,
+        issue: EditableIssue,
+        snapshot: ArtifactSnapshot,
     ) -> RepairTarget:
         self._guard_construct(issue)
         handoff_id = self._extract_handoff_id(issue.target_ref)
         if handoff_id is None:
             raise UnsupportedIssueError(
-                f"Cannot parse 'worker_handoff:{{id}}' from "
-                f"target_ref '{issue.target_ref}'"
+                f"Cannot parse 'worker_handoff:{{id}}' from target_ref '{issue.target_ref}'"
             )
         return RepairTarget(
             target_ref=issue.target_ref,
             target_kind="WORKER_HANDOFF",
             irs_ref=issue.irs_ref,
-            affordance_id=(
-                issue.default_affordance_id
-                or "worker_handoff.specify_target"
-            ),
+            affordance_id=(issue.default_affordance_id or "worker_handoff.specify_target"),
             construct_path=issue.irs_ref.construct_path,
             worker_id=handoff_id,
             editable_artifacts=("WorkerHandoffIR",),
@@ -39,7 +37,7 @@ class WorkerHandoffTargetResolver(IssueTargetResolver):
     @staticmethod
     def _extract_handoff_id(ref: str) -> str | None:
         if ref.startswith("worker_handoff:"):
-            hid = ref[len("worker_handoff:"):]
+            hid = ref[len("worker_handoff:") :]
             return hid if hid else None
         return None
 

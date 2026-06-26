@@ -94,17 +94,11 @@ class LLMRepairContextExtensionRegistry:
 
     def has_provider(self, provider_id: str) -> bool:
         """Check whether a provider with the given id is registered."""
-        return any(
-            getattr(p, "provider_id", None) == provider_id
-            for p in self._providers.values()
-        )
+        return any(getattr(p, "provider_id", None) == provider_id for p in self._providers.values())
 
     def list_provider_ids(self) -> tuple[str, ...]:
         """Return all registered provider ids."""
-        return tuple(
-            getattr(p, "provider_id", "")
-            for p in self._providers.values()
-        )
+        return tuple(getattr(p, "provider_id", "") for p in self._providers.values())
 
     def __len__(self) -> int:
         return len(self._providers)
@@ -131,7 +125,9 @@ class LLMRepairContextExtensionRegistry:
                     # Allow same provider to re-register under different key
                     # but fail if a DIFFERENT provider already claimed this key
                     existing = self._providers[key]
-                    if getattr(existing, "provider_id", None) != getattr(provider, "provider_id", None):
+                    if getattr(existing, "provider_id", None) != getattr(
+                        provider, "provider_id", None
+                    ):
                         raise KeyError(
                             f"Duplicate provider key '{key}': "
                             f"'{getattr(existing, 'provider_id', '?')}' vs "

@@ -11,11 +11,15 @@ class WorkerHandoffContextBuilder(RepairContextBuilder):
     context_id = "handoff_context"
 
     def build(
-        self, issue: EditableIssue, target: RepairTarget,
-        snapshot: ArtifactSnapshot, user_instruction: str | None = None,
+        self,
+        issue: EditableIssue,
+        target: RepairTarget,
+        snapshot: ArtifactSnapshot,
+        user_instruction: str | None = None,
     ) -> RepairContext:
         return RepairContext(
-            issue=issue, target=target,
+            issue=issue,
+            target=target,
             worker_scope=target.worker_id,
             user_instruction=user_instruction,
             related_worker_plan_refs=(issue.target_ref,),

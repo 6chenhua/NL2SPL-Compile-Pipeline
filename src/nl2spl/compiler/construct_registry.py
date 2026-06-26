@@ -77,6 +77,11 @@ class RepairAffordanceSpec:
     editable_artifacts: tuple[str, ...] = ()
     required_evidence_kind: str = "user_confirmed_repair"
     user_facing: bool = True
+    materialization_plan_id: str | None = None
+    selectable_ref_policy_id: str | None = None
+    intent_schema_id: str | None = None
+    required_context_facts: tuple[str, ...] = ()
+    stage_authority: str | None = None
     notes: str | None = None
     patch_type_metadata: tuple[PatchTypeMeta, ...] = ()
     """Per-patch-type labels, descriptions, and verification lanes.
@@ -270,8 +275,19 @@ class SPLConstructRegistry:
                             handler_id="missing_handler",
                             context_id="exception_flow_context",
                             target_resolver_id="exception_flow_target",
-                            default_verification_lane="A",
+                            default_verification_lane="B",
                             editable_artifacts=("WorkerStepPlanIR", "WorkerBlockPlanIR"),
+                            materialization_plan_id="stage7.exception_handler_step_repair.v1",
+                            selectable_ref_policy_id="exception_flow.handler.selectable_refs.v1",
+                            intent_schema_id="intent.add_exception_handler_step.v1",
+                            required_context_facts=(
+                                "exception_condition",
+                                "worker_id",
+                                "available_variables",
+                                "nearby_steps",
+                                "symbol_table",
+                            ),
+                            stage_authority="stage7.worker_step_plan",
                         ),
                     ),
                 ),
@@ -330,13 +346,24 @@ class SPLConstructRegistry:
                         RepairAffordanceSpec(
                             affordance_id="required_output.insert_or_bind_producer",
                             description="Insert a new producer step or bind an existing step as the producer for a required output.",
-                            supported_patch_types=("InsertProducerStep", "BindExistingProducerStep"),
+                            supported_patch_types=("InsertProducerStep",),
                             default_patch_type="InsertProducerStep",
                             handler_id="missing_output_producer",
                             context_id="required_output_context",
                             target_resolver_id="required_output_target",
-                            default_verification_lane="A",
+                            default_verification_lane="B",
                             editable_artifacts=("WorkerStepPlanIR", "WorkerBlockPlanIR"),
+                            materialization_plan_id="stage7.step_producer_repair.v1",
+                            selectable_ref_policy_id="required_output.producer.selectable_refs.v1",
+                            intent_schema_id="intent.insert_producer_step.v1",
+                            required_context_facts=(
+                                "target_output_name",
+                                "worker_id",
+                                "available_variables",
+                                "nearby_steps",
+                                "symbol_table",
+                            ),
+                            stage_authority="stage7.worker_step_plan",
                         ),
                     ),
                 ),
@@ -732,6 +759,18 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
+                            intent_schema_id="intent.worker_promotion_resolution.v1",
+                            required_context_facts=(
+                                "delegation_intent",
+                                "worker_id",
+                                "candidate_name",
+                                "possible_inputs",
+                                "possible_outputs",
+                                "hierarchy_graph",
+                            ),
+                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -795,6 +834,18 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
+                            intent_schema_id="intent.worker_promotion_resolution.v1",
+                            required_context_facts=(
+                                "delegation_intent",
+                                "worker_id",
+                                "candidate_name",
+                                "possible_inputs",
+                                "possible_outputs",
+                                "hierarchy_graph",
+                            ),
+                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -852,6 +903,18 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
+                            intent_schema_id="intent.worker_promotion_resolution.v1",
+                            required_context_facts=(
+                                "delegation_intent",
+                                "worker_id",
+                                "candidate_name",
+                                "possible_inputs",
+                                "possible_outputs",
+                                "hierarchy_graph",
+                            ),
+                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -909,6 +972,18 @@ class SPLConstructRegistry:
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
                             editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
+                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
+                            intent_schema_id="intent.worker_promotion_resolution.v1",
+                            required_context_facts=(
+                                "delegation_intent",
+                                "worker_id",
+                                "candidate_name",
+                                "possible_inputs",
+                                "possible_outputs",
+                                "hierarchy_graph",
+                            ),
+                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",

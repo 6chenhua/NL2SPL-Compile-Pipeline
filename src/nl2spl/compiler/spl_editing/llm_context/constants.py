@@ -50,9 +50,7 @@ INTERNAL_IDS_SECTION_HEADER = (
 # JSON-only output instruction
 # ---------------------------------------------------------------------------
 
-JSON_ONLY_INSTRUCTION = (
-    "Only output the JSON object — no markdown fences, no commentary."
-)
+JSON_ONLY_INSTRUCTION = "Only output the JSON object — no markdown fences, no commentary."
 
 # ---------------------------------------------------------------------------
 # Default schema version
