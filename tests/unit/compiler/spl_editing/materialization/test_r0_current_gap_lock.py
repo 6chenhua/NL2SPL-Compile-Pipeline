@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from nl2spl.compiler.spl_editing.core.errors import PatchValidationError
+from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
+from nl2spl.compiler.spl_editing.core.errors import PatchValidationError, SPLEditingError
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     RepairContext,
@@ -16,7 +17,6 @@ from nl2spl.compiler.spl_editing.core.model import (
     RepairTarget,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
-from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.handlers.missing_output_producer.handler import (
     MissingOutputProducerHandler,
 )
@@ -24,7 +24,6 @@ from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
     InsertProducerStepApplier,
 )
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
-from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 from tests.spl_editing_stub_llm import StubSuggestionLLM
 
@@ -94,8 +93,12 @@ def _issue(**kw: object) -> EditableIssue:
 
 
 def test_insert_producer_currently_accepts_payload_inputs_as_gap() -> None:
-    """Gap: InsertProducerStepApplier currently accepts payload inputs and writes them directly to StepIR."""
-    # Arrange
+    """R6: GAP CLOSED — InsertProducerStepApplier is disabled.
+
+    Dict payloads are rejected; InsertProducerStep must go through
+    the materialization path.  Direct StepIR mutation is no longer
+    possible through the applier.
+    """
     snap = _snap(worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}))
     patch = _patch(
         "InsertProducerStep",
@@ -109,20 +112,15 @@ def test_insert_producer_currently_accepts_payload_inputs_as_gap() -> None:
         },
     )
 
-    # Act
-    patched_snap, event = InsertProducerStepApplier().apply(patch, snap)
-
-    # Assert
-    wsp = patched_snap.worker_step_plan
-    assert wsp is not None
-    steps = wsp.worker_steps["w_main"]
-    assert len(steps) == 1
-    assert steps[0].inputs == ["project_data"]
+    # R6: Applier is disabled — always raises
+    with pytest.raises(SPLEditingError, match="disabled"):
+        InsertProducerStepApplier().apply(patch, snap)
 
 
 def test_missing_output_handler_currently_builds_ir_like_payload_as_gap() -> None:
-    """Gap: MissingOutputProducerHandler currently builds an IR-like payload carrying inputs/outputs."""
-    # Arrange
+    """R6: GAP CLOSED — InsertProducerStep without selectable_refset cannot
+    produce suggestions.  The handler requires a SelectableRefSet for the
+    intent path; without it, Insert is skipped (no dict fallback)."""
     fixed_response = {
         "patch_type": "InsertProducerStep",
         "title": "Add producer step",
@@ -161,28 +159,24 @@ def test_missing_output_handler_currently_builds_ir_like_payload_as_gap() -> Non
         default_verification_lane="A",
     )
 
-    # Act
-    suggestions = handler.generate_suggestions(
-        issue=issue,
-        target=target,
-        context=context,
-        catalog_entries=(catalog_entry,),
-    )
-
-    # Assert
-    assert len(suggestions) == 1
-    patch = suggestions[0].patch
-    assert "inputs" in patch.payload
-    assert "outputs" in patch.payload
-    assert patch.payload["inputs"] == ("project_data",)
-    assert patch.payload["outputs"] == ("draft",)
+    # R6: Without selectable_refset, Insert is skipped.
+    # The handler raises because no valid suggestions were produced.
+    with pytest.raises(PatchValidationError, match="did not produce a valid"):
+        handler.generate_suggestions(
+            issue=issue,
+            target=target,
+            context=context,
+            catalog_entries=(catalog_entry,),
+            selected_patch_types=("InsertProducerStep",),
+        )
 
 
-@pytest.mark.contract_pending
 def test_project_data_must_be_rejected_target_contract() -> None:
-    """Target Contract: Applying a patch with a hallucinated variable 'project_data' must be rejected."""
-    # Future design: LLM suggestions trying to use project_data (which is not in the SelectableRefSet)
-    # must be validated/rejected with PatchValidationError before they can be materialized.
+    """R6: CONTRACT FULFILLED — Dict payload with hallucinated variable
+    'project_data' is rejected by the disabled applier.
+
+    The contract_pending marker is removed — this is now a passing guardrail.
+    """
     snap = _snap(worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}))
     patch = _patch(
         "InsertProducerStep",
@@ -196,14 +190,13 @@ def test_project_data_must_be_rejected_target_contract() -> None:
         },
     )
 
-    # Assert that PatchValidationError is raised due to invalid/hallucinated selectable ref
-    with pytest.raises(PatchValidationError, match="project_data|hallucinated|SelectableRef"):
+    # R6: Applier is disabled — hallucinated variables can't enter StepIR
+    with pytest.raises(SPLEditingError, match="disabled"):
         InsertProducerStepApplier().apply(patch, snap)
 
 
-def test_add_exception_handler_direct_step_construction_gap() -> None:
-    """Gap: AddExceptionHandlerStepApplier directly creates BlockIR/StepIR and mutates plans."""
-    # Arrange
+def test_add_exception_handler_direct_step_construction_gap_closed() -> None:
+    """R11: AddExceptionHandlerStepApplier no longer directly creates BlockIR/StepIR."""
     from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
         AddExceptionHandlerStepApplier,
     )
@@ -226,41 +219,29 @@ def test_add_exception_handler_direct_step_construction_gap() -> None:
         },
     )
 
-    # Act
-    patched_snap, event = AddExceptionHandlerStepApplier().apply(patch, snap)
-
-    # Assert
-    wsp = patched_snap.worker_step_plan
-    assert wsp is not None
-    steps = wsp.worker_steps["w_main"]
-    assert len(steps) == 1
-    step = steps[0]
-
-    assert step.text == "Handle exception"
-    assert step.flow_ref == "exc_1"
-    assert step.block_ref == "b_repair_exc_1"
-
-    wbp = patched_snap.worker_block_plan
-    assert wbp is not None
-    blocks = wbp.worker_blocks["w_main"].exception_flow_blocks["exc_1"]
-    assert len(blocks) == 1
-    assert blocks[0].block_id == "b_repair_exc_1"
-    assert blocks[0].block_type == "SEQUENTIAL"
+    with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+        AddExceptionHandlerStepApplier().apply(patch, snap)
+    assert snap.worker_step_plan.worker_steps["w_main"] == []
 
 
-def test_create_worker_handoff_direct_ir_construction_gap() -> None:
-    """Gap: CreateWorkerHandoffContractApplier directly constructs WorkerHandoffIR and INVOKE_WORKER StepIR."""
-    # Arrange
+def test_create_worker_handoff_direct_ir_construction_gap_closed() -> None:
+    """R11: CreateWorkerHandoffContractApplier no longer directly constructs handoff IR."""
     from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
         CreateWorkerHandoffContractApplier,
     )
     from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
 
-    worker_spec = WorkerSpecIR(worker_id="w_main", worker_name="w_main", kind="main", purpose="test")
-    child_spec = WorkerSpecIR(worker_id="w_child", worker_name="w_child", kind="child", purpose="test")
+    worker_spec = WorkerSpecIR(
+        worker_id="w_main", worker_name="w_main", kind="main", purpose="test"
+    )
+    child_spec = WorkerSpecIR(
+        worker_id="w_child", worker_name="w_child", kind="child", purpose="test"
+    )
 
     snap = _snap(
-        worker_plan=WorkerPlanIR(main_worker_id="w_main", workers=[worker_spec, child_spec], handoffs=[]),
+        worker_plan=WorkerPlanIR(
+            main_worker_id="w_main", workers=[worker_spec, child_spec], handoffs=[]
+        ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": [], "w_child": []}),
     )
     patch = _patch(
@@ -275,25 +256,6 @@ def test_create_worker_handoff_direct_ir_construction_gap() -> None:
         },
     )
 
-    # Act
-    patched_snap, event = CreateWorkerHandoffContractApplier().apply(patch, snap)
-
-    # Assert
-    handoffs = patched_snap.worker_plan.handoffs
-    assert len(handoffs) == 1
-    handoff = handoffs[0]
-    assert handoff.handoff_id == "handoff_repair_promo_1"
-    assert handoff.from_worker == "w_main"
-    assert handoff.to_worker == "w_child"
-    assert len(handoff.input_bindings) == 1
-    assert handoff.input_bindings[0].parent_variable == "request_data"
-    assert len(handoff.output_bindings) == 1
-    assert handoff.output_bindings[0].parent_variable == "response_data"
-
-    steps = patched_snap.worker_step_plan.worker_steps["w_main"]
-    assert len(steps) == 1
-    step = steps[0]
-    assert step.command_type == "INVOKE_WORKER"
-    assert step.handoff_id == "handoff_repair_promo_1"
-    assert step.inputs == ["request_data"]
-    assert step.outputs == ["response_data"]
+    with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+        CreateWorkerHandoffContractApplier().apply(patch, snap)
+    assert snap.worker_plan.handoffs == []
