@@ -23,8 +23,6 @@ After R1-R6, some tests will be updated to reflect new recognition pathways
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
@@ -35,7 +33,6 @@ from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import FlowRef, WorkerIR
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
-
 
 # ===========================================================================
 # R0-1: CompileDiagnostic.metadata field
@@ -53,15 +50,9 @@ class TestR0CompileDiagnosticMetadata:
             severity="warning",
             message="Test diagnostic",
         )
-        assert hasattr(diag, "metadata"), (
-            "R0-1: CompileDiagnostic.metadata field must exist"
-        )
-        assert isinstance(diag.metadata, dict), (
-            "R0-1: CompileDiagnostic.metadata must be a dict"
-        )
-        assert diag.metadata == {}, (
-            "R0-1: CompileDiagnostic.metadata defaults to empty dict"
-        )
+        assert hasattr(diag, "metadata"), "R0-1: CompileDiagnostic.metadata field must exist"
+        assert isinstance(diag.metadata, dict), "R0-1: CompileDiagnostic.metadata must be a dict"
+        assert diag.metadata == {}, "R0-1: CompileDiagnostic.metadata defaults to empty dict"
 
     def test_metadata_accepts_arbitrary_keys(self) -> None:
         """R0-1: metadata dict accepts and preserves arbitrary string keys."""
@@ -295,7 +286,8 @@ class TestR0DelegationIntentEvidenceRouting:
 
         # The real candidate (not synthetic) also gets delegation metadata
         real_candidates = [
-            i for i in instances
+            i
+            for i in instances
             if i.construct_type == "WORKER_CANDIDATE"
             and not i.metadata.get("synthetic_from_route_annotation")
         ]
@@ -328,7 +320,9 @@ class TestR0GateUserConfirmedRepair:
         """
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_repair", "User-confirmed handler", [],
+            "st_repair",
+            "User-confirmed handler",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
@@ -344,14 +338,15 @@ class TestR0GateUserConfirmedRepair:
         """
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_repair", "User-confirmed handler", [],
+            "st_repair",
+            "User-confirmed handler",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
         ok, reason = gate.is_renderable(step, "user_confirmed_repair", {}, set(), {})
         assert ok is True, (
-            f"R6: user_confirmed_repair step is NOW renderable. "
-            f"Blocked with reason: {reason}"
+            f"R6: user_confirmed_repair step is NOW renderable. Blocked with reason: {reason}"
         )
         assert reason is None
 
@@ -364,7 +359,9 @@ class TestR0GateUserConfirmedRepair:
         """
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_repair", "User-confirmed with source", ["s1"],
+            "st_repair",
+            "User-confirmed with source",
+            ["s1"],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
@@ -386,7 +383,9 @@ class TestR0GateUserConfirmedRepair:
             steps=[
                 StepIR("st1", "Real work", ["s1"], "GENERAL_COMMAND"),
                 StepIR(
-                    "st_repair", "User-confirmed repair", [],
+                    "st_repair",
+                    "User-confirmed repair",
+                    [],
                     "GENERAL_COMMAND",
                     metadata={"origin": "user_confirmed_repair"},
                 ),
@@ -419,7 +418,9 @@ class TestR0GateUserConfirmedRepair:
             main_flow=FlowRef(),
             steps=[
                 StepIR(
-                    "st_repair", "User-confirmed repair with source", ["s1"],
+                    "st_repair",
+                    "User-confirmed repair with source",
+                    ["s1"],
                     "GENERAL_COMMAND",
                     metadata={"origin": "user_confirmed_repair"},
                 ),
@@ -445,7 +446,9 @@ class TestR0ProducerIndexUserConfirmedRepair:
         user_confirmed_repair step without source spans.
         """
         step = StepIR(
-            "st_repair", "User-confirmed producer", [],
+            "st_repair",
+            "User-confirmed producer",
+            [],
             "GENERAL_COMMAND",
             outputs=["result"],
             metadata={"origin": "user_confirmed_repair"},
@@ -459,7 +462,9 @@ class TestR0ProducerIndexUserConfirmedRepair:
         is NOW considered produced.
         """
         step = StepIR(
-            "st_repair", "User-confirmed producer", [],
+            "st_repair",
+            "User-confirmed producer",
+            [],
             "GENERAL_COMMAND",
             outputs=["result"],
             metadata={"origin": "user_confirmed_repair"},
@@ -475,7 +480,9 @@ class TestR0ProducerIndexUserConfirmedRepair:
         user_confirmed_repair IS produced (source spans take priority).
         """
         step = StepIR(
-            "st_repair", "User-confirmed with source", ["s1"],
+            "st_repair",
+            "User-confirmed with source",
+            ["s1"],
             "GENERAL_COMMAND",
             outputs=["result"],
             metadata={"origin": "user_confirmed_repair"},
@@ -507,7 +514,9 @@ class TestR0PostNormalizeUserConfirmedRepair:
         checker = PostNormalizeIRSCheckerV6()
         irs = SPLConstructRegistry.default().get("GENERAL_COMMAND")
         step = StepIR(
-            "st_repair", "User-confirmed repair step", [],
+            "st_repair",
+            "User-confirmed repair step",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
@@ -528,7 +537,9 @@ class TestR0PostNormalizeUserConfirmedRepair:
         checker = PostNormalizeIRSCheckerV6()
         irs = SPLConstructRegistry.default().get("GENERAL_COMMAND")
         step = StepIR(
-            "st_repair", "User-confirmed repair step", [],
+            "st_repair",
+            "User-confirmed repair step",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
@@ -552,7 +563,9 @@ class TestR0PostNormalizeUserConfirmedRepair:
 
         # compiler_unpack → recognized (status=satisfied)
         unpack_step = StepIR(
-            "st_unpack", "Extract field", [],
+            "st_unpack",
+            "Extract field",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "compiler_unpack"},
         )
@@ -561,14 +574,15 @@ class TestR0PostNormalizeUserConfirmedRepair:
 
         # user_confirmed_repair → NOW recognized (status=satisfied)
         repair_step = StepIR(
-            "st_repair", "User-confirmed repair", [],
+            "st_repair",
+            "User-confirmed repair",
+            [],
             "GENERAL_COMMAND",
             metadata={"origin": "user_confirmed_repair"},
         )
         repair_slot = checker._source_evidence_slot(repair_step, irs, set())
         assert repair_slot.status == "satisfied", (
-            f"R6: user_confirmed_repair is now recognized. "
-            f"Got status='{repair_slot.status}'."
+            f"R6: user_confirmed_repair is now recognized. Got status='{repair_slot.status}'."
         )
 
 
@@ -656,9 +670,7 @@ class TestR0UnspecifiedOutputMissingProducer:
         )
 
         spec = diag_registry.get("unspecified_output_missing_producer")
-        assert spec.enabled is True, (
-            "R0-8: 'unspecified_output_missing_producer' must be enabled"
-        )
+        assert spec.enabled is True, "R0-8: 'unspecified_output_missing_producer' must be enabled"
         # The severity should be 'info' or 'warning' — not 'error'
         assert spec.default_severity in ("info", "warning"), (
             f"R0-8: 'unspecified_output_missing_producer' severity is "

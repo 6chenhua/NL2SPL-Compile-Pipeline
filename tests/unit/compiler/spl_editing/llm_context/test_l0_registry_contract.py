@@ -9,7 +9,6 @@ from nl2spl.compiler.spl_editing.llm_context.section_renderer import (
     SectionRendererRegistry,
 )
 
-
 # ------------------------------------------------------------------
 # Fake provider for testing
 # ------------------------------------------------------------------
@@ -93,11 +92,13 @@ class TestProviderRegistry:
     def test_different_provider_same_key_rejected(self) -> None:
         reg = LLMRepairContextExtensionRegistry()
         reg.register(_FakeProvider())
+
         class _Fake2(_FakeProvider):
             provider_id = "test.other"
+
         try:
             reg.register(_Fake2())
-            assert False, "Different provider with same key should raise KeyError"
+            assert False, "Different provider with same key should raise KeyError"  # noqa: B011
         except KeyError:
             pass
 
@@ -108,23 +109,27 @@ class TestProviderRegistry:
         from nl2spl.compiler.spl_editing.llm_context.model import (
             LLMRepairContextExtension,
         )
+
         primary_ext = LLMRepairContextExtension(
-            extension_id="e1", provider_id="p1",
+            extension_id="e1",
+            provider_id="p1",
             role="primary",
-            affordance_id="x", construct_type="x",
-            slot_name="x", diagnostic_kind="missing_output_producer",
+            affordance_id="x",
+            construct_type="x",
+            slot_name="x",
+            diagnostic_kind="missing_output_producer",
             patch_type="x",
-            facts_schema_id="x", facts_schema_version="1.0",
+            facts_schema_id="x",
+            facts_schema_version="1.0",
         )
         aux = reg.resolve_auxiliary(
             primary_extension=primary_ext,
-            issue=None, target=None, repair_context=None,
+            issue=None,
+            target=None,
+            repair_context=None,
         )
         assert len(aux) >= 1
-        assert any(
-            getattr(p, "provider_id", "") == "test.producer_index_auxiliary"
-            for p in aux
-        )
+        assert any(getattr(p, "provider_id", "") == "test.producer_index_auxiliary" for p in aux)
 
     def test_list_provider_ids(self) -> None:
         reg = LLMRepairContextExtensionRegistry()
@@ -164,13 +169,15 @@ class TestSectionRendererRegistry:
         class _R:
             renderer_id = "dup"
             facts_schema_ids = ("s.v1",)
-            def render(self, **kw): return ""
+
+            def render(self, **kw):
+                return ""
 
         reg = SectionRendererRegistry()
         reg.register(_R())
         try:
             reg.register(_R())
-            assert False, "Should raise KeyError"
+            assert False, "Should raise KeyError"  # noqa: B011
         except KeyError:
             pass
 
@@ -178,11 +185,13 @@ class TestSectionRendererRegistry:
         class _R:
             renderer_id = "no_schema"
             facts_schema_ids = ()
-            def render(self, **kw): return ""
+
+            def render(self, **kw):
+                return ""
 
         reg = SectionRendererRegistry()
         try:
             reg.register(_R())
-            assert False, "Should raise ValueError"
+            assert False, "Should raise ValueError"  # noqa: B011
         except ValueError:
             pass

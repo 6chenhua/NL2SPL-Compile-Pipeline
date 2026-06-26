@@ -13,7 +13,6 @@ from nl2spl.compiler.spl_editing.verification.diagnostic_diff import (
 )
 from nl2spl.compiler.spl_editing.verification.lanes import (
     LaneAReplayAdapter,
-    LaneBReplayAdapter,
     VerificationArtifacts,
 )
 from nl2spl.compiler.spl_editing.verification.predicates import (
@@ -26,8 +25,11 @@ from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
 
 def _diag(diag_id: str, blocks: bool = True) -> CompileDiagnostic:
     return CompileDiagnostic(
-        diagnostic_id=diag_id, kind="missing_handler",
-        severity="warning", message="test", target_ref="x",
+        diagnostic_id=diag_id,
+        kind="missing_handler",
+        severity="warning",
+        message="test",
+        target_ref="x",
         blocks_completion=blocks,
     )
 
@@ -117,15 +119,20 @@ class TestB4VerificationRunner:
     @staticmethod
     def _patch(**kw: object) -> RepairPatch:
         d: dict[str, object] = dict(
-            patch_id="p1", affordance_id="a", patch_type="T",
+            patch_id="p1",
+            affordance_id="a",
+            patch_type="T",
             target_ref="x",
             irs_ref=DiagnosticIRSRef(
                 construct_type="EXCEPTION_FLOW",
-                construct_id="x", slot_name="handler_action",
+                construct_id="x",
+                slot_name="handler_action",
             ),
             base_compile_run_id="run_1",
-            artifact_snapshot_id="snap_1", overlay_version=0,
-            payload={}, verification_lane="A",
+            artifact_snapshot_id="snap_1",
+            overlay_version=0,
+            payload={},
+            verification_lane="A",
             evidence=RepairEvidence(related_diagnostic_id="diag_target"),
         )
         d.update(kw)
@@ -144,7 +151,9 @@ class TestB4VerificationRunner:
         runner = self._runner()
         base = ArtifactSnapshot("snap_1", "run_1", 0, compile_diagnostics=())
         patched = ArtifactSnapshot(
-            "snap_1", "run_1", 1,
+            "snap_1",
+            "run_1",
+            1,
             compile_diagnostics=(_diag("new_blocker"),),
         )
         result = runner.verify(self._patch(), base, patched)
@@ -183,7 +192,9 @@ class TestB4VerificationRunner:
         patched = ArtifactSnapshot("snap_1", "run_1", 1)
         with pytest.raises(PatchValidationError, match="Unknown verification lane"):
             runner.verify(
-                self._patch(verification_lane="C"), base, patched,
+                self._patch(verification_lane="C"),
+                base,
+                patched,
             )
 
     def test_missing_target_diagnostic_id_causes_rejection(self) -> None:

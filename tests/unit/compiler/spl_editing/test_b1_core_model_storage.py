@@ -12,7 +12,6 @@ Verifies:
 
 from __future__ import annotations
 
-import json
 from dataclasses import is_dataclass
 
 import pytest
@@ -22,10 +21,9 @@ from nl2spl.compiler.spl_editing.core.errors import (
     StaleRevisionError,
 )
 from nl2spl.compiler.spl_editing.core.model import (
-    EditingSession,
     EditableIssue,
+    EditingSession,
     PatchPrecondition,
-    RepairContext,
     RepairEvidence,
     RepairPatch,
     RepairSuggestion,
@@ -33,7 +31,6 @@ from nl2spl.compiler.spl_editing.core.model import (
     VerificationResult,
 )
 from nl2spl.compiler.spl_editing.core.revision import (
-    AcceptedRepairPatch,
     ArtifactSnapshot,
     OverlayEvent,
     RevisionToken,
@@ -45,7 +42,6 @@ from nl2spl.compiler.spl_editing.storage.overlay_store import OverlayStore
 from nl2spl.compiler.spl_editing.storage.session_store import SessionStore
 from nl2spl.compiler.spl_editing.storage.suggestion_store import SuggestionStore
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
-
 
 # ===========================================================================
 # B1-1: Data model construction
@@ -74,7 +70,7 @@ class TestB1DataModelConstruction:
         )
         assert issue.kind == "missing_handler"
         # Frozen: cannot set attributes
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             issue.kind = "mutated"  # type: ignore[misc]
 
     def test_editing_session_construction(self) -> None:
@@ -121,9 +117,7 @@ class TestB1DataModelConstruction:
             artifact_snapshot_id="snap_1",
             overlay_version=0,
             payload={"handler_text": "Ask user"},
-            preconditions=(
-                PatchPrecondition("pre_1", "target exists", True),
-            ),
+            preconditions=(PatchPrecondition("pre_1", "target exists", True),),
             evidence=RepairEvidence(
                 evidence_kind="user_confirmed_repair",
                 user_text="Add a handler step.",
@@ -216,7 +210,7 @@ class TestB1ArtifactSnapshot:
             overlay_version=0,
         )
         assert is_dataclass(snap)
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             snap.snapshot_id = "mutated"  # type: ignore[misc]
 
     def test_require_worker_plan_fails_early(self) -> None:
@@ -611,7 +605,10 @@ class TestB1Stores:
             base_compile_run_id="run_1",
             base_artifact_snapshot_id="bad_snap",
             overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="p_1", accepted=True,
+            patch_type="T",
+            affordance_id="A",
+            patch_id="p_1",
+            accepted=True,
         )
         with pytest.raises(KeyError, match="not registered"):
             store.append(event)
@@ -627,15 +624,18 @@ class TestB1Stores:
     def test_overlay_store_append_and_list(self) -> None:
         store = OverlayStore()
         store.register_snapshot("run_1", "snap_1")
-        store.append(OverlayEvent(
-            overlay_id="ov_1",
-            base_compile_run_id="run_1",
-            base_artifact_snapshot_id="snap_1",
-            overlay_version=1,
-            patch_type="AddExceptionHandlerStep",
-            affordance_id="exception_flow.add_handler_step",
-            patch_id="patch_1", accepted=True,
-        ))
+        store.append(
+            OverlayEvent(
+                overlay_id="ov_1",
+                base_compile_run_id="run_1",
+                base_artifact_snapshot_id="snap_1",
+                overlay_version=1,
+                patch_type="AddExceptionHandlerStep",
+                affordance_id="exception_flow.add_handler_step",
+                patch_id="patch_1",
+                accepted=True,
+            )
+        )
         assert store.has("ov_1")
         assert len(store.list_for_snapshot("run_1", "snap_1")) == 1
 
@@ -643,13 +643,18 @@ class TestB1Stores:
         store = OverlayStore()
         store.register_snapshot("run_1", "snap_1")
         for i in range(1, 4):
-            store.append(OverlayEvent(
-                overlay_id=f"ov_{i}",
-                base_compile_run_id="run_1",
-                base_artifact_snapshot_id="snap_1",
-                overlay_version=i,
-                patch_type="T", affordance_id="A", patch_id=f"p_{i}", accepted=True,
-            ))
+            store.append(
+                OverlayEvent(
+                    overlay_id=f"ov_{i}",
+                    base_compile_run_id="run_1",
+                    base_artifact_snapshot_id="snap_1",
+                    overlay_version=i,
+                    patch_type="T",
+                    affordance_id="A",
+                    patch_id=f"p_{i}",
+                    accepted=True,
+                )
+            )
         assert store.latest_overlay_version("run_1", "snap_1") == 3
 
     def test_overlay_append_rejects_skip(self) -> None:
@@ -657,42 +662,62 @@ class TestB1Stores:
         Raises StaleRevisionError (typed), not raw ValueError."""
         store = OverlayStore()
         store.register_snapshot("run_1", "snap_1")
-        store.append(OverlayEvent(
-            overlay_id="ov_1",
-            base_compile_run_id="run_1",
-            base_artifact_snapshot_id="snap_1",
-            overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="p_1", accepted=True,
-        ))
-        with pytest.raises(StaleRevisionError, match="must be 2"):
-            store.append(OverlayEvent(
-                overlay_id="ov_3",
+        store.append(
+            OverlayEvent(
+                overlay_id="ov_1",
                 base_compile_run_id="run_1",
                 base_artifact_snapshot_id="snap_1",
-                overlay_version=3,
-                patch_type="T", affordance_id="A", patch_id="p_3", accepted=True,
-            ))
+                overlay_version=1,
+                patch_type="T",
+                affordance_id="A",
+                patch_id="p_1",
+                accepted=True,
+            )
+        )
+        with pytest.raises(StaleRevisionError, match="must be 2"):
+            store.append(
+                OverlayEvent(
+                    overlay_id="ov_3",
+                    base_compile_run_id="run_1",
+                    base_artifact_snapshot_id="snap_1",
+                    overlay_version=3,
+                    patch_type="T",
+                    affordance_id="A",
+                    patch_id="p_3",
+                    accepted=True,
+                )
+            )
 
     def test_overlay_append_rejects_duplicate_version(self) -> None:
         """B1: append() rejects duplicate overlay version.
         Raises StaleRevisionError (typed), not raw ValueError."""
         store = OverlayStore()
         store.register_snapshot("run_1", "snap_1")
-        store.append(OverlayEvent(
-            overlay_id="ov_1",
-            base_compile_run_id="run_1",
-            base_artifact_snapshot_id="snap_1",
-            overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="p_1", accepted=True,
-        ))
-        with pytest.raises(StaleRevisionError, match="must be 2"):
-            store.append(OverlayEvent(
-                overlay_id="ov_1b",
+        store.append(
+            OverlayEvent(
+                overlay_id="ov_1",
                 base_compile_run_id="run_1",
                 base_artifact_snapshot_id="snap_1",
                 overlay_version=1,
-                patch_type="T", affordance_id="A", patch_id="p_1b", accepted=True,
-            ))
+                patch_type="T",
+                affordance_id="A",
+                patch_id="p_1",
+                accepted=True,
+            )
+        )
+        with pytest.raises(StaleRevisionError, match="must be 2"):
+            store.append(
+                OverlayEvent(
+                    overlay_id="ov_1b",
+                    base_compile_run_id="run_1",
+                    base_artifact_snapshot_id="snap_1",
+                    overlay_version=1,
+                    patch_type="T",
+                    affordance_id="A",
+                    patch_id="p_1b",
+                    accepted=True,
+                )
+            )
 
     def test_overlay_runs_are_isolated(self) -> None:
         """B1: run_A/snap_1 and run_B/snap_1 have independent overlay logs."""
@@ -700,17 +725,31 @@ class TestB1Stores:
         store.register_snapshot("run_A", "snap_1")
         store.register_snapshot("run_B", "snap_1")
 
-        store.append(OverlayEvent(
-            overlay_id="ov_a1", base_compile_run_id="run_A",
-            base_artifact_snapshot_id="snap_1", overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="pa", accepted=True,
-        ))
+        store.append(
+            OverlayEvent(
+                overlay_id="ov_a1",
+                base_compile_run_id="run_A",
+                base_artifact_snapshot_id="snap_1",
+                overlay_version=1,
+                patch_type="T",
+                affordance_id="A",
+                patch_id="pa",
+                accepted=True,
+            )
+        )
         # run_B is independent — its first overlay is still 1, not 2
-        store.append(OverlayEvent(
-            overlay_id="ov_b1", base_compile_run_id="run_B",
-            base_artifact_snapshot_id="snap_1", overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="pb", accepted=True,
-        ))
+        store.append(
+            OverlayEvent(
+                overlay_id="ov_b1",
+                base_compile_run_id="run_B",
+                base_artifact_snapshot_id="snap_1",
+                overlay_version=1,
+                patch_type="T",
+                affordance_id="A",
+                patch_id="pb",
+                accepted=True,
+            )
+        )
 
         assert store.latest_overlay_version("run_A", "snap_1") == 1
         assert store.latest_overlay_version("run_B", "snap_1") == 1
@@ -727,13 +766,18 @@ class TestB1StaleRevision:
     def test_stale_when_newer_overlay_exists(self) -> None:
         overlay_store = OverlayStore()
         overlay_store.register_snapshot("run_1", "snap_1")
-        overlay_store.append(OverlayEvent(
-            overlay_id="ov_1",
-            base_compile_run_id="run_1",
-            base_artifact_snapshot_id="snap_1",
-            overlay_version=1,
-            patch_type="T", affordance_id="A", patch_id="p_1", accepted=True,
-        ))
+        overlay_store.append(
+            OverlayEvent(
+                overlay_id="ov_1",
+                base_compile_run_id="run_1",
+                base_artifact_snapshot_id="snap_1",
+                overlay_version=1,
+                patch_type="T",
+                affordance_id="A",
+                patch_id="p_1",
+                accepted=True,
+            )
+        )
         base_token = RevisionToken("run_1", "snap_1", 0)
         latest = overlay_store.latest_overlay_version("run_1", "snap_1")
         current_token = RevisionToken("run_1", "snap_1", latest)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue, RepairTarget
+from nl2spl.compiler.spl_editing.core.model import EditableIssue
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.targets.exception_flow import (
     ExceptionFlowTargetResolver,
@@ -12,13 +12,13 @@ from nl2spl.compiler.spl_editing.targets.exception_flow import (
 from nl2spl.compiler.spl_editing.targets.required_output import (
     RequiredOutputTargetResolver,
 )
-from nl2spl.compiler.spl_editing.targets.worker_promotion import (
-    WorkerPromotionTargetResolver,
-)
+from nl2spl.compiler.spl_editing.targets.step import StepTargetResolver
 from nl2spl.compiler.spl_editing.targets.worker_handoff import (
     WorkerHandoffTargetResolver,
 )
-from nl2spl.compiler.spl_editing.targets.step import StepTargetResolver
+from nl2spl.compiler.spl_editing.targets.worker_promotion import (
+    WorkerPromotionTargetResolver,
+)
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
 
 

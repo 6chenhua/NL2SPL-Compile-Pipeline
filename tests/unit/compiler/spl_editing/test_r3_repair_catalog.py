@@ -19,10 +19,8 @@ from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import (
     RepairCatalog,
     RepairCatalogBuilder,
-    RepairCatalogEntry,
 )
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
-
 
 # ===========================================================================
 # R3-1: Builder produces a non-empty catalog
@@ -54,7 +52,7 @@ class TestR3CatalogBuild:
         assert len(a) == len(b)
         assert a.list_affordance_ids() == b.list_affordance_ids()
         # Entry order is deterministic
-        for ea, eb in zip(a.entries, b.entries):
+        for ea, eb in zip(a.entries, b.entries):  # noqa: B905
             assert ea.entry_id == eb.entry_id
 
 
@@ -68,25 +66,23 @@ class TestR3EntryId:
 
     def test_entry_id_format(self) -> None:
         """R3: entry_id = construct_type.slot_name.diagnostic_kind.affordance_id."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         for entry in catalog.entries:
-            expected = ".".join([
-                entry.construct_type,
-                entry.slot_name,
-                entry.diagnostic_kind,
-                entry.affordance_id,
-            ])
+            expected = ".".join(
+                [
+                    entry.construct_type,
+                    entry.slot_name,
+                    entry.diagnostic_kind,
+                    entry.affordance_id,
+                ]
+            )
             assert entry.entry_id == expected, (
                 f"entry_id '{entry.entry_id}' does not match expected '{expected}'"
             )
 
     def test_all_entry_ids_unique(self) -> None:
         """R3: No two entries share the same entry_id."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         ids = [e.entry_id for e in catalog.entries]
         assert len(ids) == len(set(ids)), (
             f"Duplicate entry_ids: {[i for i in ids if ids.count(i) > 1]}"
@@ -96,13 +92,10 @@ class TestR3EntryId:
         """R3: worker_promotion.resolve_contract is shared by 4 slots
         → 4 distinct entries with different entry_ids.
         """
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         entries = catalog.find_by_affordance_id("worker_promotion.resolve_contract")
         assert len(entries) == 4, (
-            f"Expected 4 entries for shared WORKER_PROMOTION affordance, "
-            f"got {len(entries)}"
+            f"Expected 4 entries for shared WORKER_PROMOTION affordance, got {len(entries)}"
         )
         # All 4 entries have distinct slot_names
         slot_names = {e.slot_name for e in entries}
@@ -129,35 +122,39 @@ class TestR3ConstructSlotKindLookup:
 
     @staticmethod
     def _catalog() -> RepairCatalog:
-        return RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        return RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
 
     def test_find_missing_handler(self) -> None:
         """R3: EXCEPTION_FLOW.handler_action.missing_handler → 1 entry."""
         entries = self._catalog().find_by_construct_slot_kind(
-            "EXCEPTION_FLOW", "handler_action", "missing_handler",
+            "EXCEPTION_FLOW",
+            "handler_action",
+            "missing_handler",
         )
         assert len(entries) == 1
         entry = entries[0]
         assert entry.affordance_id == "exception_flow.add_handler_step"
         assert entry.supported_patch_types == ("AddExceptionHandlerStep",)
-        assert entry.default_verification_lane == "A"
+        assert entry.default_verification_lane == "B"
 
     def test_find_missing_output_producer(self) -> None:
         """R3: REQUIRED_OUTPUT.producer.missing_output_producer → 1 entry."""
         entries = self._catalog().find_by_construct_slot_kind(
-            "REQUIRED_OUTPUT", "producer", "missing_output_producer",
+            "REQUIRED_OUTPUT",
+            "producer",
+            "missing_output_producer",
         )
         assert len(entries) == 1
         entry = entries[0]
         assert entry.affordance_id == "required_output.insert_or_bind_producer"
-        assert len(entry.supported_patch_types) == 2
+        assert entry.supported_patch_types == ("InsertProducerStep",)
 
     def test_find_type_or_contract_ambiguity_for_call_api(self) -> None:
         """R3: CALL_API.integration_evidence.type_or_contract_ambiguity → 1 entry."""
         entries = self._catalog().find_by_construct_slot_kind(
-            "CALL_API", "integration_evidence", "type_or_contract_ambiguity",
+            "CALL_API",
+            "integration_evidence",
+            "type_or_contract_ambiguity",
         )
         assert len(entries) == 1
         assert entries[0].affordance_id == "call_api.specify_integration_evidence"
@@ -166,14 +163,18 @@ class TestR3ConstructSlotKindLookup:
         """R3: Slots without affordances return empty tuple."""
         # GENERAL_COMMAND.source_evidence has missing_diagnostic but no affordance
         entries = self._catalog().find_by_construct_slot_kind(
-            "GENERAL_COMMAND", "source_evidence", "assumed_command_not_renderable",
+            "GENERAL_COMMAND",
+            "source_evidence",
+            "assumed_command_not_renderable",
         )
         assert entries == ()
 
     def test_find_unknown_construct_returns_empty(self) -> None:
         """R3: Unknown construct type → empty."""
         entries = self._catalog().find_by_construct_slot_kind(
-            "NO_SUCH_CONSTRUCT", "any_slot", "any_kind",
+            "NO_SUCH_CONSTRUCT",
+            "any_slot",
+            "any_kind",
         )
         assert entries == ()
 
@@ -182,7 +183,9 @@ class TestR3ConstructSlotKindLookup:
         diagnostic but NO affordance yet → empty result.
         """
         entries = self._catalog().find_by_construct_slot_kind(
-            "RESOURCE_CONTRACT_DEMAND", "producer", "missing_output_producer",
+            "RESOURCE_CONTRACT_DEMAND",
+            "producer",
+            "missing_output_producer",
         )
         assert entries == (), (
             "R3 CURRENT: RESOURCE_CONTRACT_DEMAND.producer has no affordance. "
@@ -200,24 +203,18 @@ class TestR3AffordanceIdLookup:
 
     @staticmethod
     def _catalog() -> RepairCatalog:
-        return RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        return RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
 
     def test_find_by_affordance_id_single_entry(self) -> None:
         """R3: Affordance IDs used by exactly one slot return 1 entry."""
-        entries = self._catalog().find_by_affordance_id(
-            "exception_flow.add_handler_step"
-        )
+        entries = self._catalog().find_by_affordance_id("exception_flow.add_handler_step")
         assert len(entries) == 1
         assert entries[0].construct_type == "EXCEPTION_FLOW"
         assert entries[0].slot_name == "handler_action"
 
     def test_find_by_affordance_id_multiple_entries(self) -> None:
         """R3: Shared affordance ID returns all slot entries."""
-        entries = self._catalog().find_by_affordance_id(
-            "worker_promotion.resolve_contract"
-        )
+        entries = self._catalog().find_by_affordance_id("worker_promotion.resolve_contract")
         assert len(entries) == 4
 
     def test_find_by_unknown_affordance_id_returns_empty(self) -> None:
@@ -256,9 +253,7 @@ class TestR3IRSRefLookup:
 
     @staticmethod
     def _catalog() -> RepairCatalog:
-        return RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        return RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
 
     def test_find_by_irs_ref_for_missing_handler(self) -> None:
         """R3: IRS ref from EXCEPTION_FLOW.handler_action + missing_handler
@@ -302,7 +297,8 @@ class TestR3IRSRefLookup:
         # handler_action's missing_diagnostic is "missing_handler", not
         # "type_or_contract_ambiguity"
         entries = self._catalog().find_by_irs_ref(
-            irs_ref, "type_or_contract_ambiguity",
+            irs_ref,
+            "type_or_contract_ambiguity",
         )
         assert entries == ()
 
@@ -343,12 +339,9 @@ class TestR3CatalogDerivation:
             assert slot is not None
             # Find the matching affordance
             matching = [
-                a for a in slot.repair_affordances
-                if a.affordance_id == entry.affordance_id
+                a for a in slot.repair_affordances if a.affordance_id == entry.affordance_id
             ]
-            assert len(matching) == 1, (
-                f"No matching affordance for {entry.entry_id}"
-            )
+            assert len(matching) == 1, f"No matching affordance for {entry.entry_id}"
             aff = matching[0]
             assert entry.supported_patch_types == aff.supported_patch_types
             assert entry.default_patch_type == aff.default_patch_type
@@ -370,30 +363,20 @@ class TestR3GetByEntryId:
 
     def test_get_existing(self) -> None:
         """R3: get() with a valid entry_id returns the entry."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
-        eid = (
-            "EXCEPTION_FLOW.handler_action."
-            "missing_handler."
-            "exception_flow.add_handler_step"
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
+        eid = "EXCEPTION_FLOW.handler_action.missing_handler.exception_flow.add_handler_step"
         entry = catalog.get(eid)
         assert entry is not None
         assert entry.construct_type == "EXCEPTION_FLOW"
 
     def test_get_nonexistent(self) -> None:
         """R3: get() with unknown entry_id returns None."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         assert catalog.get("NO.SUCH.ENTRY.id") is None
 
     def test_all_entry_ids_are_gettable(self) -> None:
         """R3: Every entry in the catalog can be retrieved by its entry_id."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         for entry in catalog.entries:
             found = catalog.get(entry.entry_id)
             assert found is not None, f"entry_id '{entry.entry_id}' not found"
@@ -412,9 +395,7 @@ class TestR3NonRepairable:
         """R3: assumed_command_not_renderable is an internal compiler
         signal — no affordance, no catalog entry.
         """
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         for entry in catalog.entries:
             assert entry.diagnostic_kind != "assumed_command_not_renderable", (
                 f"R3: {entry.entry_id} has assumed_command_not_renderable — "
@@ -423,17 +404,13 @@ class TestR3NonRepairable:
 
     def test_route_refinement_corrected_not_in_catalog(self) -> None:
         """R3: route_refinement_corrected is not in the catalog."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         kinds = {e.diagnostic_kind for e in catalog.entries}
         assert "route_refinement_corrected" not in kinds
 
     def test_missing_provenance_not_in_catalog(self) -> None:
         """R3: missing_provenance is not a repair target."""
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         kinds = {e.diagnostic_kind for e in catalog.entries}
         assert "missing_provenance" not in kinds
 
@@ -442,14 +419,241 @@ class TestR3NonRepairable:
         diagnostic kinds: missing_handler, missing_output_producer,
         type_or_contract_ambiguity.
         """
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         kinds = {e.diagnostic_kind for e in catalog.entries}
         assert kinds == {
             "missing_handler",
             "missing_output_producer",
             "type_or_contract_ambiguity",
-        }, (
-            f"R3: Unexpected diagnostic kinds in catalog: {kinds}"
+        }, f"R3: Unexpected diagnostic kinds in catalog: {kinds}"
+
+
+# ===========================================================================
+# R3-9: Metadata extension & user_facing downgrade tests
+# ===========================================================================
+
+
+class TestR3MetadataExtension:
+    """R3: Metadata extension on RepairAffordanceSpec and RepairCatalogEntry."""
+
+    def test_repair_affordance_has_materialization_metadata_for_required_output(self) -> None:
+        """Verify required_output.insert_or_bind_producer spec contains correct metadata fields."""
+        registry = SPLConstructRegistry.default()
+        irs = registry.get("REQUIRED_OUTPUT")
+        slot = irs.get_slot("producer")
+        assert slot is not None
+        aff = next(
+            a
+            for a in slot.repair_affordances
+            if a.affordance_id == "required_output.insert_or_bind_producer"
         )
+        assert aff.materialization_plan_id == "stage7.step_producer_repair.v1"
+        assert aff.selectable_ref_policy_id == "required_output.producer.selectable_refs.v1"
+        assert aff.intent_schema_id == "intent.insert_producer_step.v1"
+        assert aff.required_context_facts == (
+            "target_output_name",
+            "worker_id",
+            "available_variables",
+            "nearby_steps",
+            "symbol_table",
+        )
+        assert aff.stage_authority == "stage7.worker_step_plan"
+
+    def test_catalog_entry_carries_materialization_metadata(self) -> None:
+        """Verify RepairCatalogEntry instances receive correct field mappings from the registry."""
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
+
+        # Test required_output.insert_or_bind_producer
+        ro_entries = catalog.find_by_affordance_id("required_output.insert_or_bind_producer")
+        assert len(ro_entries) == 1
+        ro_entry = ro_entries[0]
+        assert ro_entry.materialization_plan_id == "stage7.step_producer_repair.v1"
+        assert ro_entry.selectable_ref_policy_id == "required_output.producer.selectable_refs.v1"
+        assert ro_entry.intent_schema_id == "intent.insert_producer_step.v1"
+        assert ro_entry.required_context_facts == (
+            "target_output_name",
+            "worker_id",
+            "available_variables",
+            "nearby_steps",
+            "symbol_table",
+        )
+        assert ro_entry.stage_authority == "stage7.worker_step_plan"
+        assert ro_entry.user_facing is True
+
+        # Test exception_flow.add_handler_step
+        ef_entries = catalog.find_by_affordance_id("exception_flow.add_handler_step")
+        assert len(ef_entries) == 1
+        ef_entry = ef_entries[0]
+        assert ef_entry.materialization_plan_id == "stage7.exception_handler_step_repair.v1"
+        assert ef_entry.selectable_ref_policy_id == "exception_flow.handler.selectable_refs.v1"
+        assert ef_entry.intent_schema_id == "intent.add_exception_handler_step.v1"
+        assert ef_entry.required_context_facts == (
+            "exception_condition",
+            "worker_id",
+            "available_variables",
+            "nearby_steps",
+            "symbol_table",
+        )
+        assert ef_entry.stage_authority == "stage7.worker_step_plan"
+        assert ef_entry.user_facing is True
+
+        # Test worker_promotion.resolve_contract (Verify all 4 generated entries)
+        wp_entries = catalog.find_by_affordance_id("worker_promotion.resolve_contract")
+        assert len(wp_entries) == 4
+        for wp_entry in wp_entries:
+            assert wp_entry.materialization_plan_id == "worker_handoff.contract_repair.v1"
+            assert (
+                wp_entry.selectable_ref_policy_id == "worker_promotion.handoff.selectable_refs.v1"
+            )
+            assert wp_entry.intent_schema_id == "intent.worker_promotion_resolution.v1"
+            assert wp_entry.required_context_facts == (
+                "delegation_intent",
+                "worker_id",
+                "candidate_name",
+                "possible_inputs",
+                "possible_outputs",
+                "hierarchy_graph",
+            )
+            assert wp_entry.stage_authority == "stage3_5.worker_boundary + stage7.worker_step_plan"
+            assert wp_entry.user_facing is True
+
+    def test_construct_registry_does_not_import_runtime_materialization(self) -> None:
+        """Verify construct_registry.py does not import materialization, intent, or selectable_refs."""  # noqa: E501
+        import ast
+
+        # Read the file content of construct_registry.py
+        with open("src/nl2spl/compiler/construct_registry.py", encoding="utf-8") as f:
+            content = f.read()
+
+        tree = ast.parse(content, filename="construct_registry.py")
+
+        def is_forbidden(name: str) -> bool:
+            # Check if name contains any of the forbidden package chains
+            for term in [
+                "spl_editing.materialization",
+                "spl_editing.intent",
+                "spl_editing.selectable_refs",
+            ]:
+                if term in name:
+                    return True
+            return False
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not is_forbidden(alias.name), f"Forbidden import: {alias.name}"
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module or ""
+                assert not is_forbidden(module_name), f"Forbidden import from module: {module_name}"
+                for alias in node.names:
+                    full_name = f"{module_name}.{alias.name}" if module_name else alias.name
+                    assert not is_forbidden(full_name), f"Forbidden import of target: {full_name}"
+
+    @pytest.mark.parametrize("missing_plan", [None, "", "   "])
+    def test_missing_materialization_plan_makes_editable_option_unavailable(
+        self, missing_plan: str | None
+    ) -> None:
+        """Verify that missing/empty/whitespace plan metadata defaults/forces user_facing = False."""  # noqa: E501
+        from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec
+
+        custom_registry = SPLConstructRegistry()
+        custom_registry.register(
+            ConstructIRS(
+                construct_type="CUSTOM_CONSTRUCT",
+                existence_policy="source_signal_required",
+                source_signals=["custom"],
+                slots=[
+                    SlotSpec(
+                        slot_name="custom_slot",
+                        missing_diagnostic="custom_diagnostic",
+                        repair_affordances=(
+                            RepairAffordanceSpec(
+                                affordance_id="custom.affordance",
+                                description="Test affordance",
+                                supported_patch_types=("TestPatch",),
+                                user_facing=True,
+                                materialization_plan_id=missing_plan,
+                            ),
+                        ),
+                    )
+                ],
+            )
+        )
+        catalog = RepairCatalogBuilder.from_construct_registry(custom_registry)
+        entries = catalog.find_by_affordance_id("custom.affordance")
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.materialization_plan_id == missing_plan
+        assert entry.user_facing is False
+
+    def test_explicitly_non_user_facing_remains_hidden_even_with_valid_plan(self) -> None:
+        """Verify that an affordance explicitly set to user_facing=False remains False after builder processing,
+        even if it has a valid materialization_plan_id.
+        """  # noqa: E501
+        from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec
+
+        custom_registry = SPLConstructRegistry()
+        custom_registry.register(
+            ConstructIRS(
+                construct_type="CUSTOM_CONSTRUCT",
+                existence_policy="source_signal_required",
+                source_signals=["custom"],
+                slots=[
+                    SlotSpec(
+                        slot_name="custom_slot",
+                        missing_diagnostic="custom_diagnostic",
+                        repair_affordances=(
+                            RepairAffordanceSpec(
+                                affordance_id="custom.affordance",
+                                description="Test affordance",
+                                supported_patch_types=("TestPatch",),
+                                user_facing=False,  # Explicitly False
+                                materialization_plan_id="valid.plan.id.v1",  # Valid plan
+                            ),
+                        ),
+                    )
+                ],
+            )
+        )
+        catalog = RepairCatalogBuilder.from_construct_registry(custom_registry)
+        entries = catalog.find_by_affordance_id("custom.affordance")
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.materialization_plan_id == "valid.plan.id.v1"
+        assert entry.user_facing is False
+
+    def test_catalog_builder_does_not_synthesize_default_materialization_plan(self) -> None:
+        """Verify no fallback synthesis in the builder."""
+        from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec
+
+        # Create a registry with an affordance that has no materialization_plan_id, but user_facing is True in registry spec.  # noqa: E501
+        custom_registry = SPLConstructRegistry()
+        custom_registry.register(
+            ConstructIRS(
+                construct_type="CUSTOM_CONSTRUCT",
+                existence_policy="source_signal_required",
+                source_signals=["custom"],
+                slots=[
+                    SlotSpec(
+                        slot_name="custom_slot",
+                        missing_diagnostic="custom_diagnostic",
+                        repair_affordances=(
+                            RepairAffordanceSpec(
+                                affordance_id="custom.affordance",
+                                description="Test affordance",
+                                supported_patch_types=("TestPatch",),
+                                user_facing=True,  # In registry it is user_facing
+                                materialization_plan_id=None,  # But plan is None
+                            ),
+                        ),
+                    )
+                ],
+            )
+        )
+        catalog = RepairCatalogBuilder.from_construct_registry(custom_registry)
+        entries = catalog.find_by_affordance_id("custom.affordance")
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.materialization_plan_id is None
+        # Should be downgraded to False, not synthesized or kept as True
+        assert entry.user_facing is False

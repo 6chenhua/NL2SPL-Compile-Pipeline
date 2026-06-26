@@ -5,19 +5,12 @@ from __future__ import annotations
 import dataclasses
 
 from nl2spl.compiler.spl_editing.llm_context.model import (
-    ArtifactFacts,
-    ContextQuality,
     GenerationReadiness,
     InternalRoutingFacts,
     IssueFacts,
     LLMRepairContext,
-    LLMRepairContextExtension,
-    PreviousSuggestionFacts,
-    RepairActionFacts,
-    SafetyFacts,
     SelectableReference,
     SourceFacts,
-    StepSummary,
     TargetFacts,
     WorkflowFacts,
 )
@@ -28,9 +21,11 @@ class TestCoreDTOIsFrozen:
 
     def test_llm_repair_context_is_frozen(self) -> None:
         dto = LLMRepairContext(
-            context_id="c1", session_id="s1",
+            context_id="c1",
+            session_id="s1",
             issue_facts=IssueFacts(
-                issue_category="test", user_facing_title="T",
+                issue_category="test",
+                user_facing_title="T",
                 what_was_detected="X",
                 missing_items=(),
             ),
@@ -50,11 +45,12 @@ class TestCoreDTOIsFrozen:
             pass  # The important thing is the contract, not the mechanism
 
     def test_issue_facts_is_frozen(self) -> None:
-        dto = IssueFacts(issue_category="c", user_facing_title="t",
-                         what_was_detected="w", missing_items=())
+        dto = IssueFacts(
+            issue_category="c", user_facing_title="t", what_was_detected="w", missing_items=()
+        )
         try:
             dto.issue_category = "mutated"  # type: ignore[misc]
-            assert False
+            assert False  # noqa: B011
         except (dataclasses.FrozenInstanceError, AttributeError):
             pass
 
@@ -62,7 +58,7 @@ class TestCoreDTOIsFrozen:
         dto = GenerationReadiness(status="ready")
         try:
             dto.status = "blocked"  # type: ignore[misc]
-            assert False
+            assert False  # noqa: B011
         except (dataclasses.FrozenInstanceError, AttributeError):
             pass
 
@@ -88,7 +84,10 @@ class TestNoConstructSpecificUnion:
 
     def test_selectable_reference_uses_literal_kind(self) -> None:
         ref = SelectableReference(
-            id="s1", label="L", summary="S", kind="step",
+            id="s1",
+            label="L",
+            summary="S",
+            kind="step",
             payload_field="step_id",
         )
         assert ref.kind == "step"
@@ -100,10 +99,13 @@ class TestLLMRepairContextHasRequiredExtensions:
 
     def test_has_primary_extension(self) -> None:
         ctx = LLMRepairContext(
-            context_id="c1", session_id="s1",
+            context_id="c1",
+            session_id="s1",
             issue_facts=IssueFacts(
-                issue_category="test", user_facing_title="T",
-                what_was_detected="X", missing_items=(),
+                issue_category="test",
+                user_facing_title="T",
+                what_was_detected="X",
+                missing_items=(),
             ),
             source_facts=SourceFacts(),
             target_facts=TargetFacts(construct_type="TEST", slot_name="s"),
@@ -114,10 +116,13 @@ class TestLLMRepairContextHasRequiredExtensions:
 
     def test_auxiliary_extensions_default_empty(self) -> None:
         ctx = LLMRepairContext(
-            context_id="c1", session_id="s1",
+            context_id="c1",
+            session_id="s1",
             issue_facts=IssueFacts(
-                issue_category="test", user_facing_title="T",
-                what_was_detected="X", missing_items=(),
+                issue_category="test",
+                user_facing_title="T",
+                what_was_detected="X",
+                missing_items=(),
             ),
             source_facts=SourceFacts(),
             target_facts=TargetFacts(construct_type="TEST", slot_name="s"),
@@ -159,9 +164,11 @@ class TestSelectableReference:
 
     def test_minimal(self) -> None:
         ref = SelectableReference(
-            id="st_2", label="Candidate",
+            id="st_2",
+            label="Candidate",
             summary="Identify missing fields.",
-            kind="step", payload_field="step_id",
+            kind="step",
+            payload_field="step_id",
         )
         assert ref.id == "st_2"
         assert ref.summary == "Identify missing fields."
@@ -169,9 +176,11 @@ class TestSelectableReference:
 
     def test_with_business_summary(self) -> None:
         ref = SelectableReference(
-            id="st_2", label="Candidate",
+            id="st_2",
+            label="Candidate",
             summary="Identify missing fields.",
-            kind="step", payload_field="step_id",
+            kind="step",
+            payload_field="step_id",
             business_summary={
                 "inputs": ["a"],
                 "outputs": ["b"],

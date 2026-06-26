@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC  # noqa: N814
 from nl2spl.compiler.spl_editing.core.registry import PatchRegistry
-from nl2spl.compiler.spl_editing.core.model import PatchTypeContract as _PTC
 from nl2spl.compiler.spl_editing.patches.registry import PatchBundle
 
 
@@ -38,8 +38,11 @@ class TestB4PatchRegistry:
             applier=_FakeApplier(),
             verifier=_FakeVerifier(),
             previewer=_FakePreviewer(),
-            contract=_PTC(patch_type="AddExceptionHandlerStep",
-                           produces_step_ir=True, evidence_targets=("step",)),
+            contract=_PTC(
+                patch_type="AddExceptionHandlerStep",
+                produces_step_ir=True,
+                evidence_targets=("step",),
+            ),
         )
         reg.register("AddExceptionHandlerStep", bundle)
         assert reg.has("AddExceptionHandlerStep")
@@ -47,16 +50,23 @@ class TestB4PatchRegistry:
 
     def test_unknown_raises(self) -> None:
         import pytest
+
         reg = PatchRegistry()
         with pytest.raises(KeyError):
             reg.get("NoSuchPatch")
 
     def test_duplicate_registration_raises(self) -> None:
         import pytest
+
         reg = PatchRegistry()
-        bundle = PatchBundle("T", _FakeValidator(), _FakeApplier(), _FakeVerifier(), _FakePreviewer(),
-                             contract=_PTC(patch_type="T", produces_step_ir=True,
-                                           evidence_targets=("step",)))
+        bundle = PatchBundle(
+            "T",
+            _FakeValidator(),
+            _FakeApplier(),
+            _FakeVerifier(),
+            _FakePreviewer(),
+            contract=_PTC(patch_type="T", produces_step_ir=True, evidence_targets=("step",)),
+        )
         reg.register("T", bundle)
         with pytest.raises(KeyError):
             reg.register("T", bundle)
@@ -64,9 +74,17 @@ class TestB4PatchRegistry:
     def test_key_mismatch_raises(self) -> None:
         """B4: Registering bundle with mismatched patch_type raises ValueError."""
         import pytest
+
         reg = PatchRegistry()
-        bundle = PatchBundle("WrongType", _FakeValidator(), _FakeApplier(), _FakeVerifier(), _FakePreviewer(),
-                             contract=_PTC(patch_type="WrongType", produces_step_ir=True,
-                                           evidence_targets=("step",)))
+        bundle = PatchBundle(
+            "WrongType",
+            _FakeValidator(),
+            _FakeApplier(),
+            _FakeVerifier(),
+            _FakePreviewer(),
+            contract=_PTC(
+                patch_type="WrongType", produces_step_ir=True, evidence_targets=("step",)
+            ),
+        )
         with pytest.raises(ValueError, match="WrongType"):
             reg.register("AddExceptionHandlerStep", bundle)

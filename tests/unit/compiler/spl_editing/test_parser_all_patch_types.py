@@ -14,6 +14,7 @@ from nl2spl.compiler.spl_editing.handlers.parser import parse_suggestion_payload
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse(raw: str, *allowed: str) -> dict:
     return parse_suggestion_payload(raw, allowed)
 
@@ -183,38 +184,6 @@ class TestInsertProducerPayload:
         assert data["payload"]["command_type"] == "REQUEST_INPUT"
 
 
-# ---------------------------------------------------------------------------
-# BindExistingProducerStep
-# ---------------------------------------------------------------------------
-
-
-class TestBindExistingProducerPayload:
-    PATCH = "BindExistingProducerStep"
-
-    def test_valid_payload(self) -> None:
-        raw = (
-            '{"patch_type":"BindExistingProducerStep","title":"T","explanation":"E",'
-            '"payload":{"step_id":"s1"}}'
-        )
-        data = _parse(raw, self.PATCH)
-        assert data["payload"]["step_id"] == "s1"
-
-    def test_missing_step_id(self) -> None:
-        raw = (
-            '{"patch_type":"BindExistingProducerStep","title":"T","explanation":"E",'
-            '"payload":{}}'
-        )
-        with pytest.raises(PatchValidationError, match="step_id"):
-            _parse(raw, self.PATCH)
-
-    def test_empty_step_id(self) -> None:
-        raw = (
-            '{"patch_type":"BindExistingProducerStep","title":"T","explanation":"E",'
-            '"payload":{"step_id":""}}'
-        )
-        with pytest.raises(PatchValidationError, match="step_id"):
-            _parse(raw, self.PATCH)
-
 
 # ---------------------------------------------------------------------------
 # ConvertDelegationIntentToMainFlowStep
@@ -357,14 +326,18 @@ class TestUnsupportedPatchTypePropagation:
     """Unsupported patch type must raise, never be swallowed by any validator."""
 
     def test_unsupported_propagates_for_insert_producer(self) -> None:
-        raw = ('{"patch_type":"WrongType","title":"T","explanation":"E",'
-               '"payload":{"producer_text":"P","command_type":"GENERAL_COMMAND"}}')
+        raw = (
+            '{"patch_type":"WrongType","title":"T","explanation":"E",'
+            '"payload":{"producer_text":"P","command_type":"GENERAL_COMMAND"}}'
+        )
         with pytest.raises(UnsupportedPatchTypeError):
             _parse(raw, "InsertProducerStep")
 
     def test_unsupported_propagates_for_handoff(self) -> None:
-        raw = ('{"patch_type":"WrongType","title":"T","explanation":"E",'
-               '"payload":{"input_bindings":{"a":"b"},"output_bindings":{"c":"d"},'
-               '"invocation_point":"main"}}')
+        raw = (
+            '{"patch_type":"WrongType","title":"T","explanation":"E",'
+            '"payload":{"input_bindings":{"a":"b"},"output_bindings":{"c":"d"},'
+            '"invocation_point":"main"}}'
+        )
         with pytest.raises(UnsupportedPatchTypeError):
             _parse(raw, "CreateWorkerHandoffContract")

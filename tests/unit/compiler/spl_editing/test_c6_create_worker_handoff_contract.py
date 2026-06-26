@@ -1,9 +1,9 @@
-﻿"""C6: CreateWorkerHandoffContract patch tests."""
+"""C6: CreateWorkerHandoffContract patch tests."""
 
 import pytest
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
-from nl2spl.compiler.spl_editing.core.errors import PatchValidationError
+from nl2spl.compiler.spl_editing.core.errors import PatchValidationError, SPLEditingError
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     RepairEvidence,
@@ -32,8 +32,11 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
+    InputBindingIR,
+    OutputBindingIR,
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
+    WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
     WorkerStepPlanIR,
@@ -45,36 +48,67 @@ def _snap(**kw) -> ArtifactSnapshot:
     plan = WorkerPlanIR(
         main_worker_id="w_main",
         workers=[
-            WorkerSpecIR("w_main", "MainWorker", "main", "Main",
-                          boundary_kind="main_worker", owned_span_ids=["s1"]),
-            WorkerSpecIR("w_child", "ChildWorker", "child", "ChildWorker",
-                          boundary_kind="child_worker", owned_span_ids=[]),
+            WorkerSpecIR(
+                "w_main",
+                "MainWorker",
+                "main",
+                "Main",
+                boundary_kind="main_worker",
+                owned_span_ids=["s1"],
+            ),
+            WorkerSpecIR(
+                "w_child",
+                "ChildWorker",
+                "child",
+                "ChildWorker",
+                boundary_kind="child_worker",
+                owned_span_ids=[],
+            ),
         ],
     )
     from nl2spl.ir.step_ir import StepIR
+
     diag = CompileDiagnostic(
-        "diag_target", "type_or_contract_ambiguity", "warning",
-        "Missing handoff contract.", target_ref="worker_promotion:cand_1",
+        "diag_target",
+        "type_or_contract_ambiguity",
+        "warning",
+        "Missing handoff contract.",
+        target_ref="worker_promotion:cand_1",
         blocks_completion=True,
     )
     d = dict(
-        snapshot_id="snap_1", compile_run_id="run_1", overlay_version=0,
+        snapshot_id="snap_1",
+        compile_run_id="run_1",
+        overlay_version=0,
         worker_plan=plan,
         compile_diagnostics=(diag,),
-        worker_step_plan=WorkerStepPlanIR("w_main", {
-            "w_main": [StepIR(
-                "st_invoke", "Invoke child", ["s1"],
-                "INVOKE_WORKER", handoff_id="handoff_repair_cand_1",
-                integration_ref="ChildWorker",
-                inputs=["req"], outputs=["parent_result"],
-            )],
-        }),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_step_plan=WorkerStepPlanIR(
+            "w_main",
+            {
+                "w_main": [
+                    StepIR(
+                        "st_invoke",
+                        "Invoke child",
+                        ["s1"],
+                        "INVOKE_WORKER",
+                        handoff_id="handoff_repair_cand_1",
+                        integration_ref="ChildWorker",
+                        inputs=["req"],
+                        outputs=["parent_result"],
+                    )
+                ],
+            },
+        ),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         resources=ResourceRegistryIR(),
         symbol_table=SymbolTable(),
         agent_profile=AgentProfileIR(
@@ -92,11 +126,14 @@ def _patch(**kw) -> RepairPatch:
         patch_type="CreateWorkerHandoffContract",
         target_ref="worker_promotion:cand_1",
         irs_ref=DiagnosticIRSRef(
-            construct_type="WORKER_PROMOTION", construct_id="x",
+            construct_type="WORKER_PROMOTION",
+            construct_id="x",
             slot_name="promotion_input_contract",
         ),
-        base_compile_run_id="run_1", artifact_snapshot_id="snap_1",
-        overlay_version=0, verification_lane="B",
+        base_compile_run_id="run_1",
+        artifact_snapshot_id="snap_1",
+        overlay_version=0,
+        verification_lane="B",
         payload={
             "worker_promotion_id": "cand_1",
             "parent_worker_id": "w_main",
@@ -119,30 +156,24 @@ class TestC6Validator:
     def test_missing_child_name_rejected(self) -> None:
         with pytest.raises(PatchValidationError, match="child_worker_id"):
             CreateWorkerHandoffContractValidator().validate(
-                _patch(payload={"worker_promotion_id": "c", "parent_worker_id": "w"}),
-                _snap())
+                _patch(payload={"worker_promotion_id": "c", "parent_worker_id": "w"}), _snap()
+            )
 
     def test_wrong_affordance_rejected(self) -> None:
         with pytest.raises(PatchValidationError, match="Wrong affordance"):
-            CreateWorkerHandoffContractValidator().validate(
-                _patch(affordance_id="wrong"), _snap())
+            CreateWorkerHandoffContractValidator().validate(_patch(affordance_id="wrong"), _snap())
 
 
 class TestC6Applier:
-    def test_applier_creates_handoff(self) -> None:
-        snap = _snap()
-        patched, _ = CreateWorkerHandoffContractApplier().apply(_patch(), snap)
-        plan = patched.worker_plan
-        assert plan is not None
-        handoffs = getattr(plan, "handoffs", [])
-        assert any(
-            getattr(h, "handoff_id", None) == "handoff_repair_cand_1"
-            for h in handoffs)
+    def test_direct_applier_is_disabled(self) -> None:
+        with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+            CreateWorkerHandoffContractApplier().apply(_patch(), _snap())
 
-    def test_applier_does_not_mutate_base(self) -> None:
+    def test_disabled_direct_applier_does_not_mutate_base(self) -> None:
         snap = _snap()
         base_count = len(snap.worker_plan.handoffs)
-        CreateWorkerHandoffContractApplier().apply(_patch(), snap)
+        with pytest.raises(SPLEditingError):
+            CreateWorkerHandoffContractApplier().apply(_patch(), snap)
         assert len(snap.worker_plan.handoffs) == base_count
 
 
@@ -154,10 +185,26 @@ class TestC6Verifier:
             gated_worker = object()
 
         patched = _snap()
-        patched, _ = CreateWorkerHandoffContractApplier().apply(
-            _patch(), _snap())
-        failures = verifier.verify(
-            _patch(), _snap(), patched, FakeArtifacts())
+        plan = patched.worker_plan
+        plan.handoffs.append(
+            WorkerHandoffIR(
+                handoff_id="handoff_repair_cand_1",
+                from_worker="w_main",
+                to_worker="w_child",
+                api_ref=None,
+                mode="invoke",
+                condition_text=None,
+                ordering="after",
+                input_bindings=[InputBindingIR("req", "child_req", True)],
+                output_bindings=[OutputBindingIR("result", "parent_result", True, "set")],
+                input_binding_status="known_present",
+                output_binding_status="known_present",
+                input_binding_status_source="user_confirmed_repair",
+                output_binding_status_source="user_confirmed_repair",
+                materialization_status="complete",
+            )
+        )
+        failures = verifier.verify(_patch(), _snap(), patched, FakeArtifacts())
         assert failures == ()
 
     def test_verifier_rejects_missing_handoff(self) -> None:
@@ -166,8 +213,7 @@ class TestC6Verifier:
         class FakeArtifacts:
             gated_worker = object()
 
-        failures = verifier.verify(
-            _patch(), _snap(), _snap(), FakeArtifacts())
+        failures = verifier.verify(_patch(), _snap(), _snap(), FakeArtifacts())
         assert len(failures) > 0
 
 
@@ -175,28 +221,39 @@ class TestC6LaneB:
     def test_validator_rejects_nonexistent_parent(self) -> None:
         with pytest.raises(PatchValidationError, match="parent_worker_id"):
             CreateWorkerHandoffContractValidator().validate(
-                _patch(payload={
-                    "worker_promotion_id": "cand_1",
-                    "parent_worker_id": "ghost",
-                    "child_worker_id": "w_child",
-                }), _snap())
+                _patch(
+                    payload={
+                        "worker_promotion_id": "cand_1",
+                        "parent_worker_id": "ghost",
+                        "child_worker_id": "w_child",
+                    }
+                ),
+                _snap(),
+            )
 
     def test_validator_rejects_nonexistent_child(self) -> None:
         with pytest.raises(PatchValidationError, match="child_worker_id"):
             CreateWorkerHandoffContractValidator().validate(
-                _patch(payload={
-                    "worker_promotion_id": "cand_1",
-                    "parent_worker_id": "w_main",
-                    "child_worker_id": "ghost",
-                }), _snap())
+                _patch(
+                    payload={
+                        "worker_promotion_id": "cand_1",
+                        "parent_worker_id": "w_main",
+                        "child_worker_id": "ghost",
+                    }
+                ),
+                _snap(),
+            )
+
 
 class TestC6cHandlerContext:
     """C6c: context builder derives child_worker_id from snapshot."""
 
     def _issue(self):
         return EditableIssue(
-            issue_id="i1", primary_diagnostic_id="d1",
-            related_diagnostic_ids=("d1",), issue_group_id=None,
+            issue_id="i1",
+            primary_diagnostic_id="d1",
+            related_diagnostic_ids=("d1",),
+            issue_group_id=None,
             kind="type_or_contract_ambiguity",
             target_ref="worker_promotion:cand_1",
             irs_ref=DiagnosticIRSRef(
@@ -205,7 +262,8 @@ class TestC6cHandlerContext:
                 slot_name="promotion_input_contract",
             ),
             missing_slot="promotion_input_contract",
-            source_span_ids=(), message="test",
+            source_span_ids=(),
+            message="test",
             affordance_ids=("worker_promotion.resolve_contract",),
             default_affordance_id="worker_promotion.resolve_contract",
         )
@@ -216,35 +274,39 @@ class TestC6cHandlerContext:
             target_kind="WORKER_PROMOTION",
             irs_ref=self._issue().irs_ref,
             affordance_id="worker_promotion.resolve_contract",
-            construct_path=(), worker_id="w_main",
+            construct_path=(),
+            worker_id="w_main",
         )
 
     def _entries(self):
-        return (RepairCatalogEntry(
-            entry_id="x",
-            affordance_id="worker_promotion.resolve_contract",
-            construct_type="WORKER_PROMOTION",
-            slot_name="promotion_input_contract",
-            diagnostic_kind="type_or_contract_ambiguity",
-            supported_patch_types=(
-                "CreateWorkerHandoffContract",
-                "ConvertDelegationIntentToMainFlowStep",
-                "ConvertDelegationIntentToRequestInput",
+        return (
+            RepairCatalogEntry(
+                entry_id="x",
+                affordance_id="worker_promotion.resolve_contract",
+                construct_type="WORKER_PROMOTION",
+                slot_name="promotion_input_contract",
+                diagnostic_kind="type_or_contract_ambiguity",
+                supported_patch_types=(
+                    "CreateWorkerHandoffContract",
+                    "ConvertDelegationIntentToMainFlowStep",
+                    "ConvertDelegationIntentToRequestInput",
+                ),
             ),
-        ),)
+        )
 
     def test_unique_child_derived_and_generates_handoff(self) -> None:
         """C6c: builder finds unique child 鈫?handler generates handoff."""
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
+
         snap = _snap()  # has w_main + w_child
-        ctx = WorkerPromotionContextBuilder().build(
-            self._issue(), self._target(), snap)
+        ctx = WorkerPromotionContextBuilder().build(self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") == "w_child"
 
         suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
-            self._issue(), self._target(), ctx, self._entries())
+            self._issue(), self._target(), ctx, self._entries()
+        )
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" in types
 
@@ -253,19 +315,27 @@ class TestC6cHandlerContext:
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
+
         plan = WorkerPlanIR(
             main_worker_id="w_main",
-            workers=[WorkerSpecIR("w_main", "Main", "main", "Main",
-                                   boundary_kind="main_worker",
-                                   owned_span_ids=["s1"])],
+            workers=[
+                WorkerSpecIR(
+                    "w_main",
+                    "Main",
+                    "main",
+                    "Main",
+                    boundary_kind="main_worker",
+                    owned_span_ids=["s1"],
+                )
+            ],
         )
         snap = _snap(worker_plan=plan)
-        ctx = WorkerPromotionContextBuilder().build(
-            self._issue(), self._target(), snap)
+        ctx = WorkerPromotionContextBuilder().build(self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") is None
 
         suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
-            self._issue(), self._target(), ctx, self._entries())
+            self._issue(), self._target(), ctx, self._entries()
+        )
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" not in types
 
@@ -274,25 +344,33 @@ class TestC6cHandlerContext:
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
+
         plan = WorkerPlanIR(
             main_worker_id="w_main",
             workers=[
-                WorkerSpecIR("w_main", "Main", "main", "Main",
-                              boundary_kind="main_worker",
-                              owned_span_ids=["s1"]),
-                WorkerSpecIR("w_child_a", "ChildA", "child", "ChildA",
-                              boundary_kind="child_worker"),
-                WorkerSpecIR("w_child_b", "ChildB", "child", "ChildB",
-                              boundary_kind="child_worker"),
+                WorkerSpecIR(
+                    "w_main",
+                    "Main",
+                    "main",
+                    "Main",
+                    boundary_kind="main_worker",
+                    owned_span_ids=["s1"],
+                ),
+                WorkerSpecIR(
+                    "w_child_a", "ChildA", "child", "ChildA", boundary_kind="child_worker"
+                ),
+                WorkerSpecIR(
+                    "w_child_b", "ChildB", "child", "ChildB", boundary_kind="child_worker"
+                ),
             ],
         )
         snap = _snap(worker_plan=plan)
-        ctx = WorkerPromotionContextBuilder().build(
-            self._issue(), self._target(), snap)
+        ctx = WorkerPromotionContextBuilder().build(self._issue(), self._target(), snap)
         assert ctx.metadata.get("derived_child_worker_id") is None
 
         suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
-            self._issue(), self._target(), ctx, self._entries())
+            self._issue(), self._target(), ctx, self._entries()
+        )
         types = {s.patch.patch_type for s in suggestions}
         assert "CreateWorkerHandoffContract" not in types
 
@@ -302,13 +380,13 @@ class TestC6cHandlerContext:
         from nl2spl.compiler.spl_editing.context.worker_promotion_context import (
             WorkerPromotionContextBuilder,
         )
+
         snap = _snap()
-        ctx = WorkerPromotionContextBuilder().build(
-            self._issue(), self._target(), snap)
+        ctx = WorkerPromotionContextBuilder().build(self._issue(), self._target(), snap)
         suggestions = TypeOrContractAmbiguityHandler(StubSuggestionLLM()).generate_suggestions(
-            self._issue(), self._target(), ctx, self._entries())
-        hc = next(s for s in suggestions
-                   if s.patch.patch_type == "CreateWorkerHandoffContract")
+            self._issue(), self._target(), ctx, self._entries()
+        )
+        hc = next(s for s in suggestions if s.patch.patch_type == "CreateWorkerHandoffContract")
         stamped = RepairPatch(
             patch_id="p1",
             affordance_id=hc.patch.affordance_id,
@@ -334,7 +412,9 @@ class TestC6dServiceLevel:
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         # Snapshot with worker promotion diagnostic and unique child worker
         diag = CompileDiagnostic(
-            "diag_promo", "type_or_contract_ambiguity", "warning",
+            "diag_promo",
+            "type_or_contract_ambiguity",
+            "warning",
             "Missing handoff contract.",
             target_ref="worker_promotion:cand_1",
             blocks_completion=True,
@@ -356,28 +436,42 @@ class TestC6dServiceLevel:
         plan = WorkerPlanIR(
             main_worker_id="w_main",
             workers=[
-                WorkerSpecIR("w_main", "Main", "main", "Main",
-                              boundary_kind="main_worker",
-                              owned_span_ids=["s1"]),
-                WorkerSpecIR("w_child", "Child", "child", "ChildWorker",
-                              boundary_kind="child_worker"),
+                WorkerSpecIR(
+                    "w_main",
+                    "Main",
+                    "main",
+                    "Main",
+                    boundary_kind="main_worker",
+                    owned_span_ids=["s1"],
+                ),
+                WorkerSpecIR(
+                    "w_child", "Child", "child", "ChildWorker", boundary_kind="child_worker"
+                ),
             ],
         )
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
         snap = _snap(
             worker_plan=plan,
             compile_diagnostics=(diag,),
-            worker_step_plan=WorkerStepPlanIR("w_main", {
-                "w_main": [StepIR(
-                    "st_invoke", "Invoke child", ["s1"],
-                    "INVOKE_WORKER",
-                    inputs=["request"],
-                    outputs=["result"],
-                    handoff_id="handoff_repair_cand_1",
-                    integration_ref="Child",
-                )],
-            }),
+            worker_step_plan=WorkerStepPlanIR(
+                "w_main",
+                {
+                    "w_main": [
+                        StepIR(
+                            "st_invoke",
+                            "Invoke child",
+                            ["s1"],
+                            "INVOKE_WORKER",
+                            inputs=["request"],
+                            outputs=["result"],
+                            handoff_id="handoff_repair_cand_1",
+                            integration_ref="Child",
+                        )
+                    ],
+                },
+            ),
         )
 
         run_id = svc.register_compile_result(snap)
@@ -388,14 +482,13 @@ class TestC6dServiceLevel:
         session = svc.create_session(run_id, issues[0])
         suggestions = svc.generate_suggestions(session.session_id)
 
-        hc_sugs = [s for s in suggestions
-                    if s.patch.patch_type == "CreateWorkerHandoffContract"]
+        hc_sugs = [s for s in suggestions if s.patch.patch_type == "CreateWorkerHandoffContract"]
         assert len(hc_sugs) >= 1, (
             f"Expected CreateWorkerHandoffContract suggestion, "
-            f"got {[s.patch.patch_type for s in suggestions]}")
+            f"got {[s.patch.patch_type for s in suggestions]}"
+        )
 
-        updated = svc.apply_suggestion(
-            session.session_id, hc_sugs[0].suggestion_id)
+        updated = svc.apply_suggestion(session.session_id, hc_sugs[0].suggestion_id)
         assert updated.overlay_version > 0
 
         result = svc.verify_session(session.session_id)
@@ -403,16 +496,33 @@ class TestC6dServiceLevel:
         assert result.lane == "B"
 
     def test_lane_b_verification_accepted(self) -> None:
-        """C6: Handoff patch with Lane B verification 鈥?accepted."""
+        """C6: Materialized handoff snapshot with Lane B verification is accepted."""
         snap = _snap()
-        patched, _ = CreateWorkerHandoffContractApplier().apply(_patch(), snap)
+        patched = _snap()
+        patched.worker_plan.handoffs.append(
+            WorkerHandoffIR(
+                handoff_id="handoff_repair_cand_1",
+                from_worker="w_main",
+                to_worker="w_child",
+                api_ref=None,
+                mode="invoke",
+                condition_text=None,
+                ordering="after",
+                input_bindings=[InputBindingIR("req", "child_req", True)],
+                output_bindings=[OutputBindingIR("result", "parent_result", True, "set")],
+                input_binding_status="known_present",
+                output_binding_status="known_present",
+                input_binding_status_source="user_confirmed_repair",
+                output_binding_status_source="user_confirmed_repair",
+                materialization_status="complete",
+            )
+        )
         runner = VerificationRunner(lane_b=LaneBReplayAdapter())
         result = runner.verify(
-            _patch(), snap, patched,
+            _patch(),
+            snap,
+            patched,
             CreateWorkerHandoffContractVerifier(),
         )
         assert result.lane == "B"
         assert result.accepted is True
-
-
-

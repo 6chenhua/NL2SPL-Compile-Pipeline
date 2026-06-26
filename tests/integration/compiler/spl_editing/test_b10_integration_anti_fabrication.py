@@ -1,4 +1,4 @@
-﻿"""B10: Integration anti-fabrication tests.
+"""B10: Integration anti-fabrication tests.
 
 Proves that SPL Editing cannot bypass compiler authorities or fabricate
 executable SPL without proper evidence.
@@ -30,40 +30,57 @@ class TestB10IntegrationAntiFabrication:
         """B10: missing_handler 鈫?suggestion 鈫?apply 鈫?verify accepted."""
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         diag = CompileDiagnostic(
-            "diag_mh", "missing_handler", "warning",
+            "diag_mh",
+            "missing_handler",
+            "warning",
             "Exception flow has condition but no handler step.",
             target_ref="worker:w_main.exception_flow:exc_1",
             blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
-            "construct_type": "EXCEPTION_FLOW", "construct_id": "x",
-            "slot_name": "handler_action", "construct_path": [],
+            "construct_type": "EXCEPTION_FLOW",
+            "construct_id": "x",
+            "slot_name": "handler_action",
+            "construct_path": [],
             "source_authority": "post_normalize_irs",
         }
         diag.metadata["authority"] = "post_normalize_irs"
         snap = ArtifactSnapshot(
-            "snap_int_mh", "run_int_mh", 0,
+            "snap_int_mh",
+            "run_int_mh",
+            0,
             worker_plan=WorkerPlanIR(
                 main_worker_id="w_main",
-                workers=[WorkerSpecIR(
-                    "w_main", "MainWorker", "main", "Main worker",
-                    boundary_kind="main_worker",
-                    owned_span_ids=["s1"],
-                )],
+                workers=[
+                    WorkerSpecIR(
+                        "w_main",
+                        "MainWorker",
+                        "main",
+                        "Main worker",
+                        boundary_kind="main_worker",
+                        owned_span_ids=["s1"],
+                    )
+                ],
             ),
             worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
-            worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-                "w_main": FlowStructureIR(
-                    exception_flows=[ExceptionFlowRef(
-                        flow_id="exc_1",
-                        condition_text="Template unavailable.",
-                        blocks=[],
-                    )],
-                ),
-            }),
-            worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-                "w_main": BlockStructureIR(),
-            }),
+            worker_flow_plan=WorkerFlowPlanIR(
+                worker_flows={
+                    "w_main": FlowStructureIR(
+                        exception_flows=[
+                            ExceptionFlowRef(
+                                flow_id="exc_1",
+                                condition_text="Template unavailable.",
+                                blocks=[],
+                            )
+                        ],
+                    ),
+                }
+            ),
+            worker_block_plan=WorkerBlockPlanIR(
+                worker_blocks={
+                    "w_main": BlockStructureIR(),
+                }
+            ),
             resources=ResourceRegistryIR(),
             symbol_table=SymbolTable(),
             agent_profile=AgentProfileIR(
@@ -95,7 +112,9 @@ class TestB10IntegrationAntiFabrication:
 
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_repair", "Handle error", [],
+            "st_repair",
+            "Handle error",
+            [],
             "GENERAL_COMMAND",
             flow_ref="exc_1",
             metadata={"origin": "user_confirmed_repair"},
@@ -107,32 +126,49 @@ class TestB10IntegrationAntiFabrication:
         """B10: missing_output_producer 鈫?suggestion 鈫?apply 鈫?verify accepted."""
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         diag = CompileDiagnostic(
-            "diag_mop", "missing_output_producer", "warning",
+            "diag_mop",
+            "missing_output_producer",
+            "warning",
             "Required output 'draft' has no source-backed producer step.",
-            target_ref="worker:w_main.output:draft", blocks_completion=True,
+            target_ref="worker:w_main.output:draft",
+            blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
-            "construct_type": "REQUIRED_OUTPUT", "construct_id": "x",
-            "slot_name": "producer", "construct_path": [],
+            "construct_type": "REQUIRED_OUTPUT",
+            "construct_id": "x",
+            "slot_name": "producer",
+            "construct_path": [],
             "source_authority": "post_normalize_irs",
         }
         diag.metadata["authority"] = "post_normalize_irs"
         snap = ArtifactSnapshot(
-            "snap_int_mop", "run_int_mop", 0,
+            "snap_int_mop",
+            "run_int_mop",
+            0,
             worker_plan=WorkerPlanIR(
                 main_worker_id="w_main",
-                workers=[WorkerSpecIR(
-                    "w_main", "MainWorker", "main", "Main worker",
-                    boundary_kind="main_worker", owned_span_ids=["s1"],
-                )],
+                workers=[
+                    WorkerSpecIR(
+                        "w_main",
+                        "MainWorker",
+                        "main",
+                        "Main worker",
+                        boundary_kind="main_worker",
+                        owned_span_ids=["s1"],
+                    )
+                ],
             ),
             worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
-            worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-                "w_main": FlowStructureIR(),
-            }),
-            worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-                "w_main": BlockStructureIR(),
-            }),
+            worker_flow_plan=WorkerFlowPlanIR(
+                worker_flows={
+                    "w_main": FlowStructureIR(),
+                }
+            ),
+            worker_block_plan=WorkerBlockPlanIR(
+                worker_blocks={
+                    "w_main": BlockStructureIR(),
+                }
+            ),
             resources=ResourceRegistryIR(),
             symbol_table=SymbolTable(),
             agent_profile=AgentProfileIR(persona=PersonaIR(role="A", aspects=[])),
@@ -153,15 +189,20 @@ class TestB10IntegrationAntiFabrication:
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
         diag = CompileDiagnostic(
-            "diag_promo", "type_or_contract_ambiguity", "warning",
+            "diag_promo",
+            "type_or_contract_ambiguity",
+            "warning",
             "Missing handoff contract.",
-            target_ref="worker_promotion:cand_1", blocks_completion=True,
+            target_ref="worker_promotion:cand_1",
+            blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
             "construct_type": "WORKER_PROMOTION",
             "construct_id": "worker_promotion:cand_1",
-            "slot_name": "promotion_input_contract", "construct_path": [],
+            "slot_name": "promotion_input_contract",
+            "construct_path": [],
             "source_authority": "selected_promoted_stage_local_irs",
         }
         diag.metadata["authority"] = "selected_promoted_stage_local_irs"
@@ -171,32 +212,52 @@ class TestB10IntegrationAntiFabrication:
         diag.metadata["original_semantic_role"] = "delegation_intent"
         diag.metadata["promotion_status"] = "blocked"
         snap = ArtifactSnapshot(
-            "snap_int_promo", "run_int_promo", 0,
+            "snap_int_promo",
+            "run_int_promo",
+            0,
             worker_plan=WorkerPlanIR(
                 main_worker_id="w_main",
                 workers=[
-                    WorkerSpecIR("w_main", "Main", "main", "Main",
-                                  boundary_kind="main_worker",
-                                  owned_span_ids=["s1"]),
-                    WorkerSpecIR("w_child", "Child", "child", "Child",
-                                  boundary_kind="child_worker"),
+                    WorkerSpecIR(
+                        "w_main",
+                        "Main",
+                        "main",
+                        "Main",
+                        boundary_kind="main_worker",
+                        owned_span_ids=["s1"],
+                    ),
+                    WorkerSpecIR(
+                        "w_child", "Child", "child", "Child", boundary_kind="child_worker"
+                    ),
                 ],
             ),
-            worker_step_plan=WorkerStepPlanIR("w_main", {
-                "w_main": [StepIR(
-                    "st_inv", "Invoke child", ["s1"], "INVOKE_WORKER",
-                    inputs=["request"],
-                    outputs=["result"],
-                    handoff_id="handoff_repair_cand_1",
-                    integration_ref="Child",
-                )],
-            }),
-            worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-                "w_main": FlowStructureIR(),
-            }),
-            worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-                "w_main": BlockStructureIR(),
-            }),
+            worker_step_plan=WorkerStepPlanIR(
+                "w_main",
+                {
+                    "w_main": [
+                        StepIR(
+                            "st_inv",
+                            "Invoke child",
+                            ["s1"],
+                            "INVOKE_WORKER",
+                            inputs=["request"],
+                            outputs=["result"],
+                            handoff_id="handoff_repair_cand_1",
+                            integration_ref="Child",
+                        )
+                    ],
+                },
+            ),
+            worker_flow_plan=WorkerFlowPlanIR(
+                worker_flows={
+                    "w_main": FlowStructureIR(),
+                }
+            ),
+            worker_block_plan=WorkerBlockPlanIR(
+                worker_blocks={
+                    "w_main": BlockStructureIR(),
+                }
+            ),
             resources=ResourceRegistryIR(),
             symbol_table=SymbolTable(),
             agent_profile=AgentProfileIR(persona=PersonaIR(role="A", aspects=[])),
@@ -207,8 +268,7 @@ class TestB10IntegrationAntiFabrication:
         assert len(issues) == 1
         session = svc.create_session(run_id, issues[0])
         suggestions = svc.generate_suggestions(session.session_id)
-        hc = [s for s in suggestions
-              if s.patch.patch_type == "CreateWorkerHandoffContract"]
+        hc = [s for s in suggestions if s.patch.patch_type == "CreateWorkerHandoffContract"]
         assert len(hc) >= 1
         svc.apply_suggestion(session.session_id, hc[0].suggestion_id)
         result = svc.verify_session(session.session_id)
@@ -224,5 +284,3 @@ class TestB10IntegrationAntiFabrication:
         catalog = RepairCatalogBuilder.from_construct_registry(reg)
         for entry in catalog.entries:
             assert entry.construct_type != "DELEGATION_INTENT"
-
-

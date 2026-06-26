@@ -1,4 +1,4 @@
-﻿"""S8 persisted JSON snapshot end-to-end SPL Editing regressions."""
+"""S8 persisted JSON snapshot end-to-end SPL Editing regressions."""
 
 from __future__ import annotations
 
@@ -92,16 +92,20 @@ def _missing_handler_case() -> _Case:
             "handler_action",
         ),
         worker_plan=_main_worker_plan(),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(
-                exception_flows=[
-                    ExceptionFlowRef("exc_1", "Template unavailable.", []),
-                ],
-            ),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(
+                    exception_flows=[
+                        ExceptionFlowRef("exc_1", "Template unavailable.", []),
+                    ],
+                ),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
         expected_patch_type="AddExceptionHandlerStep",
     )
@@ -120,9 +124,11 @@ def _missing_output_case() -> _Case:
         ),
         worker_plan=_main_worker_plan(),
         worker_flow_plan=WorkerFlowPlanIR(worker_flows={"w_main": FlowStructureIR()}),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
         expected_patch_type="InsertProducerStep",
     )
@@ -147,54 +153,79 @@ def _worker_promotion_case() -> _Case:
             main_worker_id="w_main",
             workers=[
                 WorkerSpecIR(
-                    "w_main", "MainWorker", "main", "Main worker",
-                    boundary_kind="main_worker", owned_span_ids=["s1"],
+                    "w_main",
+                    "MainWorker",
+                    "main",
+                    "Main worker",
+                    boundary_kind="main_worker",
+                    owned_span_ids=["s1"],
                 ),
                 WorkerSpecIR(
-                    "w_child", "Child", "child", "Child worker",
+                    "w_child",
+                    "Child",
+                    "child",
+                    "Child worker",
                     boundary_kind="bounded_subtask",
                     owned_span_ids=["s1"],
                     input_contract=[
                         ContractFieldIR(
-                            "request", "text", True, "Request", "input",
+                            "request",
+                            "text",
+                            True,
+                            "Request",
+                            "input",
                         ),
                     ],
                     output_contract=[
                         ContractFieldIR(
-                            "result", "text", True, "Result", "output",
+                            "result",
+                            "text",
+                            True,
+                            "Result",
+                            "output",
                         ),
                     ],
                 ),
             ],
         ),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(),
-            "w_child": FlowStructureIR(),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-            "w_child": BlockStructureIR(),
-        }),
-        worker_step_plan=WorkerStepPlanIR("w_main", {
-            "w_main": [
-                StepIR(
-                    "st_inv", "Invoke child", ["s1"], "INVOKE_WORKER",
-                    inputs=["request"],
-                    outputs=["result"],
-                    handoff_id="handoff_repair_cand_1",
-                    integration_ref="Child",
-                ),
-            ],
-            "w_child": [
-                StepIR(
-                    "st_child_result",
-                    "Produce result",
-                    ["s1"],
-                    "GENERAL_COMMAND",
-                    outputs=["result"],
-                ),
-            ],
-        }),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(),
+                "w_child": FlowStructureIR(),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+                "w_child": BlockStructureIR(),
+            }
+        ),
+        worker_step_plan=WorkerStepPlanIR(
+            "w_main",
+            {
+                "w_main": [
+                    StepIR(
+                        "st_inv",
+                        "Invoke child",
+                        ["s1"],
+                        "INVOKE_WORKER",
+                        inputs=["request"],
+                        outputs=["result"],
+                        handoff_id="handoff_repair_cand_1",
+                        integration_ref="Child",
+                    ),
+                ],
+                "w_child": [
+                    StepIR(
+                        "st_child_result",
+                        "Produce result",
+                        ["s1"],
+                        "GENERAL_COMMAND",
+                        outputs=["result"],
+                    ),
+                ],
+            },
+        ),
         expected_patch_type="CreateWorkerHandoffContract",
     )
 
@@ -204,8 +235,12 @@ def _main_worker_plan() -> WorkerPlanIR:
         main_worker_id="w_main",
         workers=[
             WorkerSpecIR(
-                "w_main", "MainWorker", "main", "Main worker",
-                boundary_kind="main_worker", owned_span_ids=["s1"],
+                "w_main",
+                "MainWorker",
+                "main",
+                "Main worker",
+                boundary_kind="main_worker",
+                owned_span_ids=["s1"],
             ),
         ],
     )
@@ -228,15 +263,18 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch, case: _Case) -> None:
         lambda s, *a, **k: ([span], FieldRouteIR(behavior=["s1"])),
     )
     monkeypatch.setattr(
-        PipelineOrchestrator, "_run_stage3_5",
+        PipelineOrchestrator,
+        "_run_stage3_5",
         lambda s, *a, **k: case.worker_plan,
     )
     monkeypatch.setattr(
-        PipelineOrchestrator, "_run_stage4",
+        PipelineOrchestrator,
+        "_run_stage4",
         lambda s, *a, **k: case.worker_flow_plan,
     )
     monkeypatch.setattr(
-        PipelineOrchestrator, "_run_stage5",
+        PipelineOrchestrator,
+        "_run_stage5",
         lambda s, *a, **k: case.worker_block_plan,
     )
     monkeypatch.setattr(
@@ -255,8 +293,12 @@ def _patch_pipeline(monkeypatch: pytest.MonkeyPatch, case: _Case) -> None:
         PipelineOrchestrator,
         "_run_normalization_worker_scoped",
         lambda s, *a, **k: (
-            case.worker_flow_plan, case.worker_block_plan,
-            case.worker_step_plan, symbols, [], [],
+            case.worker_flow_plan,
+            case.worker_block_plan,
+            case.worker_step_plan,
+            symbols,
+            [],
+            [],
         ),
     )
     monkeypatch.setattr(
@@ -332,9 +374,7 @@ def _run_pipeline_case(
         snapshot=SnapshotPersistenceConfig.required(*required_capabilities),
     )
     result = PipelineOrchestrator(config).run("Do work.")
-    assert result.spl_editing_snapshot_status == "available", (
-        result.spl_editing_snapshot_error
-    )
+    assert result.spl_editing_snapshot_status == "available", result.spl_editing_snapshot_error
     assert result.spl_editing_snapshot_path is not None
     return result.spl_editing_snapshot_path
 
@@ -364,7 +404,8 @@ def test_persisted_snapshot_full_editing_flow(
     session = svc.create_session(run_id, issues[0])
     suggestions = svc.generate_suggestions(session.session_id)
     selected = next(
-        suggestion for suggestion in suggestions
+        suggestion
+        for suggestion in suggestions
         if suggestion.patch.patch_type == case.expected_patch_type
     )
     svc.apply_suggestion(session.session_id, selected.suggestion_id)
@@ -438,11 +479,8 @@ def test_broken_artifact_hash_rejected(
     case = _missing_handler_case()
     snapshot_path = _run_pipeline_case(tmp_path, monkeypatch, case)
     data = snapshot_path.read_text(encoding="utf-8")
-    snapshot_path.write_text(data.replace("MainWorker", "TamperedWorker", 1),
-                             encoding="utf-8")
+    snapshot_path.write_text(data.replace("MainWorker", "TamperedWorker", 1), encoding="utf-8")
 
     svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
     with pytest.raises(ValueError, match="payload_hash mismatch"):
         svc.register_snapshot_file(snapshot_path)
-
-

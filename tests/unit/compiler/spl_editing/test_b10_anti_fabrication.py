@@ -1,5 +1,8 @@
 ﻿"""B10: Anti-fabrication tests."""
 
+import pytest
+
+from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
 from nl2spl.compiler.spl_editing.core.model import (
     RepairEvidence,
     RepairPatch,
@@ -25,11 +28,15 @@ class _ExcFlowStub:
 
 def _snap(**kw):
     d = dict(
-        snapshot_id="snap_1", compile_run_id="run_1", overlay_version=0,
+        snapshot_id="snap_1",
+        compile_run_id="run_1",
+        overlay_version=0,
         worker_flow_plan=WorkerFlowPlanIR(
-            worker_flows={"w_main": FlowStructureIR(
-                exception_flows=[_ExcFlowStub("exc_1")],
-            )},
+            worker_flows={
+                "w_main": FlowStructureIR(
+                    exception_flows=[_ExcFlowStub("exc_1")],
+                )
+            },
         ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
         worker_block_plan=WorkerBlockPlanIR(
@@ -42,17 +49,22 @@ def _snap(**kw):
 
 def _patch(**kw):
     d = dict(
-        patch_id="p1", affordance_id="exception_flow.add_handler_step",
+        patch_id="p1",
+        affordance_id="exception_flow.add_handler_step",
         patch_type="AddExceptionHandlerStep",
         target_ref="worker:w_main.exception_flow:exc_1",
         irs_ref=DiagnosticIRSRef(
-            construct_type="EXCEPTION_FLOW", construct_id="x",
+            construct_type="EXCEPTION_FLOW",
+            construct_id="x",
             slot_name="handler_action",
         ),
-        base_compile_run_id="run_1", artifact_snapshot_id="snap_1",
-        overlay_version=0, verification_lane="A",
+        base_compile_run_id="run_1",
+        artifact_snapshot_id="snap_1",
+        overlay_version=0,
+        verification_lane="A",
         payload={
-            "worker_id": "w_main", "exception_flow_id": "exc_1",
+            "worker_id": "w_main",
+            "exception_flow_id": "exc_1",
             "handler_text": "Handle error.",
             "command_type": "GENERAL_COMMAND",
         },
@@ -65,7 +77,7 @@ def _patch(**kw):
 
 
 class TestB10AntiFabrication:
-    """B10: Anti-fabrication tests 鈥?patch must not bypass compiler authorities."""
+    """B10: Anti-fabrication tests --patch must not bypass compiler authorities."""
 
     def test_generate_suggestions_does_not_mutate_artifacts(self) -> None:
         """B10: Service-level generate_suggestions does not change
@@ -97,16 +109,14 @@ class TestB10AntiFabrication:
         from tests.spl_editing_stub_llm import StubSuggestionLLM
 
         reg = SPLEditingRuntimeRegistry()
-        reg.target_resolvers.register("exception_flow_target",
-                                        ExceptionFlowTargetResolver())
-        reg.context_builders.register("exception_flow_context",
-                                        ExceptionFlowContextBuilder())
-        reg.handlers.register("missing_handler",
-                               MissingHandlerRepairHandler(StubSuggestionLLM()))
+        reg.target_resolvers.register("exception_flow_target", ExceptionFlowTargetResolver())
+        reg.context_builders.register("exception_flow_context", ExceptionFlowContextBuilder())
+        reg.handlers.register("missing_handler", MissingHandlerRepairHandler(StubSuggestionLLM()))
         from nl2spl.compiler.spl_editing.cli import (
             _build_missing_handler_context_builder,
             _build_missing_handler_prompt_renderer,
         )
+
         reg.llm_context_builders.register(
             "missing_handler",
             _build_missing_handler_context_builder(),
@@ -116,34 +126,43 @@ class TestB10AntiFabrication:
             _build_missing_handler_prompt_renderer(),
         )
         from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
-        reg.patches.register("AddExceptionHandlerStep", PatchBundle(
-            patch_type="AddExceptionHandlerStep",
-            validator=AddExceptionHandlerStepValidator(),
-            applier=AddExceptionHandlerStepApplier(),
-            verifier=AddExceptionHandlerStepVerifier(),
-            previewer=AddExceptionHandlerStepPreviewer(),
-            contract=PatchTypeContract(
+
+        reg.patches.register(
+            "AddExceptionHandlerStep",
+            PatchBundle(
                 patch_type="AddExceptionHandlerStep",
-                produces_step_ir=True,
-                evidence_targets=("step",),
+                validator=AddExceptionHandlerStepValidator(),
+                applier=AddExceptionHandlerStepApplier(),
+                verifier=AddExceptionHandlerStepVerifier(),
+                previewer=AddExceptionHandlerStepPreviewer(),
+                contract=PatchTypeContract(
+                    patch_type="AddExceptionHandlerStep",
+                    produces_step_ir=True,
+                    evidence_targets=("step",),
+                ),
             ),
-        ))
+        )
 
         svc = SPLEditingService(reg)
         diag = CompileDiagnostic(
-            "diag_1", "missing_handler", "warning", "No handler.",
+            "diag_1",
+            "missing_handler",
+            "warning",
+            "No handler.",
             target_ref="worker:w_main.exception_flow:exc_1",
             blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
-            "construct_type": "EXCEPTION_FLOW", "construct_id": "x",
-            "slot_name": "handler_action", "construct_path": [],
+            "construct_type": "EXCEPTION_FLOW",
+            "construct_id": "x",
+            "slot_name": "handler_action",
+            "construct_path": [],
             "source_authority": "post_normalize_irs",
         }
         diag.metadata["authority"] = "post_normalize_irs"
-        snap = ArtifactSnapshot("snap_1", "run_1", 0,
-                                 compile_diagnostics=(diag,),
-                                 final_spl="ORIGINAL SPL")
+        snap = ArtifactSnapshot(
+            "snap_1", "run_1", 0, compile_diagnostics=(diag,), final_spl="ORIGINAL SPL"
+        )
         svc.register_compile_result(snap)
         issue = svc.list_editable_issues("run_1")[0]
         session = svc.create_session("run_1", issue)
@@ -153,30 +172,23 @@ class TestB10AntiFabrication:
         assert svc._get_snapshot("run_1").overlay_version == 0
 
     def test_patch_cannot_create_call_api_without_evidence(self) -> None:
-        """B10: AddExceptionHandlerStep cannot create CALL_API step."""
-        applier = AddExceptionHandlerStepApplier()
-        snap = _snap()
-        patched, _ = applier.apply(_patch(), snap)
-        # The created step must not be CALL_API
-        steps = patched.worker_step_plan.worker_steps["w_main"]
-        assert all(s.command_type != "CALL_API" for s in steps)
+        """R11: direct AddExceptionHandlerStep applier is disabled before it can fabricate CALL_API."""  # noqa: E501
+        with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+            AddExceptionHandlerStepApplier().apply(_patch(), _snap())
 
     def test_patch_does_not_modify_final_spl_directly(self) -> None:
-        """B10: Applier never touches final_spl directly."""
-        applier = AddExceptionHandlerStepApplier()
+        """R11: disabled direct applier leaves final_spl untouched."""
         snap = _snap(final_spl="ORIGINAL SPL")
-        patched, _ = applier.apply(_patch(), snap)
-        # Applier clears final_spl so Lane A can re-render
-        assert patched.final_spl is None
+        with pytest.raises(SPLEditingError):
+            AddExceptionHandlerStepApplier().apply(_patch(), snap)
+        assert snap.final_spl == "ORIGINAL SPL"
 
     def test_patch_cannot_bypass_gate(self) -> None:
-        """B10: User-confirmed step must carry origin=user_confirmed_repair
-        so Gate recognizes it."""
-        applier = AddExceptionHandlerStepApplier()
+        """R11: direct applier cannot create a gate-bypassing confirmed step."""
         snap = _snap()
-        patched, _ = applier.apply(_patch(), snap)
-        step = patched.worker_step_plan.worker_steps["w_main"][0]
-        assert step.metadata.get("origin") == "user_confirmed_repair"
+        with pytest.raises(SPLEditingError):
+            AddExceptionHandlerStepApplier().apply(_patch(), snap)
+        assert snap.worker_step_plan.worker_steps["w_main"] == []
 
     def test_no_delegation_intent_construct_target(self) -> None:
         """B10: DELEGATION_INTENT must never appear as a construct target
@@ -184,4 +196,3 @@ class TestB10AntiFabrication:
         patch = _patch()
         assert patch.irs_ref.construct_type != "DELEGATION_INTENT"
         assert patch.affordance_id != "DELEGATION_INTENT"
-

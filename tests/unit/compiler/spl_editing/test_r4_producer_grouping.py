@@ -13,20 +13,18 @@ Verifies that after R4 changes:
 
 from __future__ import annotations
 
-from nl2spl.compiler.compile_result import MissingSlot
 from nl2spl.compiler.spl_editing.issues.grouper import (
     ProducerIssueGrouper,
     is_producer_editable,
 )
 from nl2spl.ir.diagnostics import (
     METADATA_KEY_ISSUE_GROUP_ID,
-    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
     METADATA_KEY_ISSUE_ROLE,
+    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
     METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
     METADATA_KEY_REPAIRABILITY,
     CompileDiagnostic,
 )
-
 
 # ===========================================================================
 # Helpers
@@ -436,8 +434,12 @@ class TestR4IsProducerEditable:
             _rcd_producer_diag("diag_rcd", resource_names="draft"),
         ]
         ProducerIssueGrouper().annotate(diags)
-        rcd = [d for d in diags if d.kind == "missing_output_producer"
-               and d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "alias"][0]
+        rcd = [
+            d
+            for d in diags
+            if d.kind == "missing_output_producer"
+            and d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "alias"
+        ][0]
         assert is_producer_editable(rcd) is False
 
     def test_review_only_returns_false(self) -> None:
@@ -481,8 +483,10 @@ class TestR4Deterministic:
         ProducerIssueGrouper().annotate(diags_a)
         ProducerIssueGrouper().annotate(diags_b)
 
-        for da, db in zip(diags_a, diags_b):
-            assert da.metadata[METADATA_KEY_ISSUE_GROUP_ID] == db.metadata[METADATA_KEY_ISSUE_GROUP_ID]
+        for da, db in zip(diags_a, diags_b):  # noqa: B905
+            assert (
+                da.metadata[METADATA_KEY_ISSUE_GROUP_ID] == db.metadata[METADATA_KEY_ISSUE_GROUP_ID]
+            )
             assert da.metadata[METADATA_KEY_ISSUE_ROLE] == db.metadata[METADATA_KEY_ISSUE_ROLE]
 
     def test_primary_is_first_editable_by_diagnostic_id(self) -> None:
@@ -520,12 +524,10 @@ class TestR4Deterministic:
         ProducerIssueGrouper().annotate(diags)
 
         # diag_aaa is lexicographically smaller → primary
-        primary = [d for d in diags
-                   if d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "primary"]
+        primary = [d for d in diags if d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "primary"]
         assert len(primary) == 1
         assert primary[0].diagnostic_id == "diag_aaa"
 
-        alias = [d for d in diags
-                 if d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "alias"]
+        alias = [d for d in diags if d.metadata.get(METADATA_KEY_ISSUE_ROLE) == "alias"]
         assert len(alias) == 1
         assert alias[0].diagnostic_id == "diag_bbb"

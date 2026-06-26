@@ -1,4 +1,4 @@
-﻿"""Presentation DTO layer tests."""
+"""Presentation DTO layer tests."""
 
 from __future__ import annotations
 
@@ -355,5 +355,3 @@ def test_presentation_resolvers_do_not_parse_diagnostic_message() -> None:
     source = inspect.getsource(dc) + inspect.getsource(se)
     assert ".message" not in source
     assert "regex" not in source.lower()
-
-

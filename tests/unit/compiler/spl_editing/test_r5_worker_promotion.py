@@ -14,6 +14,7 @@ Verifies that after R5 changes:
 from __future__ import annotations
 
 from nl2spl.compiler.compile_result import MissingSlot
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
 from nl2spl.compiler.spl_editing.issues.promoter import (
     PROMOTED_AUTHORITY,
@@ -24,15 +25,13 @@ from nl2spl.compiler.spl_editing.issues.promoter import (
 from nl2spl.ir.diagnostics import (
     METADATA_KEY_AUTHORITY,
     METADATA_KEY_ISSUE_GROUP_ID,
-    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
     METADATA_KEY_ISSUE_ROLE,
+    METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
     METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
     METADATA_KEY_REPAIRABILITY,
     CompileDiagnostic,
     DiagnosticIRSRef,
 )
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
-
 
 # ===========================================================================
 # Helpers
@@ -58,10 +57,7 @@ def _promo_diag(
         diagnostic_id=diagnostic_id,
         kind="type_or_contract_ambiguity",
         severity="warning",
-        message=(
-            f"Missing clear input contract "
-            f"[construct={target_ref}, slot={slot_name}]"
-        ),
+        message=(f"Missing clear input contract [construct={target_ref}, slot={slot_name}]"),
         target_ref=target_ref,
         source_span_ids=list(source_span_ids or ["s1"]),
         missing_slot=MissingSlot(
@@ -210,10 +206,7 @@ class TestR5PromotionGrouping:
         # Note: scrambled input order
         WorkerDelegationPromoter().annotate(diags)
 
-        primary = [
-            d for d in diags
-            if d.metadata[METADATA_KEY_ISSUE_ROLE] == "primary"
-        ]
+        primary = [d for d in diags if d.metadata[METADATA_KEY_ISSUE_ROLE] == "primary"]
         assert len(primary) == 1
         missing = primary[0].missing_slot
         assert missing is not None
@@ -237,10 +230,7 @@ class TestR5PromotionGrouping:
         ]
         WorkerDelegationPromoter().annotate(diags)
 
-        alias = [
-            d for d in diags
-            if d.metadata[METADATA_KEY_ISSUE_ROLE] == "alias"
-        ]
+        alias = [d for d in diags if d.metadata[METADATA_KEY_ISSUE_ROLE] == "alias"]
         assert len(alias) == 1
         assert alias[0].metadata[METADATA_KEY_PRIMARY_DIAGNOSTIC_ID] == "diag_ic"
 
@@ -352,8 +342,7 @@ class TestR5DelegationIntentBoundary:
 
         for d in diags:
             assert not (d.target_ref or "").startswith("delegation_intent:"), (
-                f"R5: target_ref must not start with delegation_intent: "
-                f"got '{d.target_ref}'"
+                f"R5: target_ref must not start with delegation_intent: got '{d.target_ref}'"
             )
 
     def test_no_delegation_intent_in_construct_type(self) -> None:
@@ -414,9 +403,7 @@ class TestR5CatalogIntegration:
         irs_ref = d.metadata.get("irs_ref")
         assert isinstance(irs_ref, dict)
 
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
 
         # Look up by (construct_type, slot_name, diagnostic_kind)
         entries = catalog.find_by_construct_slot_kind(
@@ -443,9 +430,7 @@ class TestR5CatalogIntegration:
         # Convert to DiagnosticIRSRef for catalog lookup
         irs_ref = DiagnosticIRSRef.from_dict(irs_ref_dict)
 
-        catalog = RepairCatalogBuilder.from_construct_registry(
-            SPLConstructRegistry.default()
-        )
+        catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
         entries = catalog.find_by_irs_ref(irs_ref, d.kind)
         assert len(entries) == 1
         assert entries[0].affordance_id == "worker_handoff.specify_target"
@@ -472,8 +457,7 @@ class TestR5IsWorkerDelegationEditable:
             _promo_diag("diag_oc", slot_name="promotion_output_contract"),
         ]
         WorkerDelegationPromoter().annotate(diags)
-        alias = [d for d in diags
-                 if d.metadata[METADATA_KEY_ISSUE_ROLE] == "alias"][0]
+        alias = [d for d in diags if d.metadata[METADATA_KEY_ISSUE_ROLE] == "alias"][0]
         assert is_worker_delegation_editable(alias) is False
 
     def test_unpromoted_returns_false(self) -> None:

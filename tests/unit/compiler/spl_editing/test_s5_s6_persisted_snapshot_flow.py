@@ -1,4 +1,4 @@
-﻿"""S5/S6 persisted snapshot loader and overlay flow tests."""
+"""S5/S6 persisted snapshot loader and overlay flow tests."""
 
 from __future__ import annotations
 
@@ -55,7 +55,8 @@ class TestS5SnapshotLoaderCompatibility:
 
 class TestS6OverlayPersistence:
     def test_apply_and_verify_persist_full_overlay_snapshot(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         base_path = _write_snapshot(tmp_path)
         repo = JsonFileSnapshotRepository()
@@ -89,5 +90,3 @@ class TestS6OverlayPersistence:
         reloaded_snapshot = artifact_snapshot_from_document(verified_doc)
         artifacts = LaneAReplayAdapter().replay(reloaded_snapshot)
         assert "MainWorker" in artifacts.rendered_spl
-
-

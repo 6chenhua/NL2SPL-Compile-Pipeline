@@ -55,35 +55,49 @@ class TestNoNakedSourceSpanRenderable:
 
 
 # =============================================================================
-# U6 Guardrail 2: All StepIR-producing appliers stamp user_confirmed_repair
+# U6 Guardrail 2: StepIR-producing materializers stamp user_confirmed_repair
 # =============================================================================
 
 
-class TestAllStepProducingAppliersStamped:
-    """Every applier that creates a StepIR must write origin=user_confirmed_repair."""
+class TestAllStepProducingMaterializersStamped:
+    """Every materializer that creates StepIR must write origin=user_confirmed_repair."""
 
-    _APPLIER_DIR = (
-        pathlib.Path(__file__).parent.parent.parent.parent.parent
-        / "src/nl2spl/compiler/spl_editing/patches"
-    )
-
-    def test_all_step_producing_appliers_have_ucr(self) -> None:
-        """Audit: every StepIR-producing applier stamps user_confirmed_repair."""
+    def test_all_step_producing_materializers_have_ucr(self) -> None:
+        """Audit: stage-authorized materializers stamp UCR metadata."""
         import importlib
+
+        materializer_modules = [
+            "nl2spl.compiler.spl_editing.materialization.stage7.producer_step",
+            "nl2spl.compiler.spl_editing.materialization.stage7.exception_handler_step",
+            "nl2spl.compiler.spl_editing.materialization.worker_handoff.contract",
+        ]
+        for module_name in materializer_modules:
+            mod = importlib.import_module(module_name)
+            source = inspect.getsource(mod)
+            assert "user_confirmed_repair" in source, (
+                f"Materializer '{module_name}' must stamp user_confirmed_repair"
+            )
+            assert "repair_patch_id" in source
+            assert "related_diagnostic_id" in source
+
+    def test_patch_appliers_do_not_directly_construct_ir(self) -> None:
+        """R11: patch appliers are no longer the StepIR/BlockIR construction authority."""
+        import importlib
+
         applier_names = [
             "add_exception_handler_step",
-            "insert_producer_step",
             "convert_delegation_to_main_flow_step",
             "convert_delegation_to_request_input",
             "create_worker_handoff_contract",
         ]
+        forbidden = ("StepIR(", "BlockIR(", "WorkerHandoffIR(")
         for name in applier_names:
             mod = importlib.import_module(
                 f"nl2spl.compiler.spl_editing.patches.{name}.applier"
             )
             source = inspect.getsource(mod)
-            assert "user_confirmed_repair" in source, (
-                f"Applier '{name}' must stamp user_confirmed_repair in StepIR metadata"
+            assert not any(token in source for token in forbidden), (
+                f"Applier '{name}' must delegate to materialization, not construct IR"
             )
 
 

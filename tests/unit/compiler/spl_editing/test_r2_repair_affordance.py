@@ -11,7 +11,6 @@ Verifies that after R2 changes:
 
 from __future__ import annotations
 
-import sys
 from dataclasses import is_dataclass
 
 from nl2spl.compiler.construct_registry import (
@@ -19,7 +18,6 @@ from nl2spl.compiler.construct_registry import (
     SlotSpec,
     SPLConstructRegistry,
 )
-
 
 # ===========================================================================
 # R2-1: RepairAffordanceSpec data model
@@ -31,9 +29,7 @@ class TestR2RepairAffordanceSpec:
 
     def test_is_frozen_dataclass(self) -> None:
         """R2: RepairAffordanceSpec is frozen (immutable)."""
-        assert is_dataclass(RepairAffordanceSpec), (
-            "RepairAffordanceSpec must be a dataclass"
-        )
+        assert is_dataclass(RepairAffordanceSpec), "RepairAffordanceSpec must be a dataclass"
         # Frozen: attempting to set an attribute should raise
         spec = RepairAffordanceSpec(
             affordance_id="test",
@@ -41,7 +37,7 @@ class TestR2RepairAffordanceSpec:
         )
         try:
             spec.affordance_id = "mutated"  # type: ignore[misc]
-            assert False, "RepairAffordanceSpec must be frozen"
+            assert False, "RepairAffordanceSpec must be frozen"  # noqa: B011
         except Exception:
             pass  # Expected
 
@@ -89,7 +85,6 @@ class TestR2RepairAffordanceSpec:
 
     def test_no_callable_fields(self) -> None:
         """R2: RepairAffordanceSpec has NO callable or class-reference fields."""
-        import inspect
 
         # All fields must be strings, tuples of strings, or None
         spec = RepairAffordanceSpec(
@@ -105,9 +100,15 @@ class TestR2RepairAffordanceSpec:
             notes="notes",
         )
         for field_name in [
-            "affordance_id", "description", "default_patch_type",
-            "handler_id", "context_id", "target_resolver_id",
-            "default_verification_lane", "required_evidence_kind", "notes",
+            "affordance_id",
+            "description",
+            "default_patch_type",
+            "handler_id",
+            "context_id",
+            "target_resolver_id",
+            "default_verification_lane",
+            "required_evidence_kind",
+            "notes",
         ]:
             val = getattr(spec, field_name)
             assert val is None or isinstance(val, str), (
@@ -115,9 +116,7 @@ class TestR2RepairAffordanceSpec:
             )
         for field_name in ["supported_patch_types", "editable_artifacts"]:
             val = getattr(spec, field_name)
-            assert isinstance(val, tuple), (
-                f"Field '{field_name}' must be tuple, got {type(val)}"
-            )
+            assert isinstance(val, tuple), f"Field '{field_name}' must be tuple, got {type(val)}"
             for item in val:
                 assert isinstance(item, str), (
                     f"Field '{field_name}' items must be str, got {type(item)}"
@@ -135,9 +134,7 @@ class TestR2SlotSpecDefaults:
     def test_default_repair_affordances_is_empty(self) -> None:
         """R2: SlotSpec() without repair_affordances gets empty tuple."""
         slot = SlotSpec(slot_name="test")
-        assert slot.repair_affordances == (), (
-            "R2: repair_affordances must default to empty tuple"
-        )
+        assert slot.repair_affordances == (), "R2: repair_affordances must default to empty tuple"
 
     def test_existing_slots_unchanged(self) -> None:
         """R2: Slots from default registry that lack affordances still
@@ -185,7 +182,7 @@ class TestR2MvpAffordances:
         assert "AddExceptionHandlerStep" in aff.supported_patch_types
         assert aff.default_patch_type == "AddExceptionHandlerStep"
         assert aff.handler_id == "missing_handler"
-        assert aff.default_verification_lane == "A"
+        assert aff.default_verification_lane == "B"
         assert aff.required_evidence_kind == "user_confirmed_repair"
         assert aff.user_facing is True
 
@@ -199,10 +196,10 @@ class TestR2MvpAffordances:
         assert len(slot.repair_affordances) == 1
         aff = slot.repair_affordances[0]
         assert aff.affordance_id == "required_output.insert_or_bind_producer"
-        assert aff.supported_patch_types == ("InsertProducerStep", "BindExistingProducerStep")
+        assert aff.supported_patch_types == ("InsertProducerStep",)
         assert aff.default_patch_type == "InsertProducerStep"
         assert aff.handler_id == "missing_output_producer"
-        assert aff.default_verification_lane == "A"
+        assert aff.default_verification_lane == "B"
 
     # -- REQUEST_INPUT.value_target --------------------------------------
 
@@ -266,9 +263,7 @@ class TestR2MvpAffordances:
         for name in slot_names:
             slot = irs.get_slot(name)
             assert slot is not None, f"Missing slot: {name}"
-            assert len(slot.repair_affordances) == 1, (
-                f"{name} must have exactly 1 affordance"
-            )
+            assert len(slot.repair_affordances) == 1, f"{name} must have exactly 1 affordance"
             aff = slot.repair_affordances[0]
             assert aff.affordance_id == "worker_promotion.resolve_contract", (
                 f"{name}: expected affordance_id='worker_promotion.resolve_contract'"
@@ -325,9 +320,7 @@ class TestR2MvpAffordances:
         irs = self._registry().get("WORKER_HANDOFF")
         slot = irs.get_slot("from_worker")
         assert slot is not None
-        assert slot.repair_affordances == (), (
-            "R2: from_worker slot should have no affordance"
-        )
+        assert slot.repair_affordances == (), "R2: from_worker slot should have no affordance"
 
     # -- Missing diagnostic consistency ----------------------------------
 
@@ -420,11 +413,7 @@ class TestR2SameKindDifferentAffordance:
                     id_to_constructs.setdefault(aff.affordance_id, set()).add(ct_name)
 
         # Every affordance_id must map to exactly one construct type
-        violations = {
-            aid: cts
-            for aid, cts in id_to_constructs.items()
-            if len(cts) > 1
-        }
+        violations = {aid: cts for aid, cts in id_to_constructs.items() if len(cts) > 1}
         assert len(violations) == 0, (
             f"R2.1: affordance_ids shared across construct types: {violations}. "
             f"Each affordance_id must belong to exactly one construct type."
@@ -485,6 +474,7 @@ class TestR2NoSplEditingImports:
         any spl_editing import.
         """
         import inspect
+
         from nl2spl.compiler import construct_registry as cr_module
 
         source = inspect.getsource(cr_module)

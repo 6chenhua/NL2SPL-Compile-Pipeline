@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from nl2spl.compiler.spl_editing.llm_context.schema import validate_facts, check_renderer_compatibility
+from nl2spl.compiler.spl_editing.llm_context.errors import SchemaValidationError
 from nl2spl.compiler.spl_editing.llm_context.quality import evaluate_quality
 from nl2spl.compiler.spl_editing.llm_context.readiness import evaluate_readiness
-from nl2spl.compiler.spl_editing.llm_context.errors import SchemaValidationError
+from nl2spl.compiler.spl_editing.llm_context.schema import (
+    check_renderer_compatibility,
+    validate_facts,
+)
 
 
 class TestSchemaValidation:
@@ -36,7 +39,7 @@ class TestSchemaValidation:
                 facts_schema_id="test.v1",
                 allow_unknown=False,
             )
-            assert False, "Should raise"
+            assert False, "Should raise"  # noqa: B011
         except SchemaValidationError:
             pass
 
@@ -113,6 +116,7 @@ class TestReadiness:
 
     def test_low_confidence_from_quality(self) -> None:
         from nl2spl.compiler.spl_editing.llm_context.model import ContextQuality
+
         q = ContextQuality(confidence="low", missing_context_fields=("source_excerpt",))
         r = evaluate_readiness(repair_available=True, quality=q)
         assert r.status == "ready_low_confidence"

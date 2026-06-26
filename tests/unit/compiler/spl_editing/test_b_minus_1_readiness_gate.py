@@ -13,7 +13,6 @@ localized and unambiguous.
 
 from __future__ import annotations
 
-
 # ===========================================================================
 # G1: SlotSpec.repair_affordances exists + MVP slots declare affordances
 # ===========================================================================
@@ -55,9 +54,7 @@ def test_g1_mvp_slots_declare_affordances() -> None:
         irs = registry.get(ct)
         slot = irs.get_slot(sn)
         assert slot is not None, f"G1 FAIL: {ct}.{sn} slot not found"
-        assert len(slot.repair_affordances) >= 1, (
-            f"G1 FAIL: {ct}.{sn} has no repair affordances"
-        )
+        assert len(slot.repair_affordances) >= 1, f"G1 FAIL: {ct}.{sn} has no repair affordances"
 
 
 def test_g1_affordance_ids_are_globally_unique() -> None:
@@ -88,9 +85,7 @@ def test_g2_catalog_derived_from_registry() -> None:
     from nl2spl.compiler.construct_registry import SPLConstructRegistry
     from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
 
-    catalog = RepairCatalogBuilder.from_construct_registry(
-        SPLConstructRegistry.default()
-    )
+    catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
     assert len(catalog) > 0, "G2 FAIL: catalog must be non-empty"
     assert len(catalog.entries) > 0
 
@@ -117,11 +112,11 @@ def test_g2_catalog_lookup_by_irs_ref_and_kind() -> None:
     from nl2spl.compiler.construct_registry import SPLConstructRegistry
     from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
 
-    catalog = RepairCatalogBuilder.from_construct_registry(
-        SPLConstructRegistry.default()
-    )
+    catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
     entries = catalog.find_by_construct_slot_kind(
-        "EXCEPTION_FLOW", "handler_action", "missing_handler",
+        "EXCEPTION_FLOW",
+        "handler_action",
+        "missing_handler",
     )
     assert len(entries) == 1, "G2 FAIL: missing_handler must map to 1 entry"
     assert entries[0].affordance_id == "exception_flow.add_handler_step"
@@ -134,7 +129,6 @@ def test_g2_catalog_lookup_by_irs_ref_and_kind() -> None:
 
 def test_g3_producer_grouper_exists_and_groups() -> None:
     """G3: ProducerIssueGrouper assigns primary/alias roles."""
-    from nl2spl.compiler.compile_result import MissingSlot
     from nl2spl.compiler.spl_editing.issues.grouper import ProducerIssueGrouper
     from nl2spl.ir.diagnostics import (
         METADATA_KEY_ISSUE_GROUP_ID,
@@ -164,7 +158,7 @@ def test_g3_producer_grouper_exists_and_groups() -> None:
         diagnostic_id="diag_rcd",
         kind="missing_output_producer",
         severity="warning",
-        message="Resource contract output 'rcd_draft' has materialized resource(s) draft but no renderable producer.",
+        message="Resource contract output 'rcd_draft' has materialized resource(s) draft but no renderable producer.",  # noqa: E501
         target_ref="resource_contract_demand:rcd_draft",
         blocks_completion=True,
         metadata={
@@ -181,7 +175,10 @@ def test_g3_producer_grouper_exists_and_groups() -> None:
 
     # Same group
     assert req_diag.metadata[METADATA_KEY_ISSUE_GROUP_ID] is not None
-    assert req_diag.metadata[METADATA_KEY_ISSUE_GROUP_ID] == rcd_diag.metadata[METADATA_KEY_ISSUE_GROUP_ID]
+    assert (
+        req_diag.metadata[METADATA_KEY_ISSUE_GROUP_ID]
+        == rcd_diag.metadata[METADATA_KEY_ISSUE_GROUP_ID]
+    )
     # Primary is REQUIRED_OUTPUT
     assert req_diag.metadata[METADATA_KEY_ISSUE_ROLE] == "primary"
     # Alias is RESOURCE_CONTRACT_DEMAND
@@ -216,7 +213,7 @@ def test_g4_promoter_exists_and_emits_selected_promoted_authority() -> None:
         diagnostic_id="diag_promo",
         kind="type_or_contract_ambiguity",
         severity="warning",
-        message="Missing input contract [construct=worker_promotion:cand_1, slot=promotion_input_contract]",
+        message="Missing input contract [construct=worker_promotion:cand_1, slot=promotion_input_contract]",  # noqa: E501
         target_ref="worker_promotion:cand_1",
         source_span_ids=["s1"],
         missing_slot=MissingSlot(
@@ -261,7 +258,6 @@ def test_g5_diagnostic_projector_emits_irs_ref() -> None:
     from nl2spl.compiler.construct_registry import (
         ConstructSatisfactionReport,
         SlotSatisfaction,
-        SPLConstructRegistry,
     )
     from nl2spl.compiler.irs.context import IRSCheckContext
     from nl2spl.compiler.irs.projector import DiagnosticProjector
@@ -324,9 +320,7 @@ def test_g5_consolidator_preserves_irs_ref() -> None:
     )
     assert len(result.final_diagnostics) == 1
     final = result.final_diagnostics[0]
-    assert final.metadata.get("irs_ref") is not None, (
-        "G5 FAIL: consolidator must preserve irs_ref"
-    )
+    assert final.metadata.get("irs_ref") is not None, "G5 FAIL: consolidator must preserve irs_ref"
 
 
 # ===========================================================================
@@ -341,7 +335,9 @@ def test_g6_gate_classifies_user_confirmed_repair() -> None:
 
     gate = ExecutableElementGate()
     step = StepIR(
-        "st_repair", "User-confirmed handler", [],
+        "st_repair",
+        "User-confirmed handler",
+        [],
         "GENERAL_COMMAND",
         metadata={"origin": "user_confirmed_repair"},
     )
@@ -357,12 +353,18 @@ def test_g6_gate_renders_user_confirmed_repair() -> None:
 
     gate = ExecutableElementGate()
     step = StepIR(
-        "st_repair", "User-confirmed handler", [],
+        "st_repair",
+        "User-confirmed handler",
+        [],
         "GENERAL_COMMAND",
         metadata={"origin": "user_confirmed_repair"},
     )
     ok, reason = gate.is_renderable(
-        step, "user_confirmed_repair", {}, set(), {},
+        step,
+        "user_confirmed_repair",
+        {},
+        set(),
+        {},
     )
     assert ok is True, f"G6 FAIL: Gate must render user_confirmed_repair: {reason}"
 
@@ -374,11 +376,13 @@ def test_g6_gate_renders_user_confirmed_repair() -> None:
 
 def test_g7_producer_index_recognizes_user_confirmed_repair() -> None:
     """G7: _step_is_renderable returns True for user_confirmed_repair."""
-    from nl2spl.compiler.producer_index import _step_is_renderable, ProducerIndex
+    from nl2spl.compiler.producer_index import ProducerIndex, _step_is_renderable
     from nl2spl.ir.step_ir import StepIR
 
     step = StepIR(
-        "st_repair", "User-confirmed producer", [],
+        "st_repair",
+        "User-confirmed producer",
+        [],
         "GENERAL_COMMAND",
         outputs=["result"],
         metadata={"origin": "user_confirmed_repair"},
@@ -406,14 +410,15 @@ def test_g8_post_normalize_accepts_user_confirmed_repair() -> None:
     checker = PostNormalizeIRSCheckerV6()
     irs = SPLConstructRegistry.default().get("GENERAL_COMMAND")
     step = StepIR(
-        "st_repair", "User-confirmed repair step", [],
+        "st_repair",
+        "User-confirmed repair step",
+        [],
         "GENERAL_COMMAND",
         metadata={"origin": "user_confirmed_repair"},
     )
     slot = checker._source_evidence_slot(step, irs, set())
     assert slot.status == "satisfied", (
-        f"G8 FAIL: Post-normalize IRS must accept user_confirmed_repair, "
-        f"got status='{slot.status}'"
+        f"G8 FAIL: Post-normalize IRS must accept user_confirmed_repair, got status='{slot.status}'"
     )
     assert slot.diagnostic_kind is None, (
         "G8 FAIL: user_confirmed_repair must not produce a missing-evidence diagnostic"
@@ -441,19 +446,15 @@ def test_g9_delegation_intent_not_in_catalog() -> None:
     from nl2spl.compiler.construct_registry import SPLConstructRegistry
     from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
 
-    catalog = RepairCatalogBuilder.from_construct_registry(
-        SPLConstructRegistry.default()
-    )
+    catalog = RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
     for entry in catalog.entries:
         assert entry.construct_type != "DELEGATION_INTENT", (
-            f"G9 FAIL: catalog entry {entry.entry_id} has DELEGATION_INTENT "
-            f"construct_type"
+            f"G9 FAIL: catalog entry {entry.entry_id} has DELEGATION_INTENT construct_type"
         )
 
 
 def test_g9_delegation_intent_only_as_metadata() -> None:
     """G9: delegation_intent appears only as original_semantic_role metadata."""
-    from nl2spl.compiler.construct_registry import SPLConstructRegistry
     from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
     from nl2spl.compiler.irs.context import IRSCheckContext
     from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
@@ -471,9 +472,7 @@ def test_g9_delegation_intent_only_as_metadata() -> None:
         ],
     )
     checker = WorkerDelegationIRSChecker()
-    instances = checker.extract_instances(
-        IRSCheckContext(stage_name="stage3_5", routes=routes)
-    )
+    instances = checker.extract_instances(IRSCheckContext(stage_name="stage3_5", routes=routes))
 
     for instance in instances:
         # Never DELEGATION_INTENT construct type

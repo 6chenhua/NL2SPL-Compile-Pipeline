@@ -6,16 +6,14 @@ Replaces source-scanning with behavioral tests that verify the actual
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
+from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
 from nl2spl.compiler.spl_editing.core.model import RepairEvidence, RepairPatch
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-
 
 # =============================================================================
 # Helpers
@@ -78,26 +76,20 @@ def _find_step_in_snapshot(snap: ArtifactSnapshot, step_id_contains: str) -> Ste
 
 
 class TestAddExceptionHandlerStepStamping:
-    """AddExceptionHandlerStep creates a StepIR with full UCR metadata.
+    """Exception handler metadata stamping belongs to the stage-authorized materializer."""
 
-    Covered by existing behavioral tests in ``test_b5_missing_handler_patch.py``
-    which exercises the full apply pipeline with proper WorkerBlockPlanIR snapshots.
-
-    This audit confirms the applier source stamps all required metadata keys.
-    """
-
-    def test_applier_source_includes_all_metadata_keys(self) -> None:
+    def test_materializer_source_includes_all_metadata_keys(self) -> None:
         import inspect
-        from nl2spl.compiler.spl_editing.patches.add_exception_handler_step.applier import (
-            AddExceptionHandlerStepApplier,
+
+        from nl2spl.compiler.spl_editing.materialization.stage7.exception_handler_step import (
+            Stage7ExceptionHandlerStepMaterializer,
         )
-        source = inspect.getsource(AddExceptionHandlerStepApplier.apply)
+
+        source = inspect.getsource(Stage7ExceptionHandlerStepMaterializer.materialize)
         assert '"origin"' in source
         assert '"repair_patch_id"' in source
         assert '"related_diagnostic_id"' in source
-        assert '"user_text"' in source, (
-            "AddExceptionHandlerStep must stamp user_text in StepIR metadata"
-        )
+        assert '"user_text"' in source
 
 
 class TestInsertProducerStepStamping:
@@ -107,63 +99,57 @@ class TestInsertProducerStepStamping:
     which verifies ``origin=user_confirmed_repair`` on the produced step.
     """
 
-    def test_applier_source_includes_all_metadata_keys(self) -> None:
+    def test_materializer_stamps_all_metadata_keys(self) -> None:
+        """R6: Metadata stamping moved to Stage7ProducerRepairMaterializer."""
         import inspect
-        from nl2spl.compiler.spl_editing.patches.insert_producer_step.applier import (
-            InsertProducerStepApplier,
+
+        from nl2spl.compiler.spl_editing.materialization.stage7.producer_step import (
+            Stage7ProducerRepairMaterializer,
         )
-        source = inspect.getsource(InsertProducerStepApplier.apply)
+
+        source = inspect.getsource(Stage7ProducerRepairMaterializer.materialize)
         assert '"origin"' in source
         assert '"repair_patch_id"' in source
         assert '"related_diagnostic_id"' in source
         assert '"user_text"' in source, (
-            "InsertProducerStep must stamp user_text in StepIR metadata"
+            "Stage7ProducerRepairMaterializer must stamp user_text in StepIR metadata"
         )
 
 
 class TestConvertDelegationToRequestInputStamping:
-    """ConvertDelegationToRequestInput creates a StepIR with full UCR including user_text."""
+    """Delegation request-input stamping belongs to WorkerHandoffContractMaterializer."""
 
-    def test_stamps_user_text(self) -> None:
-        from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (
+    def test_direct_applier_is_disabled(self) -> None:
+        from nl2spl.compiler.spl_editing.patches.convert_delegation_to_request_input.applier import (  # noqa: E501
             ConvertDelegationToRequestInputApplier,
         )
-        patch = _make_patch("ConvertDelegationToRequestInput", {
-            "worker_id": "worker_main",
-            "prompt_text": "Is this correct?",
-            "value_target": "confirmed",
-            "outputs": ["confirmed"],
-        })
-        snap = _make_snapshot()
-        applier = ConvertDelegationToRequestInputApplier()
-        patched, _event = applier.apply(patch, snap)
 
-        # Find the new step (created with st_repair_ prefix)
-        step = _find_step_in_snapshot(patched, "st_repair_")
-        assert step is not None, "Applier did not create a step"
-        assert step.metadata.get("origin") == "user_confirmed_repair"
-        assert step.metadata.get("user_text") == "User provided clarification."
+        patch = _make_patch(
+            "ConvertDelegationToRequestInput",
+            {
+                "worker_id": "worker_main",
+                "prompt_text": "Is this correct?",
+                "value_target": "confirmed",
+                "outputs": ["confirmed"],
+            },
+        )
+        with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+            ConvertDelegationToRequestInputApplier().apply(patch, _make_snapshot())
 
 
 class TestConvertDelegationToMainFlowStepStamping:
-    """ConvertDelegationToMainFlowStep creates a StepIR with full UCR including user_text."""
+    """Delegation main-flow stamping belongs to WorkerHandoffContractMaterializer."""
 
-    def test_stamps_user_text(self) -> None:
-        from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
-            ConvertDelegationToMainFlowStepApplier,
+    def test_materializer_source_includes_user_text(self) -> None:
+        import inspect
+
+        from nl2spl.compiler.spl_editing.materialization.worker_handoff.contract import (
+            WorkerHandoffContractMaterializer,
         )
-        patch = _make_patch("ConvertDelegationToMainFlowStep", {
-            "worker_id": "worker_main",
-            "action_text": "Do the main flow task.",
-        })
-        snap = _make_snapshot()
-        applier = ConvertDelegationToMainFlowStepApplier()
-        patched, _event = applier.apply(patch, snap)
 
-        step = _find_step_in_snapshot(patched, "st_repair_")
-        assert step is not None, "Applier did not create a step"
-        assert step.metadata.get("origin") == "user_confirmed_repair"
-        assert step.metadata.get("user_text") == "User provided clarification."
+        source = inspect.getsource(WorkerHandoffContractMaterializer)
+        assert '"user_text"' in source
+        assert '"resolution_kind"' in source
 
 
 # =============================================================================
@@ -176,6 +162,7 @@ class TestUnconfirmedNotRenderable:
 
     def test_unconfirmed_step_no_source_spans_no_ucr_not_renderable(self) -> None:
         from nl2spl.compiler.producer_index import _step_is_renderable
+
         step = StepIR("st_ai", "AI generated text", [], "GENERAL_COMMAND")
         assert not _step_is_renderable(step), (
             "Unconfirmed AI step without source spans must NOT be renderable"
@@ -183,8 +170,10 @@ class TestUnconfirmedNotRenderable:
 
     def test_llm_suggestion_metadata_not_valid_origin(self) -> None:
         from nl2spl.compiler.evidence import classify_step_evidence
-        step = StepIR("st_ai", "AI suggested", [], "GENERAL_COMMAND",
-                      metadata={"llm_generated": "true"})
+
+        step = StepIR(
+            "st_ai", "AI suggested", [], "GENERAL_COMMAND", metadata={"llm_generated": "true"}
+        )
         evidence = classify_step_evidence(step)
         assert evidence.primary_kind == "missing"
 
@@ -199,6 +188,7 @@ class TestGenericEvidenceVerifierBindingRejection:
 
     def _make_patch(self) -> RepairPatch:
         from nl2spl.ir.diagnostics import DiagnosticIRSRef
+
         return RepairPatch(
             patch_id="patch_x",
             affordance_id="test.affordance",
@@ -216,6 +206,7 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.compiler.spl_editing.verification.generic_evidence_verifier import (
             GenericEvidenceVerifier,
         )
+
         return GenericEvidenceVerifier()
 
     def test_binding_missing_repair_patch_id_rejected(self) -> None:
@@ -227,24 +218,35 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                # missing repair_patch_id
-                                "related_diagnostic_id": "diag_x",
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        # missing repair_patch_id
+                                        "related_diagnostic_id": "diag_x",
+                                    },
+                                },
                             },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(),
         )
@@ -263,24 +265,35 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                "repair_patch_id": "patch_x",
-                                # missing related_diagnostic_id
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_x",
+                                        # missing related_diagnostic_id
+                                    },
+                                },
                             },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(),
         )
@@ -299,24 +312,35 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                "repair_patch_id": "patch_x",
-                                "related_diagnostic_id": "wrong_diag",
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_x",
+                                        "related_diagnostic_id": "wrong_diag",
+                                    },
+                                },
                             },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -341,25 +365,36 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                "repair_patch_id": "patch_x",
-                                "related_diagnostic_id": "diag_x",
-                                "user_text": "",
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_x",
+                                        "related_diagnostic_id": "diag_x",
+                                        "user_text": "",
+                                    },
+                                },
                             },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -370,9 +405,7 @@ class TestGenericEvidenceVerifierBindingRejection:
             ),
         )
         failures = self._make_verifier().verify(patch, apply_result)
-        assert len(failures) == 0, (
-            f"Complete binding should pass, got failures: {failures}"
-        )
+        assert len(failures) == 0, f"Complete binding should pass, got failures: {failures}"
 
     def test_empty_binding_dict_rejected(self) -> None:
         """Empty binding dict {} → verifier rejects (no repair_patch_id)."""
@@ -383,19 +416,30 @@ class TestGenericEvidenceVerifierBindingRejection:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={
-                        "repair_output_bindings": {"draft": {}},
-                    },
-                )],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {"draft": {}},
+                            },
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(),
         )
@@ -419,6 +463,7 @@ class TestOverlayMultiBindingGranularity:
 
     def _make_patch_b(self) -> RepairPatch:
         from nl2spl.ir.diagnostics import DiagnosticIRSRef
+
         return RepairPatch(
             patch_id="patch_B",
             affordance_id="test.bind",
@@ -436,42 +481,53 @@ class TestOverlayMultiBindingGranularity:
         from nl2spl.compiler.spl_editing.verification.generic_evidence_verifier import (
             GenericEvidenceVerifier,
         )
+
         return GenericEvidenceVerifier()
 
     def test_historical_binding_not_rejected(self) -> None:
         """Patch B adds 'summary' binding; existing 'draft' from patch A must not fail."""
         patch = self._make_patch_b()
-        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult
+        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
         from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-        from nl2spl.compiler.spl_editing.core.model import RepairEvidenceRef
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_2", overlay_version=2,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft", "summary"],
-                    metadata={
-                        "repair_output_bindings": {
-                            # Historical binding from patch_A — must NOT be checked
-                            "draft": {
-                                "repair_patch_id": "patch_A",
-                                "related_diagnostic_id": "diag_A",
+            compile_run_id="run_1",
+            snapshot_id="snap_2",
+            overlay_version=2,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft", "summary"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    # Historical binding from patch_A — must NOT be checked
+                                    "draft": {
+                                        "repair_patch_id": "patch_A",
+                                        "related_diagnostic_id": "diag_A",
+                                    },
+                                    # New binding from patch_B — should be checked
+                                    "summary": {
+                                        "repair_patch_id": "patch_B",
+                                        "related_diagnostic_id": "diag_B",
+                                    },
+                                },
                             },
-                            # New binding from patch_B — should be checked
-                            "summary": {
-                                "repair_patch_id": "patch_B",
-                                "related_diagnostic_id": "diag_B",
-                            },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -490,35 +546,45 @@ class TestOverlayMultiBindingGranularity:
     def test_historical_binding_wrong_patch_id_not_rejected(self) -> None:
         """Historical binding has patch_A's id — must not cause failure for patch_B."""
         patch = self._make_patch_b()
-        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult
+        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
         from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-        from nl2spl.compiler.spl_editing.core.model import RepairEvidenceRef
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_2", overlay_version=2,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft", "review"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                "repair_patch_id": "patch_A",  # historical
-                                "related_diagnostic_id": "diag_A",
+            compile_run_id="run_1",
+            snapshot_id="snap_2",
+            overlay_version=2,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft", "review"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_A",  # historical
+                                        "related_diagnostic_id": "diag_A",
+                                    },
+                                    "review": {
+                                        "repair_patch_id": "patch_B",  # current patch
+                                        "related_diagnostic_id": "diag_B",
+                                    },
+                                },
                             },
-                            "review": {
-                                "repair_patch_id": "patch_B",  # current patch
-                                "related_diagnostic_id": "diag_B",
-                            },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -537,35 +603,45 @@ class TestOverlayMultiBindingGranularity:
     def test_current_binding_missing_field_still_rejected(self) -> None:
         """Patch B's own binding missing repair_patch_id must still be rejected."""
         patch = self._make_patch_b()
-        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult
+        from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
         from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-        from nl2spl.compiler.spl_editing.core.model import RepairEvidenceRef
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_2", overlay_version=2,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_existing", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft", "summary"],
-                    metadata={
-                        "repair_output_bindings": {
-                            "draft": {
-                                "repair_patch_id": "patch_A",
-                                "related_diagnostic_id": "diag_A",
+            compile_run_id="run_1",
+            snapshot_id="snap_2",
+            overlay_version=2,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_existing",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft", "summary"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_A",
+                                        "related_diagnostic_id": "diag_A",
+                                    },
+                                    "summary": {
+                                        # MISSING repair_patch_id — should fail
+                                        "related_diagnostic_id": "diag_B",
+                                    },
+                                },
                             },
-                            "summary": {
-                                # MISSING repair_patch_id — should fail
-                                "related_diagnostic_id": "diag_B",
-                            },
-                        },
-                    },
-                )],
-            }),
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_existing",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -578,14 +654,10 @@ class TestOverlayMultiBindingGranularity:
         failures = self._make_verifier().verify(patch, apply_result)
         assert len(failures) >= 1
         assert any(
-            ("missing required field 'repair_patch_id'" in f or
-             "repair_patch_id=" in f)
+            ("missing required field 'repair_patch_id'" in f or "repair_patch_id=" in f)
             and "summary" in f
             for f in failures
-        ), (
-            f"Current binding missing repair_patch_id must be rejected. "
-            f"Got: {failures}"
-        )
+        ), f"Current binding missing repair_patch_id must be rejected. Got: {failures}"
 
 
 # =============================================================================
@@ -598,6 +670,7 @@ class TestEvidenceRefBindingCrossReference:
 
     def _make_patch(self) -> RepairPatch:
         from nl2spl.ir.diagnostics import DiagnosticIRSRef
+
         return RepairPatch(
             patch_id="patch_X",
             affordance_id="test.bind",
@@ -615,6 +688,7 @@ class TestEvidenceRefBindingCrossReference:
         from nl2spl.compiler.spl_editing.verification.generic_evidence_verifier import (
             GenericEvidenceVerifier,
         )
+
         return GenericEvidenceVerifier()
 
     def test_evidence_ref_points_to_nonexistent_binding_rejected(self) -> None:
@@ -626,20 +700,35 @@ class TestEvidenceRefBindingCrossReference:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_1", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={"repair_output_bindings": {
-                        "draft": {"repair_patch_id": "patch_X",
-                                  "related_diagnostic_id": "diag_X"},
-                    }},
-                )],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_1",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_X",
+                                        "related_diagnostic_id": "diag_X",
+                                    },
+                                }
+                            },
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -653,8 +742,8 @@ class TestEvidenceRefBindingCrossReference:
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
         assert any(
-            "evidence_ref claims binding 'summary' but binding does not exist"
-            in f for f in failures
+            "evidence_ref claims binding 'summary' but binding does not exist" in f
+            for f in failures
         ), f"Non-existent binding must be rejected. Got: {failures}"
 
     def test_evidence_ref_wrong_worker_id_not_matched(self) -> None:
@@ -667,20 +756,35 @@ class TestEvidenceRefBindingCrossReference:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_1", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={"repair_output_bindings": {
-                        "draft": {"repair_patch_id": "patch_X",
-                                  "related_diagnostic_id": "diag_X"},
-                    }},
-                )],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_1",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_X",
+                                        "related_diagnostic_id": "diag_X",
+                                    },
+                                }
+                            },
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -710,20 +814,35 @@ class TestEvidenceRefBindingCrossReference:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [StepIR(
-                    "st_1", "Do work", ["s1"], "GENERAL_COMMAND",
-                    outputs=["draft"],
-                    metadata={"repair_output_bindings": {
-                        "draft": {"repair_patch_id": "patch_X",
-                                  "related_diagnostic_id": "diag_X"},
-                    }},
-                )],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_1",
+                            "Do work",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_X",
+                                        "related_diagnostic_id": "diag_X",
+                                    },
+                                }
+                            },
+                        )
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -737,8 +856,7 @@ class TestEvidenceRefBindingCrossReference:
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
         assert any("no matching evidence_ref" in f for f in failures), (
-            f"Binding with no matching evidence_ref (wrong step) must be reported. "
-            f"Got: {failures}"
+            f"Binding with no matching evidence_ref (wrong step) must be reported. Got: {failures}"
         )
 
     def test_two_steps_same_binding_name_only_matching_validated(self) -> None:
@@ -750,26 +868,50 @@ class TestEvidenceRefBindingCrossReference:
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
         snap = ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("worker_main", {
-                "worker_main": [
-                    StepIR("st_A", "Task A", ["s1"], "GENERAL_COMMAND",
-                           outputs=["draft"],
-                           metadata={"repair_output_bindings": {
-                               "draft": {"repair_patch_id": "patch_X",
-                                         "related_diagnostic_id": "diag_X"},
-                           }}),
-                    StepIR("st_B", "Task B", ["s2"], "GENERAL_COMMAND",
-                           outputs=["draft"],
-                           metadata={"repair_output_bindings": {
-                               "draft": {"repair_patch_id": "patch_X",
-                                         "related_diagnostic_id": "diag_X"},
-                           }}),
-                ],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "worker_main",
+                {
+                    "worker_main": [
+                        StepIR(
+                            "st_A",
+                            "Task A",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_X",
+                                        "related_diagnostic_id": "diag_X",
+                                    },
+                                }
+                            },
+                        ),
+                        StepIR(
+                            "st_B",
+                            "Task B",
+                            ["s2"],
+                            "GENERAL_COMMAND",
+                            outputs=["draft"],
+                            metadata={
+                                "repair_output_bindings": {
+                                    "draft": {
+                                        "repair_patch_id": "patch_X",
+                                        "related_diagnostic_id": "diag_X",
+                                    },
+                                }
+                            },
+                        ),
+                    ],
+                },
+            ),
         )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_A", "st_B"),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -786,8 +928,7 @@ class TestEvidenceRefBindingCrossReference:
         )
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) == 0, (
-            f"Both steps with matching evidence_refs should pass. "
-            f"Got: {failures}"
+            f"Both steps with matching evidence_refs should pass. Got: {failures}"
         )
 
 
@@ -802,6 +943,7 @@ class TestCurrentPatchIdentityEnforcement:
 
     def _make_patch_b(self) -> RepairPatch:
         from nl2spl.ir.diagnostics import DiagnosticIRSRef
+
         return RepairPatch(
             patch_id="patch_B",
             affordance_id="test.bind",
@@ -819,30 +961,48 @@ class TestCurrentPatchIdentityEnforcement:
         from nl2spl.compiler.spl_editing.verification.generic_evidence_verifier import (
             GenericEvidenceVerifier,
         )
+
         return GenericEvidenceVerifier()
 
     def _snap_with(self, bindings: dict) -> object:
         from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
         from nl2spl.ir.step_ir import StepIR
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
         return ArtifactSnapshot(
-            compile_run_id="run_1", snapshot_id="snap_1", overlay_version=1,
-            worker_step_plan=WorkerStepPlanIR("w", {
-                "w": [StepIR("st_1", "X", ["s1"], "GENERAL_COMMAND",
-                       outputs=["out1"],
-                       metadata={"repair_output_bindings": bindings})],
-            }),
+            compile_run_id="run_1",
+            snapshot_id="snap_1",
+            overlay_version=1,
+            worker_step_plan=WorkerStepPlanIR(
+                "w",
+                {
+                    "w": [
+                        StepIR(
+                            "st_1",
+                            "X",
+                            ["s1"],
+                            "GENERAL_COMMAND",
+                            outputs=["out1"],
+                            metadata={"repair_output_bindings": bindings},
+                        )
+                    ],
+                },
+            ),
         )
 
     def test_binding_wrong_patch_id_rejected(self) -> None:
         """Changed binding has repair_patch_id='patch_C', current patch is 'patch_B' → reject."""
         patch = self._make_patch_b()
         from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
-        snap = self._snap_with({
-            "out1": {"repair_patch_id": "patch_C", "related_diagnostic_id": "diag_B"},
-        })
+
+        snap = self._snap_with(
+            {
+                "out1": {"repair_patch_id": "patch_C", "related_diagnostic_id": "diag_B"},
+            }
+        )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -854,20 +1014,23 @@ class TestCurrentPatchIdentityEnforcement:
         )
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
-        assert any(
-            "expected 'patch_B'" in f
-            for f in failures
-        ), f"Binding with wrong patch_id must be rejected. Got: {failures}"
+        assert any("expected 'patch_B'" in f for f in failures), (
+            f"Binding with wrong patch_id must be rejected. Got: {failures}"
+        )
 
     def test_binding_wrong_diagnostic_id_rejected(self) -> None:
-        """Changed binding has related_diagnostic_id='diag_C', current patch is 'diag_B' → reject."""
+        """Changed binding has related_diagnostic_id='diag_C', current patch is 'diag_B' → reject."""  # noqa: E501
         patch = self._make_patch_b()
         from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
-        snap = self._snap_with({
-            "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_C"},
-        })
+
+        snap = self._snap_with(
+            {
+                "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_C"},
+            }
+        )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -879,20 +1042,23 @@ class TestCurrentPatchIdentityEnforcement:
         )
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
-        assert any(
-            "expected 'diag_B'" in f
-            for f in failures
-        ), f"Binding with wrong diagnostic_id must be rejected. Got: {failures}"
+        assert any("expected 'diag_B'" in f for f in failures), (
+            f"Binding with wrong diagnostic_id must be rejected. Got: {failures}"
+        )
 
     def test_evidence_ref_wrong_patch_id_rejected(self) -> None:
         """evidence_ref itself carries 'patch_C' for a current-patch binding → reject."""
         patch = self._make_patch_b()
         from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
-        snap = self._snap_with({
-            "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_B"},
-        })
+
+        snap = self._snap_with(
+            {
+                "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_B"},
+            }
+        )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -904,20 +1070,23 @@ class TestCurrentPatchIdentityEnforcement:
         )
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
-        assert any(
-            "evidence_ref has repair_patch_id='patch_C'" in f
-            for f in failures
-        ), f"evidence_ref with wrong patch_id must be rejected. Got: {failures}"
+        assert any("evidence_ref has repair_patch_id='patch_C'" in f for f in failures), (
+            f"evidence_ref with wrong patch_id must be rejected. Got: {failures}"
+        )
 
     def test_evidence_ref_wrong_diagnostic_id_rejected(self) -> None:
         """evidence_ref itself carries 'diag_C' for a current-patch binding → reject."""
         patch = self._make_patch_b()
         from nl2spl.compiler.spl_editing.core.model import PatchApplyResult, RepairEvidenceRef
-        snap = self._snap_with({
-            "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_B"},
-        })
+
+        snap = self._snap_with(
+            {
+                "out1": {"repair_patch_id": "patch_B", "related_diagnostic_id": "diag_B"},
+            }
+        )
         apply_result = PatchApplyResult(
-            patched_snapshot=snap, overlay_event=None,
+            patched_snapshot=snap,
+            overlay_event=None,
             changed_step_ids=("st_1",),
             evidence_refs=(
                 RepairEvidenceRef(
@@ -929,7 +1098,6 @@ class TestCurrentPatchIdentityEnforcement:
         )
         failures = self._verifier().verify(patch, apply_result)
         assert len(failures) >= 1
-        assert any(
-            "evidence_ref has related_diagnostic_id='diag_C'" in f
-            for f in failures
-        ), f"evidence_ref with wrong diagnostic_id must be rejected. Got: {failures}"
+        assert any("evidence_ref has related_diagnostic_id='diag_C'" in f for f in failures), (
+            f"evidence_ref with wrong diagnostic_id must be rejected. Got: {failures}"
+        )

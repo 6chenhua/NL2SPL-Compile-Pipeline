@@ -34,6 +34,7 @@ class TestL0BoundaryImports:
             if mod is None:
                 # Module not yet imported — import it fresh
                 import importlib
+
                 mod = importlib.import_module(mod_name)
             for key in sorted(mod.__dict__):
                 obj = getattr(mod, key, None)
@@ -47,12 +48,12 @@ class TestL0BoundaryImports:
                     if obj_mod.startswith(self._SELF_LLM_PREFIX):
                         continue
                     assert forbidden not in obj_mod, (
-                        f"Module '{mod_name}' imports forbidden module "
-                        f"'{obj_mod}' via '{key}'"
+                        f"Module '{mod_name}' imports forbidden module '{obj_mod}' via '{key}'"
                     )
 
     def test_model_no_handler_import(self) -> None:
         import nl2spl.compiler.spl_editing.llm_context.model as mod
+
         for key in sorted(mod.__dict__):
             obj = getattr(mod, key, None)
             if obj is None:
@@ -64,12 +65,13 @@ class TestL0BoundaryImports:
             if obj_mod.startswith("nl2spl.compiler.spl_editing.llm_context"):
                 continue
             if "handler" in obj_mod:
-                assert False, f"model.py imports handler via {key}"
+                assert False, f"model.py imports handler via {key}"  # noqa: B011
             if "llm" in obj_mod.lower():
-                assert False, f"model.py imports LLM via {key}"
+                assert False, f"model.py imports LLM via {key}"  # noqa: B011
 
     def test_provider_protocol_no_llm_import(self) -> None:
         import nl2spl.compiler.spl_editing.llm_context.provider as mod
+
         src = str(mod.__dict__.get("__doc__", ""))
         # provider is a Protocol — it must not import actual LLM implementations
         assert "langchain" not in src.lower()

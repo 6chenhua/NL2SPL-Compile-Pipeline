@@ -1,5 +1,4 @@
-﻿"""C2: Demo CLI tests 鈥?fixture-based + interactive simulation."""
-
+"""C2: Demo CLI tests --fixture-based + interactive simulation."""
 
 import pytest
 
@@ -26,14 +25,18 @@ from tests.spl_editing_stub_llm import StubSuggestionLLM
 
 def _build_mh_snapshot() -> ArtifactSnapshot:
     diag = CompileDiagnostic(
-        "diag_mh", "missing_handler", "warning",
+        "diag_mh",
+        "missing_handler",
+        "warning",
         "Exception flow has condition but no handler step.",
         target_ref="worker:w_main.exception_flow:exc_1",
         blocks_completion=True,
     )
     diag.metadata["irs_ref"] = {
-        "construct_type": "EXCEPTION_FLOW", "construct_id": "x",
-        "slot_name": "handler_action", "construct_path": [],
+        "construct_type": "EXCEPTION_FLOW",
+        "construct_id": "x",
+        "slot_name": "handler_action",
+        "construct_path": [],
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
@@ -41,27 +44,40 @@ def _build_mh_snapshot() -> ArtifactSnapshot:
     diag.metadata["issue_group_id"] = "g_mh"
     diag.metadata["issue_role"] = "primary"
     return ArtifactSnapshot(
-        "snap_mh", "run_mh", 0,
+        "snap_mh",
+        "run_mh",
+        0,
         worker_plan=WorkerPlanIR(
             main_worker_id="w_main",
-            workers=[WorkerSpecIR(
-                "w_main", "MainWorker", "main", "Main worker",
-                boundary_kind="main_worker",
-            )],
+            workers=[
+                WorkerSpecIR(
+                    "w_main",
+                    "MainWorker",
+                    "main",
+                    "Main worker",
+                    boundary_kind="main_worker",
+                )
+            ],
         ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(
-                exception_flows=[ExceptionFlowRef(
-                    flow_id="exc_1",
-                    condition_text="Template unavailable.",
-                    blocks=[],
-                )],
-            ),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(
+                    exception_flows=[
+                        ExceptionFlowRef(
+                            flow_id="exc_1",
+                            condition_text="Template unavailable.",
+                            blocks=[],
+                        )
+                    ],
+                ),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         resources=ResourceRegistryIR(),
         symbol_table=SymbolTable(),
         agent_profile=AgentProfileIR(
@@ -73,14 +89,18 @@ def _build_mh_snapshot() -> ArtifactSnapshot:
 
 def _build_mop_snapshot() -> ArtifactSnapshot:
     diag = CompileDiagnostic(
-        "diag_mop", "missing_output_producer", "warning",
+        "diag_mop",
+        "missing_output_producer",
+        "warning",
         "Required output 'draft' has no source-backed producer step.",
         target_ref="worker:w_main.output:draft",
         blocks_completion=True,
     )
     diag.metadata["irs_ref"] = {
-        "construct_type": "REQUIRED_OUTPUT", "construct_id": "x",
-        "slot_name": "producer", "construct_path": [],
+        "construct_type": "REQUIRED_OUTPUT",
+        "construct_id": "x",
+        "slot_name": "producer",
+        "construct_path": [],
         "source_authority": "post_normalize_irs",
     }
     diag.metadata["authority"] = "post_normalize_irs"
@@ -88,21 +108,32 @@ def _build_mop_snapshot() -> ArtifactSnapshot:
     diag.metadata["issue_group_id"] = "g_mop"
     diag.metadata["issue_role"] = "primary"
     return ArtifactSnapshot(
-        "snap_mop", "run_mop", 0,
+        "snap_mop",
+        "run_mop",
+        0,
         worker_plan=WorkerPlanIR(
             main_worker_id="w_main",
-            workers=[WorkerSpecIR(
-                "w_main", "MainWorker", "main", "Main worker",
-                boundary_kind="main_worker",
-            )],
+            workers=[
+                WorkerSpecIR(
+                    "w_main",
+                    "MainWorker",
+                    "main",
+                    "Main worker",
+                    boundary_kind="main_worker",
+                )
+            ],
         ),
         worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         resources=ResourceRegistryIR(),
         symbol_table=SymbolTable(),
         agent_profile=AgentProfileIR(
@@ -128,6 +159,7 @@ class TestC2DemoCLI:
 
     def test_default_service_requires_configured_llm(self, monkeypatch) -> None:
         """Production default does not silently fall back to stub LLM."""
+
         class EmptyLLMConfig:
             api_key = None
 
@@ -148,12 +180,31 @@ class TestC2DemoCLI:
         suggestions = svc.generate_suggestions(session.session_id)
         assert len(suggestions) >= 1
 
-        updated = svc.apply_suggestion(
-            session.session_id, suggestions[0].suggestion_id)
+        updated = svc.apply_suggestion(session.session_id, suggestions[0].suggestion_id)
         assert updated.overlay_version > 0
 
         result = svc.verify_session(session.session_id)
         assert result.accepted is True
+
+    def test_missing_handler_default_service_uses_materialization_intent(self) -> None:
+        from nl2spl.compiler.spl_editing.intent.model import ConstructRepairIntent
+
+        svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
+        snap = _build_mh_snapshot()
+        run_id = svc.register_compile_result(snap)
+        issue = svc.list_editable_issues(run_id)[0]
+        session = svc.create_session(run_id, issue)
+        suggestions = svc.generate_suggestions(session.session_id)
+
+        assert isinstance(suggestions[0].patch.payload, ConstructRepairIntent)
+        updated = svc.apply_suggestion(session.session_id, suggestions[0].suggestion_id)
+        patched = svc._get_snapshot(run_id)
+        step = patched.worker_step_plan.worker_steps["w_main"][0]
+        assert updated.overlay_version == 1
+        assert step.metadata["materialization_plan_id"] == "stage7.exception_handler_step_repair.v1"
+        assert step.metadata["materialization_authority"] == "stage7.worker_step_plan"
+        assert step.flow_ref == "exc_1"
+        assert step.block_ref
 
     def test_missing_output_producer_demo_path(self) -> None:
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
@@ -168,8 +219,7 @@ class TestC2DemoCLI:
         suggestions = svc.generate_suggestions(session.session_id)
         assert len(suggestions) >= 1
 
-        updated = svc.apply_suggestion(
-            session.session_id, suggestions[0].suggestion_id)
+        updated = svc.apply_suggestion(session.session_id, suggestions[0].suggestion_id)
         assert updated.overlay_version > 0
 
         result = svc.verify_session(session.session_id)
@@ -193,7 +243,7 @@ class TestC2DemoCLI:
         assert "render_feedback_report" not in source
 
     def test_interactive_demo_flow(self, monkeypatch, capsys) -> None:
-        """C2: simulate interactive demo 鈥?select issue 1, suggestion 1,
+        """C2: simulate interactive demo: select issue 1,
         confirm apply, print patched SPL."""
         _mock_input(monkeypatch, ["1", "1", "y"])
         monkeypatch.setattr(
@@ -201,48 +251,49 @@ class TestC2DemoCLI:
             lambda: StubSuggestionLLM(),
         )
         from nl2spl.compiler.spl_editing.cli import _run_demo
+
         _run_demo(_build_mh_snapshot())
 
         captured = capsys.readouterr()
         output = captured.out
-        assert "Editable issues:" in output
-        assert "missing_handler" in output
-        assert "AI repair suggestions:" in output
-        assert "Verification:" in output
+        assert "Editable issues" in output
+        assert "What was detected" in output
+        assert "Repair suggestion" in output
+        assert "Verification result" in output
         assert "accepted" in output
-        assert "Patched SPL" in output
+        assert "Updated SPL" in output
 
     def test_interactive_demo_cancel_does_not_apply(self, monkeypatch) -> None:
         """C2: cancelling confirmation does not apply."""
-        _mock_input(monkeypatch, ["1", "1", "n"])
+        _mock_input(monkeypatch, ["1", "n"])
         monkeypatch.setattr(
             "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
             lambda: StubSuggestionLLM(),
         )
         from nl2spl.compiler.spl_editing.cli import _run_demo
-        _run_demo(_build_mh_snapshot())
-        # No crash 鈥?just cancelled
 
-    def test_bind_suggestion_when_context_has_bindable_step(self) -> None:
-        """C4: handler generates BindExistingProducerStep when context has
-        a renderable existing step."""
+        _run_demo(_build_mh_snapshot())
+        # No crash --just cancelled
+
+    def test_bind_suggestion_not_generated_after_r11(self) -> None:
+        """R11: missing-output default flow exposes only materialized InsertProducerStep."""
         svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
         snap = _build_mop_snapshot()
-        # Add a source-backed existing step
         from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
+
         snap = ArtifactSnapshot(
-            "snap_mop", "run_mop", 0,
+            "snap_mop",
+            "run_mop",
+            0,
             worker_plan=snap.worker_plan,
-            worker_step_plan=WorkerStepPlanIR("w_main", {
-                "w_main": [
-                    StepIR("st_existing_1", "Draft work 1", ["s1"],
-                           "GENERAL_COMMAND"),
-                    StepIR("st_existing_2", "Draft work 2", ["s2"],
-                           "GENERAL_COMMAND"),
-                    StepIR("st_existing_3", "Draft work 3", ["s3"],
-                           "GENERAL_COMMAND"),
-                ],
-            }),
+            worker_step_plan=WorkerStepPlanIR(
+                "w_main",
+                {
+                    "w_main": [
+                        StepIR("st_existing_1", "Draft work 1", ["s1"], "GENERAL_COMMAND"),
+                    ],
+                },
+            ),
             worker_flow_plan=snap.worker_flow_plan,
             worker_block_plan=snap.worker_block_plan,
             resources=snap.resources,
@@ -252,22 +303,12 @@ class TestC2DemoCLI:
         )
         run_id = svc.register_compile_result(snap)
         issues = svc.list_editable_issues(run_id)
-        assert len(issues) >= 1
         session = svc.create_session(run_id, issues[0])
         suggestions = svc.generate_suggestions(
             session.session_id,
             selected_patch_types=("BindExistingProducerStep",),
         )
-        patch_types = {s.patch.patch_type for s in suggestions}
-        assert patch_types == {"BindExistingProducerStep"}
-
-        # Find the bind suggestion and apply it
-        bind_sug = next(
-            s for s in suggestions
-            if s.patch.patch_type == "BindExistingProducerStep"
-        )
-        updated = svc.apply_suggestion(session.session_id, bind_sug.suggestion_id)
-        assert updated.overlay_version > 0
+        assert tuple(suggestions) == ()
 
     def test_no_bind_suggestion_when_no_bindable_step(self) -> None:
         """C4: handler does NOT generate Bind when no renderable step."""
@@ -283,6 +324,7 @@ class TestC2DemoCLI:
     def test_load_snapshot_rejects_missing_file(self, tmp_path) -> None:
         """C2: _load_snapshot raises when spl_editing_snapshot.json is missing."""
         import pytest
+
         with pytest.raises(FileNotFoundError, match="spl_editing_snapshot.json"):
             _load_snapshot(str(tmp_path))
 
@@ -301,7 +343,8 @@ class TestC2DemoCLI:
         snap = _build_mh_snapshot()
         document = document_from_artifact_snapshot(snap)
         JsonFileSnapshotRepository().save(
-            document, tmp_path / "spl_editing_snapshot.json",
+            document,
+            tmp_path / "spl_editing_snapshot.json",
         )
 
         # Mock input and argv
@@ -311,12 +354,11 @@ class TestC2DemoCLI:
             lambda: StubSuggestionLLM(),
         )
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["spl-edit", "demo", "--run", str(tmp_path)],
         )
         main()  # Should not raise
 
         overlay_dir = tmp_path / "spl_editing_overlays"
         assert list(overlay_dir.glob("*.json"))
-
-

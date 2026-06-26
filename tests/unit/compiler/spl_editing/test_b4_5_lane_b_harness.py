@@ -14,7 +14,6 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
-from nl2spl.ir.worker_ir import ExceptionFlowRef
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
     WorkerFlowPlanIR,
@@ -27,24 +26,40 @@ from nl2spl.ir.worker_plan_ir import (
 def _snap(**kw):
     plan = WorkerPlanIR(
         main_worker_id="w_main",
-        workers=[WorkerSpecIR(
-            "w_main", "MainWorker", "main", "Main",
-            boundary_kind="main_worker",
-            owned_span_ids=["s1"],
-        )],
+        workers=[
+            WorkerSpecIR(
+                "w_main",
+                "MainWorker",
+                "main",
+                "Main",
+                boundary_kind="main_worker",
+                owned_span_ids=["s1"],
+            )
+        ],
     )
     d = dict(
-        snapshot_id="snap_1", compile_run_id="run_1", overlay_version=0,
+        snapshot_id="snap_1",
+        compile_run_id="run_1",
+        overlay_version=0,
         worker_plan=plan,
-        worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": [
-            StepIR("st1", "Work", ["s1"], "GENERAL_COMMAND"),
-        ]}),
-        worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-            "w_main": FlowStructureIR(),
-        }),
-        worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-            "w_main": BlockStructureIR(),
-        }),
+        worker_step_plan=WorkerStepPlanIR(
+            "w_main",
+            {
+                "w_main": [
+                    StepIR("st1", "Work", ["s1"], "GENERAL_COMMAND"),
+                ]
+            },
+        ),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={
+                "w_main": FlowStructureIR(),
+            }
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "w_main": BlockStructureIR(),
+            }
+        ),
         resources=ResourceRegistryIR(),
         symbol_table=SymbolTable(),
         agent_profile=AgentProfileIR(

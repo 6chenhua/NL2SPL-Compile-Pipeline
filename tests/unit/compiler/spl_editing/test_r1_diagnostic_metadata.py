@@ -12,25 +12,17 @@ IMPORTANT: These tests describe the POST-R1 target behavior.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
     SlotSatisfaction,
-    SPLConstructRegistry,
 )
 from nl2spl.compiler.diagnostic_consolidator import (
     DiagnosticConsolidationInput,
     DiagnosticConsolidator,
 )
-from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.projector import DiagnosticProjector
-from nl2spl.compiler.irs.runner import IRSRunner
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
-from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.worker_ir import FlowRef, WorkerIR
-
 
 # ===========================================================================
 # R1-1: Projector writes irs_ref + authority into metadata
@@ -409,7 +401,7 @@ class TestR1ConsolidatorPreservesMetadata:
             diagnostic_id="irs_abc123",
             kind="missing_handler",
             severity="warning",
-            message="No handler [construct=worker:w_main.exception_flow:exc_1, slot=handler_action]",
+            message="No handler [construct=worker:w_main.exception_flow:exc_1, slot=handler_action]",  # noqa: E501
             target_ref="worker:w_main.exception_flow:exc_1",
             blocks_completion=True,
             missing_slot=None,
@@ -537,8 +529,11 @@ class TestR1DiagnosticIRSRefHelper:
         assert isinstance(d["construct_path"], list)
         # All keys present
         assert set(d.keys()) == {
-            "construct_type", "construct_id", "slot_name",
-            "construct_path", "source_authority",
+            "construct_type",
+            "construct_id",
+            "slot_name",
+            "construct_path",
+            "source_authority",
         }
 
 

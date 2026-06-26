@@ -31,7 +31,6 @@ from nl2spl.compiler.spl_editing.core.registry import (
     TargetResolverRegistry,
 )
 
-
 # ===========================================================================
 # B0-1: Typed error hierarchy
 # ===========================================================================
@@ -233,15 +232,11 @@ class TestB0ConstructRegistryBoundary:
         from nl2spl.pipeline import executable_gate as gate_mod
 
         source = inspect.getsource(gate_mod)
-        assert "spl_editing" not in source, (
-            "B0 FAIL: executable_gate must NOT import spl_editing"
-        )
+        assert "spl_editing" not in source, "B0 FAIL: executable_gate must NOT import spl_editing"
 
     def test_producer_index_no_spl_editing_import(self) -> None:
         """B0: ProducerIndex has no spl_editing import."""
         from nl2spl.compiler import producer_index as pi_mod
 
         source = inspect.getsource(pi_mod)
-        assert "spl_editing" not in source, (
-            "B0 FAIL: producer_index must NOT import spl_editing"
-        )
+        assert "spl_editing" not in source, "B0 FAIL: producer_index must NOT import spl_editing"

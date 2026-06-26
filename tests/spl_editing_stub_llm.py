@@ -28,13 +28,14 @@ class StubSuggestionLLM:
         if self._response is not None:
             return self._response
 
-        previous_block = ""
-        marker = "Already suggested (generate something DIFFERENT):"
-        if marker in user_prompt:
-            previous_block = user_prompt.split(marker, 1)[1]
-        variant = previous_block.count("  - ") + 1
+        variant = _candidate_variant(user_prompt)
 
-        if "Required output:" in user_prompt:
+        is_mop = (
+            "Required output" in user_prompt
+            or "REQUIRED_OUTPUT" in user_prompt
+            or "InsertProducerStep" in user_prompt
+        )
+        if is_mop:
             if "Allowed patch types: BindExistingProducerStep" in user_prompt:
                 return json.dumps({
                     "patch_type": "BindExistingProducerStep",
@@ -45,6 +46,39 @@ class StubSuggestionLLM:
                     ),
                     "payload": {"step_id": f"st_existing_{variant}"},
                 })
+            if "target_output_ref_id" in system_prompt:
+                # Extract target_output_ref_id dynamically if present
+                target_ref_id = "required_output:w_main:required_output_context::draft"
+                for line in user_prompt.splitlines():
+                    if "use as: target_output_ref_id" in line:
+                        parts = line.strip().split()
+                        if len(parts) >= 2 and parts[0] == "id:":
+                            target_ref_id = parts[1]
+                            break
+                if target_ref_id == "required_output:w_main:required_output_context::draft":
+                    # Check legacy/fallback format
+                    for line in user_prompt.splitlines():
+                        if line.startswith("Required output:"):
+                            out_name = line.split(":", 1)[1].strip()
+                            prefix = "required_output:w_main:required_output_context::"
+                            target_ref_id = f"{prefix}{out_name}"
+                            break
+                return json.dumps({
+                    "patch_type": "InsertProducerStep",
+                    "title": f"Add producer step {variant}",
+                    "explanation": (
+                        "Create a step that produces the required output "
+                        f"using option {variant}."
+                    ),
+                    "payload": {
+                        "target_output_ref_id": target_ref_id,
+                        "selected_input_ref_ids": [],
+                        "producer_goal": (
+                            f"Produce the required output, option {variant}."
+                        ),
+                    },
+                })
+            # Legacy format (backward compat for tests not yet updated)
             return json.dumps({
                 "patch_type": "InsertProducerStep",
                 "title": f"Add producer step {variant}",
@@ -120,3 +154,15 @@ class StubSuggestionLLM:
                 "command_type": "GENERAL_COMMAND",
             },
         })
+
+
+def _candidate_variant(user_prompt: str) -> int:
+    marker = "Previous candidate count:"
+    if marker not in user_prompt:
+        return 1
+    tail = user_prompt.split(marker, 1)[1].strip()
+    count_text = tail.split(".", 1)[0].strip()
+    try:
+        return int(count_text) + 1
+    except ValueError:
+        return 1

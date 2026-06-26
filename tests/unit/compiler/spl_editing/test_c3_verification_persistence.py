@@ -36,8 +36,7 @@ class TestC3VerificationResultStore:
 
     def test_rejected_is_stored(self) -> None:
         store = VerificationResultStore()
-        r = VerificationResult("s1", "p1", False, "A",
-                                failure_reasons=("bad",))
+        r = VerificationResult("s1", "p1", False, "A", failure_reasons=("bad",))
         store.append("s1", r)
         assert store.get_latest("s1").accepted is False
 
@@ -65,7 +64,7 @@ class TestC3VerificationResultStore:
 
 
 class TestC3ServiceLevelPersistence:
-    """C3: Service-level persistence tests 鈥?verify_session stores results."""
+    """C3: Service-level persistence tests --verify_session stores results."""
 
     def _make_mh_service(self):
         reg = SPLEditingRuntimeRegistry()
@@ -108,6 +107,7 @@ class TestC3ServiceLevelPersistence:
             _build_missing_handler_context_builder,
             _build_missing_handler_prompt_renderer,
         )
+
         reg.llm_context_builders.register(
             "missing_handler",
             _build_missing_handler_context_builder(),
@@ -117,32 +117,41 @@ class TestC3ServiceLevelPersistence:
             _build_missing_handler_prompt_renderer(),
         )
         from nl2spl.compiler.spl_editing.core.model import PatchTypeContract
-        reg.patches.register("AddExceptionHandlerStep", PatchBundle(
-            patch_type="AddExceptionHandlerStep",
-            validator=AddExceptionHandlerStepValidator(),
-            applier=AddExceptionHandlerStepApplier(),
-            verifier=AddExceptionHandlerStepVerifier(),
-            previewer=AddExceptionHandlerStepPreviewer(),
-            contract=PatchTypeContract(
+
+        reg.patches.register(
+            "AddExceptionHandlerStep",
+            PatchBundle(
                 patch_type="AddExceptionHandlerStep",
-                produces_step_ir=True,
-                evidence_targets=("step",),
+                validator=AddExceptionHandlerStepValidator(),
+                applier=AddExceptionHandlerStepApplier(),
+                verifier=AddExceptionHandlerStepVerifier(),
+                previewer=AddExceptionHandlerStepPreviewer(),
+                contract=PatchTypeContract(
+                    patch_type="AddExceptionHandlerStep",
+                    produces_step_ir=True,
+                    evidence_targets=("step",),
+                ),
             ),
-        ))
+        )
         return SPLEditingService(reg, lane_a=_StubLane())
 
     def _make_mh_issue(self):
         return EditableIssue(
-            issue_id="i1", primary_diagnostic_id="d1",
-            related_diagnostic_ids=("d1",), issue_group_id=None,
+            issue_id="i1",
+            primary_diagnostic_id="d1",
+            related_diagnostic_ids=("d1",),
+            issue_group_id=None,
             kind="missing_handler",
             target_ref="worker:w_main.exception_flow:exc_1",
             irs_ref=DiagnosticIRSRef(
-                construct_type="EXCEPTION_FLOW", construct_id="x",
+                construct_type="EXCEPTION_FLOW",
+                construct_id="x",
                 slot_name="handler_action",
             ),
-            missing_slot="handler_action", source_span_ids=(),
-            message="No handler.", authority="post_normalize_irs",
+            missing_slot="handler_action",
+            source_span_ids=(),
+            message="No handler.",
+            authority="post_normalize_irs",
             affordance_ids=("exception_flow.add_handler_step",),
             default_affordance_id="exception_flow.add_handler_step",
         )
@@ -150,13 +159,18 @@ class TestC3ServiceLevelPersistence:
     def test_verify_session_persists_result(self) -> None:
         svc = self._make_mh_service()
         diag = CompileDiagnostic(
-            "d1", "missing_handler", "warning", "No handler.",
+            "d1",
+            "missing_handler",
+            "warning",
+            "No handler.",
             target_ref="worker:w_main.exception_flow:exc_1",
             blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
-            "construct_type": "EXCEPTION_FLOW", "construct_id": "x",
-            "slot_name": "handler_action", "construct_path": [],
+            "construct_type": "EXCEPTION_FLOW",
+            "construct_id": "x",
+            "slot_name": "handler_action",
+            "construct_path": [],
             "source_authority": "post_normalize_irs",
         }
         diag.metadata["authority"] = "post_normalize_irs"
@@ -173,24 +187,38 @@ class TestC3ServiceLevelPersistence:
             WorkerSpecIR,
             WorkerStepPlanIR,
         )
+
         snap = ArtifactSnapshot(
-            "snap_1", "run_1", 0,
+            "snap_1",
+            "run_1",
+            0,
             worker_plan=WorkerPlanIR(
                 main_worker_id="w_main",
-                workers=[WorkerSpecIR("w_main", "MainWorker", "main", "Main",
-                                       boundary_kind="main_worker")],
+                workers=[
+                    WorkerSpecIR(
+                        "w_main", "MainWorker", "main", "Main", boundary_kind="main_worker"
+                    )
+                ],
             ),
             worker_step_plan=WorkerStepPlanIR("w_main", {"w_main": []}),
-            worker_flow_plan=WorkerFlowPlanIR(worker_flows={
-                "w_main": FlowStructureIR(
-                    exception_flows=[ExceptionFlowRef(
-                        flow_id="exc_1", condition_text="Error.", blocks=[],
-                    )],
-                ),
-            }),
-            worker_block_plan=WorkerBlockPlanIR(worker_blocks={
-                "w_main": BlockStructureIR(),
-            }),
+            worker_flow_plan=WorkerFlowPlanIR(
+                worker_flows={
+                    "w_main": FlowStructureIR(
+                        exception_flows=[
+                            ExceptionFlowRef(
+                                flow_id="exc_1",
+                                condition_text="Error.",
+                                blocks=[],
+                            )
+                        ],
+                    ),
+                }
+            ),
+            worker_block_plan=WorkerBlockPlanIR(
+                worker_blocks={
+                    "w_main": BlockStructureIR(),
+                }
+            ),
             resources=ResourceRegistryIR(),
             symbol_table=SymbolTable(),
             agent_profile=AgentProfileIR(persona=PersonaIR(role="A", aspects=[])),
@@ -208,12 +236,18 @@ class TestC3ServiceLevelPersistence:
     def test_no_verification_raises(self) -> None:
         svc = self._make_mh_service()
         diag = CompileDiagnostic(
-            "d1", "missing_handler", "warning", "No handler.",
-            target_ref="x", blocks_completion=True,
+            "d1",
+            "missing_handler",
+            "warning",
+            "No handler.",
+            target_ref="x",
+            blocks_completion=True,
         )
         diag.metadata["irs_ref"] = {
-            "construct_type": "EXCEPTION_FLOW", "construct_id": "x",
-            "slot_name": "handler_action", "construct_path": [],
+            "construct_type": "EXCEPTION_FLOW",
+            "construct_id": "x",
+            "slot_name": "handler_action",
+            "construct_path": [],
             "source_authority": "post_normalize_irs",
         }
         diag.metadata["authority"] = "post_normalize_irs"
@@ -222,4 +256,3 @@ class TestC3ServiceLevelPersistence:
         session = svc.create_session("run_1", self._make_mh_issue())
         with pytest.raises(KeyError, match="session"):
             svc.get_latest_verification(session.session_id)
-

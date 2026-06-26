@@ -74,8 +74,7 @@ def _exception_context() -> RepairContext:
 
 def _exception_entry() -> RepairCatalogEntry:
     return RepairCatalogEntry(
-        entry_id="EXCEPTION_FLOW.handler_action.missing_handler."
-        "exception_flow.add_handler_step",
+        entry_id="EXCEPTION_FLOW.handler_action.missing_handler.exception_flow.add_handler_step",
         affordance_id="exception_flow.add_handler_step",
         construct_type="EXCEPTION_FLOW",
         slot_name="handler_action",
@@ -209,16 +208,20 @@ def _promotion_entry() -> RepairCatalogEntry:
 class TestMissingHandlerLLMFailure:
     def test_malformed_llm_raises(self) -> None:
         """Missing handler: malformed LLM output is not hidden."""
-        llm = StubSuggestionLLM(fixed_response={
-            "patch_type": "AddExceptionHandlerStep",
-            "title": "T",
-            # missing payload -> parse failure
-        })
+        llm = StubSuggestionLLM(
+            fixed_response={
+                "patch_type": "AddExceptionHandlerStep",
+                "title": "T",
+                # missing payload -> parse failure
+            }
+        )
         handler = MissingHandlerRepairHandler(llm)
         with pytest.raises(PatchValidationError, match="LLM did not produce"):
             handler.generate_suggestions(
-                _exception_issue(), _exception_target(),
-                _exception_context(), (_exception_entry(),),
+                _exception_issue(),
+                _exception_target(),
+                _exception_context(),
+                (_exception_entry(),),
                 rendered_user_prompt="Allowed patch types: AddExceptionHandlerStep",
             )
 
@@ -235,8 +238,10 @@ class TestMissingOutputProducerLLMFailure:
         handler = MissingOutputProducerHandler(llm)
         with pytest.raises(PatchValidationError, match="LLM did not produce"):
             handler.generate_suggestions(
-                _output_issue(), _output_target(),
-                _output_context(), (_output_entry(),),
+                _output_issue(),
+                _output_target(),
+                _output_context(),
+                (_output_entry(),),
             )
 
 
@@ -252,6 +257,8 @@ class TestAmbiguityHandlerLLMFailure:
         handler = TypeOrContractAmbiguityHandler(llm)
         with pytest.raises(PatchValidationError, match="LLM did not produce"):
             handler.generate_suggestions(
-                _promotion_issue(), _promotion_target(),
-                _promotion_context(), (_promotion_entry(),),
+                _promotion_issue(),
+                _promotion_target(),
+                _promotion_context(),
+                (_promotion_entry(),),
             )

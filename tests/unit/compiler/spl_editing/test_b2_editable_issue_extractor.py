@@ -5,10 +5,8 @@ from __future__ import annotations
 from nl2spl.compiler.compile_result import MissingSlot
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
 from nl2spl.compiler.spl_editing.issues.extractor import EditableIssueExtractor
-from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
-
+from nl2spl.ir.diagnostics import CompileDiagnostic
 
 # ===========================================================================
 # Helpers
@@ -45,7 +43,8 @@ def _diag(
                 reason=f"missing {missing_slot_name}",
                 source_span_ids=list(source_span_ids or []),
             )
-            if missing_slot_name else None
+            if missing_slot_name
+            else None
         ),
     )
     d.metadata["irs_ref"] = {
@@ -64,9 +63,7 @@ def _diag(
 
 
 def _catalog():
-    return RepairCatalogBuilder.from_construct_registry(
-        SPLConstructRegistry.default()
-    )
+    return RepairCatalogBuilder.from_construct_registry(SPLConstructRegistry.default())
 
 
 # ===========================================================================
@@ -84,21 +81,27 @@ class TestB2ExtractorFilters:
         assert issues[0].kind == "missing_handler"
 
     def test_missing_output_producer_becomes_issue(self) -> None:
-        diags = [_diag(
-            "diag_mop", kind="missing_output_producer",
-            construct_type="REQUIRED_OUTPUT",
-            construct_id="worker:w_main.output:draft",
-            slot_name="producer",
-            target_ref="worker:w_main.output:draft",
-        )]
+        diags = [
+            _diag(
+                "diag_mop",
+                kind="missing_output_producer",
+                construct_type="REQUIRED_OUTPUT",
+                construct_id="worker:w_main.output:draft",
+                slot_name="producer",
+                target_ref="worker:w_main.output:draft",
+            )
+        ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 1
         assert issues[0].kind == "missing_output_producer"
 
     def test_no_irs_ref_is_excluded(self) -> None:
         d = CompileDiagnostic(
-            diagnostic_id="diag_no_ref", kind="missing_handler",
-            severity="warning", message="test", target_ref="x",
+            diagnostic_id="diag_no_ref",
+            kind="missing_handler",
+            severity="warning",
+            message="test",
+            target_ref="x",
             blocks_completion=True,
         )
         issues = EditableIssueExtractor(_catalog()).extract([d])
@@ -120,12 +123,15 @@ class TestB2ExtractorFilters:
         assert len(issues) == 0
 
     def test_no_affordance_in_catalog_is_excluded(self) -> None:
-        diags = [_diag(
-            "diag_x", kind="assumed_command_not_renderable",
-            construct_type="GENERAL_COMMAND",
-            construct_id="step:st_1",
-            slot_name="source_evidence",
-        )]
+        diags = [
+            _diag(
+                "diag_x",
+                kind="assumed_command_not_renderable",
+                construct_type="GENERAL_COMMAND",
+                construct_id="step:st_1",
+                slot_name="source_evidence",
+            )
+        ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 0
 
@@ -145,18 +151,26 @@ class TestB2ExtractorGrouping:
         alone becomes the issue.
         """
         diags = [
-            _diag("diag_primary", kind="missing_output_producer",
-                  construct_type="REQUIRED_OUTPUT",
-                  construct_id="worker:w_main.output:draft",
-                  slot_name="producer",
-                  target_ref="worker:w_main.output:draft",
-                  issue_role="primary", issue_group_id="producer_group:draft"),
-            _diag("diag_alias", kind="missing_output_producer",
-                  construct_type="RESOURCE_CONTRACT_DEMAND",
-                  construct_id="rcd_draft",
-                  slot_name="producer",
-                  target_ref="resource_contract_demand:rcd_draft",
-                  issue_role="alias", issue_group_id="producer_group:draft"),
+            _diag(
+                "diag_primary",
+                kind="missing_output_producer",
+                construct_type="REQUIRED_OUTPUT",
+                construct_id="worker:w_main.output:draft",
+                slot_name="producer",
+                target_ref="worker:w_main.output:draft",
+                issue_role="primary",
+                issue_group_id="producer_group:draft",
+            ),
+            _diag(
+                "diag_alias",
+                kind="missing_output_producer",
+                construct_type="RESOURCE_CONTRACT_DEMAND",
+                construct_id="rcd_draft",
+                slot_name="producer",
+                target_ref="resource_contract_demand:rcd_draft",
+                issue_role="alias",
+                issue_group_id="producer_group:draft",
+            ),
         ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         # RCD alias has no affordance → filtered out → primary is the only issue
@@ -168,22 +182,26 @@ class TestB2ExtractorGrouping:
         with the same affordance → one issue, related IDs include both.
         """
         diags = [
-            _diag("diag_primary",
-                  kind="missing_handler",
-                  construct_type="EXCEPTION_FLOW",
-                  construct_id="worker:w_main.exception_flow:exc_1",
-                  slot_name="handler_action",
-                  target_ref="worker:w_main.exception_flow:exc_1",
-                  issue_role="primary",
-                  issue_group_id="group_exc_1"),
-            _diag("diag_second",
-                  kind="missing_handler",
-                  construct_type="EXCEPTION_FLOW",
-                  construct_id="worker:w_main.exception_flow:exc_1",
-                  slot_name="handler_action",
-                  target_ref="worker:w_main.exception_flow:exc_1",
-                  issue_role="alias",
-                  issue_group_id="group_exc_1"),
+            _diag(
+                "diag_primary",
+                kind="missing_handler",
+                construct_type="EXCEPTION_FLOW",
+                construct_id="worker:w_main.exception_flow:exc_1",
+                slot_name="handler_action",
+                target_ref="worker:w_main.exception_flow:exc_1",
+                issue_role="primary",
+                issue_group_id="group_exc_1",
+            ),
+            _diag(
+                "diag_second",
+                kind="missing_handler",
+                construct_type="EXCEPTION_FLOW",
+                construct_id="worker:w_main.exception_flow:exc_1",
+                slot_name="handler_action",
+                target_ref="worker:w_main.exception_flow:exc_1",
+                issue_role="alias",
+                issue_group_id="group_exc_1",
+            ),
         ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 1
@@ -193,24 +211,28 @@ class TestB2ExtractorGrouping:
     def test_worker_promotion_group_becomes_one_issue(self) -> None:
         """B2: 4 WORKER_PROMOTION slots grouped → one issue."""
         diags = []
-        for i, slot in enumerate([
-            "promotion_input_contract",
-            "promotion_output_contract",
-            "promotion_invocation_point",
-            "promotion_result_handoff",
-        ]):
-            diags.append(_diag(
-                f"diag_promo_{i}",
-                kind="type_or_contract_ambiguity",
-                construct_type="WORKER_PROMOTION",
-                construct_id=f"worker_promotion:cand_1",
-                slot_name=slot,
-                target_ref="worker_promotion:cand_1",
-                authority="selected_promoted_stage_local_irs",
-                issue_role="primary" if i == 0 else "alias",
-                issue_group_id="worker_promotion_group:worker_promotion:cand_1",
-                missing_slot_name=slot,
-            ))
+        for i, slot in enumerate(
+            [
+                "promotion_input_contract",
+                "promotion_output_contract",
+                "promotion_invocation_point",
+                "promotion_result_handoff",
+            ]
+        ):
+            diags.append(
+                _diag(
+                    f"diag_promo_{i}",
+                    kind="type_or_contract_ambiguity",
+                    construct_type="WORKER_PROMOTION",
+                    construct_id="worker_promotion:cand_1",
+                    slot_name=slot,
+                    target_ref="worker_promotion:cand_1",
+                    authority="selected_promoted_stage_local_irs",
+                    issue_role="primary" if i == 0 else "alias",
+                    issue_group_id="worker_promotion_group:worker_promotion:cand_1",
+                    missing_slot_name=slot,
+                )
+            )
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 1
         assert issues[0].kind == "type_or_contract_ambiguity"
@@ -241,18 +263,20 @@ class TestB2AffordanceLinkage:
         assert issues[0].default_affordance_id == "exception_flow.add_handler_step"
 
     def test_worker_promotion_has_correct_affordance(self) -> None:
-        diags = [_diag(
-            "diag_promo",
-            kind="type_or_contract_ambiguity",
-            construct_type="WORKER_PROMOTION",
-            construct_id="worker_promotion:cand_1",
-            slot_name="promotion_input_contract",
-            target_ref="worker_promotion:cand_1",
-            authority="selected_promoted_stage_local_irs",
-            issue_role="primary",
-            issue_group_id="g1",
-            missing_slot_name="promotion_input_contract",
-        )]
+        diags = [
+            _diag(
+                "diag_promo",
+                kind="type_or_contract_ambiguity",
+                construct_type="WORKER_PROMOTION",
+                construct_id="worker_promotion:cand_1",
+                slot_name="promotion_input_contract",
+                target_ref="worker_promotion:cand_1",
+                authority="selected_promoted_stage_local_irs",
+                issue_role="primary",
+                issue_group_id="g1",
+                missing_slot_name="promotion_input_contract",
+            )
+        ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 1
         assert "worker_promotion.resolve_contract" in issues[0].affordance_ids
@@ -267,15 +291,17 @@ class TestB2DelegationIntentBoundary:
     """B2: DELEGATION_INTENT never appears as construct_type or target_ref."""
 
     def test_no_delegation_intent_in_issue_target_ref(self) -> None:
-        diags = [_diag(
-            "diag_promo",
-            kind="type_or_contract_ambiguity",
-            construct_type="WORKER_PROMOTION",
-            construct_id="worker_promotion:cand_1",
-            slot_name="promotion_input_contract",
-            target_ref="worker_promotion:cand_1",
-            authority="selected_promoted_stage_local_irs",
-        )]
+        diags = [
+            _diag(
+                "diag_promo",
+                kind="type_or_contract_ambiguity",
+                construct_type="WORKER_PROMOTION",
+                construct_id="worker_promotion:cand_1",
+                slot_name="promotion_input_contract",
+                target_ref="worker_promotion:cand_1",
+                authority="selected_promoted_stage_local_irs",
+            )
+        ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         for issue in issues:
             assert "DELEGATION_INTENT" not in issue.target_ref
@@ -296,8 +322,12 @@ class TestB2EmptyInput:
 
     def test_no_eligible_diagnostics_produces_empty(self) -> None:
         d = CompileDiagnostic(
-            diagnostic_id="d", kind="validation_warning", severity="warning",
-            message="test", target_ref="x", blocks_completion=True,
+            diagnostic_id="d",
+            kind="validation_warning",
+            severity="warning",
+            message="test",
+            target_ref="x",
+            blocks_completion=True,
         )
         issues = EditableIssueExtractor(_catalog()).extract([d])
         assert issues == ()
@@ -353,20 +383,26 @@ class TestB2MalformedGroup:
         produces no issue — no fallback to group[0].
         """
         diags = [
-            _diag("diag_a",
-                  kind="missing_output_producer",
-                  construct_type="REQUIRED_OUTPUT",
-                  construct_id="worker:w_main.output:draft",
-                  slot_name="producer",
-                  target_ref="worker:w_main.output:draft",
-                  issue_role="alias", issue_group_id="group_x"),
-            _diag("diag_b",
-                  kind="missing_output_producer",
-                  construct_type="REQUIRED_OUTPUT",
-                  construct_id="worker:w_main.output:draft",
-                  slot_name="producer",
-                  target_ref="worker:w_main.output:draft",
-                  issue_role="alias", issue_group_id="group_x"),
+            _diag(
+                "diag_a",
+                kind="missing_output_producer",
+                construct_type="REQUIRED_OUTPUT",
+                construct_id="worker:w_main.output:draft",
+                slot_name="producer",
+                target_ref="worker:w_main.output:draft",
+                issue_role="alias",
+                issue_group_id="group_x",
+            ),
+            _diag(
+                "diag_b",
+                kind="missing_output_producer",
+                construct_type="REQUIRED_OUTPUT",
+                construct_id="worker:w_main.output:draft",
+                slot_name="producer",
+                target_ref="worker:w_main.output:draft",
+                issue_role="alias",
+                issue_group_id="group_x",
+            ),
         ]
         issues = EditableIssueExtractor(_catalog()).extract(diags)
         assert len(issues) == 0
