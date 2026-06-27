@@ -446,7 +446,7 @@ def test_cli_demo_consumes_pipeline_snapshot(
 
     from nl2spl.compiler.spl_editing.cli import main
 
-    answers = iter(["1", "1", "y"])
+    answers = iter(["1", "1", "", "y"])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
     monkeypatch.setattr(
         "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",

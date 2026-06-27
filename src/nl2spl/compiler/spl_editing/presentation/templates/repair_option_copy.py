@@ -1,10 +1,6 @@
-"""Repair option display copy.
-
-This module does not define repair capability.  It only labels options that
-RepairCatalog/runtime registry have already made available.
-"""
-
 from __future__ import annotations
+
+from typing import Any
 
 _PATCH_LABELS = {
     "AddExceptionHandlerStep": "Add handler step",
@@ -44,4 +40,26 @@ def option_label(patch_types: tuple[str, ...]) -> str:
     return " / ".join(labels) if labels else "No repair option available"
 
 
-__all__ = ["option_label", "patch_description", "patch_label"]
+_STRATEGY_LABELS = {
+    "exception_flow.complete_handler_action.v1": "Complete Exception Handler Action",
+    "required_output.materialize_producer.v1": "Materialize Producer for Required Output",
+    "worker_delegation.complete_closure.v1": "Complete Worker Delegation Handoff Contract",
+}
+
+
+def strategy_label(strategy_id: str) -> str:
+    return _STRATEGY_LABELS.get(strategy_id, strategy_id or "Repair strategy")
+
+
+def option_label_for_entry(entry: Any) -> str:
+    strategy_id = getattr(entry, "repair_strategy_id", None)
+    if strategy_id:
+        strategy_display_label = getattr(entry, "strategy_display_label", None)
+        if strategy_display_label:
+            return strategy_display_label
+        return strategy_label(strategy_id)
+    patch_types = getattr(entry, "supported_" + "patch_types", ())
+    return option_label(patch_types)
+
+
+__all__ = ["option_label", "patch_description", "patch_label", "option_label_for_entry", "strategy_label"]

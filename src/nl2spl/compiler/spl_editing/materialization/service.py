@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from importlib import import_module
+from typing import Any
 
+from nl2spl.compiler.spl_editing.core.model import RepairTarget
+from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
+from nl2spl.compiler.spl_editing.intent.model import ConstructRepairIntent
 from nl2spl.compiler.spl_editing.materialization.dependency_closure import (
     validate_dependency_closure,
 )
@@ -18,6 +23,7 @@ from nl2spl.compiler.spl_editing.materialization.model import (
     MaterializationResult,
 )
 from nl2spl.compiler.spl_editing.materialization.registry import MaterializationPlanRegistry
+from nl2spl.compiler.spl_editing.selectable_refs.model import SelectableRefSet
 
 
 class RepairMaterializationService:
@@ -292,3 +298,307 @@ class RepairMaterializationService:
             result,
             dependency_validation_metadata=dict(val_res.validation_metadata),
         )
+
+    def dry_run_materialize(
+        self,
+        intent: ConstructRepairIntent,
+        target: RepairTarget,
+        refset: SelectableRefSet,
+        snapshot: ArtifactSnapshot,
+        closure_plan: Any,
+        directive: Any,
+    ) -> str:
+        """Execute the repair stage-slice chain in dry-run mode and render its result."""
+        plan = self.registry.get(intent.materialization_plan_id)
+        id_allocator = IdAllocator.from_snapshot(
+            snapshot,
+            plan.dependency_closure.required_id_allocator_namespaces,
+        )
+        stage_slices = import_module("nl2spl.compiler.spl_editing.stage_slices")
+        selected_ref_ids = tuple(intent.selected_ref_ids)
+        results: list[Any] = []
+
+        def _input(slice_obj, authority: str, policy_id: str, allowed: tuple[str, ...]):
+            return stage_slices.StageSliceInput(
+                slice_id=slice_obj.slice_id,
+                stage_authority=authority,
+                snapshot=snapshot,
+                target=target,
+                refset=refset,
+                directive=directive,
+                intent=intent,
+                dependency_closure=plan.dependency_closure,
+                stage_policy=stage_slices.StagePolicy(
+                    policy_id=policy_id,
+                    stage_authority=authority,
+                    allowed_typed_plan_kinds=allowed,
+                    generation_mode="none",
+                ),
+                selected_ref_ids=selected_ref_ids,
+                id_allocator=id_allocator,
+                upstream_stage_results=tuple(results),
+                dry_run=True,
+            )
+
+        if intent.patch_type == "AddExceptionHandlerStep":
+            stage5 = stage_slices.Stage5ExceptionHandlerBlockRepairSlice()
+            results.append(
+                stage5.execute(
+                    _input(
+                        stage5,
+                        "stage5.worker_block_plan",
+                        "exception_handler.block_shape.v1",
+                        ("BlockShapePlan",),
+                    )
+                )
+            )
+            stage7 = stage_slices.Stage7ExceptionHandlerCommandRepairSlice()
+            results.append(
+                stage7.execute(
+                    _input(
+                        stage7,
+                        "stage7.worker_step_plan",
+                        "exception_handler.command_intent.v1",
+                        ("CommandIntentPlan",),
+                    )
+                )
+            )
+        elif intent.patch_type == "InsertProducerStep":
+            stage7 = stage_slices.Stage7RequiredOutputProducerCommandRepairSlice()
+            results.append(
+                stage7.execute(
+                    _input(
+                        stage7,
+                        "stage7.worker_step_plan",
+                        "required_output.producer_command.v1",
+                        ("CommandIntentPlan",),
+                    )
+                )
+            )
+        elif intent.patch_type == "CreateWorkerHandoffContract":
+            stage35 = stage_slices.Stage35WorkerHandoffContractRepairSlice()
+            results.append(
+                stage35.execute(
+                    _input(
+                        stage35,
+                        "stage3_5.worker_boundary",
+                        "worker_delegation.handoff_contract.v1",
+                        ("HandoffContractPlan",),
+                    )
+                )
+            )
+            stage7 = stage_slices.Stage7WorkerInvokeCommandRepairSlice()
+            results.append(
+                stage7.execute(
+                    _input(
+                        stage7,
+                        "stage7.worker_step_plan",
+                        "worker_delegation.invoke_worker_command.v1",
+                        ("InvokeWorkerPlan",),
+                    )
+                )
+            )
+        elif intent.patch_type in {
+            "ConvertDelegationIntentToMainFlowStep",
+            "ConvertDelegationIntentToRequestInput",
+        }:
+            stage7 = stage_slices.Stage7WorkerDelegationResolutionCommandRepairSlice()
+            results.append(
+                stage7.execute(
+                    _input(
+                        stage7,
+                        "stage7.worker_step_plan",
+                        "worker_delegation.resolution_command.v1",
+                        ("CommandIntentPlan",),
+                    )
+                )
+            )
+        else:
+            raise DependencyClosureValidationError(
+                f"No dry-run stage-slice chain for patch type '{intent.patch_type}'."
+            )
+
+        return self._render_dry_run_preview(intent, target, tuple(results))
+
+    @staticmethod
+    def _render_dry_run_preview(
+        intent: ConstructRepairIntent,
+        target: RepairTarget,
+        stage_results: tuple[Any, ...],
+    ) -> str:
+        """Render the user-facing construct preview for confirmation.
+
+        Stage-slice traces contain backend audit details. The default preview is
+        deliberately limited to the result the user is being asked to confirm.
+        """
+        payload = intent.payload
+        if intent.patch_type == "AddExceptionHandlerStep":
+            command_text = RepairMaterializationService._first_payload_text(
+                payload, ("handler_goal",), default="Handle the exception"
+            )
+            command_family = RepairMaterializationService._last_command_family(
+                stage_results, default="GENERAL_COMMAND"
+            )
+            flow_label = RepairMaterializationService._exception_flow_label(target)
+            header = f"[EXCEPTION_FLOW: {flow_label}]" if flow_label else "[EXCEPTION_FLOW]"
+            command_line = RepairMaterializationService._command_line(
+                command_family, command_text
+            )
+            return "\n".join(
+                (
+                    header,
+                    "  [SEQUENTIAL_BLOCK]",
+                    f"    {command_line}",
+                    "  [END_SEQUENTIAL_BLOCK]",
+                    "[END_EXCEPTION_FLOW]",
+                )
+            )
+
+        if intent.patch_type == "InsertProducerStep":
+            command_text = RepairMaterializationService._first_payload_text(
+                payload, ("producer_goal",), default="Produce required output"
+            )
+            output_name = target.canonical_name or "required_output"
+            selected_inputs = RepairMaterializationService._selected_ref_names(
+                stage_results
+            )
+            return "\n".join(
+                (
+                    "[SEQUENTIAL_BLOCK]",
+                    "  "
+                    + RepairMaterializationService._command_line(
+                        "GENERAL_COMMAND",
+                        command_text,
+                        inputs=selected_inputs,
+                        outputs=(output_name,),
+                    ),
+                    "[END_SEQUENTIAL_BLOCK]",
+                )
+            )
+
+        if intent.patch_type == "CreateWorkerHandoffContract":
+            child_worker = (
+                getattr(payload, "child_worker_id", None)
+                or target.canonical_name
+                or "worker"
+            )
+            parent_inputs = tuple(
+                parent for parent, _child in getattr(payload, "input_bindings", ())
+            )
+            parent_outputs = tuple(
+                parent for _child, parent in getattr(payload, "output_bindings", ())
+            )
+            return "\n".join(
+                (
+                    "[MAIN_FLOW]",
+                    "  "
+                    + RepairMaterializationService._command_line(
+                        "INVOKE_WORKER",
+                        f"Invoke worker: {child_worker}",
+                        inputs=parent_inputs,
+                        outputs=parent_outputs,
+                        integration_ref=str(child_worker),
+                    ),
+                    "[END_MAIN_FLOW]",
+                )
+            )
+
+        if intent.patch_type == "ConvertDelegationIntentToMainFlowStep":
+            action_text = RepairMaterializationService._first_payload_text(
+                payload, ("action_text",), default="Complete delegated work in the main flow"
+            )
+            outputs = tuple(getattr(payload, "outputs", ()) or ())
+            return "\n".join(
+                (
+                    "[MAIN_FLOW]",
+                    "  "
+                    + RepairMaterializationService._command_line(
+                        "GENERAL_COMMAND", action_text, outputs=outputs
+                    ),
+                    "[END_MAIN_FLOW]",
+                )
+            )
+
+        if intent.patch_type == "ConvertDelegationIntentToRequestInput":
+            prompt_text = RepairMaterializationService._first_payload_text(
+                payload, ("prompt_text",), default="Ask the user for the missing information"
+            )
+            value_target = getattr(payload, "value_target", None) or "user_response"
+            return "\n".join(
+                (
+                    "[MAIN_FLOW]",
+                    "  "
+                    + RepairMaterializationService._command_line(
+                        "REQUEST_INPUT", prompt_text, outputs=(str(value_target),)
+                    ),
+                    "[END_MAIN_FLOW]",
+                )
+            )
+
+        return RepairMaterializationService._first_payload_text(
+            payload, ("handler_goal", "producer_goal", "action_text", "prompt_text"),
+            default="Repair preview unavailable.",
+        )
+
+    @staticmethod
+    def _first_payload_text(payload: Any, field_names: tuple[str, ...], *, default: str) -> str:
+        for field_name in field_names:
+            value = getattr(payload, field_name, None)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return default
+
+    @staticmethod
+    def _last_command_family(stage_results: tuple[Any, ...], *, default: str) -> str:
+        for result in reversed(stage_results):
+            family = getattr(result, "trace", {}).get("command_family")
+            if isinstance(family, str) and family.strip():
+                return family.strip()
+        return default
+
+    @staticmethod
+    def _exception_flow_label(target: RepairTarget) -> str:
+        label = target.canonical_name or ""
+        normalized = label.casefold()
+        generated_prefixes = ("exc_", "exc-adapter", "exc_adapter", "exception_flow:")
+        if not label or normalized.startswith(generated_prefixes):
+            return ""
+        return label
+
+    @staticmethod
+    def _selected_ref_names(stage_results: tuple[Any, ...]) -> tuple[str, ...]:
+        for result in reversed(stage_results):
+            names = getattr(result, "trace", {}).get("selected_ref_canonical_names")
+            if isinstance(names, (list, tuple)):
+                return tuple(str(name) for name in names if str(name).strip())
+        return ()
+
+    @staticmethod
+    def _command_line(
+        command_family: str,
+        text: str,
+        *,
+        inputs: tuple[str, ...] = (),
+        outputs: tuple[str, ...] = (),
+        integration_ref: str | None = None,
+    ) -> str:
+        clean_text = " ".join(text.split())
+        if command_family == "REQUEST_INPUT":
+            output = outputs[0] if outputs else "user_response"
+            return f"COMMAND-X [INPUT DISPLAY {clean_text} VALUE {output}:text SET]"
+        if command_family == "DISPLAY_MESSAGE":
+            return f"COMMAND-X [DISPLAY {clean_text}]"
+        if command_family == "INVOKE_WORKER":
+            worker = integration_ref or clean_text
+            parts = [f"COMMAND-X [INVOKE_WORKER {worker}"]
+            if inputs:
+                parts.append("WITH " + ", ".join(inputs))
+            if outputs:
+                parts.append("RESULT " + ", ".join(outputs) + " SET")
+            return " ".join(parts) + "]"
+        parts = [f"COMMAND-X [COMMAND {clean_text}"]
+        if inputs:
+            parts.append("USING " + ", ".join(inputs))
+        if outputs:
+            parts.append("RESULT " + ", ".join(f"{name}:text" for name in outputs) + " SET")
+        return " ".join(parts) + "]"

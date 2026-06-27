@@ -88,6 +88,7 @@ class RepairAffordanceSpec:
     When non-empty, the presentation layer derives individual strategy
     options from this tuple instead of combining ``supported_patch_types``
     into a single composite label."""
+    repair_strategy_id: str | None = None
 
 
 @dataclass
@@ -288,6 +289,7 @@ class SPLConstructRegistry:
                                 "symbol_table",
                             ),
                             stage_authority="stage7.worker_step_plan",
+                            repair_strategy_id="exception_flow.complete_handler_action.v1",
                         ),
                     ),
                 ),
@@ -364,6 +366,7 @@ class SPLConstructRegistry:
                                 "symbol_table",
                             ),
                             stage_authority="stage7.worker_step_plan",
+                            repair_strategy_id="required_output.materialize_producer.v1",
                         ),
                     ),
                 ),
@@ -771,6 +774,7 @@ class SPLConstructRegistry:
                                 "hierarchy_graph",
                             ),
                             stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
+                            repair_strategy_id="worker_delegation.complete_closure.v1",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -846,6 +850,7 @@ class SPLConstructRegistry:
                                 "hierarchy_graph",
                             ),
                             stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
+                            repair_strategy_id="worker_delegation.complete_closure.v1",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -915,6 +920,7 @@ class SPLConstructRegistry:
                                 "hierarchy_graph",
                             ),
                             stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
+                            repair_strategy_id="worker_delegation.complete_closure.v1",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",
@@ -984,6 +990,7 @@ class SPLConstructRegistry:
                                 "hierarchy_graph",
                             ),
                             stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
+                            repair_strategy_id="worker_delegation.complete_closure.v1",
                             patch_type_metadata=(
                                 PatchTypeMeta(
                                     patch_type="CreateWorkerHandoffContract",

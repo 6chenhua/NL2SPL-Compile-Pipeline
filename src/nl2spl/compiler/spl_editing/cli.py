@@ -381,10 +381,13 @@ def _run_demo_for_run(
     if option is None:
         return
 
+    user_instruction = _collect_user_repair_instruction()
+
     issue = presentation.issue_by_id(run_id, card.issue_id)
     session = svc.create_session(run_id, issue)
     generation = svc.generate_suggestions(
         session.session_id,
+        user_instruction=user_instruction,
         selected_patch_types=option.patch_types,
     )
     if generation.status in ("generation_blocked", "repair_unavailable"):
@@ -404,16 +407,27 @@ def _run_demo_for_run(
     if applied_suggestion is None:
         return
 
+    preview = svc.preview_suggestion(
+        session.session_id,
+        applied_suggestion.suggestion_id,
+        user_text=user_instruction,
+    )
     confirmation = presentation.present_apply_confirmation(applied_suggestion)
     _print_confirmation(confirmation)
+    print("\nPreview:")
+    for line in preview.rendered_preview.splitlines():
+        print(f"  {line}")
     confirm = input("Confirm apply? [y/N] ").strip().lower()
     if confirm != "y":
         print("Cancelled. Snapshot was not changed.")
         return
 
     print("Applying suggestion...", flush=True)
-    updated = svc.apply_suggestion(
-        session.session_id, applied_suggestion.suggestion_id,
+    updated = svc.apply_preview_result(
+        session.session_id,
+        applied_suggestion.suggestion_id,
+        preview.preview_id,
+        user_text=user_instruction,
     )
     print(f"Applied. overlay_version={updated.overlay_version}")
 
@@ -526,6 +540,16 @@ def _choose_fix_option(available_repairs: Iterable[object]) -> object | None:
             return choice
         print(f"Invalid choice: {raw}")
 
+
+
+def _collect_user_repair_instruction() -> str | None:
+    print("\nOptional repair instruction")
+    print("  Press Enter to let SPL Editing choose the simplest valid repair.")
+    try:
+        raw = input("Describe your preferred repair, or press Enter: ").strip()
+    except EOFError:
+        return None
+    return raw or None
 
 def _print_suggestions(suggestions: Iterable[object]) -> None:
     print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")

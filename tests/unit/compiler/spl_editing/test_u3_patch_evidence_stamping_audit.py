@@ -82,10 +82,10 @@ class TestAddExceptionHandlerStepStamping:
         import inspect
 
         from nl2spl.compiler.spl_editing.materialization.stage7.exception_handler_step import (
-            Stage7ExceptionHandlerStepMaterializer,
+            ExceptionHandlerStageSliceChainMaterializer,
         )
 
-        source = inspect.getsource(Stage7ExceptionHandlerStepMaterializer.materialize)
+        source = inspect.getsource(ExceptionHandlerStageSliceChainMaterializer.materialize)
         assert '"origin"' in source
         assert '"repair_patch_id"' in source
         assert '"related_diagnostic_id"' in source

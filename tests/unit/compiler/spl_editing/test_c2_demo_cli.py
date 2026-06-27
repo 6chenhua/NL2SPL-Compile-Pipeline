@@ -245,7 +245,7 @@ class TestC2DemoCLI:
     def test_interactive_demo_flow(self, monkeypatch, capsys) -> None:
         """C2: simulate interactive demo: select issue 1,
         confirm apply, print patched SPL."""
-        _mock_input(monkeypatch, ["1", "1", "y"])
+        _mock_input(monkeypatch, ["1", "1", "", "y"])
         monkeypatch.setattr(
             "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
             lambda: StubSuggestionLLM(),
@@ -348,7 +348,7 @@ class TestC2DemoCLI:
         )
 
         # Mock input and argv
-        _mock_input(monkeypatch, ["1", "1", "y"])
+        _mock_input(monkeypatch, ["1", "1", "", "y"])
         monkeypatch.setattr(
             "nl2spl.compiler.spl_editing.cli.build_suggestion_llm_from_env",
             lambda: StubSuggestionLLM(),

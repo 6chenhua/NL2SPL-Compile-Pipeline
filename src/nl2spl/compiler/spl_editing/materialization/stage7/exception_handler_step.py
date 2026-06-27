@@ -1,9 +1,8 @@
-"""Stage7 exception-handler step materializer."""
+"""Exception-handler materialization facade backed by repair-mode stage slices."""
 
 from __future__ import annotations
 
-import json
-from dataclasses import replace
+from importlib import import_module
 
 from nl2spl.compiler.spl_editing.core.model import RepairEvidenceRef
 from nl2spl.compiler.spl_editing.core.revision import (
@@ -19,15 +18,26 @@ from nl2spl.compiler.spl_editing.materialization.model import (
     MaterializationInput,
     MaterializationResult,
 )
-from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
-from nl2spl.ir.step_ir import StepIR
 
 _MATERIALIZER_ID = "stage7.exception_handler_step_repair.v1"
 _STAGE_AUTHORITY = "stage7.worker_step_plan"
+_STAGE5_AUTHORITY = "stage5.worker_block_plan"
 
 
-class Stage7ExceptionHandlerStepMaterializer:
-    """Stage 7 materializer for adding an exception-flow handler step."""
+def _load_stage_slice_runtime():
+    stage_slices = import_module("nl2spl.compiler.spl_editing.stage_slices")
+    strategy = import_module("nl2spl.compiler.spl_editing.strategy")
+    return (
+        stage_slices.StagePolicy,
+        stage_slices.StageSliceInput,
+        stage_slices.Stage5ExceptionHandlerBlockRepairSlice,
+        stage_slices.Stage7ExceptionHandlerCommandRepairSlice,
+        strategy.RepairDirective,
+    )
+
+
+class ExceptionHandlerStageSliceChainMaterializer:
+    """Compatibility facade that orchestrates Stage5 and Stage7 repair slices."""
 
     @property
     def materializer_id(self) -> str:
@@ -42,13 +52,12 @@ class Stage7ExceptionHandlerStepMaterializer:
         snapshot = input_data.snapshot
         target = input_data.target
         evidence_packet = input_data.evidence_packet
-        id_allocator = input_data.id_allocator
         resolved_refs = input_data.resolved_refs
 
         payload = intent.payload
         if not isinstance(payload, AddExceptionHandlerStepIntentPayload):
             raise DependencyClosureValidationError(
-                "Stage7ExceptionHandlerStepMaterializer requires "
+                "ExceptionHandlerStageSliceChainMaterializer requires "
                 f"AddExceptionHandlerStepIntentPayload but received {type(payload).__name__!r}."
             )
 
@@ -68,24 +77,21 @@ class Stage7ExceptionHandlerStepMaterializer:
             raise DependencyClosureValidationError("RepairTarget.worker_id is required.")
         if not flow_id:
             raise DependencyClosureValidationError("RepairTarget.canonical_name is required.")
-
-        step_plan = snapshot.worker_step_plan
-        block_plan = snapshot.worker_block_plan
-        flow_plan = snapshot.worker_flow_plan
-        if step_plan is None:
+        if snapshot.worker_step_plan is None:
             raise DependencyClosureValidationError("worker_step_plan is missing from snapshot.")
-        if block_plan is None:
+        if snapshot.worker_block_plan is None:
             raise DependencyClosureValidationError("worker_block_plan is missing from snapshot.")
-        if flow_plan is None:
+        if snapshot.worker_flow_plan is None:
             raise DependencyClosureValidationError("worker_flow_plan is missing from snapshot.")
-        if worker_id not in step_plan.worker_steps:
+        if worker_id not in snapshot.worker_step_plan.worker_steps:
             raise DependencyClosureValidationError(
                 f"Target worker '{worker_id}' not found in worker_step_plan.worker_steps."
             )
-        worker_flows = getattr(flow_plan, "worker_flows", {})
-        fs = worker_flows.get(worker_id)
-        if fs is None or not any(
-            getattr(ef, "flow_id", None) == flow_id for ef in getattr(fs, "exception_flows", [])
+        worker_flows = getattr(snapshot.worker_flow_plan, "worker_flows", {})
+        flow_scope = worker_flows.get(worker_id)
+        if flow_scope is None or not any(
+            getattr(exc, "flow_id", None) == flow_id
+            for exc in getattr(flow_scope, "exception_flows", [])
         ):
             raise DependencyClosureValidationError(
                 f"Exception flow '{flow_id}' not found in worker '{worker_id}'."
@@ -102,59 +108,78 @@ class Stage7ExceptionHandlerStepMaterializer:
                     "selectable_input in the target scope."
                 )
 
-        input_names = [r.ref.canonical_name for r in resolved_refs]
-        consumed_ref_ids = tuple(r.ref.ref_id for r in resolved_refs)
-        step_id = id_allocator.allocate_step_id()
-        block_id = id_allocator.allocate_block_id(worker_id)
+        (
+            StagePolicy,
+            StageSliceInput,
+            Stage5ExceptionHandlerBlockRepairSlice,
+            Stage7ExceptionHandlerCommandRepairSlice,
+            RepairDirective,
+        ) = _load_stage_slice_runtime()
 
-        metadata = {
-            "origin": "user_confirmed_repair",
-            "repair_patch_id": evidence_packet.repair_patch_id,
-            "related_diagnostic_id": evidence_packet.related_diagnostic_id,
-            "evidence_packet_id": evidence_packet.evidence_packet_id,
-            "materialization_authority": _STAGE_AUTHORITY,
-            "materialization_plan_id": _MATERIALIZER_ID,
-            "consumed_selected_ref_ids": json.dumps(list(consumed_ref_ids)),
-            "selected_ref_canonical_names": json.dumps(input_names),
-            "target_exception_flow_ref_id": payload.target_exception_flow_ref_id,
-            "target_exception_flow_id": flow_id,
-            "user_text": evidence_packet.user_text,
-        }
-
-        new_block = BlockIR(block_id=block_id, block_type="SEQUENTIAL", spans=[])
-        new_step = StepIR(
-            step_id=step_id,
-            text=handler_goal,
-            source_span_ids=[],
-            command_type="GENERAL_COMMAND",
-            inputs=input_names,
-            outputs=[],
-            flow_ref=flow_id,
-            block_ref=block_id,
-            metadata=metadata,
+        selected_ref_ids = tuple(ref.ref.ref_id for ref in resolved_refs)
+        directive = RepairDirective(
+            directive_id=f"dir_{intent.intent_id}",
+            source="system_default",
+            target_construct_type=intent.target_construct_type,
+            target_slot_name=intent.target_slot_name,
+            requested_behavior=handler_goal,
+            selected_ref_hints=selected_ref_ids,
         )
 
-        new_worker_steps = {wid: list(steps) for wid, steps in step_plan.worker_steps.items()}
-        new_worker_steps[worker_id] = new_worker_steps[worker_id] + [new_step]
-        new_step_plan = replace(step_plan, worker_steps=new_worker_steps)
-
-        worker_blocks: dict[str, BlockStructureIR] = {}
-        for wid, bs in block_plan.worker_blocks.items():
-            eb = {fid: list(blocks) for fid, blocks in bs.exception_flow_blocks.items()}
-            worker_blocks[wid] = replace(bs, exception_flow_blocks=eb)
-        if worker_id not in worker_blocks:
-            worker_blocks[worker_id] = BlockStructureIR()
-        current_bs = worker_blocks[worker_id]
-        new_exception_blocks = {
-            fid: list(blocks) for fid, blocks in current_bs.exception_flow_blocks.items()
-        }
-        new_exception_blocks[flow_id] = new_exception_blocks.get(flow_id, []) + [new_block]
-        worker_blocks[worker_id] = replace(
-            current_bs,
-            exception_flow_blocks=new_exception_blocks,
+        stage5 = Stage5ExceptionHandlerBlockRepairSlice()
+        stage5_result = stage5.execute(
+            StageSliceInput(
+                slice_id=stage5.slice_id,
+                stage_authority=_STAGE5_AUTHORITY,
+                snapshot=snapshot,
+                target=target,
+                refset=input_data.refset,
+                directive=directive,
+                intent=intent,
+                dependency_closure=input_data.plan.dependency_closure,
+                stage_policy=StagePolicy(
+                    policy_id="exception_handler.block_shape.v1",
+                    stage_authority=_STAGE5_AUTHORITY,
+                    allowed_typed_plan_kinds=("BlockShapePlan",),
+                    generation_mode="none",
+                ),
+                selected_ref_ids=(),
+                evidence_packet=evidence_packet,
+                id_allocator=input_data.id_allocator,
+                dry_run=False,
+            )
         )
-        new_block_plan = replace(block_plan, worker_blocks=worker_blocks)
 
+        stage7 = Stage7ExceptionHandlerCommandRepairSlice()
+        stage7_result = stage7.execute(
+            StageSliceInput(
+                slice_id=stage7.slice_id,
+                stage_authority=_STAGE_AUTHORITY,
+                snapshot=snapshot,
+                target=target,
+                refset=input_data.refset,
+                directive=directive,
+                intent=intent,
+                dependency_closure=input_data.plan.dependency_closure,
+                stage_policy=StagePolicy(
+                    policy_id="exception_handler.command_intent.v1",
+                    stage_authority=_STAGE_AUTHORITY,
+                    allowed_typed_plan_kinds=("CommandIntentPlan",),
+                    generation_mode="none",
+                ),
+                selected_ref_ids=selected_ref_ids,
+                evidence_packet=evidence_packet,
+                id_allocator=input_data.id_allocator,
+                upstream_stage_results=(stage5_result,),
+                dry_run=False,
+            )
+        )
+
+        new_block_plan = stage5_result.artifact_updates.get(
+            "worker_block_plan",
+            snapshot.worker_block_plan,
+        )
+        new_step_plan = stage7_result.artifact_updates["worker_step_plan"]
         next_token = RevisionToken(
             compile_run_id=snapshot.compile_run_id,
             artifact_snapshot_id=snapshot.snapshot_id,
@@ -178,26 +203,37 @@ class Stage7ExceptionHandlerStepMaterializer:
             patch_id=evidence_packet.repair_patch_id,
             accepted=True,
         )
-        changed_ref = f"step:{worker_id}:{step_id}"
-        block_ref = f"block:{worker_id}:{block_id}"
+        changed_refs = tuple(
+            stage7_result.generated_construct_refs + stage5_result.generated_construct_refs
+        )
+        changed_step_ids = tuple(
+            ref.rsplit(":", 1)[-1] for ref in stage7_result.generated_construct_refs
+        )
         evidence_ref = RepairEvidenceRef(
-            artifact_ref=changed_ref,
+            artifact_ref=stage7_result.generated_construct_refs[0],
             repair_patch_id=evidence_packet.repair_patch_id,
             related_diagnostic_id=evidence_packet.related_diagnostic_id,
             user_text=evidence_packet.user_text,
         )
+        stage7_step_metadata = {
+            "origin": "user_confirmed_repair",
+            "repair_patch_id": evidence_packet.repair_patch_id,
+            "related_diagnostic_id": evidence_packet.related_diagnostic_id,
+            "user_text": evidence_packet.user_text,
+        }
 
         return MaterializationResult(
             patched_snapshot=patched_snapshot,
             overlay_event=overlay_event,
-            changed_refs=(changed_ref, block_ref),
-            changed_step_ids=(step_id,),
+            changed_refs=changed_refs,
+            changed_step_ids=changed_step_ids,
             changed_handoff_ids=(),
             evidence_refs=(evidence_ref,),
             materialization_plan_id=_MATERIALIZER_ID,
             materializer_id=_MATERIALIZER_ID,
             materialization_authority=_STAGE_AUTHORITY,
-            consumed_selected_ref_ids=consumed_ref_ids,
+            consumed_selected_ref_ids=selected_ref_ids,
             evidence_packet_id=evidence_packet.evidence_packet_id,
-            dependency_validation_metadata={},
+            dependency_validation_metadata={"stage7_step_metadata": stage7_step_metadata},
+            stage_slice_results=(stage5_result, stage7_result),
         )

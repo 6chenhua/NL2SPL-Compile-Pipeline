@@ -96,7 +96,7 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
         RequiredArtifactField,
     )
     from nl2spl.compiler.spl_editing.materialization.stage7 import (
-        Stage7ExceptionHandlerStepMaterializer,
+        ExceptionHandlerStageSliceChainMaterializer,
         Stage7ProducerRepairMaterializer,
     )
     from nl2spl.compiler.spl_editing.materialization.worker_handoff import (
@@ -179,7 +179,7 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
         verification_lane="B",
         materializer_id="stage7.exception_handler_step_repair.v1",
     )
-    registry.register(plan, Stage7ExceptionHandlerStepMaterializer())
+    registry.register(plan, ExceptionHandlerStageSliceChainMaterializer())
 
     # ------------------------------------------------------------------
     # worker_handoff.contract_repair.v1

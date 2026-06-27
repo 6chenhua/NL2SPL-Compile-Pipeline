@@ -1,195 +1,324 @@
-# IRS Repair Affordance Specification
+﻿# IRS Repair Affordance Specification
 
-Use this reference when creating or modifying `SlotSpec.repair_affordances`
-inside an IRS `ConstructIRS`.
+Use this reference when creating or modifying `SlotSpec.repair_affordances` in
+an IRS `ConstructIRS`.
 
-`repair_affordances` are pure registry metadata. They describe which repair
-strategies SPL Editing may expose for a missing IRS slot. They do not execute a
-repair, call an LLM, mutate IR, or invent missing slot content.
+`RepairAffordanceSpec` is pure registry metadata. It links a missing IRS slot to
+an approved SPL Editing capability. It does not execute repair behavior and it
+must not become a second repair strategy registry.
 
-## Confirmation Rule
+Read `construct-repair-strategies.md` before adding an R12+ affordance.
 
-When using this skill to create or modify an IRS construct, do not invent repair
-strategies. A `repair_affordances` entry may be added only when the user or an
-architecture document has confirmed the allowed repair strategy set.
+## Contents
 
-If the construct and slot requirements are clear but repair strategy ownership
-is not confirmed, leave `repair_affordances=()` and state that the slot is not
-repairable through SPL Editing yet. If an editable diagnostic is required, ask
-the user to confirm:
+- [Semantic Source of Truth](#semantic-source-of-truth)
+- [Confirmation and Admission Rule](#confirmation-and-admission-rule)
+- [Runtime Flow](#runtime-flow)
+- [Field Guide](#field-guide)
+- [Creation Checklist](#creation-checklist)
+- [Anti-Patterns](#anti-patterns)
 
-- which repair strategies should be exposed;
-- which patch types implement those strategies;
-- which artifacts may be edited;
-- which verification lane each strategy requires.
+## Semantic Source of Truth
 
-Do not treat a missing diagnostic kind as enough evidence to create a repair
-affordance. Repair affordances are user-facing product behavior and must be
-confirmed separately from slot satisfaction rules.
+For R12+ repairs, the semantic source is:
+
+```text
+RepairAffordanceSpec.repair_strategy_id
+-> RepairStrategyRegistry
+-> RepairStrategySpec
+```
+
+The following affordance fields remain useful as routing, capability, or
+transition metadata, but they are not the repair strategy:
+
+```text
+supported_patch_types
+default_patch_type
+handler_id
+context_id
+target_resolver_id
+materialization_plan_id
+stage_authority
+patch_type_metadata
+```
+
+When `repair_strategy_id` is present, UI copy, prompts, construct closure,
+default generation policy, stage-slice ownership, and verification semantics
+must come from the strategy and its registered runtime components.
+
+## Confirmation and Admission Rule
+
+Do not invent repair behavior while creating an IRS.
+
+Add a repair affordance only when the user or architecture documentation has
+confirmed:
+
+- the construct-level repair direction;
+- the stable `repair_strategy_id`;
+- the missing construct closure;
+- the owning stage-slice chain;
+- required structured facts and selectable-reference policy;
+- preview and user-confirmation behavior;
+- editable artifact layers and verification lane;
+- any transitional patch adapters still required by runtime.
+
+If slot semantics are clear but repair ownership is not confirmed, leave
+`repair_affordances=()` and state that SPL Editing repair is not yet defined.
+
+Do not add an affordance merely because the slot has a `missing_diagnostic`.
 
 ## Runtime Flow
 
 ```text
 SlotSpec.repair_affordances
--> RepairCatalogBuilder.from_construct_registry(...)
--> RepairCatalogEntry
--> Diagnostics Console repair option
--> IssueRepairHandler / patch validator / applier / verifier
+-> RepairCatalogBuilder
+-> RepairCatalogEntry with repair_strategy_id
+-> RepairStrategyRegistry lookup
+-> target and selectable-ref resolution
+-> optional RepairDirective
+-> validated ConstructRepairIntent
+-> ConstructClosurePlan
+-> preview dry-run stage slices
+-> user confirmation
+-> RepairEvidencePacket
+-> confirmed materialization and overlay
+-> compiler-authority verification
 ```
 
-The IRS registry owns only the first step. The remaining components must exist
-or be planned before exposing a repair option.
+The IRS registry owns only the first declaration. It does not own the remaining
+runtime flow.
 
 ## Field Guide
 
 ### `affordance_id`
 
-Stable identifier for a repair capability, usually
-`{construct_type_lower}.{descriptive_suffix}`.
+A stable identifier for the repair capability attached to the slot. Prefer a
+construct-level name, such as:
 
-Use the same `affordance_id` across related slots only when they expose the same
-repair capability and strategy set. The unique catalog key is:
+```text
+exception_flow.complete_handler_action
+required_output.materialize_producer
+worker_delegation.complete_closure
+```
+
+Avoid names that permanently encode a concrete default result, such as
+`add_display_message_step`.
+
+The catalog entry identity remains:
 
 ```text
 {construct_type}.{slot_name}.{diagnostic_kind}.{affordance_id}
 ```
 
-So related slots may share an `affordance_id`, but do not reuse one for
-unrelated behavior.
+Related slots may share an affordance only when they resolve to the same
+strategy set and issue grouping semantics.
 
 ### `description`
 
-Short human-readable summary of the overall repair capability. It should explain
-the problem the affordance resolves, not prescribe hidden implementation logic.
+A short summary of the missing construct capability. Describe the completion
+goal, not the hard-coded implementation.
+
+Good:
+
+```text
+Complete the missing exception handler action.
+```
+
+Bad:
+
+```text
+Always add a GENERAL_COMMAND that displays an error.
+```
+
+### `repair_strategy_id`
+
+Required semantic link for an R12+ user-facing repair.
+
+The referenced `RepairStrategySpec` must match:
+
+- `target_construct_type` to the owning `ConstructIRS.construct_type`;
+- `target_slot_name` to the owning `SlotSpec.slot_name`;
+- `diagnostic_kind` to `SlotSpec.missing_diagnostic`.
+
+It must also provide a coherent construct closure, stage-slice chain, context
+requirements, selectable-ref policy, default/directive policies, preview rule,
+and verification lane.
+
+If the strategy does not resolve, the issue must not be shown as fixable.
 
 ### `supported_patch_types`
 
-Tuple of allowed patch type strings the repair handler may produce for this
-slot. Every value must correspond to a registered or explicitly planned patch
-bundle with validator, applier, and verifier behavior.
+Transitional execution adapters that may carry the selected strategy through
+legacy validator/applier/verifier interfaces.
 
-Do not include speculative patch types. If multiple strategies are exposed, each
-must be user-confirmed.
+Rules:
+
+1. Every value must be registered.
+2. Every value must be permitted by the referenced strategy.
+3. A patch type must not become the source for strategy selection or construct
+   shape when `repair_strategy_id` is present.
+4. New R12+ behavior should not introduce patch names that encode a permanent
+   concrete answer.
 
 ### `default_patch_type`
 
-Patch type selected when the user does not choose a more specific strategy. It
-must be one of `supported_patch_types`.
+Transitional adapter selected when one is required by legacy execution. It
+must belong to `supported_patch_types`.
 
-Use a default only when product behavior is confirmed. Otherwise prefer a single
-explicit patch type or leave the affordance absent.
+It is not the default repair policy. The default construct behavior comes from
+`RepairStrategySpec.default_policy_id`.
 
 ### `handler_id`
 
-Identifier of the `IssueRepairHandler` that generates the patch proposal for
-this diagnostic and slot.
-
-Usually this matches the diagnostic kind, for example
-`type_or_contract_ambiguity`, but do not assume that automatically. Use the
-registered handler that owns this repair flow.
+Identifier of the issue repair handler or suggestion orchestration component.
+The handler may propose a validated construct repair intent. It must not choose
+the semantic strategy by inspecting only `diagnostic.kind`, and it must not
+emit IR.
 
 ### `context_id`
 
-Identifier of the `RepairContextBuilder` that gathers structured context for
-the handler.
-
-The context builder must provide enough evidence for every supported patch type.
-If a patch type needs child-worker context, handoff context, source spans, or
-artifact snapshots, the selected context builder must supply them.
+Identifier of the structured repair context builder. It must supply the facts
+required by the strategy without parsing reports or diagnostic messages.
 
 ### `target_resolver_id`
 
-Identifier of the `IssueTargetResolver` that maps a diagnostic target or
-`DiagnosticIRSRef` to the editable object.
+Identifier of the resolver that maps `DiagnosticIRSRef` and snapshot state to
+the real editable construct. Source annotations and diagnostic labels are not
+repair targets.
 
-Choose the resolver that matches the real target identity, such as a step,
-handoff, worker promotion, or required output. Do not point a route annotation
-or diagnostic label directly at a repair target unless a resolver explicitly
-supports that boundary.
+### `selectable_ref_policy_id`
+
+Identifier of the policy that builds the bounded reference set available to
+the strategy. It must distinguish reference kind from repair role, such as:
+
+```text
+target_output
+selectable_input
+placement_anchor
+binding_source
+binding_target
+target_worker
+target_exception_flow
+```
+
+The LLM and directive may suggest references, but materialization may consume
+only validated `ConstructRepairIntent.selected_ref_ids`.
+
+### `required_context_facts`
+
+Structured facts required before the repair is offered. Each fact needs an
+authoritative backend source in the snapshot, target resolver, trace, source
+span, or repair context.
+
+Do not satisfy this list by parsing `CompileDiagnostic.message` or presentation
+copy.
+
+### `materialization_plan_id`
+
+Transitional link to executable materialization orchestration. Under R12+, the
+materialization plan must be consistent with the strategy-derived
+`ConstructClosurePlan`; it must not define a conflicting closure or stage
+chain.
+
+### `stage_authority`
+
+Transition/audit metadata describing the stage ownership expected by the
+execution adapter. It must agree with `RepairStrategySpec.stage_slice_chain`.
+Do not collapse a multi-stage closure into a misleading single stage.
 
 ### `default_verification_lane`
 
-Default verification lane used when per-patch metadata does not override it.
+Fallback verification lane. It must agree with the strategy and every written
+artifact layer.
 
-- `A`: Assembler replay. Use for localized changes that do not require
-  normalizer-level worker/handoff reconstruction.
-- `B`: Normalizer replay. Use when the patch can change worker plans, handoff
-  contracts, cross-worker bindings, or other normalized structures.
-
-Prefer per-patch `PatchTypeMeta.verification_lane` when an affordance exposes
-multiple strategies with different replay needs.
+- Lane A is limited to changes that assembler replay can authoritatively
+  verify.
+- Lane B is required for block plans, normalized structures, worker plans,
+  handoff contracts, cross-worker bindings, or other normalizer-owned state.
 
 ### `editable_artifacts`
 
-Tuple of IR artifact class names the patch applier is allowed to modify, such
-as `WorkerStepPlanIR`, `WorkerPlanIR`, or `WorkerHandoffIR`.
+The minimal artifact classes that confirmed materialization may modify. Include
+every layer in the closure, but do not broaden the list to hide unclear stage
+ownership.
 
-Keep this list minimal. It is a capability boundary, not documentation. Do not
-include artifacts merely because they are nearby.
+### `intent_schema_id`
+
+Identifier of the typed construct repair intent schema used by the transitional
+handler/adapter. The schema must not expose IR-like free-form fields or permit
+raw variable names outside `SelectableRefSet`.
 
 ### `required_evidence_kind`
 
-Evidence kind required before applying a repair. The MVP default is
+The evidence required for accepted apply. The current user-facing default is
 `user_confirmed_repair`.
 
-Do not weaken this requirement for AI-generated suggestions. Unconfirmed
-suggestions must remain non-renderable unless another confirmed authority is
-explicitly designed.
+This field does not make a provisional directive confirmed. Evidence authority
+is created only after the user confirms the preview and a
+`RepairEvidencePacket` is issued.
+
+Confirmation does not satisfy structural slots, validate handoffs, authorize
+undefined refs, or prove rendered placement.
 
 ### `user_facing`
 
-Whether the affordance should be exposed in the Diagnostics Console UI.
-
-Use `False` only for internal or staged capabilities that should be hidden from
-users while still remaining catalog-visible for tests or internal tooling.
-
-### `notes`
-
-Internal design notes for maintainers. Runtime code must not depend on this
-field.
+Whether the affordance may appear in the default issue repair flow. Set this to
+`True` only when the full strategy, preview, apply, and verification chain is
+available.
 
 ### `patch_type_metadata`
 
-Tuple of `PatchTypeMeta` entries used to present individual strategy options.
-Use this whenever `supported_patch_types` contains more than one user-visible
-strategy.
+Transitional labels and adapter-specific lanes. When a strategy is present,
+these labels must not replace strategy-level presentation. They may explain
+legacy execution choices that remain genuinely distinct.
 
-Each `PatchTypeMeta` should define:
+### `notes`
 
-- `patch_type`: one value from `supported_patch_types`;
-- `label`: concise user-facing strategy label;
-- `description`: when the user should choose this strategy;
-- `verification_lane`: lane for this specific strategy.
-
-The set of `patch_type_metadata.patch_type` values should match
-`supported_patch_types` for user-facing multi-strategy affordances.
+Maintainer-only context. Runtime behavior must not depend on it.
 
 ## Creation Checklist
 
-Before adding a `RepairAffordanceSpec`, verify:
+Before adding a `RepairAffordanceSpec`, verify all of the following:
 
 1. The slot has a real `missing_diagnostic`.
-2. The missing slot is user-actionable.
-3. The user or architecture has confirmed each exposed repair strategy.
-4. Every `supported_patch_types` value is registered or explicitly planned.
-5. `default_patch_type` is confirmed and belongs to `supported_patch_types`.
-6. `handler_id`, `context_id`, and `target_resolver_id` map to real SPL Editing
-   components.
-7. `editable_artifacts` is the minimal set required by the patch applier.
-8. `default_verification_lane` and per-patch lanes match the artifact blast
-   radius.
-9. Multi-strategy affordances include `patch_type_metadata`.
-10. Tests cover registry shape and `RepairCatalog` derivation.
+2. The slot is user-actionable.
+3. The strategy was confirmed by architecture or the user.
+4. `repair_strategy_id` resolves in the strategy registry.
+5. Strategy construct, slot, and diagnostic exactly match the IRS owner.
+6. The strategy closure contains every required parent and child construct.
+7. Every closure node has an owning registered stage slice.
+8. Default and directive-driven policies are defined.
+9. Required structured facts have authoritative providers.
+10. The selectable-ref policy exists and constrains all consumable refs.
+11. The target resolver resolves the actual construct, not a source signal.
+12. Preview is generated before confirmation and cannot persist an accepted
+    overlay.
+13. Confirmed apply creates the required evidence packet.
+14. Editable artifacts and verification lane cover the complete write set.
+15. Verification checks authority, refs, closure, provenance, graph/producer/
+    handoff constraints as applicable, and rendered visibility.
+16. Transitional patch adapters are registered and agree with the strategy.
+17. Tests fail when any registry link is missing or mismatched.
 
 ## Anti-Patterns
 
-- Adding repair affordances just because a slot has a diagnostic.
-- Inventing patch types without user or architecture confirmation.
-- Reusing an `affordance_id` for unrelated behavior.
-- Exposing a patch type whose handler, context builder, resolver, validator,
-  applier, or verifier does not exist or is not planned.
-- Listing broad `editable_artifacts` to avoid choosing a real ownership
-  boundary.
-- Marking unconfirmed AI output as renderable repair evidence.
-- Creating a repair target for a source signal such as `delegation_intent`
-  instead of targeting the owning IRS construct slot.
+- Treating `supported_patch_types` as the user-facing strategy set.
+- Naming an affordance after a fixed command family or final answer.
+- Adding a repair affordance solely because a diagnostic exists.
+- Linking a strategy whose construct, slot, or diagnostic does not match.
+- Declaring only Stage 7 when the closure also requires Stage 5 block
+  materialization.
+- Making a patch applier or generic materializer decide the full construct
+  shape.
+- Letting a handler parse diagnostic text to obtain primary materialization
+  facts.
+- Letting a user directive or LLM supply raw refs that are absent from the
+  selectable set.
+- Treating preview generation as accepted apply.
+- Treating `user_confirmed_repair` as authority to bypass structural checks.
+- Exposing a repair before stage slices, preview, apply, or verification are
+  registered.
+- Creating a repair target for `delegation_intent` instead of the owning
+  `WORKER_PROMOTION`, `WORKER_HANDOFF`, `CHILD_WORKER`, or `INVOKE_WORKER` slot.
+
+

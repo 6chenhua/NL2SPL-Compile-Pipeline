@@ -49,6 +49,7 @@ if str(SRC_ROOT) not in sys.path:
 
 SNAPSHOT_FILENAME = "spl_editing_snapshot.json"
 
+
 def main() -> None:
     from nl2spl.compiler.spl_editing.cli import (
         _build_default_service,
@@ -97,10 +98,13 @@ def main() -> None:
     if option is None:
         return
 
+    user_instruction = _collect_user_repair_instruction()
+
     issue = presentation.issue_by_id(run_id, card.issue_id)
     session = service.create_session(run_id, issue)
     generation = service.generate_suggestions(
         session.session_id,
+        user_instruction=user_instruction,
         selected_patch_types=option.patch_types,
     )
     if generation.status in ("generation_blocked", "repair_unavailable"):
@@ -120,16 +124,27 @@ def main() -> None:
     if applied_suggestion is None:
         return
 
+    preview = service.preview_suggestion(
+        session.session_id,
+        applied_suggestion.suggestion_id,
+        user_text=user_instruction,
+    )
     confirmation = presentation.present_apply_confirmation(applied_suggestion)
     _print_confirmation(confirmation)
+    print("\nPreview:")
+    for line in preview.rendered_preview.splitlines():
+        print(f"  {line}")
     confirm = input("Confirm apply? [y/N] ").strip().lower()
     if confirm != "y":
         print("Cancelled. Snapshot was not changed.")
         return
 
     print("Applying suggestion...", flush=True)
-    updated = service.apply_suggestion(
-        session.session_id, applied_suggestion.suggestion_id,
+    updated = service.apply_preview_result(
+        session.session_id,
+        applied_suggestion.suggestion_id,
+        preview.preview_id,
+        user_text=user_instruction,
     )
     print(f"Applied. overlay_version={updated.overlay_version}")
 
@@ -284,6 +299,16 @@ def _choose_fix_option(
             return choice
         print(f"Invalid choice: {raw}")
 
+
+
+def _collect_user_repair_instruction() -> str | None:
+    print("\nOptional repair instruction")
+    print("  Press Enter to let SPL Editing choose the simplest valid repair.")
+    try:
+        raw = input("Describe your preferred repair, or press Enter: ").strip()
+    except EOFError:
+        return None
+    return raw or None
 
 def _print_suggestions(suggestions: tuple[object, ...]) -> None:
     print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")

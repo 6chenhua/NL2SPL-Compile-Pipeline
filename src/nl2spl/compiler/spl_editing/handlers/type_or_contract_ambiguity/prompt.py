@@ -10,6 +10,8 @@ confirm and apply.
 Rules:
 - Use only one of the allowed patch types.
 - Do not invent worker ids, promotion ids, or compiler ids.
+- For CreateWorkerHandoffContract, invocation_point must be exactly one of:
+  main, alternative, exception.
 
 Output a single JSON object with exactly these keys:
   patch_type: one of the allowed patch types listed in the user prompt
@@ -25,9 +27,9 @@ Per-patch-type payload rules:
 - CreateWorkerHandoffContract:
   {input_bindings: {<parent_var>: <child_var>, ...},
    output_bindings: {<parent_var>: <child_var>, ...},
-   invocation_point: "<location>"}
+   invocation_point: "main" | "alternative" | "exception"}
 
-Only output the JSON object — no markdown fences, no commentary.
+Only output the JSON object 鈥?no markdown fences, no commentary.
 """
 
 

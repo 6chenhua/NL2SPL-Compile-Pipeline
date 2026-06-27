@@ -15,6 +15,7 @@ Lookup keys:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.ir.diagnostics import DiagnosticIRSRef
@@ -76,6 +77,10 @@ class RepairCatalogEntry:
     patch_type_metadata: tuple = ()
     """Per-patch-type labels, descriptions, and verification lanes copied from
     ``RepairAffordanceSpec.patch_type_metadata``."""
+    repair_strategy_id: str | None = None
+    strategy_display_label: str | None = None
+    closure_summary: str | None = None
+    preview_required: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -202,12 +207,14 @@ class RepairCatalogBuilder:
     @staticmethod
     def from_construct_registry(
         registry: SPLConstructRegistry,
+        strategy_registry: Any = None,
     ) -> RepairCatalog:
         """Build the catalog by scanning all registered constructs.
 
         Args:
             registry: A fully populated construct registry (typically
                 ``SPLConstructRegistry.default()``).
+            strategy_registry: Optional RepairStrategyRegistry.
 
         Returns:
             An immutable ``RepairCatalog`` with indexed entries.
@@ -232,6 +239,33 @@ class RepairCatalogBuilder:
                 for aff in slot.repair_affordances:
                     plan_id = aff.materialization_plan_id
                     user_facing = aff.user_facing and bool(plan_id and plan_id.strip())
+
+                    repair_strategy_id = None
+                    strategy_display_label = None
+                    closure_summary = None
+                    preview_required = False
+
+                    if strategy_registry and aff.repair_strategy_id:
+                        has_method = getattr(strategy_registry, "has", None)
+                        if has_method is not None:
+                            if has_method(aff.repair_strategy_id):
+                                strategy_spec = strategy_registry.get(aff.repair_strategy_id)
+                                if strategy_spec:
+                                    repair_strategy_id = aff.repair_strategy_id
+                                    strategy_display_label = getattr(strategy_spec, "display_label", None)
+                                    closure_summary = getattr(strategy_spec, "closure_summary", None)
+                                    preview_required = getattr(strategy_spec, "preview_required", False)
+                        else:
+                            try:
+                                strategy_spec = strategy_registry.get(aff.repair_strategy_id)
+                                if strategy_spec:
+                                    repair_strategy_id = aff.repair_strategy_id
+                                    strategy_display_label = getattr(strategy_spec, "display_label", None)
+                                    closure_summary = getattr(strategy_spec, "closure_summary", None)
+                                    preview_required = getattr(strategy_spec, "preview_required", False)
+                            except Exception as e:
+                                if type(e).__name__ not in ("StrategyNotFoundError", "KeyError"):
+                                    raise
 
                     entry = RepairCatalogEntry(
                         entry_id=RepairCatalogBuilder._make_entry_id(
@@ -260,6 +294,10 @@ class RepairCatalogBuilder:
                         intent_schema_id=aff.intent_schema_id,
                         required_context_facts=aff.required_context_facts,
                         stage_authority=aff.stage_authority,
+                        repair_strategy_id=repair_strategy_id,
+                        strategy_display_label=strategy_display_label,
+                        closure_summary=closure_summary,
+                        preview_required=preview_required,
                     )
                     entries.append(entry)
 

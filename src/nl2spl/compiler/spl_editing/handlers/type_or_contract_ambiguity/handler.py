@@ -246,52 +246,75 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
         patch_type: str,
         payload: dict,
     ) -> ConstructRepairIntent | None:
-        target_refs = [ref for ref in selectable_refset.refs if ref.ref_role == "target_worker"]
+        target_refs = [
+            ref
+            for ref in selectable_refset.refs
+            if ref.ref_role == "target_worker"
+            and ref.worker_id == target.worker_id
+            and ref.canonical_name == target.canonical_name
+        ]
         if len(target_refs) != 1:
             return None
+        target_ref_id = target_refs[0].ref_id
+
         if patch_type == "CreateWorkerHandoffContract":
-            input_bindings = tuple(
-                (str(parent), str(child))
-                for parent, child in payload.get("input_bindings", {}).items()
-            )
-            output_bindings = tuple(
-                (str(child), str(parent))
-                for child, parent in payload.get("output_bindings", {}).items()
-            )
+            input_bindings = payload.get("input_bindings")
+            output_bindings = payload.get("output_bindings")
+            invocation_point = payload.get("invocation_point")
+            parent_worker_id = payload.get("parent_worker_id")
+            child_worker_id = payload.get("child_worker_id")
+            if not isinstance(input_bindings, dict) or not isinstance(output_bindings, dict):
+                return None
+            if invocation_point not in {"main", "alternative", "exception"}:
+                return None
+            if not isinstance(parent_worker_id, str) or not parent_worker_id.strip():
+                return None
+            if not isinstance(child_worker_id, str) or not child_worker_id.strip():
+                return None
             intent_payload = CreateWorkerHandoffContractIntentPayload(
-                target_worker_promotion_ref_id=target_refs[0].ref_id,
-                parent_worker_id=str(payload.get("parent_worker_id", "")),
-                child_worker_id=str(payload.get("child_worker_id", "")),
-                input_bindings=input_bindings,
-                output_bindings=output_bindings,
-                invocation_point=str(payload.get("invocation_point", "main")),
-                input_binding_status=str(payload.get("input_binding_status", "known_present")),
-                output_binding_status=str(payload.get("output_binding_status", "known_present")),
+                target_worker_promotion_ref_id=target_ref_id,
+                parent_worker_id=parent_worker_id,
+                child_worker_id=child_worker_id,
+                input_bindings=tuple(input_bindings.items()),
+                output_bindings=tuple(output_bindings.items()),
+                invocation_point=invocation_point,
             )
-            summary = "Create worker handoff contract."
+            summary = f"Create handoff contract for worker {child_worker_id}"
         elif patch_type == "ConvertDelegationIntentToMainFlowStep":
+            action_text = payload.get("action_text")
+            worker_id = payload.get("worker_id")
+            if not isinstance(action_text, str) or not action_text.strip():
+                return None
+            if not isinstance(worker_id, str) or not worker_id.strip():
+                return None
             intent_payload = ConvertDelegationToMainFlowStepIntentPayload(
-                target_worker_promotion_ref_id=target_refs[0].ref_id,
-                worker_id=str(payload.get("worker_id", "")),
-                action_text=str(payload.get("action_text", "")),
-                outputs=tuple(str(o) for o in payload.get("outputs", ())),
+                target_worker_promotion_ref_id=target_ref_id,
+                worker_id=worker_id,
+                action_text=action_text,
+                outputs=tuple(payload.get("outputs", ())),
             )
-            summary = "Convert delegation to main-flow step."
+            summary = action_text
         elif patch_type == "ConvertDelegationIntentToRequestInput":
-            outputs = tuple(str(o) for o in payload.get("outputs", ()))
-            value_target = str(payload.get("value_target", ""))
-            if value_target and value_target not in outputs:
-                outputs = outputs + (value_target,)
+            prompt_text = payload.get("prompt_text")
+            value_target = payload.get("value_target")
+            worker_id = payload.get("worker_id")
+            if not isinstance(prompt_text, str) or not prompt_text.strip():
+                return None
+            if not isinstance(value_target, str) or not value_target.strip():
+                return None
+            if not isinstance(worker_id, str) or not worker_id.strip():
+                return None
             intent_payload = ConvertDelegationToRequestInputIntentPayload(
-                target_worker_promotion_ref_id=target_refs[0].ref_id,
-                worker_id=str(payload.get("worker_id", "")),
-                prompt_text=str(payload.get("prompt_text", "")),
+                target_worker_promotion_ref_id=target_ref_id,
+                worker_id=worker_id,
+                prompt_text=prompt_text,
                 value_target=value_target,
-                outputs=outputs,
+                outputs=tuple(payload.get("outputs", ())),
             )
-            summary = "Convert delegation to request input."
+            summary = prompt_text
         else:
             return None
+
         return ConstructRepairIntent(
             intent_id=f"int_{issue.issue_id}",
             issue_id=issue.issue_id,
@@ -300,7 +323,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
             target_construct_type=entry.construct_type,
             target_construct_id=issue.irs_ref.construct_id,
             target_slot_name=entry.slot_name,
-            target_ref_id=target_refs[0].ref_id,
+            target_ref_id=target_ref_id,
             selected_ref_ids=(),
             intent_summary=summary,
             repair_goal=summary,
@@ -341,6 +364,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
                 "worker_id": parent or target.worker_id or "",
                 "prompt_text": prompt_text,
                 "value_target": value_target,
+                "outputs": _string_tuple(llm_payload.get("outputs")),
             }
         if patch_type == "CreateWorkerHandoffContract":
             if not child_id:
@@ -350,7 +374,7 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
             invocation_point = llm_payload.get("invocation_point")
             if not input_bindings or not output_bindings:
                 return None
-            if not isinstance(invocation_point, str) or not invocation_point.strip():
+            if invocation_point not in {"main", "alternative", "exception"}:
                 return None
             return {
                 "worker_promotion_id": issue.target_ref.replace("worker_promotion:", ""),

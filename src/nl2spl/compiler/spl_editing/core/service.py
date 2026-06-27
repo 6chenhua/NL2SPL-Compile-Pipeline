@@ -1,4 +1,4 @@
-﻿"""SPL Editing service --wires extractors, handlers, patches, and verification.
+"""SPL Editing service --wires extractors, handlers, patches, and verification.
 
 No diagnostic-kind if-else in this module.  All dispatch goes through
 registries keyed by handler_id / affordance_id / patch_type.
@@ -10,6 +10,7 @@ Patch types without a materialization context are rejected.
 from __future__ import annotations
 
 from dataclasses import replace
+from importlib import import_module
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -107,8 +108,10 @@ class SPLEditingService:
         materialization_service: RepairMaterializationService | None = None,
     ) -> None:
         self._runtime = runtime
+        self._strategy_registry = self._build_default_strategy_registry()
         self._catalog = catalog or RepairCatalogBuilder.from_construct_registry(
             SPLConstructRegistry.default(),
+            strategy_registry=self._strategy_registry,
         )
         self._snapshots = ArtifactSnapshotStore()
         self._sessions = SessionStore()
@@ -120,7 +123,7 @@ class SPLEditingService:
         self._apply_results: dict[str, PatchApplyResult] = {}
         self._verification_results = VerificationResultStore()
         self._session_overlays: dict[str, list[str]] = {}
-        # compile_run_id 鈫?snapshot_id
+        # compile_run_id 闁?snapshot_id
         self._run_snapshot: dict[str, str] = {}
         self._snapshot_repository = snapshot_repository
         self._snapshot_run_dir = Path(snapshot_run_dir) if snapshot_run_dir else None
@@ -133,7 +136,109 @@ class SPLEditingService:
             build_default_materialization_registry()
         )
         self._confirmation_contexts = ConfirmationContextStore()
+        self._preview_store = self._build_preview_store()
+        self._preview_service = self._build_preview_service()
 
+    @staticmethod
+    def _build_default_strategy_registry():
+        defaults = import_module("nl2spl.compiler.spl_editing.strategy.defaults")
+        return defaults.build_default_strategy_registry()
+
+    @staticmethod
+    def _build_preview_store():
+        store_module = import_module("nl2spl.compiler.spl_editing.preview.store")
+        return store_module.PreviewStore()
+
+    def _build_preview_service(self):
+        preview_service_module = import_module("nl2spl.compiler.spl_editing.preview.service")
+        return preview_service_module.PreviewDryRunService(self._materialization)
+
+    @staticmethod
+    def _preview_runtime():
+        strategy_model = import_module("nl2spl.compiler.spl_editing.strategy.model")
+        preview_store = import_module("nl2spl.compiler.spl_editing.preview.store")
+        preview_validators = import_module("nl2spl.compiler.spl_editing.preview.validators")
+        return (
+            strategy_model.RepairDirective,
+            preview_store.PreviewStore,
+            preview_validators.PreviewApplyExpectedState,
+            preview_validators.validate_preview_not_stale,
+        )
+
+    @staticmethod
+    def _requested_behavior_from_intent(intent: ConstructRepairIntent, user_text: str | None) -> str:
+        if user_text and user_text.strip():
+            return user_text.strip()
+        payload = intent.payload
+        for field_name in (
+            "handler_goal",
+            "producer_goal",
+            "action_text",
+            "prompt_text",
+            "value_target",
+        ):
+            value = getattr(payload, field_name, None)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        if intent.repair_goal.strip():
+            return intent.repair_goal.strip()
+        if intent.intent_summary.strip():
+            return intent.intent_summary.strip()
+        return "Apply the selected construct repair."
+
+    def _build_preview_directive(
+        self,
+        intent: ConstructRepairIntent,
+        *,
+        user_text: str | None,
+    ):
+        RepairDirective, _, _, _ = self._preview_runtime()
+        return RepairDirective(
+            directive_id=f"dir_{intent.intent_id}",
+            source="user" if user_text and user_text.strip() else "system_default",
+            target_construct_type=intent.target_construct_type,
+            target_slot_name=intent.target_slot_name,
+            requested_behavior=self._requested_behavior_from_intent(intent, user_text),
+            selected_ref_hints=tuple(intent.selected_ref_ids),
+            constraints=tuple(intent.constraints),
+        )
+
+    def _generate_preview_for_context(
+        self,
+        *,
+        session: EditingSession,
+        ctx: RepairConfirmationContext,
+        patch: RepairPatch,
+        user_text: str | None,
+        store,
+        ttl_seconds: float | None = None,
+    ):
+        intent = patch.payload
+        if not isinstance(intent, ConstructRepairIntent):
+            raise SPLEditingError(
+                f"{patch.patch_type} payload must be ConstructRepairIntent, "
+                f"got {type(intent).__name__}"
+            )
+        strategy_id = getattr(ctx.catalog_entry, "repair_strategy_id", None)
+        if not strategy_id:
+            raise SPLEditingError(
+                f"Catalog entry '{ctx.catalog_entry.entry_id}' does not declare a repair strategy."
+            )
+        strategy = self._strategy_registry.get(strategy_id)
+        directive = self._build_preview_directive(intent, user_text=user_text)
+        snap = self._get_snapshot(session.compile_run_id)
+        return self._preview_service.preview(
+            session=session,
+            issue=ctx.issue,
+            strategy=strategy,
+            directive=directive,
+            target=ctx.target,
+            refset=ctx.refset,
+            snapshot=snap,
+            store=store,
+            candidate_intent=intent,
+            ttl_seconds=ttl_seconds,
+        )
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -354,7 +459,11 @@ class SPLEditingService:
                     target_role = "target_output"
                     if payload.patch_type == "AddExceptionHandlerStep":
                         target_role = "target_exception_flow"
-                    elif payload.patch_type == "CreateWorkerHandoffContract":
+                    elif payload.patch_type in {
+                        "CreateWorkerHandoffContract",
+                        "ConvertDelegationIntentToMainFlowStep",
+                        "ConvertDelegationIntentToRequestInput",
+                    }:
                         target_role = "target_worker"
                     target_resolution = resolve_ref_ids_to_result(
                         selectable_refset,
@@ -419,6 +528,105 @@ class SPLEditingService:
             warnings=readiness_warnings,
         )
 
+    def get_preview_store(self):
+        """Return the in-memory preview store for diagnostics and tests."""
+        return self._preview_store
+
+    def preview_suggestion(
+        self,
+        session_id: str,
+        suggestion_id: str,
+        *,
+        user_text: str | None = None,
+        ttl_seconds: float | None = None,
+    ):
+        """Generate a dry-run preview for a sealed suggestion without applying it."""
+        session = self._sessions.get(session_id)
+        suggestion = self._suggestions.get(suggestion_id)
+        if suggestion.session_id != session_id:
+            raise SPLEditingError(
+                f"Suggestion '{suggestion_id}' belongs to session "
+                f"'{suggestion.session_id}', not '{session_id}'"
+            )
+        ctx = self._confirmation_contexts.get(f"ctx_{suggestion_id}")
+        return self._generate_preview_for_context(
+            session=session,
+            ctx=ctx,
+            patch=suggestion.patch,
+            user_text=user_text,
+            store=self._preview_store,
+            ttl_seconds=ttl_seconds,
+        )
+
+    def apply_preview_result(
+        self,
+        session_id: str,
+        suggestion_id: str,
+        preview_id: str,
+        *,
+        user_text: str | None = None,
+    ) -> EditingSession:
+        """Apply a suggestion only after the stored preview passes stale validation."""
+        session = self._sessions.get(session_id)
+        suggestion = self._suggestions.get(suggestion_id)
+        if suggestion.session_id != session_id:
+            raise SPLEditingError(
+                f"Suggestion '{suggestion_id}' belongs to session "
+                f"'{suggestion.session_id}', not '{session_id}'"
+            )
+        ctx = self._confirmation_contexts.get(f"ctx_{suggestion_id}")
+        _, PreviewStore, PreviewApplyExpectedState, validate_preview_not_stale = (
+            self._preview_runtime()
+        )
+        candidate_store = PreviewStore()
+        candidate = self._generate_preview_for_context(
+            session=session,
+            ctx=ctx,
+            patch=suggestion.patch,
+            user_text=user_text,
+            store=candidate_store,
+        )
+        expected = PreviewApplyExpectedState(
+            session_id=session.session_id,
+            issue_id=session.issue.issue_id,
+            base_snapshot_id=candidate.base_snapshot_id,
+            intent_hash=candidate.intent_hash,
+            directive_hash=candidate.directive_hash,
+            closure_plan_hash=candidate.closure_plan_hash,
+            selected_refset_id=candidate.selected_refset_id,
+            slice_typed_plan_hashes=candidate.slice_typed_plan_hashes,
+            preview_construct_hashes=candidate.preview_construct_hashes,
+            llm_generation_config_hash=candidate.llm_generation_config_hash,
+        )
+        validate_preview_not_stale(self._preview_store, preview_id, expected)
+
+        patch = suggestion.patch
+        confirmed_patch = RepairPatch(
+            patch_id=patch.patch_id,
+            affordance_id=patch.affordance_id,
+            patch_type=patch.patch_type,
+            target_ref=patch.target_ref,
+            irs_ref=patch.irs_ref,
+            base_compile_run_id=patch.base_compile_run_id,
+            artifact_snapshot_id=patch.artifact_snapshot_id,
+            overlay_version=patch.overlay_version,
+            payload=patch.payload,
+            preconditions=patch.preconditions,
+            evidence=RepairEvidence(
+                evidence_kind="user_confirmed_repair",
+                user_text=user_text or "",
+                related_diagnostic_id=session.issue.primary_diagnostic_id,
+            ),
+            verification_lane=patch.verification_lane,
+        )
+        updated = self._apply_via_materialization(
+            session_id,
+            suggestion_id,
+            confirmed_patch,
+            user_text,
+        )
+        self._preview_store.expire(preview_id)
+        return updated
     def apply_suggestion(
         self,
         session_id: str,
@@ -456,7 +664,7 @@ class SPLEditingService:
             verification_lane=patch.verification_lane,
         )
 
-        # 鈹€鈹€ R6: Insert dispatch BEFORE stale prechecks 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+        # 闁冲厜鍋撻柍鍏夊亾 R6: Insert dispatch BEFORE stale prechecks 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋?
         # Insert path handles cross-session/stale via the context state
         # machine (expire/reject), not via pre-check exceptions.
         if confirmed_patch.patch_type == "InsertProducerStep" or isinstance(
@@ -474,7 +682,7 @@ class SPLEditingService:
                 user_text,
             )
 
-        # 鈹€鈹€ Non-materialized payload prechecks 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
+        # 闁冲厜鍋撻柍鍏夊亾 Non-materialized payload prechecks 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋? # noqa: E501
         if suggestion.session_id != session_id:
             raise SPLEditingError(
                 f"Suggestion '{suggestion_id}' belongs to session "
@@ -491,13 +699,13 @@ class SPLEditingService:
                 f"snapshot {snap.overlay_version}"
             )
 
-        # 鈹€鈹€ No direct mutation bridge 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
+        # 闁冲厜鍋撻柍鍏夊亾 No direct mutation bridge 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾  # noqa: E501
         raise SPLEditingError(
             f"Patch type '{confirmed_patch.patch_type}' has no "
             "materialization plan/context and cannot be applied directly."
         )
 
-    # 鈹€鈹€ R6: Materialization apply path 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€  # noqa: E501
+    # 闁冲厜鍋撻柍鍏夊亾 R6: Materialization apply path 闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾闁冲厜鍋撻柍鍏夊亾  # noqa: E501
 
     def _apply_via_materialization(
         self,
@@ -798,7 +1006,7 @@ class SPLEditingService:
     ) -> RepairCatalogEntry:
         """Resolve exactly one catalog entry by affordance_id + patch_type.
 
-        Zero or multiple matches 鈫?fail-fast.  Never falls back to
+        Zero or multiple matches 闁?fail-fast.  Never falls back to
         ``entries[0]``.
         """
         entries = self._catalog.find_by_construct_slot_kind(

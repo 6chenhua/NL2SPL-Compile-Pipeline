@@ -1,21 +1,8 @@
-﻿"""Stage7 required-output producer step materializer.
-
-This module implements the Stage 7 authorised materializer that inserts a new
-``StepIR`` as the producer for a ``REQUIRED_OUTPUT`` slot.
-
-Design constraints
-------------------
-* Does NOT import ``Materializer`` from ``registry.py`` --structural subtyping
-  ensures Protocol compatibility without creating a circular dependency.
-* All validation that can be checked from ``MaterializationInput`` is
-  performed before any mutation.
-* The input ``ArtifactSnapshot`` is never mutated in place.
-"""
+"""Stage7 required-output producer materialization facade."""
 
 from __future__ import annotations
 
-import json
-from dataclasses import replace
+from importlib import import_module
 
 from nl2spl.compiler.spl_editing.core.model import RepairEvidenceRef
 from nl2spl.compiler.spl_editing.core.revision import (
@@ -31,28 +18,24 @@ from nl2spl.compiler.spl_editing.materialization.model import (
     MaterializationInput,
     MaterializationResult,
 )
-from nl2spl.ir.step_ir import StepIR
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 
 _MATERIALIZER_ID = "stage7.step_producer_repair.v1"
 _STAGE_AUTHORITY = "stage7.worker_step_plan"
 
 
-# ---------------------------------------------------------------------------
-# Materializer
-# ---------------------------------------------------------------------------
+def _load_stage_slice_runtime():
+    stage_slices = import_module("nl2spl.compiler.spl_editing.stage_slices")
+    strategy = import_module("nl2spl.compiler.spl_editing.strategy")
+    return (
+        stage_slices.StagePolicy,
+        stage_slices.StageSliceInput,
+        stage_slices.Stage7RequiredOutputProducerCommandRepairSlice,
+        strategy.RepairDirective,
+    )
 
 
 class Stage7ProducerRepairMaterializer:
-    """Stage 7 materializer for inserting a required-output producer step.
-
-    Implements the ``Materializer`` Protocol via structural subtyping --the
-    registry matches on ``materializer_id``, ``stage_authority``, and
-    ``materialize()`` at call time.
-    """
+    """Compatibility facade that delegates producer command shape to Stage7 slice."""
 
     @property
     def materializer_id(self) -> str:
@@ -63,34 +46,22 @@ class Stage7ProducerRepairMaterializer:
         return _STAGE_AUTHORITY
 
     def materialize(self, input_data: MaterializationInput) -> MaterializationResult:
-        """Validate intent and snapshot, allocate a step ID, build StepIR, derive snapshot."""
         intent = input_data.intent
         snapshot = input_data.snapshot
         target = input_data.target
         evidence_packet = input_data.evidence_packet
-        id_allocator = input_data.id_allocator
         resolved_refs = input_data.resolved_refs
 
-        # ------------------------------------------------------------------
-        # 1. Payload type validation
-        # ------------------------------------------------------------------
         payload = intent.payload
         if not isinstance(payload, InsertProducerStepIntentPayload):
             raise DependencyClosureValidationError(
-                f"Stage7ProducerRepairMaterializer requires InsertProducerStepIntentPayload "
-                f"but received {type(payload).__name__!r}."
+                "Stage7ProducerRepairMaterializer requires "
+                f"InsertProducerStepIntentPayload but received {type(payload).__name__!r}."
             )
 
-        producer_goal: str = payload.producer_goal
-
-        # ------------------------------------------------------------------
-        # 2. Goal content validation
-        # ------------------------------------------------------------------
-        if not producer_goal or not producer_goal.strip():
-            raise DependencyClosureValidationError("producer_goal must not be empty or whitespace.")
-
-        # Reject every REF-token prefix, including malformed and self-closing
-        # variants, before free text can reach a renderer.
+        producer_goal = payload.producer_goal.strip()
+        if not producer_goal:
+            raise DependencyClosureValidationError("producer_goal must not be empty.")
         normalized_goal = producer_goal.casefold()
         if "<ref" in normalized_goal or "</ref" in normalized_goal:
             raise DependencyClosureValidationError(
@@ -98,25 +69,17 @@ class Stage7ProducerRepairMaterializer:
                 "use canonical ref names directly."
             )
 
-        # ------------------------------------------------------------------
-        # 3. Target worker existence check
-        # ------------------------------------------------------------------
-        worker_id: str = target.worker_id or ""
-        step_plan = snapshot.worker_step_plan
-        if step_plan is None:
+        worker_id = target.worker_id or ""
+        output_name = target.canonical_name or ""
+        if not worker_id:
+            raise DependencyClosureValidationError("RepairTarget.worker_id is required.")
+        if not output_name:
+            raise DependencyClosureValidationError("RepairTarget.canonical_name is required.")
+        if snapshot.worker_step_plan is None:
             raise DependencyClosureValidationError("worker_step_plan is missing from snapshot.")
-        if worker_id not in step_plan.worker_steps:
+        if worker_id not in snapshot.worker_step_plan.worker_steps:
             raise DependencyClosureValidationError(
                 f"Target worker '{worker_id}' not found in worker_step_plan.worker_steps."
-            )
-
-        # ------------------------------------------------------------------
-        # 4. Resolve inputs and output
-        # ------------------------------------------------------------------
-        output_name: str = target.canonical_name or ""
-        if not output_name:
-            raise DependencyClosureValidationError(
-                "RepairTarget.canonical_name is required but empty."
             )
 
         for resolved in resolved_refs:
@@ -130,58 +93,48 @@ class Stage7ProducerRepairMaterializer:
                     "selectable_input in the target scope."
                 )
 
-        input_names: list[str] = [r.ref.canonical_name for r in resolved_refs]
-        outputs: list[str] = [output_name]
+        (
+            StagePolicy,
+            StageSliceInput,
+            Stage7RequiredOutputProducerCommandRepairSlice,
+            RepairDirective,
+        ) = _load_stage_slice_runtime()
 
-        # ------------------------------------------------------------------
-        # 5. Allocate step ID
-        # ------------------------------------------------------------------
-        step_id = id_allocator.allocate_step_id()
-
-        # ------------------------------------------------------------------
-        # 6. Build StepIR with complete audit metadata
-        # ------------------------------------------------------------------
-        consumed_ref_ids: tuple[str, ...] = tuple(r.ref.ref_id for r in resolved_refs)
-        metadata: dict = {
-            "origin": "user_confirmed_repair",
-            "repair_patch_id": evidence_packet.repair_patch_id,
-            "related_diagnostic_id": evidence_packet.related_diagnostic_id,
-            "evidence_packet_id": evidence_packet.evidence_packet_id,
-            "materialization_authority": _STAGE_AUTHORITY,
-            "materialization_plan_id": _MATERIALIZER_ID,
-            "consumed_selected_ref_ids": json.dumps(list(consumed_ref_ids)),
-            "selected_ref_canonical_names": json.dumps(input_names),
-            "target_output_ref_id": payload.target_output_ref_id,
-            "target_output_name": output_name,
-            "user_text": evidence_packet.user_text,
-        }
-
-        new_step = StepIR(
-            step_id=step_id,
-            text=producer_goal.strip(),
-            source_span_ids=[],
-            command_type="GENERAL_COMMAND",
-            inputs=input_names,
-            outputs=outputs,
-            flow_ref="main",
-            metadata=metadata,
+        selected_ref_ids = tuple(ref.ref.ref_id for ref in resolved_refs)
+        directive = RepairDirective(
+            directive_id=f"dir_{intent.intent_id}",
+            source="system_default",
+            target_construct_type=intent.target_construct_type,
+            target_slot_name=intent.target_slot_name,
+            requested_behavior=producer_goal,
+            selected_ref_hints=selected_ref_ids,
         )
 
-        # ------------------------------------------------------------------
-        # 7. Build new WorkerStepPlanIR without mutating the input snapshot
-        # ------------------------------------------------------------------
-        # Deep-copy the per-worker step lists (list-of-StepIR values are
-        # themselves frozen, so shallow copy of each list is sufficient).
-        new_worker_steps: dict[str, list] = {
-            wid: list(steps) for wid, steps in step_plan.worker_steps.items()
-        }
-        new_worker_steps[worker_id] = new_worker_steps[worker_id] + [new_step]
+        stage7 = Stage7RequiredOutputProducerCommandRepairSlice()
+        stage7_result = stage7.execute(
+            StageSliceInput(
+                slice_id=stage7.slice_id,
+                stage_authority=_STAGE_AUTHORITY,
+                snapshot=snapshot,
+                target=target,
+                refset=input_data.refset,
+                directive=directive,
+                intent=intent,
+                dependency_closure=input_data.plan.dependency_closure,
+                stage_policy=StagePolicy(
+                    policy_id="required_output.producer_command.v1",
+                    stage_authority=_STAGE_AUTHORITY,
+                    allowed_typed_plan_kinds=("CommandIntentPlan",),
+                    generation_mode="none",
+                ),
+                selected_ref_ids=selected_ref_ids,
+                evidence_packet=evidence_packet,
+                id_allocator=input_data.id_allocator,
+                dry_run=False,
+            )
+        )
 
-        new_step_plan = replace(step_plan, worker_steps=new_worker_steps)
-
-        # ------------------------------------------------------------------
-        # 8. Derive new snapshot
-        # ------------------------------------------------------------------
+        new_step_plan = stage7_result.artifact_updates["worker_step_plan"]
         next_token = RevisionToken(
             compile_run_id=snapshot.compile_run_id,
             artifact_snapshot_id=snapshot.snapshot_id,
@@ -194,12 +147,8 @@ class Stage7ProducerRepairMaterializer:
             final_worker=None,
         )
 
-        # ------------------------------------------------------------------
-        # 9. Construct OverlayEvent and evidence refs
-        # ------------------------------------------------------------------
-        overlay_id = f"ov_{snapshot.snapshot_id}_{next_token.overlay_version}"
         overlay_event = OverlayEvent(
-            overlay_id=overlay_id,
+            overlay_id=f"ov_{snapshot.snapshot_id}_{next_token.overlay_version}",
             base_compile_run_id=snapshot.compile_run_id,
             base_artifact_snapshot_id=snapshot.snapshot_id,
             overlay_version=next_token.overlay_version,
@@ -208,18 +157,21 @@ class Stage7ProducerRepairMaterializer:
             patch_id=evidence_packet.repair_patch_id,
             accepted=True,
         )
-
-        changed_ref = f"step:{worker_id}:{step_id}"
+        changed_ref = stage7_result.generated_construct_refs[0]
+        step_id = changed_ref.rsplit(":", 1)[-1]
         evidence_ref = RepairEvidenceRef(
             artifact_ref=changed_ref,
             repair_patch_id=evidence_packet.repair_patch_id,
             related_diagnostic_id=evidence_packet.related_diagnostic_id,
             user_text=evidence_packet.user_text,
         )
+        stage7_step_metadata = {
+            "origin": "user_confirmed_repair",
+            "repair_patch_id": evidence_packet.repair_patch_id,
+            "related_diagnostic_id": evidence_packet.related_diagnostic_id,
+            "user_text": evidence_packet.user_text,
+        }
 
-        # ------------------------------------------------------------------
-        # 10. Return result
-        # ------------------------------------------------------------------
         return MaterializationResult(
             patched_snapshot=patched_snapshot,
             overlay_event=overlay_event,
@@ -230,7 +182,8 @@ class Stage7ProducerRepairMaterializer:
             materialization_plan_id=_MATERIALIZER_ID,
             materializer_id=_MATERIALIZER_ID,
             materialization_authority=_STAGE_AUTHORITY,
-            consumed_selected_ref_ids=consumed_ref_ids,
+            consumed_selected_ref_ids=selected_ref_ids,
             evidence_packet_id=evidence_packet.evidence_packet_id,
-            dependency_validation_metadata={},  # populated by service post-call
+            dependency_validation_metadata={"stage7_step_metadata": stage7_step_metadata},
+            stage_slice_results=(stage7_result,),
         )

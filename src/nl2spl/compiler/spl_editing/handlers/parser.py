@@ -34,7 +34,7 @@ from nl2spl.compiler.spl_editing.core.errors import (
 class SuggestionEnvelope:
     """Parsed outer JSON envelope from LLM output.
 
-    The inner ``raw_payload`` is NOT schema-validated — the handler
+    The inner ``raw_payload`` is NOT schema-validated 閳?the handler
     decides whether to route it to ``parse_raw_intent()`` (intent path)
     or a legacy ``_validate_*_payload()`` validator.
     """
@@ -42,7 +42,7 @@ class SuggestionEnvelope:
     patch_type: str
     title: str
     explanation: str
-    raw_payload: Any  # dict — unvalidated
+    raw_payload: Any  # dict 閳?unvalidated
 
 
 # ---------------------------------------------------------------------------
@@ -61,31 +61,34 @@ _VALID_COMMAND_TYPES = frozenset(
 def _validate_add_exception_handler_payload(payload: object) -> None:
     if not isinstance(payload, dict):
         raise PatchValidationError("AddExceptionHandlerStep payload must be a JSON object")
-    handler_text = payload.get("handler_text")
+    handler_text = payload.get("handler_goal") or payload.get("handler_text")
     if not isinstance(handler_text, str) or not handler_text.strip():
         raise PatchValidationError(
-            "AddExceptionHandlerStep payload requires a non-empty string 'handler_text'"
+            "AddExceptionHandlerStep payload requires a non-empty "
+            "string 'handler_goal' or 'handler_text'"
         )
     command_type = payload.get("command_type")
-    if not isinstance(command_type, str) or command_type not in _VALID_COMMAND_TYPES:
-        raise PatchValidationError(
-            f"AddExceptionHandlerStep payload 'command_type' must be "
-            f"one of {sorted(_VALID_COMMAND_TYPES)}, got "
-            f"{command_type!r}"
-        )
+    if command_type is not None:
+        if not isinstance(command_type, str) or command_type not in _VALID_COMMAND_TYPES:
+            raise PatchValidationError(
+                f"AddExceptionHandlerStep payload 'command_type' must be "
+                f"one of {sorted(_VALID_COMMAND_TYPES)}, got "
+                f"{command_type!r}"
+            )
 
-    # Per-command-type rules matching SPL grammar
-    if command_type == "DISPLAY_MESSAGE":
-        if payload.get("outputs"):
-            raise PatchValidationError("DISPLAY_MESSAGE must not have outputs")
-        if payload.get("inputs"):
-            raise PatchValidationError("DISPLAY_MESSAGE must not have inputs")
-    elif command_type == "REQUEST_INPUT":
-        if payload.get("inputs"):
-            raise PatchValidationError("REQUEST_INPUT must not have inputs")
-        outputs = payload.get("outputs", [])
-        if not outputs or not isinstance(outputs, (list, tuple)) or len(outputs) == 0:
-            raise PatchValidationError("REQUEST_INPUT must have at least one output")
+        # Legacy per-command-type rules. R13+ prompts do not ask the LLM to
+        # choose this field; when older tests or adapters provide it, validate it.
+        if command_type == "DISPLAY_MESSAGE":
+            if payload.get("outputs"):
+                raise PatchValidationError("DISPLAY_MESSAGE must not have outputs")
+            if payload.get("inputs"):
+                raise PatchValidationError("DISPLAY_MESSAGE must not have inputs")
+        elif command_type == "REQUEST_INPUT":
+            if payload.get("inputs"):
+                raise PatchValidationError("REQUEST_INPUT must not have inputs")
+            outputs = payload.get("outputs", [])
+            if not outputs or not isinstance(outputs, (list, tuple)) or len(outputs) == 0:
+                raise PatchValidationError("REQUEST_INPUT must have at least one output")
 
     for field in ("inputs", "outputs"):
         val = payload.get(field)
@@ -185,7 +188,7 @@ def _validate_create_handoff_payload(payload: object) -> None:
                     f"'{side_name}_binding_status'='known_empty' requires "
                     f"empty '{side_name}_bindings'"
                 )
-            return  # known_empty + source → empty bindings allowed
+            return  # known_empty + source 閳?empty bindings allowed
         if not bindings:
             raise PatchValidationError(
                 f"CreateWorkerHandoffContract payload requires a non-empty "
@@ -210,6 +213,11 @@ def _validate_create_handoff_payload(payload: object) -> None:
         raise PatchValidationError(
             "CreateWorkerHandoffContract payload requires a non-empty string 'invocation_point'"
         )
+    if invocation_point not in {"main", "alternative", "exception"}:
+        raise PatchValidationError(
+            "CreateWorkerHandoffContract payload 'invocation_point' must be one of: "
+            "main, alternative, exception"
+        )
 
 
 _PAYLOAD_VALIDATORS: dict[str, Any] = {
@@ -230,7 +238,7 @@ def parse_suggestion_envelope(
     raw: str,
     allowed_patch_types: tuple[str, ...],
 ) -> SuggestionEnvelope:
-    """Parse the outer JSON envelope only — no inner payload validation.
+    """Parse the outer JSON envelope only 閳?no inner payload validation.
 
     The caller is responsible for routing ``raw_payload`` to the correct
     validator: ``parse_raw_intent()`` for intent-aware patch types, or a

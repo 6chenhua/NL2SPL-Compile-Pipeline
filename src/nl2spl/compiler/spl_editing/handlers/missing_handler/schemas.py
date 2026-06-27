@@ -1,6 +1,7 @@
 """JSON schemas for the missing_handler repair handler.
 
-The LLM is prompted to output JSON matching this structure.
+The LLM is prompted to output a strategy-level handler intent. Final command
+family is decided by stage policy, not by this schema.
 """
 
 MISSING_HANDLER_SUGGESTION_SCHEMA = {
@@ -9,7 +10,7 @@ MISSING_HANDLER_SUGGESTION_SCHEMA = {
         "patch_type": {
             "type": "string",
             "enum": ["AddExceptionHandlerStep"],
-            "description": "Must be 'AddExceptionHandlerStep'.",
+            "description": "Execution adapter for the confirmed strategy.",
         },
         "title": {
             "type": "string",
@@ -17,32 +18,24 @@ MISSING_HANDLER_SUGGESTION_SCHEMA = {
         },
         "explanation": {
             "type": "string",
-            "description": "Why this handler action fits the exception condition.",
+            "description": "Why this handler intent fits the exception condition.",
         },
         "payload": {
             "type": "object",
             "properties": {
+                "handler_goal": {
+                    "type": "string",
+                    "description": "Plain-language handler intent.",
+                },
                 "handler_text": {
                     "type": "string",
-                    "description": "The handler step action text.",
-                },
-                "command_type": {
-                    "type": "string",
-                    "enum": ["GENERAL_COMMAND", "REQUEST_INPUT", "DISPLAY_MESSAGE"],
-                    "description": "SPL command type for the handler.",
-                },
-                "inputs": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Input variable names.",
-                },
-                "outputs": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Output variable names.",
+                    "description": "Legacy synonym accepted during migration.",
                 },
             },
-            "required": ["handler_text", "command_type"],
+            "anyOf": [
+                {"required": ["handler_goal"]},
+                {"required": ["handler_text"]},
+            ],
         },
     },
     "required": ["patch_type", "title", "explanation", "payload"],

@@ -248,6 +248,7 @@ class MaterializationResult:
     consumed_selected_ref_ids: tuple[str, ...]
     evidence_packet_id: str
     dependency_validation_metadata: dict[str, Any]
+    stage_slice_results: tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True)
