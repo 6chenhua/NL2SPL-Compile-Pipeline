@@ -1,0 +1,94 @@
+{
+    "waivers":  [
+                    {
+                        "finding_id":  "CALL_API.integration_evidence.runtime_closure_incomplete",
+                        "construct":  "CALL_API",
+                        "expires":  "2026-08-01",
+                        "reason":  "Transitional affordance pending the approved API declaration repair strategy and stage-slice closure.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-api-affordance-closure",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "INVOKE_WORKER.target_worker.runtime_closure_incomplete",
+                        "construct":  "INVOKE_WORKER",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy direct-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "INVOKE_WORKER.handoff_id.runtime_closure_incomplete",
+                        "construct":  "INVOKE_WORKER",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy direct-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "INVOKE_WORKER.input_bindings.runtime_closure_incomplete",
+                        "construct":  "INVOKE_WORKER",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy direct-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "INVOKE_WORKER.output_bindings.runtime_closure_incomplete",
+                        "construct":  "INVOKE_WORKER",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy direct-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "REQUEST_INPUT.value_target.runtime_closure_incomplete",
+                        "construct":  "REQUEST_INPUT",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy value-target affordance is not production-enabled until its R12 strategy closure exists.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-request-input-value-target-closure",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "WORKER_HANDOFF.target.runtime_closure_incomplete",
+                        "construct":  "WORKER_HANDOFF",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy handoff-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "WORKER_HANDOFF.input_bindings.runtime_closure_incomplete",
+                        "construct":  "WORKER_HANDOFF",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy handoff-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "WORKER_HANDOFF.output_bindings.runtime_closure_incomplete",
+                        "construct":  "WORKER_HANDOFF",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy handoff-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    },
+                    {
+                        "finding_id":  "WORKER_HANDOFF.invocation_site.runtime_closure_incomplete",
+                        "construct":  "WORKER_HANDOFF",
+                        "expires":  "2026-08-01",
+                        "reason":  "Legacy handoff-slot affordance pending migration to the grouped worker-delegation strategy.",
+                        "owner":  "compiler-irs",
+                        "issue_ref":  "R12-worker-delegation-direct-slot-migration",
+                        "created_at":  "2026-06-30"
+                    }
+                ]
+}

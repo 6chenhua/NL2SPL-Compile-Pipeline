@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit IRS Contract"
+  short_description: "Audit IRS completeness and repair closure"
+  default_prompt: "Use $audit-irs-contract to audit this IRS implementation for contract and runtime closure."
