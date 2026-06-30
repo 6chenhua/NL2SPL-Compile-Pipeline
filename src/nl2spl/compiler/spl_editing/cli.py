@@ -259,6 +259,11 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
             ),
         ),
     )
+    from nl2spl.compiler.spl_editing.patches.define_child_worker_closure import (
+        register_define_child_worker_closure_patch,
+    )
+
+    register_define_child_worker_closure_patch(reg)
 
     return SPLEditingService(reg, lane_a=LaneAReplayAdapter())
 
