@@ -67,6 +67,7 @@ class ConstructClosurePlan:
     write_layers: tuple[str, ...]
     dependency_closure: tuple[str, ...]
     default_or_directive_driven: Literal["default", "directive_driven"]
+    option_id: str | None = None
 
     def __post_init__(self) -> None:
         _assert_non_empty_str(self.closure_plan_id, "closure_plan_id")

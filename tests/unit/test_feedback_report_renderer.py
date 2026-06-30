@@ -365,8 +365,8 @@ def test_worker_promotion_assumptions_grouped_by_related_diagnostics() -> None:
         assumptions=assumptions,
     )
 
-    assumption_section = report.split("## 5. Assumptions / Suggestions")[1].split(
-        "## 6. Provenance / TraceRecords"
+    assumption_section = report.split("## 6. Assumptions / Suggestions")[1].split(
+        "## 7. Provenance / TraceRecords"
     )[0]
     assert assumption_section.count(
         "for `worker_promotion:candidate_retrieve_sources_with_provenance`"

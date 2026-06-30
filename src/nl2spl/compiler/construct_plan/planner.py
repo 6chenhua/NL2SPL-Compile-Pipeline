@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 
+from nl2spl.compiler.capability_intent.model import (
+    ExternalCapabilityIntentPlanIR,
+)
 from nl2spl.compiler.construct_plan.model import (
+    APICallArgumentBindingIR,
+    APICallDemand,
+    APIDeclarationDemand,
     ConstructPlan,
     ConstructSlotDemand,
     ExceptionFlowDemand,
+    OperationCoverageIR,
 )
 from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.ir.diagnostics import CompileDiagnostic
@@ -25,6 +33,7 @@ class ConstructPlanner:
         routes: FieldRouteIR,
         *,
         source_schema: str | None = None,
+        capability_intent_plan: ExternalCapabilityIntentPlanIR | None = None,
     ) -> ConstructPlan:
         """Build a ConstructPlan without LLM calls or raw-NL semantic rules."""
         span_by_id = {span.span_id: span for span in spans}
@@ -32,7 +41,7 @@ class ConstructPlanner:
         handlers = _handler_annotations(routes)
         dual_role_span_ids = _dual_role_handler_spans(routes, handlers)
 
-        demands: list[ExceptionFlowDemand] = []
+        demands: list[ExceptionFlowDemand | APIDeclarationDemand | APICallDemand] = []
         diagnostics: list[CompileDiagnostic] = []
 
         grouped_conditions = _group_annotations(conditions)
@@ -47,7 +56,9 @@ class ConstructPlanner:
             group_handlers = grouped_handlers.get(group_key, [])
             if not group_conditions and group_handlers:
                 demand, demand_index = self._orphan_handler_demand(
-                    group_key, group_handlers, demand_index,
+                    group_key,
+                    group_handlers,
+                    demand_index,
                 )
                 used_handlers.update(ann.span_id for ann in group_handlers)
                 demands.append(demand)
@@ -93,8 +104,7 @@ class ConstructPlanner:
                             "no source-backed pairing was available."
                         ),
                         span_ids=[
-                            ann.span_id
-                            for ann in list(group_conditions) + list(group_handlers)
+                            ann.span_id for ann in list(group_conditions) + list(group_handlers)
                         ],
                         target_ref=f"construct_plan:group:{group_key}",
                     )
@@ -112,13 +122,23 @@ class ConstructPlanner:
                     demands.append(demand)
                 used_handlers.update(ann.span_id for ann in group_handlers)
 
-        reserved_span_ids = {
-            ann.span_id for ann in handlers
-        } - dual_role_span_ids
+        (
+            api_declaration_demands,
+            api_call_demands,
+            api_call_argument_bindings,
+        ) = _api_demands_from_intent_plan(
+            capability_intent_plan,
+            span_by_id,
+        )
+        demands.extend(api_declaration_demands)
+        demands.extend(api_call_demands)
+
+        reserved_span_ids = {ann.span_id for ann in handlers} - dual_role_span_ids
         plan = ConstructPlan(
             plan_id="construct_plan_00",
             source_schema=source_schema,
             demands=demands,
+            api_call_argument_bindings=api_call_argument_bindings,
             reserved_span_ids=reserved_span_ids,
             dual_role_span_ids=set(dual_role_span_ids),
             diagnostics=diagnostics,
@@ -126,6 +146,9 @@ class ConstructPlanner:
                 "exception_condition_count": len(conditions),
                 "exception_handler_count": len(handlers),
                 "used_handler_count": len(used_handlers),
+                "api_declaration_demand_count": len(api_declaration_demands),
+                "api_call_demand_count": len(api_call_demands),
+                "api_demand_authority": "external_capability_intent_plan",
             },
         )
         return plan
@@ -222,15 +245,16 @@ class ConstructPlanner:
 
 def _condition_annotations(routes: FieldRouteIR) -> list[RouteAnnotation]:
     return [
-        ann for ann in routes.get_construct_slot_candidates("EXCEPTION_FLOW", "condition")
-        if ann.semantic_role in ("failure_mode", "failure_condition")
-        and ann.executable is False
+        ann
+        for ann in routes.get_construct_slot_candidates("EXCEPTION_FLOW", "condition")
+        if ann.semantic_role in ("failure_mode", "failure_condition") and ann.executable is False
     ]
 
 
 def _handler_annotations(routes: FieldRouteIR) -> list[RouteAnnotation]:
     return [
-        ann for ann in routes.get_construct_slot_candidates("EXCEPTION_FLOW", "handler")
+        ann
+        for ann in routes.get_construct_slot_candidates("EXCEPTION_FLOW", "handler")
         if ann.semantic_role in ("exception_handler", "exception_handler_action")
         and ann.executable is True
     ]
@@ -249,6 +273,238 @@ def _dual_role_handler_spans(
         and ann.executable is True
         and ann.field == "behavior"
     }
+
+
+def _api_demands_from_intent_plan(
+    intent_plan: ExternalCapabilityIntentPlanIR | None,
+    span_by_id: dict[str, SpanIR],
+) -> tuple[
+    list[APIDeclarationDemand],
+    list[APICallDemand],
+    list[APICallArgumentBindingIR],
+]:
+    """Lower only resolver-authorized final intents into construct demands."""
+    declarations: list[APIDeclarationDemand] = []
+    calls: list[APICallDemand] = []
+    argument_bindings: list[APICallArgumentBindingIR] = []
+    if intent_plan is None:
+        return declarations, calls, argument_bindings
+    for intent in sorted(intent_plan.intents, key=lambda item: item.intent_id):
+        if intent.capability_admission_status != "confirmed_capability":
+            continue
+        declaration_id = _stable_capability_demand_id("api_decl", intent.intent_id)
+        explicit_names = [intent.capability_ref] if intent.capability_ref else []
+        mechanism_status = (
+            "explicit"
+            if intent.capability_ref
+            else "concrete_unnamed"
+            if intent.identity_status == "described_unnamed"
+            else "unknown"
+        )
+        source_span_ids = list(intent.source_span_ids)
+        evidence_ids = [item.evidence_id for item in intent.evidence]
+        declaration_metadata = {
+            "capability_intent_id": intent.intent_id,
+            "operation_text": intent.operation_text,
+        }
+        declaration = APIDeclarationDemand(
+            demand_id=declaration_id,
+            slots={
+                "source_evidence": ConstructSlotDemand(
+                    slot_name="source_evidence",
+                    source_span_ids=source_span_ids,
+                    semantic_roles=["external_capability"],
+                    executable_values=[False],
+                    source_section_id=intent.source_section_id,
+                    source_packet_id=intent.source_packet_id,
+                    evidence_relation="direct",
+                    status="present",
+                    metadata={"semantic_evidence_ids": evidence_ids},
+                ),
+                "api_name": ConstructSlotDemand(
+                    slot_name="api_name",
+                    source_span_ids=source_span_ids if explicit_names else [],
+                    semantic_roles=["capability_identity"],
+                    executable_values=[False],
+                    source_section_id=intent.source_section_id,
+                    source_packet_id=intent.source_packet_id,
+                    evidence_relation="direct" if explicit_names else "derived",
+                    status="present" if explicit_names else "missing",
+                    metadata={"explicit_name_candidates": explicit_names},
+                ),
+            },
+            pairing_status=(
+                "paired"
+                if intent.invocation_admission_status == "confirmed_invocation"
+                else "declaration_only"
+            ),
+            materialization_policy="partial_skeleton_allowed",
+            owner_policy="agent_global",
+            source_span_ids=source_span_ids,
+            source_section_id=intent.source_section_id,
+            source_packet_id=intent.source_packet_id,
+            construct_path=("construct_plan", "api_declarations", declaration_id),
+            related_edges=_api_edges(declaration_id, source_span_ids, "source_evidence"),
+            metadata=declaration_metadata,
+            declaration_annotation_ids=evidence_ids,
+            explicit_name_candidates=explicit_names,
+            integration_admission="confirmed",
+            mechanism_status=mechanism_status,
+            inferred_name_allowed=intent.identity_status == "described_unnamed",
+            api_group_id=intent.intent_id,
+            owner_scope="agent_global",
+            capability_intent_id=intent.intent_id,
+            capability_surface=intent.capability_surface,
+        )
+        declarations.append(declaration)
+        if intent.invocation_admission_status != "confirmed_invocation":
+            continue
+        call_id = _stable_capability_demand_id("api_call", intent.intent_id)
+        coverage, consumed, residual, policy = _operation_coverage(intent, span_by_id)
+        call = APICallDemand(
+            demand_id=call_id,
+            slots={
+                "call_action": ConstructSlotDemand(
+                    slot_name="call_action",
+                    source_span_ids=[item.source_span_id for item in coverage],
+                    semantic_roles=["external_capability_invocation"],
+                    executable_values=[True],
+                    source_section_id=intent.source_section_id,
+                    source_packet_id=intent.source_packet_id,
+                    status="present" if coverage else "ambiguous",
+                    metadata={"coverage_ids": [item.coverage_id for item in coverage]},
+                )
+            },
+            pairing_status="paired",
+            materialization_policy="call_demand_only",
+            owner_policy="stage4_stage5_placement_required",
+            owner_worker_id=None,
+            source_span_ids=source_span_ids,
+            source_section_id=intent.source_section_id,
+            source_packet_id=intent.source_packet_id,
+            construct_path=("construct_plan", "api_calls", call_id),
+            related_edges=_api_edges(call_id, source_span_ids, "call_action"),
+            metadata={
+                "capability_intent_id": intent.intent_id,
+                "capability_surface": intent.capability_surface,
+            },
+            call_annotation_ids=evidence_ids,
+            declaration_demand_id=declaration_id,
+            api_group_id=intent.intent_id,
+            action_text=intent.operation_text,
+            worker_candidate_id=None,
+            capability_intent_id=intent.intent_id,
+            operation_coverage=coverage,
+            consumes_behavior_span_ids=consumed,
+            residual_behavior_span_ids=residual,
+            behavior_lowering_policy=policy,
+        )
+        calls.append(call)
+        argument_bindings.append(
+            APICallArgumentBindingIR(
+                call_demand_id=call_id,
+                input_bindings={
+                    f"input_{index:02d}": resource_ref
+                    for index, resource_ref in enumerate(intent.input_refs)
+                },
+                output_bindings={
+                    f"output_{index:02d}": resource_ref
+                    for index, resource_ref in enumerate(intent.output_refs)
+                },
+                binding_status=intent.binding_status,
+                unresolved_binding_claims=intent.unresolved_binding_claims,
+                source_span_ids=intent.source_span_ids,
+            )
+        )
+    return declarations, calls, argument_bindings
+
+
+def _operation_coverage(
+    intent: object,
+    span_by_id: dict[str, SpanIR],
+) -> tuple[list[OperationCoverageIR], list[str], list[str], str]:
+    operation_evidence = [item for item in intent.evidence if item.claim == "operation"]
+    coverage: list[OperationCoverageIR] = []
+    residual: list[str] = []
+    consumed: list[str] = []
+    for item in operation_evidence:
+        span = span_by_id.get(item.source_span_id)
+        if span is None:
+            continue
+        start, end, relation = _locate_operation_surface(span.text, item.surface_text)
+        coverage_id = _stable_capability_demand_id(
+            "operation_coverage",
+            f"{intent.intent_id}|{item.source_span_id}|{item.surface_text}",
+        )
+        coverage.append(
+            OperationCoverageIR(
+                coverage_id=coverage_id,
+                source_span_id=item.source_span_id,
+                operation_surface=item.surface_text,
+                char_start=start if start >= 0 else None,
+                char_end=end,
+                relation=relation,
+            )
+        )
+        consumed.append(item.source_span_id)
+        if start < 0 or _has_residual_text(span.text, start, end or start):
+            residual.append(item.source_span_id)
+    consumed = list(dict.fromkeys(consumed))
+    residual = list(dict.fromkeys(residual))
+    if not coverage:
+        policy = "ambiguous"
+    elif residual and all(
+        item.char_start is not None and item.char_end is not None for item in coverage
+    ):
+        policy = "api_call_augments_behavior"
+    elif residual:
+        policy = "ambiguous"
+    else:
+        policy = "api_call_replaces_behavior"
+    return coverage, consumed, residual, policy
+
+
+def _locate_operation_surface(text: str, surface_text: str) -> tuple[int, int | None, str]:
+    start = text.find(surface_text)
+    if start >= 0:
+        return start, start + len(surface_text), "direct"
+
+    parts = re.split(r"\s+", surface_text.strip())
+    if not parts:
+        return -1, None, "normalized"
+    pattern = r"\s+".join(re.escape(part) for part in parts)
+    match = re.search(pattern, text)
+    if match:
+        return match.start(), match.end(), "normalized_whitespace"
+    return -1, None, "normalized"
+
+
+def _has_residual_text(text: str, start: int, end: int) -> bool:
+    residual = text[:start] + text[end:]
+    residual = re.sub(r"[\s\W_]+", "", residual, flags=re.UNICODE)
+    return bool(residual)
+
+
+def _stable_capability_demand_id(prefix: str, stable_source: str) -> str:
+    digest = hashlib.sha256(stable_source.encode("utf-8")).hexdigest()[:16]
+    return f"{prefix}_{digest}"
+
+
+def _api_edges(
+    demand_id: str,
+    span_ids: list[str],
+    slot_name: str,
+) -> list[ConstructEdge]:
+    return [
+        ConstructEdge(
+            from_id=f"span:{span_id}",
+            to_id=demand_id,
+            edge_type="derived_from",
+            source_span_ids=[span_id],
+            metadata={"slot": slot_name},
+        )
+        for span_id in span_ids
+    ]
 
 
 def _group_annotations(
@@ -288,9 +544,7 @@ def _slot_from_annotations(
     return ConstructSlotDemand(
         slot_name=slot_name,
         source_span_ids=[ann.span_id for ann in annotations],
-        semantic_roles=[
-            ann.semantic_role for ann in annotations if ann.semantic_role is not None
-        ],
+        semantic_roles=[ann.semantic_role for ann in annotations if ann.semantic_role is not None],
         executable_values=[ann.executable for ann in annotations],
         source_section_id=annotations[0].source_section_id,
         source_packet_id=annotations[0].source_packet_id,

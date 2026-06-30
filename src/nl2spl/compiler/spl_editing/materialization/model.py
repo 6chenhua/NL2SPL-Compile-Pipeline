@@ -17,6 +17,7 @@ from nl2spl.compiler.spl_editing.selectable_refs.model import (
 
 WriteLayer = Literal[
     "worker_plan_pre_normalize",
+    "worker_flow_plan_pre_normalize",
     "worker_block_plan_pre_normalize",
     "worker_step_plan_pre_normalize",
     "worker_step_plan_post_normalize",
@@ -35,6 +36,10 @@ WRITE_LAYER_SPECS: dict[WriteLayer, WriteLayerSpec] = {
     "worker_plan_pre_normalize": WriteLayerSpec(
         snapshot_field="worker_plan",
         catalog_artifact="WorkerPlanIR",
+    ),
+    "worker_flow_plan_pre_normalize": WriteLayerSpec(
+        snapshot_field="worker_flow_plan",
+        catalog_artifact="WorkerFlowPlanIR",
     ),
     "worker_block_plan_pre_normalize": WriteLayerSpec(
         snapshot_field="worker_block_plan",
@@ -249,6 +254,7 @@ class MaterializationResult:
     evidence_packet_id: str
     dependency_validation_metadata: dict[str, Any]
     stage_slice_results: tuple[Any, ...] = ()
+    resolution_markers: tuple[Any, ...] = ()
 
 
 @dataclass(frozen=True)

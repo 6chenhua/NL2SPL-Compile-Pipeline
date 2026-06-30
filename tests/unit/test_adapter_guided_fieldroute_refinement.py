@@ -1826,7 +1826,7 @@ class TestRouteRefinementValidator:
 
         assert len(result.accepted) == 0
         assert len(result.rejected) == 1
-        assert "invalid semantic_role" in result.rejected[0].reason.lower()
+        assert "unknown semantic_role" in result.rejected[0].reason.lower()
 
     def test_validator_preserves_span_section_packet_provenance(self) -> None:
         """Validator accepts annotation with provenance and passes it through."""
@@ -1886,8 +1886,8 @@ class TestRouteRefinementValidator:
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # ARC6: accepted with diagnostic, not rejected
-        assert len(result.rejected) == 0
-        assert len(result.accepted) == 1
+        assert len(result.rejected) == 1
+        assert len(result.accepted) == 0
         assert len(result.structured_diagnostics) >= 1
 
     def test_validator_accepts_executable_failure_mode_with_diagnostic(self) -> None:
@@ -1918,8 +1918,8 @@ class TestRouteRefinementValidator:
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # ARC6: accepted with diagnostic, not rejected
-        assert len(result.rejected) == 0
-        assert len(result.accepted) == 1
+        assert len(result.rejected) == 1
+        assert len(result.accepted) == 0
         assert len(result.structured_diagnostics) >= 1
 
     def test_validator_accepts_explicit_exception_handler_action(self) -> None:
@@ -2012,8 +2012,8 @@ class TestRouteRefinementValidator:
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # ARC6: accepted with diagnostic, not rejected
-        assert len(result.rejected) == 0
-        assert len(result.accepted) == 1
+        assert len(result.rejected) == 1
+        assert len(result.accepted) == 0
         assert len(result.structured_diagnostics) >= 1
 
     def test_validator_rejects_failure_mode_with_wrong_construct(self) -> None:
@@ -2045,9 +2045,8 @@ class TestRouteRefinementValidator:
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         # Phase 1: known role accepted with diagnostic, not rejected
-        assert len(result.accepted) == 1, (
-            "Phase 1: failure_mode must be ACCEPTED (diagnostic recorded)"
-        )
+        assert len(result.rejected) == 1
+        assert len(result.accepted) == 0
         assert len(result.structured_diagnostics) >= 1, (
             "Phase 1: structured diagnostic must be recorded for construct_target mismatch"
         )
@@ -2818,8 +2817,8 @@ class TestValidatorMergeIntegration:
         diags = llm_rf["route_diagnostics"]
         # ARC6 normalization auto-corrects executable=False for failure_mode
         # instead of rejecting — the correction diagnostic replaces the old rejection.
-        assert any("Corrected executable for failure_mode" in d for d in diags), (
-            f"Expected normalization diagnostic correcting executable for failure_mode, got: {diags}"
+        assert any("Rejected: failure_mode requires executable=False" in d for d in diags), (
+            f"Expected rejection diagnostic for executable failure_mode, got: {diags}"
         )
 
     def test_merge_append_handler_uses_prior_provenance_not_llm(

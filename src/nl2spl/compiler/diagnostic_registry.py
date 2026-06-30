@@ -125,6 +125,17 @@ class DiagnosticRegistry:
             allowed_targets=["step", "constraint", "policy"],
         ))
 
+        registry.register(DiagnosticSpec(
+            kind="deferred_api_contract_validation",
+            default_severity="info",
+            blocks_completion=False,
+            description=(
+                "API declaration uses grammar-safe placeholders; semantic contract "
+                "validation is deferred to the downstream SPL compiler."
+            ),
+            allowed_targets=["api"],
+        ))
+
         # ---- reserved (defined but not yet enabled) ----
 
         registry.register(DiagnosticSpec(

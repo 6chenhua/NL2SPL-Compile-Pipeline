@@ -194,7 +194,7 @@ def test_complete_failure_handling() -> None:
         StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
         StepIR(
             "st_handler", "Ask user for timeframe", ["s_time"],
-            "REQUEST_INPUT", flow_ref="exc_1",
+            "REQUEST_INPUT", flow_ref="exc_1", outputs=["timeframe"],
         ),
     ]
 

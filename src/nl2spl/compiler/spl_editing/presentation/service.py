@@ -8,6 +8,7 @@ from typing import Any
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     RepairSuggestion,
+    UserFacingIssue,
     VerificationResult,
 )
 from nl2spl.compiler.spl_editing.core.service import SPLEditingService
@@ -62,6 +63,7 @@ class SPLEditingPresentationService:
         snapshot_path: Path | None = None,
     ) -> RunPresentationView:
         snapshot = self._editing._get_snapshot(run_id)
+        inventory = self._editing.list_issue_inventory(run_id)
         issue_list = self.list_issue_presentations(run_id)
         editable = any(card.can_fix for section in issue_list.sections for card in section.items)
         return build_run_presentation(
@@ -70,6 +72,10 @@ class SPLEditingPresentationService:
             snapshot_path=snapshot_path,
             run_label=run_label,
             editable=editable,
+            editable_issue_count=len(inventory.editable),
+            review_issue_count=len(inventory.review),
+            deferred_validation_count=len(inventory.deferred),
+            developer_issue_count=len(inventory.developer),
         )
 
     def list_run_presentations(self) -> tuple[RunPresentationView, ...]:
@@ -96,11 +102,11 @@ class SPLEditingPresentationService:
         include_developer: bool = False,
     ) -> IssueListPresentationView:
         snapshot = self._editing._get_snapshot(run_id)
-        issues = self._editing.list_editable_issues(run_id)
-        return self._issue_builder.build_list(
+        inventory = self._editing.list_issue_inventory(run_id)
+        return self._issue_builder.build_inventory_list(
             run_id=run_id,
             snapshot=snapshot,
-            issues=issues,
+            inventory=inventory,
             include_developer=include_developer,
         )
 
@@ -110,7 +116,8 @@ class SPLEditingPresentationService:
         issue_id: str,
     ) -> IssueDetailPresentationView:
         snapshot = self._editing._get_snapshot(run_id)
-        issues = self._editing.list_editable_issues(run_id)
+        inventory = self._editing.list_issue_inventory(run_id)
+        issues = inventory.user_facing
         return self._issue_builder.build_detail(
             issue_id=issue_id,
             snapshot=snapshot,
@@ -121,7 +128,7 @@ class SPLEditingPresentationService:
         self,
         run_id: str,
         display_id: int,
-    ) -> EditableIssue:
+    ) -> EditableIssue | UserFacingIssue:
         issue_list = self.list_issue_presentations(run_id)
         for section in issue_list.sections:
             for card in section.items:
@@ -133,8 +140,9 @@ class SPLEditingPresentationService:
         self,
         run_id: str,
         issue_id: str,
-    ) -> EditableIssue:
-        for issue in self._editing.list_editable_issues(run_id):
+    ) -> EditableIssue | UserFacingIssue:
+        inventory = self._editing.list_issue_inventory(run_id)
+        for issue in inventory.user_facing:
             if issue.issue_id == issue_id:
                 return issue
         raise IssuePresentationNotFoundError(issue_id)
@@ -158,6 +166,11 @@ class SPLEditingPresentationService:
             raise IssuePresentationNotFoundError(str(option_index))
         option = detail.available_repairs[option_index]
         issue = self.issue_by_id(run_id, issue_id)
+        from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
+        if issue.repairability != "editable":
+            raise SPLEditingError(
+                f"Cannot generate suggestions for non-editable issue {issue_id}"
+            )
         session = self._editing.create_session(run_id, issue)
         generation = self._editing.generate_suggestions(
             session.session_id,

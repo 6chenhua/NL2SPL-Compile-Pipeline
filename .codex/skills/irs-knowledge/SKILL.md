@@ -1,4 +1,4 @@
-﻿---
+---
 name: irs-knowledge
 description: >
   IRS (Information Requirements Specification) concepts, design patterns,
@@ -7,6 +7,15 @@ description: >
 ---
 
 # IRS Knowledge Skill
+
+## Required Post-Creation Audit
+
+After creating or modifying any ConstructIRS, run audit-irs-contract.
+Do not rely on this creation skill as the final completeness gate.
+
+    python .agents/skills/audit-irs-contract/scripts/audit_irs_contract.py \
+      --construct CONSTRUCT_TYPE --scope all --format json
+
 
 IRS = **Information Requirements Specification**. IRS checker / runner
 executes satisfaction analysis over source-demanded or materialized SPL

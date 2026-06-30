@@ -1,0 +1,2 @@
+class NewFactAdmissionError(ValueError):
+    pass

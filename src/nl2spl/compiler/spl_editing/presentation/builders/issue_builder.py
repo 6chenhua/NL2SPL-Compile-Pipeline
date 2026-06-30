@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalog
 from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
-from nl2spl.compiler.spl_editing.core.model import EditableIssue, RepairContext, RepairTarget
+from nl2spl.compiler.spl_editing.core.model import (
+    EditableIssue,
+    IssueInventory,
+    RepairContext,
+    RepairTarget,
+    UserFacingIssue,
+)
 from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.presentation.builders.section_builder import (
@@ -69,7 +75,7 @@ class IssuePresentationBuilder:
         *,
         run_id: str,
         snapshot: ArtifactSnapshot,
-        issues: tuple[EditableIssue, ...],
+        issues: tuple[EditableIssue | UserFacingIssue, ...],
         include_developer: bool = False,
     ) -> IssueListPresentationView:
         diagnostics = snapshot.compile_diagnostics
@@ -95,11 +101,29 @@ class IssuePresentationBuilder:
             summary=summarize_cards(cards),
         )
 
+    def build_inventory_list(
+        self,
+        *,
+        run_id: str,
+        snapshot: ArtifactSnapshot,
+        inventory: IssueInventory,
+        include_developer: bool = False,
+    ) -> IssueListPresentationView:
+        issues = inventory.user_facing
+        if include_developer:
+            issues = issues + inventory.developer
+        return self.build_list(
+            run_id=run_id,
+            snapshot=snapshot,
+            issues=issues,
+            include_developer=include_developer,
+        )
+
     def build_card(
         self,
         *,
         display_id: int,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         snapshot: ArtifactSnapshot,
         diagnostics: tuple[CompileDiagnostic, ...],
     ) -> IssueCardView:
@@ -132,7 +156,7 @@ class IssuePresentationBuilder:
         *,
         issue_id: str,
         snapshot: ArtifactSnapshot,
-        issues: tuple[EditableIssue, ...],
+        issues: tuple[EditableIssue | UserFacingIssue, ...],
     ) -> IssueDetailPresentationView:
         issue = _issue_by_id(issue_id, issues)
         diagnostics = snapshot.compile_diagnostics
@@ -161,7 +185,7 @@ class IssuePresentationBuilder:
 
     def _try_resolve_target(
         self,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         snapshot: ArtifactSnapshot,
         entries,
     ) -> RepairTarget | None:
@@ -180,7 +204,7 @@ class IssuePresentationBuilder:
 
     def _try_build_context(
         self,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         snapshot: ArtifactSnapshot,
         entries,
         target: RepairTarget | None,
@@ -214,7 +238,7 @@ class IssuePresentationBuilder:
         self,
         *,
         start: int,
-        issues: tuple[EditableIssue, ...],
+        issues: tuple[EditableIssue | UserFacingIssue, ...],
         diagnostics: tuple[CompileDiagnostic, ...],
     ) -> tuple[IssueCardView, ...]:
         mapped = {d for issue in issues for d in issue.related_diagnostic_ids}
@@ -239,7 +263,7 @@ class IssuePresentationBuilder:
 
 
 def _related_diagnostics(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     diagnostics: tuple[CompileDiagnostic, ...],
 ) -> tuple[CompileDiagnostic, ...]:
     wanted = set(issue.related_diagnostic_ids)
@@ -248,8 +272,8 @@ def _related_diagnostics(
 
 def _issue_by_id(
     issue_id: str,
-    issues: tuple[EditableIssue, ...],
-) -> EditableIssue:
+    issues: tuple[EditableIssue | UserFacingIssue, ...],
+) -> EditableIssue | UserFacingIssue:
     for issue in issues:
         if issue.issue_id == issue_id:
             return issue

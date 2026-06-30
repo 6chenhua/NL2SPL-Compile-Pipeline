@@ -18,6 +18,8 @@ from nl2spl.ir.resource_contract_ir import (
 )
 from nl2spl.ir.resource_registry_ir import (
     APIFunction,
+    APIParameterSpec,
+    APIReturnSpec,
     APISpec,
     FileSpec,
     ResourceRegistryIR,
@@ -27,6 +29,7 @@ from nl2spl.ir.resource_registry_ir import (
 )
 from nl2spl.ir.span_ir import AmbiguityInfo, SpanIR
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.structured_text_ir import StructuredTextFormat, StructuredTextIR
 from nl2spl.ir.symbol_table import SymbolTable, VariableSymbol
 from nl2spl.ir.worker_ir import FlowRef, WorkerIR
 from nl2spl.ir.worker_plan_ir import (
@@ -82,6 +85,8 @@ __all__ = [
     "FileSpec",
     "APISpec",
     "APIFunction",
+    "APIParameterSpec",
+    "APIReturnSpec",
     "TypeSpec",
     "WorkerScopedResourceIR",
     "SymbolTable",
@@ -108,4 +113,6 @@ __all__ = [
     "WorkerFlowPlanIR",
     "WorkerBlockPlanIR",
     "WorkerStepPlanIR",
+    "StructuredTextIR",
+    "StructuredTextFormat",
 ]

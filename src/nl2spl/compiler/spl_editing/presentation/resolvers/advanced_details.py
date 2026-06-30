@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 from nl2spl.compiler.spl_editing.presentation.model.advanced import (
     IssueAdvancedDetails,
 )
 
 
 def build_advanced_details(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     related_diagnostics: tuple[object, ...] = (),
 ) -> IssueAdvancedDetails:
     metadata = _repairability_metadata(issue, related_diagnostics)
@@ -27,7 +27,7 @@ def build_advanced_details(
 
 
 def _repairability_metadata(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     related_diagnostics: tuple[object, ...],
 ) -> tuple[tuple[str, str], ...]:
     values: dict[str, str] = {"repairability": issue.repairability}

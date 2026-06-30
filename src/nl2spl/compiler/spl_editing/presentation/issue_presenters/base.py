@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 from nl2spl.compiler.spl_editing.presentation.model.advanced import (
     IssueAdvancedDetails,
 )
@@ -25,7 +25,7 @@ class IssueFamilyPresenter(Protocol):
         self,
         *,
         display_id: int,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         context: DisplayContext,
         repair_options: tuple[RepairOptionView, ...],
         suggested_resolution: str | None,
@@ -36,7 +36,7 @@ class IssueFamilyPresenter(Protocol):
     def build_detail(
         self,
         *,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         context: DisplayContext,
         repair_options: tuple[RepairOptionView, ...],
         suggested_resolution: str | None,

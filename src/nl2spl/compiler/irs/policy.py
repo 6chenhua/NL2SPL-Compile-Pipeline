@@ -28,6 +28,7 @@ class IRSRuntimeConfig:
         step_enabled: Register Stage7StepIRSChecker.
         post_normalize_enabled: Enable post-normalize IRS (final
             construct-level authority).
+        api_declaration_enabled: Register APIDeclarationIRSChecker.
         include_stage_local_diagnostics_in_compile: When ``True``,
             stage-local IRS diagnostics are merged into final
             ``compile_diagnostics``.  Default ``False`` to avoid
@@ -45,6 +46,7 @@ class IRSRuntimeConfig:
     exception_flow_enabled: bool = True
     step_enabled: bool = True
     post_normalize_enabled: bool = True
+    api_declaration_enabled: bool = True
     include_stage_local_diagnostics_in_compile: bool = False
     include_construct_satisfaction_in_feedback: bool = True
     collect_graph_snapshot: bool = True

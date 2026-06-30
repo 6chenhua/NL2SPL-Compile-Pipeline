@@ -29,6 +29,7 @@ class TestDefaultRegistry:
             "WORKER_CANDIDATE",
             "WORKER_PROMOTION",
             "WORKER_HANDOFF",
+            "API_DECLARATION",
         }
         assert set(registry.list_constructs()) == expected
 
@@ -242,8 +243,13 @@ class TestCallAPIIRS:
         slot = self.irs.get_slot("api_name")
         assert slot.syntax_required is True
 
-    def test_integration_evidence_is_required_for_complete(self):
+    def test_integration_evidence_is_not_required_for_complete(self):
         slot = self.irs.get_slot("integration_evidence")
+        assert slot.required_for_complete is False
+
+    def test_declared_api_ref_is_required_for_complete(self):
+        slot = self.irs.get_slot("declared_api_ref")
+        assert slot is not None
         assert slot.required_for_complete is True
 
     def test_response_binding_is_not_required_for_complete(self):
@@ -283,8 +289,7 @@ class TestCallAPIIRS:
     def test_integration_evidence_has_context_note(self):
         slot = self.irs.get_slot("integration_evidence")
         assert slot.notes is not None
-        assert "context-only mention" in slot.notes
-        assert "resource candidate" in slot.notes
+        assert "Compatibility alias slot" in slot.notes
 
 
 # ---------------------------------------------------------------------------

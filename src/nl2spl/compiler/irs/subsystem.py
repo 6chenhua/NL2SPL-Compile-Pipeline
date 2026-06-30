@@ -128,6 +128,7 @@ class IRSSubsystem:
         worker_scoped_resources: WorkerScopedResourceIR | None = None,
         resource_contract_plan: Any = None,
         demand_view: Any = None,
+        renderable_resource_registry_view: Any = None,
     ) -> list[CompileDiagnostic]:
         """Run post-normalize IRS — final construct-level authority.
 
@@ -150,6 +151,34 @@ class IRSSubsystem:
         if not self._config.enabled or not self._config.post_normalize_enabled:
             return []
 
+        result = self.run_post_normalize_result(
+            worker=worker,
+            worker_plan=worker_plan,
+            symbol_table=symbol_table,
+            resources=resources,
+            worker_scoped_resources=worker_scoped_resources,
+            resource_contract_plan=resource_contract_plan,
+            demand_view=demand_view,
+            renderable_resource_registry_view=renderable_resource_registry_view,
+        )
+        return list(result.diagnostics)
+
+    def run_post_normalize_result(
+        self,
+        worker: WorkerIR | None,
+        worker_plan: WorkerPlanIR | None = None,
+        symbol_table: SymbolTable | None = None,
+        resources: ResourceRegistryIR | None = None,
+        *,
+        worker_scoped_resources: WorkerScopedResourceIR | None = None,
+        resource_contract_plan: Any = None,
+        demand_view: Any = None,
+        renderable_resource_registry_view: Any = None,
+    ) -> IRSStageResult:
+        """Run post-normalize IRS and return reports plus diagnostics."""
+        if not self._config.enabled or not self._config.post_normalize_enabled:
+            return IRSStageResult(stage_name="post_normalize")
+
         context = IRSCheckContext(
             stage_name="post_normalize",
             normalized_ir=worker,
@@ -160,7 +189,18 @@ class IRSSubsystem:
                 "worker_scoped_resources": worker_scoped_resources,
                 "resource_contract_plan": resource_contract_plan,
                 "demand_view": demand_view,
+                "renderable_resource_registry_view": renderable_resource_registry_view,
             },
         )
 
-        return list(self._runner.run_stage("post_normalize", context).diagnostics)
+        run_result = self._runner.run_stage("post_normalize", context)
+        graph = None
+        if self._config.collect_graph_snapshot:
+            graph = self._build_graph_snapshot(run_result.reports)
+        return IRSStageResult(
+            stage_name="post_normalize",
+            reports=tuple(run_result.reports),
+            diagnostics=tuple(run_result.diagnostics),
+            graph=graph,
+            warnings=tuple(run_result.warnings),
+        )

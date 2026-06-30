@@ -46,6 +46,21 @@ _STRATEGY_LABELS = {
     "worker_delegation.complete_closure.v1": "Complete Worker Delegation Handoff Contract",
 }
 
+_OPTION_COPY = {
+    "worker_delegation.define_child_worker.label": "Define this work as a child worker",
+    "worker_delegation.define_child_worker.description": (
+        "Create a complete child worker, handoff, invocation, and result binding."
+    ),
+    "worker_delegation.keep_in_main_flow.label": "Keep this work in the main workflow",
+    "worker_delegation.keep_in_main_flow.description": (
+        "Materialize the confirmed responsibility as a main-workflow command."
+    ),
+}
+
+
+def option_copy(key: str) -> str:
+    return _OPTION_COPY.get(key, key)
+
 
 def strategy_label(strategy_id: str) -> str:
     return _STRATEGY_LABELS.get(strategy_id, strategy_id or "Repair strategy")
@@ -62,4 +77,11 @@ def option_label_for_entry(entry: Any) -> str:
     return option_label(patch_types)
 
 
-__all__ = ["option_label", "patch_description", "patch_label", "option_label_for_entry", "strategy_label"]
+__all__ = [
+    "option_copy",
+    "option_label",
+    "patch_description",
+    "patch_label",
+    "option_label_for_entry",
+    "strategy_label",
+]

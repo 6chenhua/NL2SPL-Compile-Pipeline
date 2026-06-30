@@ -17,9 +17,16 @@ from nl2spl.compiler.annotation_role_contract.projector import (
     project_stage2_to_compile_diagnostics,
 )
 from nl2spl.compiler.assumptions import AssumptionBuilder
+from nl2spl.compiler.capability_intent.evidence_collector import (
+    EarlyCapabilityEvidenceCollector,
+)
+from nl2spl.compiler.capability_intent.resolver import (
+    ExternalCapabilityIntentResolver,
+)
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
 from nl2spl.compiler.construct_plan import ConstructPlan, ConstructPlanner
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.diagnostic_consolidator import (
     DiagnosticConsolidationInput,
     DiagnosticConsolidator,
@@ -34,8 +41,10 @@ from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.diagnostics import (
     METADATA_KEY_AUTHORITY,
+    METADATA_KEY_IRS_REF,
     METADATA_KEY_ISSUE_GROUP_ID,
     METADATA_KEY_ISSUE_ROLE,
+    METADATA_KEY_PRESENTATION_DISPOSITION,
     METADATA_KEY_PRIMARY_DIAGNOSTIC_ID,
     METADATA_KEY_RELATED_DIAGNOSTIC_IDS,
     METADATA_KEY_REPAIRABILITY,
@@ -55,8 +64,12 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerStepPlanIR,
 )
 from nl2spl.llm.client import LLMClient
+from nl2spl.pipeline.capability_semantic_extractor import (
+    ExternalCapabilitySemanticExtractor,
+)
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
+from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner import WorkerBoundaryPlanner
@@ -65,8 +78,14 @@ from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import
 )
 from nl2spl.pipeline.stages.stage3_ambiguity_resolver import AmbiguityResolver
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
-from nl2spl.pipeline.stages.stage5_block_assembler import BlockAssembler
-from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
+from nl2spl.pipeline.stages.stage5_block_assembler import (
+    BlockAssembler,
+    project_api_call_placements,
+)
+from nl2spl.pipeline.stages.stage6_resource_extractor import (
+    ResourceExtractor,
+    materialize_api_declaration_skeletons,
+)
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
@@ -114,6 +133,8 @@ class PipelineResult:
     spl_editing_snapshot_path: Path | None = None
     spl_editing_snapshot_status: str = "not_requested"
     spl_editing_snapshot_error: str | None = None
+    spl_editing_explanation_status: str = "not_requested"
+    spl_editing_explanation_error: str | None = None
 
     @property
     def diagnostics(self) -> list[Any]:
@@ -139,6 +160,7 @@ class PipelineOrchestrator:
             level=config.log_level,
             log_file=config.log_file,
         )
+        self._issue_explanation_futures: dict[Path, Any] = {}
 
     def run(self, raw_text: str) -> PipelineResult:
         """Run the complete pipeline.
@@ -186,10 +208,38 @@ class PipelineOrchestrator:
         routes, ambiguity_updates = self._run_stage2(spans, canonical_input)
         intermediate["stage2_routes"] = routes
 
+        early_capability_evidence = EarlyCapabilityEvidenceCollector().collect(
+            canonical_input, spans, routes
+        )
+        intermediate["capability_evidence_candidates"] = early_capability_evidence
+        intermediate["capability_evidence_candidates_payload"] = (
+            early_capability_evidence.to_payload()
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                stage_name="early_capability_evidence_collector",
+                result=early_capability_evidence.to_payload(),
+                output_dir=self.config.run_dir,
+            )
+
         # Stage 3: Ambiguity Resolution
         self.logger.info("Stage 3: Ambiguity Resolution")
         resolved_spans, resolved_routes = self._run_stage3(spans, routes, ambiguity_updates)
         intermediate["stage3_resolved"] = {"spans": resolved_spans, "routes": resolved_routes}
+
+        capability_extraction = ExternalCapabilitySemanticExtractor(
+            self.client
+        ).extract(resolved_spans, resolved_routes, early_capability_evidence)
+        intermediate["external_capability_extraction"] = capability_extraction
+        intermediate["external_capability_extraction_payload"] = (
+            capability_extraction.to_payload()
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                stage_name="external_capability_semantic_extractor",
+                result=capability_extraction.to_payload(),
+                output_dir=self.config.run_dir,
+            )
 
         # Phase D: build canonical DemandView from Stage 2 confirmed annotations.
         # This replaces the old Stage 3.2 ResourceContractPlanner as the
@@ -215,6 +265,23 @@ class PipelineOrchestrator:
                 output_dir=self.config.run_dir,
             )
 
+        capability_intent_plan = ExternalCapabilityIntentResolver().resolve(
+            source_schema=canonical_input.source_schema,
+            extraction=capability_extraction,
+            early_evidence=early_capability_evidence,
+            demand_view=demand_view,
+        )
+        intermediate["external_capability_intent_plan"] = capability_intent_plan
+        intermediate["external_capability_intent_plan_payload"] = (
+            capability_intent_plan.to_payload()
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                stage_name="external_capability_intent_resolver",
+                result=capability_intent_plan.to_payload(),
+                output_dir=self.config.run_dir,
+            )
+
         # Phase E: ResourceContractPlanner and ResourceContractPlanIR are
         # no longer part of the production path.  DemandView is the sole
         # authority.  Old intermediate keys removed.
@@ -225,6 +292,7 @@ class PipelineOrchestrator:
             resolved_spans,
             resolved_routes,
             source_schema=canonical_input.source_schema,
+            capability_intent_plan=capability_intent_plan,
         )
         intermediate["construct_plan"] = construct_plan
         intermediate["construct_plan_payload"] = construct_plan.to_payload()
@@ -354,6 +422,17 @@ class PipelineOrchestrator:
         block_structure = BlockStructureIR()
         intermediate["stage5_blocks"] = block_structure
 
+        api_call_placements = project_api_call_placements(
+            construct_plan,
+            worker_plan,
+            worker_flow_plan,
+            worker_block_plan,
+        )
+        intermediate["api_call_placements"] = api_call_placements
+        intermediate["api_call_placement_payload"] = [
+            placement.to_payload() for placement in api_call_placements
+        ]
+
         # Stage 6: Resource Extraction
         self.logger.info("Stage 6: Resource Extraction")
         # Phase D: reuse the canonical DemandView built after Stage 3.
@@ -401,6 +480,14 @@ class PipelineOrchestrator:
         resources = worker_scoped_resources.global_resources
         intermediate["stage6_worker_scoped_resources"] = worker_scoped_resources
         adapter_warnings.extend(filter_warns)
+        api_materialization_plan = materialize_api_declaration_skeletons(
+            resources,
+            construct_plan,
+        )
+        intermediate["api_materialization_plan"] = api_materialization_plan
+        intermediate["api_materialization_plan_payload"] = (
+            api_materialization_plan.to_payload()
+        )
         intermediate["stage6_resources"] = resources
 
         # Stage 7: Step Extraction
@@ -415,6 +502,9 @@ class PipelineOrchestrator:
                     symbol_table,
                     worker_plan,
                     active_construct_plan,
+                    api_materialization_plan,
+                    api_call_placements,
+                    resources,
                 )
             )
         else:
@@ -500,11 +590,10 @@ class PipelineOrchestrator:
         )
         intermediate["stage10_worker"] = worker
 
-        # Post-normalize IRS check: final authority for construct-level
-        # diagnostics from normalized, assembled IR.
-        self.logger.info("Post-normalize IRS check")
-        post_norm_diags = irs_subsystem.run_post_normalize(
-            worker=worker,
+        # Resource declaration gate: API declarations are renderable only
+        # when authorized by post-normalize API_DECLARATION reports.
+        api_decl_result = irs_subsystem.run_post_normalize_result(
+            worker=None,
             worker_plan=worker_plan,
             symbol_table=symbol_table,
             resources=resources,
@@ -513,7 +602,34 @@ class PipelineOrchestrator:
             ),
             demand_view=demand_view,
         )
+        resource_gate = ResourceDeclarationGate()
+        renderable_resources = resource_gate.apply(
+            resources,
+            api_decl_result.reports,
+            authority="post_normalize_irs",
+        )
+        intermediate["renderable_resource_registry_view"] = renderable_resources
+        intermediate["renderable_resource_registry_payload"] = (
+            renderable_resources.to_payload()
+        )
+
+        # Post-normalize IRS check: final authority for construct-level
+        # diagnostics from normalized, assembled IR.
+        self.logger.info("Post-normalize IRS check")
+        post_norm_result = irs_subsystem.run_post_normalize_result(
+            worker=worker,
+            worker_plan=worker_plan,
+            symbol_table=symbol_table,
+            resources=renderable_resources,
+            worker_scoped_resources=intermediate.get(
+                "stage6_worker_scoped_resources"
+            ),
+            demand_view=demand_view,
+            renderable_resource_registry_view=renderable_resources,
+        )
+        post_norm_diags = list(post_norm_result.diagnostics)
         irs_store.put_post_normalize_diagnostics(post_norm_diags)
+        irs_store.put_stage_result(post_norm_result)
 
         # Write IRS payload to intermediate (after all IRS checks complete)
         if self.config.irs.enabled:
@@ -532,6 +648,7 @@ class PipelineOrchestrator:
         # rendering so only verifiable commands reach Stage 11.
         self.logger.info("Executable element gate")
         gate = ExecutableElementGate()
+        gate.renderable_resource_registry_view = renderable_resources
         worker, render_info, gate_diags = gate.apply(worker, worker_plan)
         intermediate["render_info"] = render_info
         # Mark steps as scoped so the renderer uses the filtered worker.steps
@@ -541,7 +658,7 @@ class PipelineOrchestrator:
         # Stage 11: SPL Rendering
         self.logger.info("Stage 11: SPL Rendering")
         spl_text, errors, warnings = self._run_stage11(
-            worker, profile, resources, symbol_table, steps, constraints
+            worker, profile, renderable_resources, symbol_table, steps, constraints
         )
         errors = normalization_errors + errors
         warnings = worker_stage_warnings + normalization_warnings + warnings
@@ -561,7 +678,7 @@ class PipelineOrchestrator:
         ws_resources: WorkerScopedResourceIR | None = intermediate.get(
             "stage6_worker_scoped_resources"
         )
-        resources_for_prov = resources
+        resources_for_prov = renderable_resources
         worker_var_scopes: dict[str, str] | None = None
         if ws_resources is not None:
             resources_for_prov = ResourceRegistryIR(
@@ -570,7 +687,7 @@ class PipelineOrchestrator:
                     f for wr in ws_resources.worker_resources.values()
                     for f in wr.files
                 ],
-                apis=ws_resources.get_all_apis(),
+                apis=list(renderable_resources.apis),
                 types=resources.types + [
                     t for wr in ws_resources.worker_resources.values()
                     for t in wr.types
@@ -703,6 +820,8 @@ class PipelineOrchestrator:
         snapshot_path = None
         snapshot_status = "not_requested"
         snapshot_error: str | None = None
+        explanation_status = "not_requested"
+        explanation_error: str | None = None
 
         snap_config = getattr(self.config, "snapshot", None)
         if snap_config is not None and getattr(snap_config, "enabled", False):
@@ -725,6 +844,36 @@ class PipelineOrchestrator:
                 else:
                     snapshot_status = "failed_best_effort"
 
+        if (
+            snapshot_path is not None
+            and snapshot_status == "available"
+            and getattr(snap_config, "precompute_issue_explanations", True)
+        ):
+            try:
+                from nl2spl.compiler.spl_editing.presentation.explanation_cache import (
+                    schedule_issue_explanations_for_pipeline,
+                )
+
+                future = schedule_issue_explanations_for_pipeline(
+                    snapshot_path,
+                    self.client,
+                    language=getattr(
+                        snap_config,
+                        "issue_explanation_language",
+                        "zh-CN",
+                    ),
+                    max_workers=getattr(
+                        snap_config,
+                        "issue_explanation_max_workers",
+                        4,
+                    ),
+                )
+                self._issue_explanation_futures[snapshot_path] = future
+                explanation_status = "scheduled"
+            except Exception as exc:
+                explanation_status = "schedule_failed"
+                explanation_error = str(exc)
+
         return PipelineResult(
             spl_text=spl_text,
             validation_errors=errors,
@@ -740,6 +889,8 @@ class PipelineOrchestrator:
             spl_editing_snapshot_path=snapshot_path,
             spl_editing_snapshot_status=snapshot_status,
             spl_editing_snapshot_error=snapshot_error,
+            spl_editing_explanation_status=explanation_status,
+            spl_editing_explanation_error=explanation_error,
         )
 
     # ------------------------------------------------------------------
@@ -765,7 +916,7 @@ class PipelineOrchestrator:
         from nl2spl.compiler.artifacts.snapshot.build.builder import SnapshotBuilder
         from nl2spl.compiler.artifacts.snapshot.build.input import SnapshotBuildInput
         from nl2spl.compiler.artifacts.snapshot.capabilities import (
-            SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS,
+            SPL_EDITING_USER_FACING_DIAGNOSTIC_KINDS,
         )
         from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
             JsonFileSnapshotRepository,
@@ -820,7 +971,11 @@ class PipelineOrchestrator:
             final_spl_text=spl_text,
             compile_diagnostics=tuple(
                 diag for diag in all_diagnostics
-                if getattr(diag, "kind", "") in SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS
+                if (
+                    getattr(diag, "kind", "")
+                    in SPL_EDITING_USER_FACING_DIAGNOSTIC_KINDS
+                    and isinstance(getattr(diag, "metadata", {}).get("repairability"), str)
+                )
             ),
             traces=tuple(traces),
             normalizer_input={
@@ -973,12 +1128,16 @@ class PipelineOrchestrator:
         symbol_table: SymbolTable,
         worker_plan: WorkerPlanIR,
         construct_plan: ConstructPlan | None = None,
+        api_materialization_plan: Any | None = None,
+        api_call_placements: list[Any] | None = None,
+        resources: ResourceRegistryIR | None = None,
     ) -> tuple[WorkerStepPlanIR, SymbolTable, list[Any]]:
         """Stage 7: Worker-scoped Step Extraction."""
         stage = StepExtractor(self.config, self.client)
         result = stage.execute_worker_scoped(
             spans, routes, worker_flow_plan, worker_block_plan, symbol_table,
-            worker_plan, construct_plan,
+            worker_plan, construct_plan, api_materialization_plan,
+            api_call_placements, resources,
         )
         return (*result, getattr(stage, "stage7_diagnostics", []))
 
@@ -1137,29 +1296,30 @@ class PipelineOrchestrator:
     def _annotate_editable_diagnostics_for_snapshot_contract(
         diagnostics: list[CompileDiagnostic],
     ) -> None:
-        """Fill required issue metadata for compiler-exposed editable diags.
+        """Fill required issue metadata for compiler-exposed user issues.
 
-        Snapshot validation requires every editable diagnostic to carry enough
+        Snapshot validation requires compiler-exposed diagnostics to carry
         grouping and repairability metadata for deterministic SPL Editing issue
-        extraction.  This is a compiler diagnostic contract step, not an SPL
-        Editing runtime dependency.
+        extraction.  Editability is capability-aware: a diagnostic becomes
+        ``editable`` only when its IRS slot declares a repair affordance.  API
+        placeholder diagnostics remain review-only deferred validation items.
         """
-        editable_kinds = {
-            "missing_handler",
-            "missing_output_producer",
-            "type_or_contract_ambiguity",
-        }
+        registry = SPLConstructRegistry.default()
         groups: dict[tuple[str, str], list[CompileDiagnostic]] = {}
         for diagnostic in diagnostics:
-            if diagnostic.kind not in editable_kinds:
+            repairability = PipelineOrchestrator._issue_repairability_for_diagnostic(
+                diagnostic,
+                registry,
+            )
+            if repairability is None:
                 continue
             key = PipelineOrchestrator._editable_issue_group_key(diagnostic)
-            groups.setdefault((diagnostic.kind, key), []).append(diagnostic)
+            groups.setdefault((repairability, key), []).append(diagnostic)
 
-        for (kind, key), group in groups.items():
+        for (repairability, key), group in groups.items():
             ordered = sorted(
                 group,
-                key=lambda diagnostic: diagnostic.diagnostic_id,
+                key=PipelineOrchestrator._issue_group_sort_key,
             )
             primary = ordered[0]
             related_ids = sorted(
@@ -1170,12 +1330,10 @@ class PipelineOrchestrator:
                 if isinstance(
                     primary.metadata.get(METADATA_KEY_ISSUE_GROUP_ID), str
                 )
-                else f"{kind}_group:{key}"
+                else f"{repairability}_group:{key}"
             )
             for diagnostic in ordered:
-                diagnostic.metadata.setdefault(
-                    METADATA_KEY_REPAIRABILITY, "editable"
-                )
+                diagnostic.metadata[METADATA_KEY_REPAIRABILITY] = repairability
                 diagnostic.metadata.setdefault(
                     METADATA_KEY_ISSUE_GROUP_ID, group_id
                 )
@@ -1195,6 +1353,53 @@ class PipelineOrchestrator:
                         else "alias"
                     ),
                 )
+
+    @staticmethod
+    def _issue_repairability_for_diagnostic(
+        diagnostic: CompileDiagnostic,
+        registry: SPLConstructRegistry,
+    ) -> str | None:
+        metadata_repairability = diagnostic.metadata.get(METADATA_KEY_REPAIRABILITY)
+        if metadata_repairability in {"review_only", "non_repairable", "developer_only"}:
+            return str(metadata_repairability)
+        if (
+            diagnostic.kind == "deferred_api_contract_validation"
+            or diagnostic.metadata.get(METADATA_KEY_PRESENTATION_DISPOSITION)
+            == "deferred_validation"
+        ):
+            return "review_only"
+        if PipelineOrchestrator._diagnostic_has_repair_affordance(diagnostic, registry):
+            return "editable"
+        return None
+
+    @staticmethod
+    def _diagnostic_has_repair_affordance(
+        diagnostic: CompileDiagnostic,
+        registry: SPLConstructRegistry,
+    ) -> bool:
+        irs_ref = diagnostic.metadata.get(METADATA_KEY_IRS_REF)
+        if not isinstance(irs_ref, dict):
+            return False
+        construct_type = irs_ref.get("construct_type")
+        slot_name = irs_ref.get("slot_name")
+        if not isinstance(construct_type, str) or not isinstance(slot_name, str):
+            return False
+        if not registry.has(construct_type):
+            return False
+        slot = registry.get(construct_type).get_slot(slot_name)
+        if slot is None:
+            return False
+        return bool(slot.repair_affordances)
+
+    @staticmethod
+    def _issue_group_sort_key(diagnostic: CompileDiagnostic) -> tuple[int, str]:
+        slot_order = {
+            "functions": 0,
+            "openapi_schema": 1,
+            "authentication": 2,
+        }
+        slot_name = diagnostic.missing_slot.slot_name if diagnostic.missing_slot else ""
+        return (slot_order.get(slot_name, 99), diagnostic.diagnostic_id)
 
     @staticmethod
     def _editable_issue_group_key(diagnostic: CompileDiagnostic) -> str:

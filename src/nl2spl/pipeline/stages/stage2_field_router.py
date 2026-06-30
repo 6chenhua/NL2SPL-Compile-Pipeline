@@ -751,6 +751,7 @@ Output valid JSON:"""
         slot_target: str | None,
         executable: bool,
         diagnostics: list[str],
+        metadata: dict[str, Any] | None = None,
     ) -> tuple[str, str | None, str | None, str | None, str | None, bool]:
         """Normalize an LLM annotation to the canonical role contract.
 
@@ -758,13 +759,27 @@ Output valid JSON:"""
         Raw LLM values are preserved in diagnostics but are NOT authoritative.
         """
         if semantic_role is None:
-            return field, semantic_role, route_family, construct_target, slot_target, executable
+            return (
+                field,
+                semantic_role,
+                route_family,
+                construct_target,
+                slot_target,
+                executable,
+            )
 
         # Resolve alias if needed, then look up contract
         resolved = ROLE_CONTRACT_REGISTRY.resolve_semantic_role(semantic_role)
         if resolved is None:
             # Unknown role — pass through unchanged (validator will handle)
-            return field, semantic_role, route_family, construct_target, slot_target, executable
+            return (
+                field,
+                semantic_role,
+                route_family,
+                construct_target,
+                slot_target,
+                executable,
+            )
 
         contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
 
@@ -776,6 +791,7 @@ Output valid JSON:"""
             raw_construct_target=construct_target,
             raw_slot_target=slot_target,
             raw_executable=executable,
+            metadata=metadata,
         )
 
         # Merge diagnostics
@@ -917,8 +933,10 @@ Output valid JSON:"""
                 construct_target=construct,
                 slot_target=slot,
                 executable=executable,
+                metadata=llm_ann.metadata,
                 diagnostics=route_diagnostics,
             )
+            ann_metadata = dict(llm_ann.metadata)
 
             # --- Merge: replace matching prior, or append new -------------
             # Matching key: (span_id, field, semantic_role, construct_target,
@@ -944,6 +962,7 @@ Output valid JSON:"""
                         source_section_id=existing.source_section_id or llm_ann.source_section_id,
                         source_packet_id=existing.source_packet_id or llm_ann.source_packet_id,
                         primary=llm_ann.primary,
+                        metadata={**existing.metadata, **ann_metadata},
                     )
                     replaced = True
                     break
@@ -975,6 +994,7 @@ Output valid JSON:"""
                         source_section_id=provenance_sid,
                         source_packet_id=provenance_pid,
                         primary=llm_ann.primary,
+                        metadata=ann_metadata,
                     )
                 )
 

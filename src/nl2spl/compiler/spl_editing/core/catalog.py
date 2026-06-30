@@ -26,6 +26,20 @@ from nl2spl.ir.diagnostics import DiagnosticIRSRef
 
 
 @dataclass(frozen=True)
+class RepairCatalogOption:
+    """Strategy-owned option projected into the runtime catalog."""
+
+    option_id: str
+    strategy_id: str
+    label_key: str
+    description_key: str
+    interaction_contract_id: str
+    execution_patch_types: tuple[str, ...]
+    closure_policy_id: str
+    user_facing: bool = True
+
+
+@dataclass(frozen=True)
 class RepairCatalogEntry:
     """One row in the derived repair catalog.
 
@@ -81,6 +95,7 @@ class RepairCatalogEntry:
     strategy_display_label: str | None = None
     closure_summary: str | None = None
     preview_required: bool = False
+    strategy_options: tuple[RepairCatalogOption, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -244,6 +259,7 @@ class RepairCatalogBuilder:
                     strategy_display_label = None
                     closure_summary = None
                     preview_required = False
+                    strategy_options: tuple[RepairCatalogOption, ...] = ()
 
                     if strategy_registry and aff.repair_strategy_id:
                         has_method = getattr(strategy_registry, "has", None)
@@ -255,6 +271,19 @@ class RepairCatalogBuilder:
                                     strategy_display_label = getattr(strategy_spec, "display_label", None)
                                     closure_summary = getattr(strategy_spec, "closure_summary", None)
                                     preview_required = getattr(strategy_spec, "preview_required", False)
+                                    strategy_options = tuple(
+                                        RepairCatalogOption(
+                                            option_id=option.option_id,
+                                            strategy_id=option.strategy_id,
+                                            label_key=option.label_key,
+                                            description_key=option.description_key,
+                                            interaction_contract_id=option.interaction_contract_id,
+                                            execution_patch_types=option.execution_patch_types,
+                                            closure_policy_id=option.closure_policy_id,
+                                            user_facing=option.user_facing,
+                                        )
+                                        for option in getattr(strategy_spec, "options", ())
+                                    )
                         else:
                             try:
                                 strategy_spec = strategy_registry.get(aff.repair_strategy_id)
@@ -263,6 +292,19 @@ class RepairCatalogBuilder:
                                     strategy_display_label = getattr(strategy_spec, "display_label", None)
                                     closure_summary = getattr(strategy_spec, "closure_summary", None)
                                     preview_required = getattr(strategy_spec, "preview_required", False)
+                                    strategy_options = tuple(
+                                        RepairCatalogOption(
+                                            option_id=option.option_id,
+                                            strategy_id=option.strategy_id,
+                                            label_key=option.label_key,
+                                            description_key=option.description_key,
+                                            interaction_contract_id=option.interaction_contract_id,
+                                            execution_patch_types=option.execution_patch_types,
+                                            closure_policy_id=option.closure_policy_id,
+                                            user_facing=option.user_facing,
+                                        )
+                                        for option in getattr(strategy_spec, "options", ())
+                                    )
                             except Exception as e:
                                 if type(e).__name__ not in ("StrategyNotFoundError", "KeyError"):
                                     raise
@@ -298,6 +340,7 @@ class RepairCatalogBuilder:
                         strategy_display_label=strategy_display_label,
                         closure_summary=closure_summary,
                         preview_required=preview_required,
+                        strategy_options=strategy_options,
                     )
                     entries.append(entry)
 

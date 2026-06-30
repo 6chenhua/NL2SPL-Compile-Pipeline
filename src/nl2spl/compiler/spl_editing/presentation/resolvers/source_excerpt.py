@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 
 
 def source_excerpt_for_issue(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     snapshot: ArtifactSnapshot,
     related_diagnostics: tuple[object, ...] = (),
     *,

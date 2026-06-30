@@ -51,6 +51,21 @@ class WorkerPromotionContextBuilder(RepairContextBuilder):
                 meta["child_output_fields"] = [field.name for field in child.output_contract]
         if plan is not None:
             meta["parent_worker_id"] = plan.main_worker_id
+            candidate_id = target.canonical_name
+            candidate = next(
+                (
+                    item
+                    for item in getattr(plan, "candidates", ())
+                    if item.candidate_id == candidate_id
+                    or item.candidate_id == f"cand_{candidate_id}"
+                ),
+                None,
+            )
+            if candidate is not None:
+                summary = candidate.task_text or candidate.purpose
+                if summary:
+                    meta["candidate_task_summary"] = summary
+                meta["candidate_source_span_ids"] = tuple(candidate.source_span_ids)
 
         return RepairContext(
             issue=issue,

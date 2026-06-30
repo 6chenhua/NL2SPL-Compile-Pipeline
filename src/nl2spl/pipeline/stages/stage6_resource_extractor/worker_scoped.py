@@ -15,7 +15,6 @@ from nl2spl.ir.resource_contract_ir import (
     ResourceContractPlanIR,
 )
 from nl2spl.ir.resource_registry_ir import (
-    APIFunction,
     APISpec,
     FileSpec,
     ResourceRegistryIR,
@@ -35,6 +34,9 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
 )
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage6_resource_extractor.api_contract_extraction import (
+    api_spec_from_extracted_contract,
+)
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     build_resource_context,
 )
@@ -81,16 +83,13 @@ class WorkerScopedMixin:
         if main_flow is not None and main_blocks is not None:
             # 裁剪：只保留属于 main worker 的 span 和 route
             main_span_ids = (
-                set(main_worker_spec.owned_span_ids)
-                if main_worker_spec is not None
-                else set()
+                set(main_worker_spec.owned_span_ids) if main_worker_spec is not None else set()
             )
             main_spans = [s for s in spans if s.span_id in main_span_ids]
             main_routes = FieldRouteIR(
                 behavior=[s for s in routes.behavior if s in main_span_ids],
                 integrations=[s for s in routes.integrations if s in main_span_ids],
-                annotations=[a for a in routes.annotations
-                             if a.span_id in main_span_ids],
+                annotations=[a for a in routes.annotations if a.span_id in main_span_ids],
             )
             global_resources, symbol_table = self._extract_resources_for_scope(
                 spans=main_spans,
@@ -129,8 +128,7 @@ class WorkerScopedMixin:
             worker_routes = FieldRouteIR(
                 behavior=[s for s in routes.behavior if s in worker_span_ids],
                 integrations=[s for s in routes.integrations if s in worker_span_ids],
-                annotations=[a for a in routes.annotations
-                             if a.span_id in worker_span_ids],
+                annotations=[a for a in routes.annotations if a.span_id in worker_span_ids],
             )
 
             # child worker 不传 canonical_input——它的变量来源是 contract，不是原始输入。
@@ -155,12 +153,11 @@ class WorkerScopedMixin:
             contract = self._build_handoff_contract(handoff, symbol_table)
             worker_scoped_resources.handoff_contracts[handoff.handoff_id] = contract
 
-        worker_scoped_resources.resource_contract_bindings = list(
-            self._contract_bindings
-        )
+        worker_scoped_resources.resource_contract_bindings = list(self._contract_bindings)
 
         self.logger.info(
-            "Extracted worker-scoped resources: %d global variables, %d workers, %d handoffs, %d bindings",
+            "Extracted worker-scoped resources: %d global variables, "
+            "%d workers, %d handoffs, %d bindings",
             len(worker_scoped_resources.global_resources.variables),
             len(worker_scoped_resources.worker_resources),
             len(worker_scoped_resources.handoff_contracts),
@@ -231,28 +228,23 @@ class WorkerScopedMixin:
                 # 过滤层 2：拒绝 schema/IR 风格的变量名（如 flow_id、block_type）
                 allowed, reason = is_allowed_resource_variable(name)
                 if not allowed:
-                    filter_warnings.append(
-                        f"Rejected schema-looking variable '{name}': {reason}"
-                    )
+                    filter_warnings.append(f"Rejected schema-looking variable '{name}': {reason}")
                     continue
                 # D5 过滤：变量名或描述包含 failure condition 文本则拒绝
                 if failure_texts:
                     var_text = (
                         name.replace("_", " ").strip().lower()
-                        + " " + var_data.get("description", "").strip().lower()
+                        + " "
+                        + var_data.get("description", "").strip().lower()
                     )
                     if any(ft in var_text for ft in failure_texts):
-                        filter_warnings.append(
-                            f"D5: rejected failure-derived variable '{name}'"
-                        )
+                        filter_warnings.append(f"D5: rejected failure-derived variable '{name}'")
                         continue
                 var = VariableSpec(
                     name=name,
                     data_type=var_data["data_type"],
                     required=var_data.get("required", False),
-                    description=clean_resource_description(
-                        name, var_data.get("description", "")
-                    ),
+                    description=clean_resource_description(name, var_data.get("description", "")),
                     source=var_data.get("source", "step"),
                 )
                 variables.append(var)
@@ -275,20 +267,9 @@ class WorkerScopedMixin:
         apis: list[APISpec] = []
         for api_data in result.get("apis", []):
             try:
-                functions: list[APIFunction] = []
-                for func_data in api_data.get("functions", []):
-                    func = APIFunction(
-                        name=func_data["name"],
-                        description=func_data.get("description", ""),
-                        parameters=func_data.get("parameters", []),
-                        return_type=func_data.get("return_type", "text"),
-                    )
-                    functions.append(func)
-                api = APISpec(
-                    api_name=api_data["api_name"],
-                    auth=api_data.get("auth", "none"),
-                    description=api_data.get("description", ""),
-                    functions=functions,
+                api = api_spec_from_extracted_contract(
+                    api_data,
+                    valid_source_span_ids={span.span_id for span in spans},
                 )
                 apis.append(api)
             except (KeyError, ValueError, TypeError) as e:
@@ -312,17 +293,16 @@ class WorkerScopedMixin:
             try:
                 rc_kind = rc_data.get("resource_kind", "variable")
                 if rc_kind not in ("variable", "file", "api", "type"):
-                    self.logger.warning(
-                        "Skipping resource_contract with unknown kind: %s", rc_kind
-                    )
+                    self.logger.warning("Skipping resource_contract with unknown kind: %s", rc_kind)
                     continue
                 # B4: resolve authoritative requiredness BEFORE any side effects.
                 # DemandView is the authority when present; LLM is fallback.
                 authoritative_rq: str | None = None
                 authoritative_req: bool | None = None
                 if demand_view is not None:
-                    dv_demands = getattr(demand_view, "valid_demands",
-                                         lambda: getattr(demand_view, "demands", ()))()
+                    dv_demands = getattr(
+                        demand_view, "valid_demands", lambda: getattr(demand_view, "demands", ())
+                    )()
                     found = False
                     for d in dv_demands:
                         if getattr(d, "demand_id", None) == rc_data["demand_id"]:
@@ -342,7 +322,9 @@ class WorkerScopedMixin:
                         self.logger.warning(
                             "LLM requiredness %s disagrees with DemandView %s "
                             "for demand %s; using DemandView.",
-                            llm_rq, authoritative_rq, rc_data["demand_id"],
+                            llm_rq,
+                            authoritative_rq,
+                            rc_data["demand_id"],
                         )
                 else:
                     authoritative_rq = rc_data.get("requiredness", "unspecified")
@@ -351,25 +333,27 @@ class WorkerScopedMixin:
                 # Validate requiredness value
                 if authoritative_rq not in ("required", "optional", "unspecified"):
                     self.logger.warning(
-                        "Invalid requiredness '%s' for demand %s; "
-                        "falling back to unspecified.",
-                        authoritative_rq, rc_data["demand_id"],
+                        "Invalid requiredness '%s' for demand %s; falling back to unspecified.",
+                        authoritative_rq,
+                        rc_data["demand_id"],
                     )
                     authoritative_rq = "unspecified"
                     authoritative_req = None
 
                 # Create binding
-                self._contract_bindings.append(ResourceContractBindingIR(
-                    contract_demand_id=rc_data["demand_id"],
-                    resource_name=rc_data["name"],
-                    resource_kind=rc_kind,  # type: ignore[arg-type]
-                    direction=rc_data.get("direction", "output"),
-                    scope_kind=scope_kind,  # type: ignore[arg-type]
-                    scope_id=scope_id,
-                    source_span_ids=rc_data.get("source_span_ids", []),
-                    source_section_id=rc_data.get("source_section_id"),
-                    source_packet_id=rc_data.get("source_packet_id"),
-                ))
+                self._contract_bindings.append(
+                    ResourceContractBindingIR(
+                        contract_demand_id=rc_data["demand_id"],
+                        resource_name=rc_data["name"],
+                        resource_kind=rc_kind,  # type: ignore[arg-type]
+                        direction=rc_data.get("direction", "output"),
+                        scope_kind=scope_kind,  # type: ignore[arg-type]
+                        scope_id=scope_id,
+                        source_span_ids=rc_data.get("source_span_ids", []),
+                        source_section_id=rc_data.get("source_section_id"),
+                        source_packet_id=rc_data.get("source_packet_id"),
+                    )
+                )
 
                 resource_contract_fields.append(
                     ResourceContractFieldIR(
@@ -441,9 +425,7 @@ class WorkerScopedMixin:
                             )
                         )
             except (KeyError, ValueError, TypeError) as e:
-                self.logger.warning(
-                    "Skipping invalid resource_contract entry: %s", e
-                )
+                self.logger.warning("Skipping invalid resource_contract entry: %s", e)
 
         if worker_spec is not None and resource_contract_fields:
             self._sync_resource_contract_fields_to_worker(
@@ -490,8 +472,12 @@ class WorkerScopedMixin:
 
         self.logger.info(
             "Extracted %d variables, %d files, %d APIs, %d types for scope %s:%s",
-            len(variables), len(files), len(apis), len(types),
-            scope_kind, scope_id,
+            len(variables),
+            len(files),
+            len(apis),
+            len(types),
+            scope_kind,
+            scope_id,
         )
 
         return resources, symbol_table
@@ -536,9 +522,7 @@ class WorkerScopedMixin:
             if existing.data_type == var.data_type:
                 existing.required = existing.required or var.required
                 if not existing.description and var.description:
-                    existing.description = clean_resource_description(
-                        var.name, var.description
-                    )
+                    existing.description = clean_resource_description(var.name, var.description)
             else:
                 warnings.append(
                     f"Variable {var.name} has conflicting inferred types: "
@@ -604,16 +588,14 @@ class WorkerScopedMixin:
         类型信息从 SymbolTable 继承，确保 handoff 两端类型一致。
         """
         parent_vars = symbol_table.get_variables_for_worker(handoff.from_worker)
-        child_vars = symbol_table.get_variables_for_worker(
-            handoff.to_worker or ""
-        )
+        child_vars = symbol_table.get_variables_for_worker(handoff.to_worker or "")
 
         input_variables: list[ContractFieldIR] = []
         for binding in handoff.input_bindings:
             # 优先从父 worker 的 scoped 变量查找，fallback 到全局 lookup
-            var = parent_vars.get(
+            var = parent_vars.get(binding.parent_variable) or symbol_table.lookup(
                 binding.parent_variable
-            ) or symbol_table.lookup(binding.parent_variable)
+            )
             input_variables.append(
                 ContractFieldIR(
                     name=binding.child_input,
@@ -627,9 +609,7 @@ class WorkerScopedMixin:
         output_variables: list[ContractFieldIR] = []
         for binding in handoff.output_bindings:
             # 优先从子 worker 的 scoped 变量查找
-            var = child_vars.get(
-                binding.child_output
-            ) or symbol_table.lookup(binding.child_output)
+            var = child_vars.get(binding.child_output) or symbol_table.lookup(binding.child_output)
             output_variables.append(
                 ContractFieldIR(
                     name=binding.parent_variable,

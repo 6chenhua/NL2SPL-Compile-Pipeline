@@ -18,6 +18,8 @@ recipes. Maintain provenance for externally sourced facts. When enough required
 information is available, produce a draft. If the user asks for revision, revise while re
 checking constraints. Do not finalize if required slots remain missing unless the draft is
 explicitly marked as assumption-bearing and the user confirms.
+At the end, record a short assumptions log for any unresolved items and set a completion
+status for the run.
 
 Policies:
 Do not invent links or unseen facts. Require evidence for sourced claims. Limit questions

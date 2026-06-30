@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
-from nl2spl.compiler.construct_plan import ConstructPlan
+from nl2spl.compiler.construct_plan import APICallPlacementIR, ConstructPlan
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.diagnostics import CompileDiagnostic
@@ -14,6 +14,7 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.worker_contract_status import binding_side_satisfied
 from nl2spl.ir.worker_plan_ir import (
     WorkerBlockPlanIR,
@@ -24,6 +25,12 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerStepPlanIR,
 )
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
+    APIMaterializationPlanIR,
+)
+from nl2spl.pipeline.stages.stage7_step_extractor.api_call_materializer import (
+    materialize_direct_api_calls,
+)
 
 
 class WorkerScopedMethodsMixin:
@@ -38,6 +45,9 @@ class WorkerScopedMethodsMixin:
         symbol_table: SymbolTable,
         worker_plan: WorkerPlanIR,
         construct_plan: ConstructPlan | None = None,
+        api_materialization_plan: APIMaterializationPlanIR | None = None,
+        api_call_placements: list[APICallPlacementIR] | None = None,
+        resources: ResourceRegistryIR | None = None,
     ) -> tuple[WorkerStepPlanIR, SymbolTable]:
         """Execute worker-scoped step extraction.
 
@@ -101,6 +111,22 @@ class WorkerScopedMethodsMixin:
                 worker_step_plan.worker_steps[worker_id].extend(handoff_steps)
             else:
                 worker_step_plan.worker_steps[worker_id] = handoff_steps
+
+        if (
+            construct_plan is not None
+            and api_materialization_plan is not None
+            and api_call_placements is not None
+            and resources is not None
+        ):
+            self.stage7_diagnostics.extend(
+                materialize_direct_api_calls(
+                    worker_step_plan,
+                    construct_plan,
+                    api_materialization_plan,
+                    api_call_placements,
+                    resources,
+                )
+            )
 
         # 3. Run unmapped-span detection NOW that all steps (LLM + generated
         #    handoffs) are assembled per worker.

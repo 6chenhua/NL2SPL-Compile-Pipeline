@@ -103,15 +103,14 @@ class TestCharProvenanceDelegationTrace:
         assert trace.source_span_ids == ["s1", "s2"]
         assert trace.source_section_id == "sec_delegation_policy"
 
-    def test_trace_record_no_metadata_field(self) -> None:
-        """R10 Phase 6 Plan A: TraceRecord still has no metadata field.
-        Provenance info is encoded in target_ref."""
+    def test_trace_record_metadata_defaults_empty(self) -> None:
+        """TraceRecord carries optional metadata for auditable provenance."""
         trace = TraceRecord(
             target_ref="source_signal:delegation_intent:test",
             source_span_ids=["s1"],
             relation="direct",
         )
-        assert not hasattr(trace, "metadata")
+        assert trace.metadata == {}
 
     def test_source_signal_format_not_currently_used(self) -> None:
         """R10 Phase 6: source_signal:delegation_intent:* format IS now used

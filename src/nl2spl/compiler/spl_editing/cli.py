@@ -449,7 +449,9 @@ def _print_run_summary(view) -> None:
     print(f"  Run: {view.run_label}")
     print(f"  Snapshot: {view.snapshot_id}")
     print(f"  Version: overlay {view.overlay_version}")
-    print(f"  Editable issues: {view.issue_count}")
+    print(f"  Editable issues: {view.editable_issue_count}")
+    print(f"  Review needed: {view.review_issue_count}")
+    print(f"  Deferred validation: {view.deferred_validation_count}")
     if view.issue_summary:
         print("\nIssue summary")
         for item in view.issue_summary:
@@ -458,7 +460,7 @@ def _print_run_summary(view) -> None:
 
 def _print_issue_list(view) -> list[object]:
     selectable: list[object] = []
-    print("\nEditable issues")
+    print("\nIssues")
     for section in view.sections:
         if not section.visible_by_default or not section.items:
             continue
@@ -474,7 +476,8 @@ def _print_issue_list(view) -> list[object]:
                 print(f"       Missing: {', '.join(card.missing_items)}")
             if card.suggested_resolution:
                 print(f"       Suggested resolution: {card.suggested_resolution}")
-            selectable.append(card)
+            if card.can_fix:
+                selectable.append(card)
     return selectable
 
 

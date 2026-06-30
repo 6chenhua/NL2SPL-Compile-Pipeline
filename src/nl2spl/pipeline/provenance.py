@@ -101,6 +101,9 @@ class ProvenanceAggregator:
             variable_facts=variable_facts,
         )
 
+        # 6b. API declaration provenance
+        self._trace_apis(resources, span_index, traces)
+
         # 7. Profile provenance
         if profile is not None:
             self._trace_profile(profile, traces)
@@ -279,7 +282,7 @@ class ProvenanceAggregator:
         diags: list[CompileDiagnostic],
     ) -> None:
         for step in steps:
-            repair_metadata: dict[str, Any] = {}
+            trace_metadata: dict[str, Any] = {}
             if step.source_span_ids:
                 relation = "direct"
                 explanation = (
@@ -310,11 +313,24 @@ class ProvenanceAggregator:
                     "related_diagnostic_id": diag_id,
                     "user_text": step.metadata.get("user_text", ""),
                 }
+                trace_metadata.update(repair_metadata)
             else:
                 relation = "assumed"
                 explanation = (
                     f"Step '{step.step_id}' has no source evidence."
                 )
+            if step.command_type == "CALL_API":
+                for key in (
+                    "api_id",
+                    "declaration_demand_id",
+                    "api_binding_id",
+                    "placement_ref",
+                    "construct_demand_ids",
+                ):
+                    if key in step.metadata:
+                        trace_metadata[key] = step.metadata[key]
+                if step.integration_ref:
+                    trace_metadata["api_name"] = step.integration_ref
 
             section_id, packet_id = self._resolve_span_origin(
                 step.source_span_ids, span_index
@@ -328,7 +344,45 @@ class ProvenanceAggregator:
                     relation=relation,
                     explanation=explanation,
                     needs_confirmation=(relation == "assumed"),
-                    metadata=repair_metadata if repair_metadata else {},
+                    metadata=trace_metadata,
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # APIs
+    # ------------------------------------------------------------------
+
+    def _trace_apis(
+        self,
+        resources: ResourceRegistryIR,
+        span_index: dict[str, SpanIR],
+        traces: list[TraceRecord],
+    ) -> None:
+        for api in resources.apis:
+            span_ids = list(getattr(api, "source_span_ids", []))
+            section_id, packet_id = self._resolve_span_origin(
+                span_ids, span_index,
+            )
+            traces.append(
+                TraceRecord(
+                    target_ref=f"api:{api.api_id or api.api_name}",
+                    source_span_ids=span_ids,
+                    source_section_id=section_id,
+                    source_packet_id=packet_id,
+                    relation="direct" if span_ids else "assumed",
+                    explanation=(
+                        f"API declaration '{api.api_name}' materialized as "
+                        f"{api.declaration_status}."
+                    ),
+                    needs_confirmation=not bool(span_ids),
+                    metadata={
+                        "api_name": api.api_name,
+                        "api_id": api.api_id,
+                        "declaration_status": api.declaration_status,
+                        "schema_status": api.schema_status,
+                        "functions_status": api.functions_status,
+                        "declaration_demand_ids": list(api.declaration_demand_ids),
+                    },
                 )
             )
 

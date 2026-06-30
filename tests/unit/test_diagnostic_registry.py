@@ -108,13 +108,13 @@ class TestDefaultRegistry:
         kinds = self.registry.list_kinds()
         assert "missing_handler" in kinds
         assert "redundant_requirement" in kinds  # reserved but still listed
-        assert len(kinds) == 14  # 10 enabled + 4 reserved (B5: +3 resource contract)
+        assert len(kinds) == 15  # 10 enabled + 4 reserved (B5: +3 resource contract)
 
     def test_list_kinds_enabled_only(self):
         kinds = self.registry.list_kinds(enabled_only=True)
         assert "missing_handler" in kinds
         assert "redundant_requirement" not in kinds
-        assert len(kinds) == 10  # B5: +3 resource contract demand diagnostics
+        assert len(kinds) == 11  # B5: +3 resource contract demand diagnostics
 
     # -- validation ----------------------------------------------------------
 
@@ -143,3 +143,16 @@ class TestDefaultRegistry:
         a = DiagnosticRegistry.default()
         b = DiagnosticRegistry.default()
         assert a.list_kinds() == b.list_kinds()
+
+
+def test_deferred_api_contract_validation_contract() -> None:
+    registry = DiagnosticRegistry.default()
+    spec = registry.get("deferred_api_contract_validation")
+    assert spec.enabled is True
+    assert spec.default_severity == "info"
+    assert spec.blocks_completion is False
+    assert spec.allowed_targets == ["api"]
+
+    structural = registry.get("type_or_contract_ambiguity")
+    assert structural.default_severity == "warning"
+    assert structural.blocks_completion is True

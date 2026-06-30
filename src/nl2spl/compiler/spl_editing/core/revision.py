@@ -124,6 +124,7 @@ class ArtifactSnapshot:
     final_spl: str | None = None
     compile_diagnostics: tuple[CompileDiagnostic, ...] = ()
     traces: tuple[TraceRecord, ...] = ()
+    promotion_resolution_markers: tuple[Any, ...] = ()
 
     # ------------------------------------------------------------------
     # require_* accessors — fail early on missing artifact
@@ -180,6 +181,7 @@ class ArtifactSnapshot:
         final_worker: Any = _UNSET,
         final_spl: Any = _UNSET,
         compile_diagnostics: Any = _UNSET,
+        promotion_resolution_markers: Any = _UNSET,
     ) -> ArtifactSnapshot:
         """Return a derived snapshot with updated revision identity.
 
@@ -233,6 +235,9 @@ class ArtifactSnapshot:
             final_spl=_val(final_spl, self.final_spl),
             compile_diagnostics=_val(compile_diagnostics, self.compile_diagnostics),
             traces=self.traces,
+            promotion_resolution_markers=_val(
+                promotion_resolution_markers, self.promotion_resolution_markers
+            ),
         )
 
     @property

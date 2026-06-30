@@ -10,7 +10,6 @@ from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import (
-    APIFunction,
     APISpec,
     FileSpec,
     ResourceRegistryIR,
@@ -20,6 +19,9 @@ from nl2spl.ir.resource_registry_ir import (
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage6_resource_extractor.api_contract_extraction import (
+    api_spec_from_extracted_contract,
+)
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     build_resource_context,
 )
@@ -101,28 +103,23 @@ class LegacyMethodsMixin:
                 name = var_data["name"]
                 allowed, reason = is_allowed_resource_variable(name)
                 if not allowed:
-                    filter_warnings.append(
-                        f"Rejected schema-looking variable '{name}': {reason}"
-                    )
+                    filter_warnings.append(f"Rejected schema-looking variable '{name}': {reason}")
                     continue
                 # D5: reject variables derived from failure condition text
                 if failure_texts:
                     var_text = (
                         name.replace("_", " ").strip().lower()
-                        + " " + var_data.get("description", "").strip().lower()
+                        + " "
+                        + var_data.get("description", "").strip().lower()
                     )
                     if any(ft in var_text for ft in failure_texts):
-                        filter_warnings.append(
-                            f"D5: rejected failure-derived variable '{name}'"
-                        )
+                        filter_warnings.append(f"D5: rejected failure-derived variable '{name}'")
                         continue
                 var = VariableSpec(
                     name=name,
                     data_type=var_data["data_type"],
                     required=var_data.get("required", False),
-                    description=clean_resource_description(
-                        name, var_data.get("description", "")
-                    ),
+                    description=clean_resource_description(name, var_data.get("description", "")),
                     source=var_data.get("source", "step"),
                 )
                 variables.append(var)
@@ -145,20 +142,9 @@ class LegacyMethodsMixin:
         apis: list[APISpec] = []
         for api_data in result.get("apis", []):
             try:
-                functions: list[APIFunction] = []
-                for func_data in api_data.get("functions", []):
-                    func = APIFunction(
-                        name=func_data["name"],
-                        description=func_data.get("description", ""),
-                        parameters=func_data.get("parameters", []),
-                        return_type=func_data.get("return_type", "text"),
-                    )
-                    functions.append(func)
-                api = APISpec(
-                    api_name=api_data["api_name"],
-                    auth=api_data.get("auth", "none"),
-                    description=api_data.get("description", ""),
-                    functions=functions,
+                api = api_spec_from_extracted_contract(
+                    api_data,
+                    valid_source_span_ids={span.span_id for span in spans},
                 )
                 apis.append(api)
             except (KeyError, ValueError, TypeError) as e:
@@ -203,16 +189,19 @@ class LegacyMethodsMixin:
 
         self.logger.info(
             "Extracted %d variables, %d files, %d APIs, %d types",
-            len(variables), len(files), len(apis), len(types),
+            len(variables),
+            len(files),
+            len(apis),
+            len(types),
         )
 
-        self.save_checkpoint({
-            "resources": asdict(resources),
-            "symbol_table": {
-                name: asdict(var) for name, var in symbol_table.variables.items()
-            },
-            "adapter_merge_warnings": merge_warnings,
-        })
+        self.save_checkpoint(
+            {
+                "resources": asdict(resources),
+                "symbol_table": {name: asdict(var) for name, var in symbol_table.variables.items()},
+                "adapter_merge_warnings": merge_warnings,
+            }
+        )
 
         return resources, symbol_table
 
@@ -224,11 +213,9 @@ class LegacyMethodsMixin:
         """Merge hard fact variables with LLM variables, preferring hard facts."""
         warnings: list[str] = []
         hard_fact_specs = [
-            self._variable_from_fact(fact, "input")
-            for fact in canonical_input.hard_facts.inputs
+            self._variable_from_fact(fact, "input") for fact in canonical_input.hard_facts.inputs
         ] + [
-            self._variable_from_fact(fact, "output")
-            for fact in canonical_input.hard_facts.outputs
+            self._variable_from_fact(fact, "output") for fact in canonical_input.hard_facts.outputs
         ]
 
         merged: dict[str, VariableSpec] = {var.name: var for var in hard_fact_specs}
@@ -250,9 +237,7 @@ class LegacyMethodsMixin:
             if existing.data_type == var.data_type:
                 existing.required = existing.required or var.required
                 if not existing.description and var.description:
-                    existing.description = clean_resource_description(
-                        var.name, var.description
-                    )
+                    existing.description = clean_resource_description(var.name, var.description)
             else:
                 warnings.append(
                     f"Variable {var.name} has conflicting inferred types: "

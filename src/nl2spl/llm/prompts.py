@@ -21,6 +21,9 @@ STAGE_PROMPT_FILES = {
     "stage9": PROMPTS_DIR / "stage9_system.txt",
     "input_adapter_fact_extractor": PROMPTS_DIR / "input_adapter_fact_extractor_system.txt",
     "stage2_adapter_guided": PROMPTS_DIR / "stage2_adapter_guided_system.txt",
+    "external_capability_semantic_extractor": (
+        PROMPTS_DIR / "capability_semantic_extractor_system.txt"
+    ),
 }
 
 

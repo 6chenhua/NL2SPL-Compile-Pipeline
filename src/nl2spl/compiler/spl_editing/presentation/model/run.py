@@ -21,6 +21,10 @@ class RunPresentationView:
     snapshot_status: str
     editable: bool
     issue_count: int
+    editable_issue_count: int = 0
+    review_issue_count: int = 0
+    deferred_validation_count: int = 0
+    developer_issue_count: int = 0
     issue_summary: tuple[IssueCategorySummary, ...] = ()
     advanced: RunAdvancedDetails = field(default_factory=RunAdvancedDetails)
 

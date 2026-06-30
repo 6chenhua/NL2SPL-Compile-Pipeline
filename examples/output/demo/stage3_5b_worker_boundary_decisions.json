@@ -1,39 +1,34 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-06-15T01:44:44.457306",
+  "timestamp": "2026-07-01T02:50:16.755823",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_retrieve_approved_sources",
-        "decision": "compile_as_call_api",
-        "boundary_strength": "weak",
-        "boundary_kind": "call_api",
-        "rejection_reason": "single_api_call",
-        "reason": "This candidate is a bounded source-retrieval integration wrapper, but its role is just to call approved source recipes and return evidence, so it should be compiled as a call API rather than extracted as an independent worker.",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_draft_communication",
-        "decision": "extract_child_worker",
-        "boundary_strength": "strong",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": null,
-        "reason": "This is a coherent callable job: take the user request plus source evidence and assumptions, produce a draft communication artifact, revise it while re-checking constraints, and return completion status. The source and adapter facts explicitly name both inputs and outputs, and the parent has a clear invocation point in the reusable process for drafting/revision.",
-        "evidence": [
-          "bounded_io",
-          "multi_step_process",
-          "independent_failure_policy",
-          "complex_control"
-        ]
-      },
-      {
-        "candidate_id": "candidate_clarify_missing_fields",
+        "candidate_id": "candidate_manage_clarifications_and_source_retrieval",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "simple_control_flow",
-        "reason": "Auto-rejected: blocking risk simple_control_flow",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_draft_and_revision_control",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_record_assumptions_and_completion_status",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
         "evidence": []
       }
     ]

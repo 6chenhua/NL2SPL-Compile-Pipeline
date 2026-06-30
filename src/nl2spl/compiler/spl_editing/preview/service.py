@@ -305,6 +305,17 @@ class PreviewDryRunService:
         preview_id = f"prev_{compute_sha256(scope_str)}"
 
         # 11. Construct PreviewMaterializationResult
+        normalized_payload = intent.payload
+        option_id = getattr(normalized_payload, "option_id", "")
+        normalized_hash = (
+            compute_sha256(normalized_payload)
+            if hasattr(normalized_payload, "directive_id")
+            else ""
+        )
+        admitted_hashes = tuple(
+            compute_sha256(item)
+            for item in getattr(normalized_payload, "admitted_outputs", ())
+        )
         preview_res = PreviewMaterializationResult(
             preview_id=preview_id,
             base_snapshot_id=snapshot.snapshot_id,
@@ -316,6 +327,13 @@ class PreviewDryRunService:
             preview_construct_hashes=construct_hashes,
             llm_generation_config_hash=llm_config_hash,
             rendered_preview=rendered,
+            strategy_id=strategy.strategy_id,
+            option_id=option_id,
+            interaction_contract_hash=(
+                compute_sha256((strategy.strategy_id, option_id)) if option_id else ""
+            ),
+            normalized_directive_hash=normalized_hash,
+            admitted_fact_hashes=admitted_hashes,
         )
 
         # 12. Register with PreviewStore

@@ -6,11 +6,11 @@ availability.
 
 from __future__ import annotations
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 
 
 def suggested_resolution_for_issue(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     related_diagnostics: tuple[object, ...] = (),
 ) -> str | None:
     if issue.suggested_resolution:

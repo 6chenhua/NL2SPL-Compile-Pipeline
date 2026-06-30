@@ -145,6 +145,33 @@ class TestCompileDiagnosticRoundTrip:
         payload_str = str(data)
         assert "<" not in payload_str or "$type" in payload_str  # no __repr__
 
+    def test_deferred_api_contract_metadata_roundtrip(self) -> None:
+        reg = build_default_registry()
+        diagnostic = CompileDiagnostic(
+            diagnostic_id="D_API_DEFERRED",
+            kind="deferred_api_contract_validation",
+            severity="info",
+            message="API contract validation deferred.",
+            target_ref="api:SearchAPI",
+            metadata={
+                "validation_authority": "downstream_spl_compiler",
+                "api_contract_validation_status": "pending",
+                "presentation_disposition": "deferred_validation",
+                "repairability": "review_only",
+                "placeholder_fields": ["openapi_schema", "functions"],
+            },
+            blocks_rendering=False,
+            blocks_completion=False,
+        )
+
+        _data, restored = _rt(reg, diagnostic)
+
+        assert restored.kind == "deferred_api_contract_validation"
+        assert restored.severity == "info"
+        assert restored.blocks_rendering is False
+        assert restored.blocks_completion is False
+        assert restored.metadata == diagnostic.metadata
+
 
 class TestTraceRecordRoundTrip:
     def test_full_roundtrip(self) -> None:

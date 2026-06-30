@@ -20,10 +20,17 @@ _WORKER_PROMOTION_SLOT_ORDER: tuple[str, ...] = (
     "promotion_result_handoff",
 )
 
+_API_DEFERRED_SLOT_ORDER: dict[str, int] = {
+    "functions": 0,
+    "openapi_schema": 1,
+    "authentication": 2,
+}
+
 _DIAG_ORDER: dict[str, int] = {
     "missing_handler": 0,
     "missing_output_producer": 1,
     "type_or_contract_ambiguity": 2,
+    "deferred_api_contract_validation": 3,
     "assumed_command_not_renderable": 3,
     "unmapped_behavior_span": 4,
     "missing_provenance": 5,
@@ -74,6 +81,8 @@ def render_feedback_report(
     lines.append("")
     lines.extend(_render_diagnostics(diags))
     lines.append("")
+    lines.extend(_render_deferred_validation(diags))
+    lines.append("")
     lines.extend(_render_assumptions(asms, diags))
     lines.append("")
     lines.extend(_render_traces(trcs))
@@ -118,7 +127,7 @@ def _render_status(
         lines.append("Result is partial because the following requirement gaps remain:")
         for item in _grouped_diag_items(blocking):
             if isinstance(item, list):
-                lines.extend(_render_worker_promotion_group(item, "status"))
+                lines.extend(_render_grouped_diagnostics(item, "status"))
             elif _is_child_worker_partial_definition_diag(item):
                 target = f" on `{item.target_ref}`" if item.target_ref else ""
                 lines.append(
@@ -198,7 +207,7 @@ def _render_not_materialized(diagnostics: list[CompileDiagnostic]) -> list[str]:
 
     for item in _grouped_diag_items(partial_diags):
         if isinstance(item, list):
-            lines.extend(_render_worker_promotion_group(item, "partial"))
+            lines.extend(_render_grouped_diagnostics(item, "partial"))
             continue
         target = f"`{item.target_ref}`" if item.target_ref else "affected element"
         if _is_child_worker_partial_definition_diag(item):
@@ -225,7 +234,7 @@ def _render_diagnostics(diagnostics: list[CompileDiagnostic]) -> list[str]:
 
     for item in _grouped_diag_items(diagnostics):
         if isinstance(item, list):
-            lines.extend(_render_worker_promotion_group(item, "diagnostics"))
+            lines.extend(_render_grouped_diagnostics(item, "diagnostics"))
             lines.append("")
             continue
         d = item
@@ -257,11 +266,29 @@ def _render_diagnostics(diagnostics: list[CompileDiagnostic]) -> list[str]:
     return lines
 
 
+def _render_deferred_validation(diagnostics: list[CompileDiagnostic]) -> list[str]:
+    lines = ["## 5. Deferred Validation", ""]
+    deferred = [d for d in diagnostics if _is_deferred_validation_diag(d)]
+    if not deferred:
+        lines.append("No downstream validation was deferred.")
+        return lines
+
+    for item in _grouped_diag_items(deferred):
+        group = item if isinstance(item, list) else [item]
+        if _is_api_deferred_group(group):
+            lines.extend(_render_api_deferred_group(group, section="deferred"))
+            continue
+        first = group[0]
+        target = f" on `{first.target_ref}`" if first.target_ref else ""
+        lines.append(f"- `{first.kind}`{target}: {first.message}")
+    return lines
+
+
 def _render_assumptions(
     assumptions: list[CompileAssumption],
     diagnostics: list[CompileDiagnostic] | None = None,
 ) -> list[str]:
-    lines = ["## 5. Assumptions / Suggestions", ""]
+    lines = ["## 6. Assumptions / Suggestions", ""]
     if not assumptions:
         lines.append("No report-only assumptions were generated.")
         return lines
@@ -328,7 +355,7 @@ def _render_assumptions(
 
 
 def _render_traces(traces: list[TraceRecord]) -> list[str]:
-    lines = ["## 6. Provenance / TraceRecords", ""]
+    lines = ["## 7. Provenance / TraceRecords", ""]
     if not traces:
         lines.append("No trace records.")
         return lines
@@ -357,7 +384,7 @@ def _render_anti_fabrication(
     diagnostics: list[CompileDiagnostic],
     spl_text: str,
 ) -> list[str]:
-    lines = ["## 7. Anti-Fabrication Checks", ""]
+    lines = ["## 8. Anti-Fabrication Checks", ""]
     kinds = {d.kind for d in diagnostics}
 
     checks = [
@@ -402,7 +429,7 @@ def _render_validation(
     validation_errors: list[str],
     validation_warnings: list[str],
 ) -> list[str]:
-    lines = ["## 8. Adapter / Validation Notes", ""]
+    lines = ["## 9. Adapter / Validation Notes", ""]
     if not adapter_warnings and not validation_errors and not validation_warnings:
         lines.append("No adapter or validation notes.")
         return lines
@@ -429,7 +456,7 @@ def _render_validation(
 
 def _render_spl(spl_text: str) -> list[str]:
     return [
-        "## 9. SPL Draft",
+        "## 10. SPL Draft",
         "",
         "```spl",
         spl_text.strip() if spl_text.strip() else "(no SPL generated)",
@@ -489,26 +516,77 @@ def _group_worker_promotion_diags(
 def _grouped_diag_items(
     diagnostics: list[CompileDiagnostic],
 ) -> list[CompileDiagnostic | list[CompileDiagnostic]]:
-    groups = _group_worker_promotion_diags(diagnostics)
+    structured_groups = _group_structured_issue_diags(diagnostics)
+    worker_groups = _group_worker_promotion_diags(diagnostics)
     grouped_ids = {
         diagnostic.diagnostic_id
-        for group in groups.values()
+        for group in structured_groups.values()
         if len(group) > 1
         for diagnostic in group
     }
+    grouped_ids.update(
+        diagnostic.diagnostic_id
+        for group in worker_groups.values()
+        if len(group) > 1
+        for diagnostic in group
+    )
     items: list[CompileDiagnostic | list[CompileDiagnostic]] = []
-    emitted_groups: set[tuple[str, tuple[str, ...]]] = set()
+    emitted_groups: set[str | tuple[str, tuple[str, ...]]] = set()
 
     for diagnostic in _sort_diags(diagnostics):
         if diagnostic.diagnostic_id not in grouped_ids:
             items.append(diagnostic)
             continue
+        structured_key = _structured_issue_group_key(diagnostic)
+        if (
+            structured_key is not None
+            and structured_key in structured_groups
+            and len(structured_groups[structured_key]) > 1
+        ):
+            if structured_key in emitted_groups:
+                continue
+            emitted_groups.add(structured_key)
+            items.append(_sort_structured_group(structured_groups[structured_key]))
+            continue
         key = _worker_promotion_group_key(diagnostic)
         if key in emitted_groups:
             continue
         emitted_groups.add(key)
-        items.append(_sort_worker_promotion_group(groups[key]))
+        items.append(_sort_worker_promotion_group(worker_groups[key]))
     return items
+
+
+def _structured_issue_group_key(diagnostic: CompileDiagnostic) -> str | None:
+    value = diagnostic.metadata.get("issue_group_id")
+    return value if isinstance(value, str) and value else None
+
+
+def _group_structured_issue_diags(
+    diagnostics: list[CompileDiagnostic],
+) -> dict[str, list[CompileDiagnostic]]:
+    groups: dict[str, list[CompileDiagnostic]] = defaultdict(list)
+    for diagnostic in diagnostics:
+        key = _structured_issue_group_key(diagnostic)
+        if key is not None:
+            groups[key].append(diagnostic)
+    return groups
+
+
+def _sort_structured_group(
+    diagnostics: list[CompileDiagnostic],
+) -> list[CompileDiagnostic]:
+    if all(_is_worker_promotion_slot_diag(diagnostic) for diagnostic in diagnostics):
+        return _sort_worker_promotion_group(diagnostics)
+    return sorted(
+        diagnostics,
+        key=lambda d: (
+            _API_DEFERRED_SLOT_ORDER.get(
+                d.missing_slot.slot_name if d.missing_slot else "",
+                99,
+            ),
+            d.diagnostic_id,
+        ),
+    )
 
 
 def _sort_worker_promotion_group(
@@ -572,6 +650,112 @@ def _render_worker_promotion_group(
         lines.append(_promotion_slot_line(diagnostic, indent="  "))
         lines.append(f"    - Diagnostic: `{diagnostic.diagnostic_id}`")
     return lines
+
+
+def _render_grouped_diagnostics(
+    diagnostics: list[CompileDiagnostic],
+    section: str,
+) -> list[str]:
+    if _is_api_deferred_group(diagnostics):
+        return _render_api_deferred_group(diagnostics, section)
+    if all(_is_worker_promotion_slot_diag(diagnostic) for diagnostic in diagnostics):
+        return _render_worker_promotion_group(diagnostics, section)
+
+    group = _sort_structured_group(diagnostics)
+    first = group[0]
+    target = first.target_ref or "diagnostic group"
+    lines: list[str] = []
+    if section == "status":
+        lines.append(f"- `{first.kind}` on `{target}`: {first.message}")
+        for diagnostic in group:
+            if diagnostic.missing_slot is not None:
+                lines.append(_promotion_slot_line(diagnostic, indent="  "))
+        return lines
+    if section == "partial":
+        lines.append(f"- `{target}`: `{first.kind}` -- {first.message}")
+        for diagnostic in group:
+            if diagnostic.missing_slot is not None:
+                lines.append(_promotion_slot_line(diagnostic, indent="  "))
+        return lines
+    lines.append(f"### grouped:{target}: `{first.kind}`")
+    lines.append(f"- Severity: `{first.severity}`")
+    lines.append(f"- Target: `{target}`")
+    lines.append(f"- Message: {first.message}")
+    lines.append(f"- Blocks rendering: `{str(any(d.blocks_rendering for d in group)).lower()}`")
+    lines.append(f"- Blocks completion: `{str(any(d.blocks_completion for d in group)).lower()}`")
+    lines.append("- Related diagnostics:")
+    for diagnostic in group:
+        slot = diagnostic.missing_slot.slot_name if diagnostic.missing_slot else "unknown"
+        lines.append(f"  - `{diagnostic.diagnostic_id}` / `{slot}`: {diagnostic.message}")
+    return lines
+
+
+def _is_deferred_validation_diag(diagnostic: CompileDiagnostic) -> bool:
+    return (
+        diagnostic.kind == "deferred_api_contract_validation"
+        or diagnostic.metadata.get("presentation_disposition") == "deferred_validation"
+    )
+
+
+def _is_api_deferred_group(diagnostics: list[CompileDiagnostic]) -> bool:
+    if not diagnostics:
+        return False
+    for diagnostic in diagnostics:
+        irs_ref = diagnostic.metadata.get("irs_ref")
+        construct_type = (
+            irs_ref.get("construct_type")
+            if isinstance(irs_ref, dict)
+            else getattr(irs_ref, "construct_type", None)
+        )
+        if construct_type != "API_DECLARATION" or not _is_deferred_validation_diag(diagnostic):
+            return False
+    return True
+
+
+def _render_api_deferred_group(
+    diagnostics: list[CompileDiagnostic],
+    section: str,
+) -> list[str]:
+    group = _sort_structured_group(diagnostics)
+    first = group[0]
+    target = first.target_ref or "API declaration"
+    slots = [
+        diagnostic.missing_slot.slot_name
+        for diagnostic in group
+        if diagnostic.missing_slot is not None
+    ]
+    slot_text = ", ".join(f"`{slot}`" for slot in slots) if slots else "`contract`"
+
+    if section == "deferred":
+        lines = [
+            f"- `{target}`: API contract validation deferred downstream.",
+            f"  - Placeholder fields: {slot_text}",
+        ]
+        authority = first.metadata.get("validation_authority")
+        if isinstance(authority, str) and authority:
+            lines.append(f"  - Validation authority: `{authority}`")
+        return lines
+
+    if section == "diagnostics":
+        lines = [
+            f"### grouped:{target}: `deferred_api_contract_validation`",
+            "- Severity: `info`",
+            f"- Target: `{target}`",
+            "- Message: API declaration is renderable with grammar-safe placeholders; "
+            "semantic contract validation is deferred downstream.",
+            "- Blocks rendering: `false`",
+            "- Blocks completion: `false`",
+            "- Placeholder slots:",
+        ]
+        for diagnostic in group:
+            lines.append(_promotion_slot_line(diagnostic, indent="  "))
+            lines.append(f"    - Diagnostic: `{diagnostic.diagnostic_id}`")
+        return lines
+
+    return [
+        f"- `deferred_api_contract_validation` on `{target}`: "
+        "API declaration is renderable; downstream contract validation remains pending."
+    ]
 
 
 def _promotion_slot_line(diagnostic: CompileDiagnostic, indent: str) -> str:

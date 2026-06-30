@@ -382,6 +382,4 @@ class ProducerIndex:
             return api_ref == handoff.api_ref
         if api_ref in declared_apis:
             return True
-        if api_ref in extra_api_names:
-            return True
         return False

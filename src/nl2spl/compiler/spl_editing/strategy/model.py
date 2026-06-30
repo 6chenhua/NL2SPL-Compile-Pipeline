@@ -31,6 +31,38 @@ def _assert_non_empty_str(val: Any, field_name: str) -> None:
 
 
 @dataclass(frozen=True)
+class RepairStrategyOptionSpec:
+    """Stable user-visible outcome owned by a construct repair strategy."""
+
+    option_id: str
+    strategy_id: str
+    label_key: str
+    description_key: str
+    interaction_contract_id: str
+    execution_patch_types: tuple[str, ...]
+    closure_policy_id: str
+    user_facing: bool = True
+
+    def __post_init__(self) -> None:
+        for name in (
+            "option_id",
+            "strategy_id",
+            "label_key",
+            "description_key",
+            "interaction_contract_id",
+            "closure_policy_id",
+        ):
+            _assert_non_empty_str(getattr(self, name), name)
+        object.__setattr__(
+            self,
+            "execution_patch_types",
+            _to_tuple_of_strings(self.execution_patch_types, "execution_patch_types"),
+        )
+        if not self.execution_patch_types:
+            raise ValueError("execution_patch_types cannot be empty")
+
+
+@dataclass(frozen=True)
 class RepairStrategySpec:
     """Read-only spec defining construct-level repair direction and missing closure requirements."""
 
@@ -44,6 +76,7 @@ class RepairStrategySpec:
     stage_slice_chain: tuple[str, ...]
     verification_lane: str = "B"
     supported_patch_types: tuple[str, ...] = ()
+    options: tuple[RepairStrategyOptionSpec, ...] = ()
     selectable_ref_policy_id: str | None = None
     required_context_facts: tuple[str, ...] = ()
     display_label: str = ""
@@ -101,6 +134,26 @@ class RepairStrategySpec:
                 self.required_context_facts, "required_context_facts"
             ),
         )
+        options = tuple(self.options)
+        seen: set[str] = set()
+        for option in options:
+            if not isinstance(option, RepairStrategyOptionSpec):
+                raise TypeError("options must contain RepairStrategyOptionSpec values")
+            if option.strategy_id != self.strategy_id:
+                raise ValueError(
+                    f"Option '{option.option_id}' belongs to '{option.strategy_id}', "
+                    f"expected '{self.strategy_id}'"
+                )
+            if option.option_id in seen:
+                raise ValueError(f"Duplicate option_id '{option.option_id}'")
+            seen.add(option.option_id)
+            unsupported = set(option.execution_patch_types) - set(self.supported_patch_types)
+            if unsupported:
+                raise ValueError(
+                    f"Option '{option.option_id}' uses unsupported patch types: "
+                    f"{sorted(unsupported)}"
+                )
+        object.__setattr__(self, "options", options)
 
 
 @dataclass(frozen=True)
@@ -118,6 +171,7 @@ class RepairDirective:
     selected_ref_hints: tuple[str, ...] = ()
     constraints: tuple[str, ...] = ()
     confidence: float = 1.0
+    option_id: str | None = None
 
     def __post_init__(self) -> None:
         _assert_non_empty_str(self.directive_id, "directive_id")
@@ -129,6 +183,8 @@ class RepairDirective:
 
         if self.requested_behavior is not None:
             _assert_non_empty_str(self.requested_behavior, "requested_behavior")
+        if self.option_id is not None:
+            _assert_non_empty_str(self.option_id, "option_id")
 
         if not isinstance(self.confidence, (int, float)):
             raise TypeError(

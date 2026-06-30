@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 from nl2spl.compiler.spl_editing.core.registry import SPLEditingRuntimeRegistry
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.presentation.contract.availability import (
@@ -11,6 +11,7 @@ from nl2spl.compiler.spl_editing.presentation.contract.availability import (
 )
 from nl2spl.compiler.spl_editing.presentation.model.issue import RepairOptionView
 from nl2spl.compiler.spl_editing.presentation.templates.repair_option_copy import (
+    option_copy,
     option_label,
     patch_description,
 )
@@ -20,7 +21,7 @@ from nl2spl.compiler.spl_editing.presentation.templates.unavailable_reasons impo
 
 
 def repair_options_for_issue(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     entries: tuple[RepairCatalogEntry, ...],
     runtime: SPLEditingRuntimeRegistry,
     snapshot: ArtifactSnapshot,
@@ -36,6 +37,24 @@ def repair_options_for_issue(
 
     result: list[RepairOptionView] = []
     for entry in entries:
+        if entry.strategy_options:
+            for option in entry.strategy_options:
+                availability = _option_availability(entry, option, runtime, snapshot)
+                result.append(
+                    RepairOptionView(
+                        option_id=option.option_id,
+                        strategy_id=option.strategy_id,
+                        interaction_contract_id=option.interaction_contract_id,
+                        interaction_summary=option_copy(option.description_key),
+                        label=option_copy(option.label_key),
+                        description=option_copy(option.description_key),
+                        patch_types=option.execution_patch_types,
+                        verification_lane=entry.default_verification_lane,
+                        availability=availability,
+                        unavailable_reason=unavailable_reason(availability),
+                    )
+                )
+            continue
         availability = _availability(entry, runtime, snapshot)
         if entry.patch_type_metadata:
             for meta in entry.patch_type_metadata:
@@ -71,6 +90,8 @@ def _availability(
     entry: RepairCatalogEntry,
     runtime: SPLEditingRuntimeRegistry,
     snapshot: ArtifactSnapshot,
+    *,
+    check_patch_types: bool = True,
 ) -> RepairOptionAvailability:
     if not entry.user_facing:
         return RepairOptionAvailability.REVIEW_ONLY
@@ -84,9 +105,24 @@ def _availability(
         return RepairOptionAvailability.UNAVAILABLE_MISSING_TARGET_RESOLVER
     if entry.context_id is None or not runtime.context_builders.has(entry.context_id):
         return RepairOptionAvailability.UNAVAILABLE_MISSING_CONTEXT_BUILDER
+    if not check_patch_types:
+        return RepairOptionAvailability.AVAILABLE
     if not entry.supported_patch_types:
         return RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE
     if not any(runtime.patches.has(patch_type) for patch_type in entry.supported_patch_types):
+        return RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE
+    return RepairOptionAvailability.AVAILABLE
+
+
+def _option_availability(entry, option, runtime, snapshot) -> RepairOptionAvailability:
+    base = _availability(entry, runtime, snapshot, check_patch_types=False)
+    if base != RepairOptionAvailability.AVAILABLE:
+        return base
+    if not option.user_facing:
+        return RepairOptionAvailability.REVIEW_ONLY
+    if not option.execution_patch_types or not all(
+        runtime.patches.has(patch_type) for patch_type in option.execution_patch_types
+    ):
         return RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE
     return RepairOptionAvailability.AVAILABLE
 

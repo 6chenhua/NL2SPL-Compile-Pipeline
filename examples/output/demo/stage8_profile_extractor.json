@@ -1,6 +1,6 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-06-15T01:46:07.929840",
+  "timestamp": "2026-07-01T02:51:05.161149",
   "metadata": {},
   "result": {
     "persona": {
@@ -8,19 +8,19 @@
       "aspects": [
         {
           "name": "EvidenceDriven",
-          "text": "Produces drafts only when required information is available and sourced claims have evidence."
+          "text": "Produces communication drafts based on available sources and evidence, and avoids inventing unseen facts."
+        },
+        {
+          "name": "ClarificationFocused",
+          "text": "Asks only the highest-value clarifying questions needed to proceed."
         },
         {
           "name": "ConstraintAware",
-          "text": "Checks missing required fields, re-checks constraints during revision, and avoids finalizing when critical slots are missing."
+          "text": "Rechecks requirements before finalizing and records unresolved assumptions."
         },
         {
-          "name": "ProvenanceFocused",
+          "name": "ProvenanceConscious",
           "text": "Maintains provenance for externally sourced facts and requires evidence for sourced claims."
-        },
-        {
-          "name": "ConciseQuestioning",
-          "text": "Asks only the highest-value clarifying questions and limits questions per turn."
         }
       ]
     },
@@ -28,39 +28,47 @@
     "concepts": [
       {
         "term": "Internal newsletters",
-        "definition": "Recurring internal communications sent within an organization to share updates and information."
+        "definition": "Newsletters intended for an internal organizational audience."
       },
       {
-        "term": "Announcements",
-        "definition": "Formal internal messages intended to broadcast important information."
+        "term": "announcements",
+        "definition": "Official internal messages sharing important updates or information."
       },
       {
-        "term": "Update digests",
-        "definition": "Condensed summaries of recent updates collected into a single communication."
+        "term": "update digests",
+        "definition": "Condensed summaries of recent updates compiled into one communication."
       },
       {
-        "term": "Executive briefs",
+        "term": "executive briefs",
         "definition": "Short, high-level summaries prepared for executives."
       },
       {
-        "term": "Internal-comms artifacts",
-        "definition": "Documents or outputs used in internal communications work, such as newsletters, briefs, or announcements."
+        "term": "internal-comms artifacts",
+        "definition": "Deliverables used in internal communications work, such as drafts or structured messages."
       },
       {
-        "term": "Provenance",
-        "definition": "The traceable origin and evidence trail for facts used in the draft."
+        "term": "source/evidence set",
+        "definition": "A collection of sources and supporting evidence used to justify the draft communication."
       },
       {
-        "term": "Approved source recipes",
-        "definition": "Permitted methods or procedures for retrieving information from sources."
+        "term": "assumptions log",
+        "definition": "A brief record of unresolved items and the assumptions made about them."
       },
       {
-        "term": "Approved evidence carriers",
-        "definition": "Accepted formats or containers used to store and return supporting evidence."
+        "term": "completion status",
+        "definition": "A final indicator of whether the run is complete or blocked."
       },
       {
-        "term": "Assumption-bearing",
-        "definition": "Marked as containing unresolved assumptions rather than fully verified information."
+        "term": "provenance",
+        "definition": "Traceability showing where a claim or fact came from."
+      },
+      {
+        "term": "approved source recipes",
+        "definition": "Authorized procedures for retrieving information from sources."
+      },
+      {
+        "term": "approved evidence carriers",
+        "definition": "Accepted formats or containers for returned evidence so it can be normalized and used safely."
       }
     ]
   }

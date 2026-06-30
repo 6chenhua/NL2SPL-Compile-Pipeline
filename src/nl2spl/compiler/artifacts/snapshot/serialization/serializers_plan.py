@@ -747,6 +747,10 @@ class ConstructPlanSerializer(ArtifactSerializer):
                 self._demand_to_canonical(demand)
                 for demand in p.demands
             ],
+            "api_call_argument_bindings": [
+                binding.to_payload()
+                for binding in p.api_call_argument_bindings
+            ],
             "reserved_span_ids": sorted(p.reserved_span_ids) if p.reserved_span_ids else [],
             "dual_role_span_ids": sorted(p.dual_role_span_ids) if p.dual_role_span_ids else [],
             "diagnostics": [
@@ -771,6 +775,10 @@ class ConstructPlanSerializer(ArtifactSerializer):
             demands=[
                 self._demand_from_canonical(demand)
                 for demand in data.get("demands", [])
+            ],
+            api_call_argument_bindings=[
+                self._argument_binding_from_canonical(binding)
+                for binding in data.get("api_call_argument_bindings", [])
             ],
             reserved_span_ids=set(data.get("reserved_span_ids", [])),
             dual_role_span_ids=set(data.get("dual_role_span_ids", [])),
@@ -808,11 +816,29 @@ class ConstructPlanSerializer(ArtifactSerializer):
         payload["$demand_type"] = type(demand).__name__
         return payload
 
+    @staticmethod
+    def _argument_binding_from_canonical(data: dict[str, Any]) -> Any:
+        from nl2spl.compiler.construct_plan.model import APICallArgumentBindingIR
+
+        return APICallArgumentBindingIR(
+            call_demand_id=data["call_demand_id"],
+            input_bindings=dict(data.get("input_bindings", {})),
+            output_bindings=dict(data.get("output_bindings", {})),
+            binding_status=data.get("binding_status", "not_required"),
+            unresolved_binding_claims=tuple(
+                data.get("unresolved_binding_claims", [])
+            ),
+            source_span_ids=tuple(data.get("source_span_ids", [])),
+        )
+
     @classmethod
     def _demand_from_canonical(cls, data: dict[str, Any]) -> Any:
         from nl2spl.compiler.construct_plan.model import (
+            APICallDemand,
+            APIDeclarationDemand,
             ConstructDemand,
             ExceptionFlowDemand,
+            OperationCoverageIR,
         )
         from nl2spl.compiler.irs.graph import ConstructEdge
 
@@ -859,7 +885,190 @@ class ConstructPlanSerializer(ArtifactSerializer):
                 handler_span_ids=list(data.get("handler_span_ids", [])),
                 condition_text=data.get("condition_text"),
             )
+        if (
+            data.get("$demand_type") == "APIDeclarationDemand"
+            or common["construct_type"] == "API_DECLARATION"
+        ):
+            return APIDeclarationDemand(
+                **common,
+                declaration_annotation_ids=list(
+                    data.get("declaration_annotation_ids", [])
+                ),
+                explicit_name_candidates=list(
+                    data.get("explicit_name_candidates", [])
+                ),
+                integration_admission=data.get(
+                    "integration_admission", "candidate"
+                ),
+                mechanism_status=data.get("mechanism_status", "unknown"),
+                inferred_name_allowed=data.get("inferred_name_allowed", False),
+                api_group_id=data.get("api_group_id"),
+                owner_scope=data.get("owner_scope", "agent_global"),
+                capability_intent_id=data.get("capability_intent_id"),
+                capability_surface=data.get("capability_surface"),
+            )
+        if (
+            data.get("$demand_type") == "APICallDemand"
+            or common["construct_type"] == "CALL_API"
+        ):
+            return APICallDemand(
+                **common,
+                call_annotation_ids=list(data.get("call_annotation_ids", [])),
+                declaration_demand_id=data.get("declaration_demand_id"),
+                api_group_id=data.get("api_group_id"),
+                action_text=data.get("action_text"),
+                worker_candidate_id=data.get("worker_candidate_id"),
+                capability_intent_id=data.get("capability_intent_id"),
+                operation_coverage=[
+                    OperationCoverageIR(
+                        coverage_id=item["coverage_id"],
+                        source_span_id=item["source_span_id"],
+                        operation_surface=item["operation_surface"],
+                        char_start=item.get("char_start"),
+                        char_end=item.get("char_end"),
+                        relation=item.get("relation", "direct"),
+                    )
+                    for item in data.get("operation_coverage", [])
+                ],
+                consumes_behavior_span_ids=list(
+                    data.get("consumes_behavior_span_ids", [])
+                ),
+                residual_behavior_span_ids=list(
+                    data.get("residual_behavior_span_ids", [])
+                ),
+                behavior_lowering_policy=data.get(
+                    "behavior_lowering_policy", "ambiguous"
+                ),
+            )
         return ConstructDemand(**common)
+
+
+class APICallPlacementIRSerializer(ArtifactSerializer):
+    type_id = "APICallPlacementIR"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        return {"$type": self.type_id, **obj.to_payload()}
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        from nl2spl.compiler.construct_plan.model import APICallPlacementIR
+
+        return APICallPlacementIR(
+            call_demand_id=data["call_demand_id"],
+            owner_worker_id=data.get("owner_worker_id"),
+            flow_ref=data.get("flow_ref"),
+            block_ref=data.get("block_ref"),
+            status=data.get("status", "unresolved"),
+            source_span_ids=list(data.get("source_span_ids", [])),
+            reason=data.get("reason"),
+        )
+
+
+class APICallBindingIRSerializer(ArtifactSerializer):
+    type_id = "APICallBindingIR"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        return {"$type": self.type_id, **obj.to_payload()}
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
+            APICallBindingIR,
+        )
+
+        return APICallBindingIR(
+            api_binding_id=data["api_binding_id"],
+            declaration_demand_id=data["declaration_demand_id"],
+            api_id=data["api_id"],
+            api_name=data["api_name"],
+            call_demand_ids=list(data.get("call_demand_ids", [])),
+            binding_status=data.get("binding_status", "bound"),
+            source_span_ids=list(data.get("source_span_ids", [])),
+        )
+
+class APIMaterializationRecordIRSerializer(ArtifactSerializer):
+    type_id = "APIMaterializationRecordIR"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        return {"$type": self.type_id, **obj.to_payload()}
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
+            APIMaterializationRecordIR,
+        )
+
+        return APIMaterializationRecordIR(
+            declaration_demand_id=data["declaration_demand_id"],
+            capability_intent_id=data.get("capability_intent_id"),
+            api_id=data.get("api_id"),
+            api_name=data.get("api_name"),
+            materialization_status=data.get("materialization_status", "unsupported"),
+            renderability_status=data.get("renderability_status", "blocked"),
+            name_status=data.get("name_status", "missing"),
+            auth_status=data.get("auth_status", "defaulted_none"),
+            schema_status=data.get("schema_status", "unknown_placeholder"),
+            functions_status=data.get("functions_status", "unknown_placeholder"),
+            reasons=list(data.get("reasons", [])),
+            source_span_ids=list(data.get("source_span_ids", [])),
+        )
+
+class APIMaterializationPlanIRSerializer(ArtifactSerializer):
+    type_id = "APIMaterializationPlanIR"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        from nl2spl.compiler.artifacts.snapshot.serialization.serializers_resource import (
+            APISpecSerializer,
+        )
+
+        api_ser = APISpecSerializer()
+        binding_ser = APICallBindingIRSerializer()
+        record_ser = APIMaterializationRecordIRSerializer()
+        return {
+            "$type": self.type_id,
+            "plan_id": obj.plan_id,
+            "api_specs": [api_ser.to_canonical(api) for api in obj.api_specs],
+            "bindings": [
+                binding_ser.to_canonical(binding)
+                for binding in obj.bindings
+            ],
+            "records": [
+                record_ser.to_canonical(record)
+                for record in obj.records
+            ],
+            "unsupported_declaration_demand_ids": list(
+                obj.unsupported_declaration_demand_ids
+            ),
+            "metadata": dict(obj.metadata),
+        }
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        from nl2spl.compiler.artifacts.snapshot.serialization.serializers_resource import (
+            APISpecSerializer,
+        )
+        from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
+            APIMaterializationPlanIR,
+        )
+
+        api_ser = APISpecSerializer()
+        binding_ser = APICallBindingIRSerializer()
+        record_ser = APIMaterializationRecordIRSerializer()
+        return APIMaterializationPlanIR(
+            plan_id=data.get("plan_id", "api_materialization_plan_00"),
+            api_specs=[
+                api_ser.from_canonical(api)
+                for api in data.get("api_specs", [])
+            ],
+            bindings=[
+                binding_ser.from_canonical(binding)
+                for binding in data.get("bindings", [])
+            ],
+            records=[
+                record_ser.from_canonical(record)
+                for record in data.get("records", [])
+            ],
+            unsupported_declaration_demand_ids=list(
+                data.get("unsupported_declaration_demand_ids", [])
+            ),
+            metadata=dict(data.get("metadata", {})),
+        )
 
 
 # ===================================================================
@@ -893,6 +1102,10 @@ def register_all(registry: SerializerRegistry) -> None:
         WorkerBlockPlanIRSerializer(),
         WorkerStepPlanIRSerializer(),
         ConstructPlanSerializer(),
+        APICallPlacementIRSerializer(),
+        APICallBindingIRSerializer(),
+        APIMaterializationRecordIRSerializer(),
+        APIMaterializationPlanIRSerializer(),
     ]
     for s in serializers:
         _reg(s)
@@ -920,3 +1133,15 @@ def register_all(registry: SerializerRegistry) -> None:
     from nl2spl.compiler.construct_plan.model import ConstructPlan
 
     _cls(ConstructPlan, serializers[20])
+    from nl2spl.compiler.construct_plan.model import APICallPlacementIR
+
+    _cls(APICallPlacementIR, serializers[21])
+    from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
+        APICallBindingIR,
+        APIMaterializationRecordIR,
+        APIMaterializationPlanIR,
+    )
+
+    _cls(APICallBindingIR, serializers[22])
+    _cls(APIMaterializationRecordIR, serializers[23])
+    _cls(APIMaterializationPlanIR, serializers[24])

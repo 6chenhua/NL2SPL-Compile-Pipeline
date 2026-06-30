@@ -175,16 +175,16 @@ def _build_contracts() -> dict[str, AnnotationRoleContract]:
             "api_candidate",
             "integrations",
             route_family="integration_candidate",
-            construct_target="API_CALL",
-            slot_target="target",
+            construct_target="API_DECLARATION",
+            slot_target="source_evidence",
             executable=False,
         ),
         "integration_hint": c(
             "integration_hint",
             "integrations",
             route_family="integration_candidate",
-            construct_target="API_CALL",
-            slot_target="target",
+            construct_target="API_DECLARATION",
+            slot_target="source_evidence",
             executable=False,
         ),
     }
@@ -366,7 +366,7 @@ class AnnotationRoleContractRegistry:
             c.construct_target
             for c in self._contracts.values()
             if c.construct_target is not None
-        )
+        ) | frozenset({"CALL_API"})
 
     def allowed_slot_targets(self) -> frozenset[str]:
         """All valid ``slot_target`` values across all contracts.
@@ -378,7 +378,7 @@ class AnnotationRoleContractRegistry:
             c.slot_target
             for c in self._contracts.values()
             if c.slot_target is not None
-        )
+        ) | frozenset({"call_action"})
 
     def non_executable_roles(self) -> frozenset[str]:
         """All roles whose contract specifies ``executable=False``.

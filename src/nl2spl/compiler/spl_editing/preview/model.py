@@ -56,6 +56,11 @@ class PreviewMaterializationResult:
     preview_construct_hashes: tuple[str, ...]
     llm_generation_config_hash: str
     rendered_preview: str
+    strategy_id: str = ""
+    option_id: str = ""
+    interaction_contract_hash: str = ""
+    normalized_directive_hash: str = ""
+    admitted_fact_hashes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _assert_non_empty_str(self.preview_id, "preview_id")
@@ -76,6 +81,11 @@ class PreviewMaterializationResult:
             _to_tuple_of_strings(
                 self.preview_construct_hashes, "preview_construct_hashes"
             ),
+        )
+        object.__setattr__(
+            self,
+            "admitted_fact_hashes",
+            _to_tuple_of_strings(self.admitted_fact_hashes, "admitted_fact_hashes"),
         )
 
         # Validate and normalize slice_typed_plan_hashes

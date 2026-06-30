@@ -16,6 +16,61 @@ from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 
 SlotEvidenceRelation = Literal["direct", "derived", "ambiguous"]
 SlotDemandStatus = Literal["present", "missing", "ambiguous", "orphan", "invalid"]
+APIIntegrationAdmission = Literal["candidate", "confirmed"]
+APIMechanismStatus = Literal["explicit", "concrete_unnamed", "unknown"]
+APICallPlacementStatus = Literal["placed", "unresolved", "ambiguous"]
+BehaviorLoweringPolicy = Literal[
+    "api_call_replaces_behavior",
+    "api_call_augments_behavior",
+    "keep_residual_behavior_only",
+    "ambiguous",
+]
+
+
+@dataclass(frozen=True)
+class OperationCoverageIR:
+    """Clause-level source anchor consumed by duplicate-safe Stage 7 lowering."""
+
+    coverage_id: str
+    source_span_id: str
+    operation_surface: str
+    char_start: int | None = None
+    char_end: int | None = None
+    relation: Literal["direct", "normalized", "normalized_whitespace"] = "direct"
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "coverage_id": self.coverage_id,
+            "source_span_id": self.source_span_id,
+            "operation_surface": self.operation_surface,
+            "char_start": self.char_start,
+            "char_end": self.char_end,
+            "relation": self.relation,
+        }
+
+
+@dataclass(frozen=True)
+class APICallArgumentBindingIR:
+    """Source-backed resource bindings for a call demand."""
+
+    call_demand_id: str
+    input_bindings: dict[str, str] = field(default_factory=dict)
+    output_bindings: dict[str, str] = field(default_factory=dict)
+    binding_status: Literal[
+        "fully_bound", "partially_bound", "unbound", "not_required"
+    ] = "not_required"
+    unresolved_binding_claims: tuple[str, ...] = ()
+    source_span_ids: tuple[str, ...] = ()
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "call_demand_id": self.call_demand_id,
+            "input_bindings": dict(sorted(self.input_bindings.items())),
+            "output_bindings": dict(sorted(self.output_bindings.items())),
+            "binding_status": self.binding_status,
+            "unresolved_binding_claims": list(self.unresolved_binding_claims),
+            "source_span_ids": list(self.source_span_ids),
+        }
 
 
 @dataclass
@@ -118,12 +173,112 @@ class ExceptionFlowDemand(ConstructDemand):
 
 
 @dataclass
+class APIDeclarationDemand(ConstructDemand):
+    """API_DECLARATION demand without APISpec materialization."""
+
+    construct_type: str = "API_DECLARATION"
+    declaration_annotation_ids: list[str] = field(default_factory=list)
+    explicit_name_candidates: list[str] = field(default_factory=list)
+    integration_admission: APIIntegrationAdmission = "candidate"
+    mechanism_status: APIMechanismStatus = "unknown"
+    inferred_name_allowed: bool = False
+    api_group_id: str | None = None
+    owner_scope: Literal["agent_global"] = "agent_global"
+    capability_intent_id: str | None = None
+    capability_surface: str | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = super().to_payload()
+        payload.update(
+            {
+                "declaration_annotation_ids": list(self.declaration_annotation_ids),
+                "explicit_name_candidates": list(self.explicit_name_candidates),
+                "integration_admission": self.integration_admission,
+                "mechanism_status": self.mechanism_status,
+                "inferred_name_allowed": self.inferred_name_allowed,
+                "api_group_id": self.api_group_id,
+                "owner_scope": self.owner_scope,
+                "capability_intent_id": self.capability_intent_id,
+                "capability_surface": self.capability_surface,
+            }
+        )
+        return payload
+
+
+@dataclass
+class APICallDemand(ConstructDemand):
+    """CALL_API demand without StepIR materialization."""
+
+    construct_type: str = "CALL_API"
+    call_annotation_ids: list[str] = field(default_factory=list)
+    declaration_demand_id: str | None = None
+    api_group_id: str | None = None
+    action_text: str | None = None
+    worker_candidate_id: str | None = None
+    capability_intent_id: str | None = None
+    operation_coverage: list[OperationCoverageIR] = field(default_factory=list)
+    consumes_behavior_span_ids: list[str] = field(default_factory=list)
+    residual_behavior_span_ids: list[str] = field(default_factory=list)
+    behavior_lowering_policy: BehaviorLoweringPolicy = "ambiguous"
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = super().to_payload()
+        payload.update(
+            {
+                "call_annotation_ids": list(self.call_annotation_ids),
+                "declaration_demand_id": self.declaration_demand_id,
+                "api_group_id": self.api_group_id,
+                "action_text": self.action_text,
+                "worker_candidate_id": self.worker_candidate_id,
+                "capability_intent_id": self.capability_intent_id,
+                "operation_coverage": [
+                    coverage.to_payload() for coverage in self.operation_coverage
+                ],
+                "consumes_behavior_span_ids": list(self.consumes_behavior_span_ids),
+                "residual_behavior_span_ids": list(self.residual_behavior_span_ids),
+                "behavior_lowering_policy": self.behavior_lowering_policy,
+            }
+        )
+        return payload
+
+
+@dataclass(frozen=True)
+class APICallPlacementIR:
+    """Deterministic Stage 4/5 placement result for an API call demand."""
+
+    call_demand_id: str
+    owner_worker_id: str | None = None
+    flow_ref: str | None = None
+    block_ref: str | None = None
+    status: APICallPlacementStatus = "unresolved"
+    source_span_ids: list[str] = field(default_factory=list)
+    reason: str | None = None
+
+    @property
+    def placement_ref(self) -> str:
+        return f"api_call_placement:{self.call_demand_id}"
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "placement_ref": self.placement_ref,
+            "call_demand_id": self.call_demand_id,
+            "owner_worker_id": self.owner_worker_id,
+            "flow_ref": self.flow_ref,
+            "block_ref": self.block_ref,
+            "status": self.status,
+            "source_span_ids": list(self.source_span_ids),
+            "reason": self.reason,
+        }
+
+
+@dataclass
 class ConstructPlan:
     """Construct-level demand plan consumed by downstream stages and IRS."""
 
     plan_id: str
     source_schema: str | None = None
     demands: list[ConstructDemand] = field(default_factory=list)
+    api_call_argument_bindings: list[APICallArgumentBindingIR] = field(default_factory=list)
     reserved_span_ids: set[str] = field(default_factory=set)
     dual_role_span_ids: set[str] = field(default_factory=set)
     diagnostics: list[CompileDiagnostic] = field(default_factory=list)
@@ -138,6 +293,29 @@ class ConstructPlan:
             if isinstance(demand, ExceptionFlowDemand)
         ]
 
+    def api_declaration_demands(self) -> list[APIDeclarationDemand]:
+        """Return API_DECLARATION demands."""
+        return [
+            demand
+            for demand in self.demands
+            if isinstance(demand, APIDeclarationDemand)
+        ]
+
+    def api_call_demands(self) -> list[APICallDemand]:
+        """Return CALL_API demands."""
+        return [
+            demand
+            for demand in self.demands
+            if isinstance(demand, APICallDemand)
+        ]
+
+    def api_call_argument_binding_map(self) -> dict[str, APICallArgumentBindingIR]:
+        """Return argument bindings keyed by call demand id."""
+        return {
+            binding.call_demand_id: binding
+            for binding in self.api_call_argument_bindings
+        }
+
     def reserved_without_dual_role(self) -> set[str]:
         """Return handler-only spans that should be excluded from main candidates."""
         return set(self.reserved_span_ids) - set(self.dual_role_span_ids)
@@ -148,6 +326,10 @@ class ConstructPlan:
             "plan_id": self.plan_id,
             "source_schema": self.source_schema,
             "demands": [demand.to_payload() for demand in self.demands],
+            "api_call_argument_bindings": [
+                binding.to_payload()
+                for binding in self.api_call_argument_bindings
+            ],
             "reserved_span_ids": sorted(self.reserved_span_ids),
             "dual_role_span_ids": sorted(self.dual_role_span_ids),
             "diagnostics": [_diagnostic_payload(diag) for diag in self.diagnostics],

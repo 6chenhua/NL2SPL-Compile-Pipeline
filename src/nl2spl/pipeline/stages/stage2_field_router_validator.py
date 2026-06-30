@@ -15,6 +15,7 @@ constants.  Validates every LLM annotation against:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -70,6 +71,17 @@ _HANDLER_ACTION_VERBS: frozenset[str] = frozenset(
         "abort",
     }
 )
+
+
+def _is_explicit_api_action_override(
+    semantic_role: str,
+    metadata: dict[str, Any],
+) -> bool:
+    return (
+        semantic_role == "process_step"
+        and metadata.get("api_action") is True
+        and metadata.get("api_group_id") not in (None, "")
+    )
 
 
 # ===========================================================================
@@ -188,6 +200,29 @@ class RouteRefinementValidator:
 
         span = span_by_id.get(ann.span_id)
 
+        if ann.executable is not None and not isinstance(ann.executable, bool):
+            return reject(f"Rejected: missing or malformed executable for span '{ann.span_id}'")
+
+        # ARC7: typed diagnostics need source_section_id / source_packet_id
+        # for provenance projection.  LLM annotations often lack these, so
+        # fill from the backing span before role-contract normalization.
+        if span is not None:
+            if not ann.source_section_id:
+                sid = getattr(span, "source_section_id", None)
+                if sid:
+                    ann.source_section_id = sid
+            if not ann.source_packet_id:
+                pid = getattr(span, "source_packet_id", None)
+                if pid:
+                    ann.source_packet_id = pid
+
+        # ARC4: reject explicit compiler-facing fields that contradict the
+        # role contract before normalization can overwrite them.
+        if ann.semantic_role:
+            rej, struct_diags = self._check_against_registry(ann)
+            if rej:
+                return reject(rej, struct_diags)
+
         # ARC6: ``semantic_role`` is the LLM's only required routing decision.
         # Compiler-facing fields are derived from the canonical role contract
         # before schema validation, so role-only annotations are valid input.
@@ -254,29 +289,6 @@ class RouteRefinementValidator:
                         f"Rejected: empty marker span '{ann.span_id}' "
                         f"('{span_text[:60]}') cannot be annotated as {ann.semantic_role}"
                     )
-
-        # --- 4.7. Fill provenance from span before contract check ----------
-        # ARC7: typed diagnostics need source_section_id / source_packet_id
-        # for provenance projection.  LLM annotations often lack these, so
-        # fill from the backing span before the role-contract check runs.
-        if span is not None:
-            if not ann.source_section_id:
-                sid = getattr(span, "source_section_id", None)
-                if sid:
-                    ann.source_section_id = sid
-            if not ann.source_packet_id:
-                pid = getattr(span, "source_packet_id", None)
-                if pid:
-                    ann.source_packet_id = pid
-
-        # --- 5. Full-field role contract check (ARC4: registry-driven) --
-        if ann.semantic_role:
-            rej, struct_diags = self._check_against_registry(ann)
-            if rej:
-                # Store structured diagnostics on the rejection reason
-                # for later collection by the validate() method
-                # (hack: attach to the annotation temporarily)
-                return reject(rej, struct_diags)
 
         # --- 6. Anti-fabrication: handler must have source text ----------
         if ann.semantic_role == "exception_handler_action":
@@ -382,6 +394,13 @@ class RouteRefinementValidator:
         if resolved is None:
             return []
         contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
+        expected_construct_target = contract.construct_target
+        expected_slot_target = contract.slot_target
+        expected_executable = contract.executable
+        if _is_explicit_api_action_override(resolved, ann.metadata):
+            expected_construct_target = "CALL_API"
+            expected_slot_target = "call_action"
+            expected_executable = True
         diagnostics: list[AnnotationValidationDiagnostic] = []
 
         def record(field_name: str, expected: object, actual: object, kind: str) -> None:
@@ -415,28 +434,28 @@ class RouteRefinementValidator:
             )
         if (
             ann.construct_target is not None
-            and ann.construct_target != contract.construct_target
+            and ann.construct_target != expected_construct_target
         ):
             record(
-                "construct_target", contract.construct_target, ann.construct_target,
+                "construct_target", expected_construct_target, ann.construct_target,
                 ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
             )
-        if ann.slot_target is not None and ann.slot_target != contract.slot_target:
+        if ann.slot_target is not None and ann.slot_target != expected_slot_target:
             record(
-                "slot_target", contract.slot_target, ann.slot_target,
+                "slot_target", expected_slot_target, ann.slot_target,
                 ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
             )
-        if ann.executable is not None and ann.executable != contract.executable:
+        if ann.executable is not None and ann.executable != expected_executable:
             record(
-                "executable", contract.executable, ann.executable,
+                "executable", expected_executable, ann.executable,
                 ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
             )
 
         ann.field = contract.field
         ann.route_family = contract.route_family
-        ann.construct_target = contract.construct_target
-        ann.slot_target = contract.slot_target
-        ann.executable = contract.executable
+        ann.construct_target = expected_construct_target
+        ann.slot_target = expected_slot_target
+        ann.executable = expected_executable
         return diagnostics
 
     @staticmethod
@@ -466,6 +485,13 @@ class RouteRefinementValidator:
             )
 
         contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
+        expected_construct_target = contract.construct_target
+        expected_slot_target = contract.slot_target
+        expected_executable = contract.executable
+        if _is_explicit_api_action_override(resolved, ann.metadata):
+            expected_construct_target = "CALL_API"
+            expected_slot_target = "call_action"
+            expected_executable = True
 
         def _reject(
             kind: str, field_name: str, expected: object, actual: object, msg: str,
@@ -503,29 +529,32 @@ class RouteRefinementValidator:
             )
 
         # construct_target
-        if ann.construct_target is not None and ann.construct_target != contract.construct_target:
+        if (
+            ann.construct_target is not None
+            and ann.construct_target != expected_construct_target
+        ):
             return _reject(
                 ANNOTATION_INVALID_CONSTRUCT_TARGET_FOR_ROLE,
-                "construct_target", contract.construct_target, ann.construct_target,
-                f"Rejected: {role} requires construct_target={contract.construct_target!r}, "
+                "construct_target", expected_construct_target, ann.construct_target,
+                f"Rejected: {role} requires construct_target={expected_construct_target!r}, "
                 f"got {ann.construct_target!r} for span '{ann.span_id}'",
             )
 
         # slot_target
-        if ann.slot_target is not None and ann.slot_target != contract.slot_target:
+        if ann.slot_target is not None and ann.slot_target != expected_slot_target:
             return _reject(
                 ANNOTATION_INVALID_SLOT_TARGET_FOR_ROLE,
-                "slot_target", contract.slot_target, ann.slot_target,
-                f"Rejected: {role} requires slot_target={contract.slot_target!r}, "
+                "slot_target", expected_slot_target, ann.slot_target,
+                f"Rejected: {role} requires slot_target={expected_slot_target!r}, "
                 f"got {ann.slot_target!r} for span '{ann.span_id}'",
             )
 
         # executable
-        if ann.executable != contract.executable:
+        if ann.executable is not None and ann.executable != expected_executable:
             return _reject(
                 ANNOTATION_INVALID_EXECUTABLE_FOR_ROLE,
-                "executable", contract.executable, ann.executable,
-                f"Rejected: {role} requires executable={contract.executable}, "
+                "executable", expected_executable, ann.executable,
+                f"Rejected: {role} requires executable={expected_executable}, "
                 f"got {ann.executable} for span '{ann.span_id}'",
             )
 
@@ -680,7 +709,14 @@ class RouteRefinementValidator:
 
     @staticmethod
     def _api_mentioned(span_text: str) -> bool:
-        return any(s in span_text.lower() for s in ("api", "endpoint", "service", "search"))
+        lower = span_text.lower()
+        if re.search(r"\b(api|endpoint|connector|tool)\b", lower):
+            return True
+        return bool(
+            re.search(r"\b[A-Za-z_][A-Za-z0-9_]*API\b", span_text)
+            or re.search(r"\b[A-Za-z_][A-Za-z0-9_]*api\b", lower)
+            or re.search(r"\b[A-Za-z_][A-Za-z0-9_]*_api\b", lower)
+        )
 
     @staticmethod
     def _hard_fact_conflict(

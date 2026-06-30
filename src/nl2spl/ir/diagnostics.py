@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from nl2spl.compiler.compile_result import MissingSlot
@@ -57,6 +57,11 @@ METADATA_KEY_PRIMARY_DIAGNOSTIC_ID = "primary_diagnostic_id"
 METADATA_KEY_RELATED_DIAGNOSTIC_IDS = "related_diagnostic_ids"
 METADATA_KEY_REPAIRABILITY = "repairability"
 METADATA_KEY_ISSUE_ROLE = "issue_role"
+METADATA_KEY_PRESENTATION_DISPOSITION = "presentation_disposition"
+METADATA_KEY_VALIDATION_AUTHORITY = "validation_authority"
+METADATA_KEY_NL2SPL_RENDERABLE = "nl2spl_renderable"
+METADATA_KEY_API_CONTRACT_VALIDATION_STATUS = "api_contract_validation_status"
+METADATA_KEY_PLACEHOLDER_FIELDS = "placeholder_fields"
 """Generic issue role key.  Used by both R4 producer grouping and R5
 worker/delegation promotion."""
 

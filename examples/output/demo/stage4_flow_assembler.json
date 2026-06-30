@@ -1,78 +1,79 @@
 {
   "stage": "stage4_flow_assembler",
-  "timestamp": "2026-06-15T01:45:01.075052",
+  "timestamp": "2026-07-01T02:50:33.835213",
   "metadata": {},
   "result": {
     "worker_flows": {
       "worker_main": {
         "main_flow_spans": [
           "s15",
-          "s16"
+          "s16",
+          "s17",
+          "s19"
         ],
-        "alternative_flows": [],
+        "alternative_flows": [
+          {
+            "flow_id": "alt_1",
+            "condition_text": "the user asks for revision",
+            "spans": [
+              "s18"
+            ]
+          }
+        ],
         "exception_flows": [
           {
             "flow_id": "exc_adapter_00",
             "condition_text": "conflicting instructions",
             "spans": [
-              "s25"
+              "s26"
             ]
           },
           {
             "flow_id": "exc_adapter_01",
             "condition_text": "evidence\nshortage",
             "spans": [
-              "s27"
+              "s28"
             ]
           },
           {
             "flow_id": "exc_adapter_02",
             "condition_text": "insufficient source access",
             "spans": [
-              "s26"
+              "s27"
             ]
           },
           {
             "flow_id": "exc_adapter_03",
             "condition_text": "Missing timeframe",
             "spans": [
-              "s24"
+              "s25"
             ]
           },
           {
             "flow_id": "exc_adapter_04",
             "condition_text": "provenance failure",
             "spans": [
-              "s29"
+              "s30"
             ]
           },
           {
             "flow_id": "exc_adapter_05",
             "condition_text": "user refusal to answer",
             "spans": [
-              "s28"
+              "s29"
             ]
           }
         ],
         "delegation_candidates": []
-      },
-      "draft_communication": {
-        "main_flow_spans": [
-          "s17",
-          "s18"
-        ],
-        "alternative_flows": [],
-        "exception_flows": [],
-        "delegation_candidates": []
       }
     },
     "warnings": [
-      "ConstructPlan: condition span s25 for exc_demand_00 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s27 for exc_demand_01 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s26 for exc_demand_02 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s24 for exc_demand_03 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s29 for exc_demand_04 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s28 for exc_demand_05 has unowned; attached to main worker worker_main."
+      "ConstructPlan: condition span s26 for exc_demand_00 has unowned; attached to main worker worker_main.",
+      "ConstructPlan: condition span s28 for exc_demand_01 has unowned; attached to main worker worker_main.",
+      "ConstructPlan: condition span s27 for exc_demand_02 has unowned; attached to main worker worker_main.",
+      "ConstructPlan: condition span s25 for exc_demand_03 has unowned; attached to main worker worker_main.",
+      "ConstructPlan: condition span s30 for exc_demand_04 has unowned; attached to main worker worker_main.",
+      "ConstructPlan: condition span s29 for exc_demand_05 has unowned; attached to main worker worker_main."
     ]
   }
 }

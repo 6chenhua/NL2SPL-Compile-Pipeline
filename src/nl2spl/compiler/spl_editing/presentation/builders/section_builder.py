@@ -36,7 +36,17 @@ def build_sections(
     review = tuple(
         c
         for c in cards
-        if c.repairability != "editable" and c.category != IssueCategory.DEVELOPER_DIAGNOSTIC
+        if c.repairability != "editable"
+        and c.category
+        not in {
+            IssueCategory.API_CONTRACT_REVIEW,
+            IssueCategory.DEVELOPER_DIAGNOSTIC,
+        }
+    )
+    deferred = tuple(
+        c
+        for c in cards
+        if c.category == IssueCategory.API_CONTRACT_REVIEW
     )
     developer = tuple(c for c in cards if c.category == IssueCategory.DEVELOPER_DIAGNOSTIC)
 
@@ -55,6 +65,15 @@ def build_sections(
             visible_by_default=bool(review),
         ),
     ]
+    if deferred:
+        sections.append(
+            IssueSectionView(
+                section_key=IssueSectionKey.DEFERRED_VALIDATION,
+                label="Deferred validation",
+                section_kind=IssueSectionKind.DEFERRED_VALIDATION,
+                items=deferred,
+            )
+        )
     if include_developer:
         sections.append(
             IssueSectionView(

@@ -10,8 +10,8 @@ Patch types without a materialization context are rejected.
 from __future__ import annotations
 
 from dataclasses import replace
-from importlib import import_module
 from datetime import UTC, datetime
+from importlib import import_module
 from pathlib import Path
 
 from nl2spl.compiler.artifacts.snapshot.model.document import SnapshotDocument
@@ -37,6 +37,7 @@ from nl2spl.compiler.spl_editing.core.errors import (
 from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     EditingSession,
+    IssueInventory,
     PatchApplyResult,
     RepairEvidence,
     RepairPatch,
@@ -61,6 +62,7 @@ from nl2spl.compiler.spl_editing.intent import (
     create_evidence_packet,
 )
 from nl2spl.compiler.spl_editing.issues.extractor import EditableIssueExtractor
+from nl2spl.compiler.spl_editing.issues.inventory import IssueInventoryExtractor
 from nl2spl.compiler.spl_editing.materialization import (
     MaterializationRequest,
     RepairMaterializationService,
@@ -119,6 +121,7 @@ class SPLEditingService:
         self._overlays = OverlayStore()
         self._verifier = VerificationRunner(lane_a=lane_a)
         self._extractor = EditableIssueExtractor(self._catalog)
+        self._inventory_extractor = IssueInventoryExtractor(self._catalog)
         self._applied_patches: dict[str, RepairPatch] = {}
         self._apply_results: dict[str, PatchApplyResult] = {}
         self._verification_results = VerificationResultStore()
@@ -201,6 +204,7 @@ class SPLEditingService:
             requested_behavior=self._requested_behavior_from_intent(intent, user_text),
             selected_ref_hints=tuple(intent.selected_ref_ids),
             constraints=tuple(intent.constraints),
+            option_id=getattr(intent.payload, "option_id", None),
         )
 
     def _generate_preview_for_context(
@@ -287,15 +291,29 @@ class SPLEditingService:
         compile_run_id: str,
     ) -> tuple[EditableIssue, ...]:
         """Return user-actionable editable issues for a run."""
+        return self.list_issue_inventory(compile_run_id).editable
+
+    def list_issue_inventory(
+        self,
+        compile_run_id: str,
+    ) -> IssueInventory:
+        """Return complete issue inventory for a run."""
         snap = self._get_snapshot(compile_run_id)
-        return self._extractor.extract(list(snap.compile_diagnostics))
+        return self._inventory_extractor.extract(list(snap.compile_diagnostics))
 
     def list_editable_issues_from_diagnostics(
         self,
         diagnostics: tuple[CompileDiagnostic, ...],
     ) -> tuple[EditableIssue, ...]:
         """Return editable issues from raw diagnostics (no snapshot needed)."""
-        return self._extractor.extract(list(diagnostics))
+        return self.issue_inventory_from_diagnostics(diagnostics).editable
+
+    def issue_inventory_from_diagnostics(
+        self,
+        diagnostics: tuple[CompileDiagnostic, ...],
+    ) -> IssueInventory:
+        """Return complete issue inventory from raw diagnostics."""
+        return self._inventory_extractor.extract(list(diagnostics))
 
     def create_session(
         self,
@@ -597,6 +615,11 @@ class SPLEditingService:
             slice_typed_plan_hashes=candidate.slice_typed_plan_hashes,
             preview_construct_hashes=candidate.preview_construct_hashes,
             llm_generation_config_hash=candidate.llm_generation_config_hash,
+            strategy_id=candidate.strategy_id,
+            option_id=candidate.option_id,
+            interaction_contract_hash=candidate.interaction_contract_hash,
+            normalized_directive_hash=candidate.normalized_directive_hash,
+            admitted_fact_hashes=candidate.admitted_fact_hashes,
         )
         validate_preview_not_stale(self._preview_store, preview_id, expected)
 

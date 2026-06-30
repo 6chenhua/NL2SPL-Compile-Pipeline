@@ -32,6 +32,70 @@ SlotStatus = Literal["satisfied", "missing", "inferred", "assumed", "not_applica
 
 ConstructCompleteness = Literal["complete", "partial", "blocked"]
 
+SlotActionability = Literal["editable", "non_editable", "optional_enrichment"]
+
+NonEditableDisposition = Literal[
+    "review_only",
+    "deferred_validation",
+    "developer_only",
+    "non_repairable",
+]
+
+ActionabilityDecisionStatus = Literal["confirmed", "unresolved"]
+
+
+@dataclass(frozen=True)
+class SlotActionabilityDecision:
+    """Explicit product decision for a slot that can produce a completion gap.
+
+    This contract records whether the slot is user-actionable. It does not
+    declare repair capability; editable slots still require a coherent
+    RepairAffordanceSpec and runtime closure.
+    """
+
+    actionability: SlotActionability
+    non_editable_disposition: NonEditableDisposition | None
+    rationale_code: str
+    decision_source_ref: str
+    decision_status: ActionabilityDecisionStatus = "confirmed"
+
+    def __post_init__(self) -> None:
+        if self.actionability not in {
+            "editable",
+            "non_editable",
+            "optional_enrichment",
+        }:
+            raise ValueError(f"Unknown actionability: {self.actionability}")
+        if self.decision_status not in {"confirmed", "unresolved"}:
+            raise ValueError(f"Unknown decision_status: {self.decision_status}")
+        valid_dispositions = {
+            "review_only",
+            "deferred_validation",
+            "developer_only",
+            "non_repairable",
+        }
+        if (
+            self.non_editable_disposition is not None
+            and self.non_editable_disposition not in valid_dispositions
+        ):
+            raise ValueError(
+                "Unknown non_editable_disposition: "
+                f"{self.non_editable_disposition}"
+            )
+        if self.actionability == "non_editable":
+            if self.non_editable_disposition is None:
+                raise ValueError(
+                    "non_editable actionability requires a non_editable_disposition"
+                )
+        elif self.non_editable_disposition is not None:
+            raise ValueError(
+                f"{self.actionability} actionability forbids non_editable_disposition"
+            )
+        if not isinstance(self.rationale_code, str) or not self.rationale_code.strip():
+            raise ValueError("rationale_code cannot be blank")
+        if not isinstance(self.decision_source_ref, str) or not self.decision_source_ref.strip():
+            raise ValueError("decision_source_ref cannot be blank")
+
 
 @dataclass(frozen=True)
 class RepairAffordanceSpec:
@@ -106,9 +170,20 @@ class SlotSpec:
     can_be_suggested: bool = True
     notes: str | None = None
     repair_affordances: tuple[RepairAffordanceSpec, ...] = ()
+    actionability_decision: SlotActionabilityDecision | None = None
     """Repair capabilities for SPL Editing.  Default empty — slots without
     affordances are non-repairable in the MVP Diagnostics Console."""
 
+
+
+    def requires_actionability_decision(self) -> bool:
+        """Return whether this slot is in the mandatory audit scope."""
+        return bool(
+            self.required_for_partial
+            or self.required_for_complete
+            or self.missing_diagnostic is not None
+            or self.repair_affordances
+        )
 
 @dataclass
 class ConstructIRS:
@@ -194,6 +269,181 @@ class ConstructSatisfactionReport:
     cutline_reason: CutlineReason | None = None
     frontier_status: FrontierStatus = "leaf"
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def _editable_decision(
+    rationale_code: str,
+    source_ref: str,
+    *,
+    status: ActionabilityDecisionStatus = "confirmed",
+) -> SlotActionabilityDecision:
+    return SlotActionabilityDecision(
+        actionability="editable",
+        non_editable_disposition=None,
+        rationale_code=rationale_code,
+        decision_source_ref=source_ref,
+        decision_status=status,
+    )
+
+
+def _non_editable_decision(
+    disposition: NonEditableDisposition,
+    rationale_code: str,
+    source_ref: str,
+) -> SlotActionabilityDecision:
+    return SlotActionabilityDecision(
+        actionability="non_editable",
+        non_editable_disposition=disposition,
+        rationale_code=rationale_code,
+        decision_source_ref=source_ref,
+    )
+
+
+_IRS_SOURCE = ".agents/skills/irs-knowledge/SKILL.md"
+_R12_SOURCE = "architecture:r12-construct-level-repair-strategy"
+_API_SOURCE = "docs/design/api_definition_full_materialization_and_irs_design_zh.md"
+
+
+_DEFAULT_SLOT_ACTIONABILITY: dict[
+    tuple[str, str],
+    SlotActionabilityDecision,
+] = {
+    ("API_DECLARATION", "api_name"): _non_editable_decision(
+        "deferred_validation", "api_identity_owned_by_nl2spl", _API_SOURCE
+    ),
+    ("API_DECLARATION", "source_evidence"): _non_editable_decision(
+        "deferred_validation", "api_evidence_owned_by_nl2spl", _API_SOURCE
+    ),
+    ("API_DECLARATION", "authentication"): _non_editable_decision(
+        "deferred_validation", "api_validation_deferred", _API_SOURCE
+    ),
+    ("API_DECLARATION", "openapi_schema"): _non_editable_decision(
+        "deferred_validation", "api_validation_deferred", _API_SOURCE
+    ),
+    ("API_DECLARATION", "functions"): _non_editable_decision(
+        "deferred_validation", "api_validation_deferred", _API_SOURCE
+    ),
+    ("CALL_API", "api_name"): _non_editable_decision(
+        "deferred_validation", "call_api_materialization_owned_by_nl2spl", _API_SOURCE
+    ),
+    ("CALL_API", "declared_api_ref"): _non_editable_decision(
+        "deferred_validation", "call_api_binding_owned_by_nl2spl", _API_SOURCE
+    ),
+    ("CALL_API", "call_action"): _non_editable_decision(
+        "deferred_validation", "call_api_action_owned_by_nl2spl", _API_SOURCE
+    ),
+    ("CALL_API", "integration_evidence"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure",
+        _API_SOURCE,
+        status="unresolved",
+    ),
+    ("CHILD_WORKER", "responsibility"): _non_editable_decision(
+        "review_only", "worker_boundary_source_fact", _IRS_SOURCE
+    ),
+    ("CHILD_WORKER", "input_contract"): _non_editable_decision(
+        "developer_only", "grouped_repair_owned_by_worker_promotion", _R12_SOURCE
+    ),
+    ("CHILD_WORKER", "output_contract"): _non_editable_decision(
+        "developer_only", "grouped_repair_owned_by_worker_promotion", _R12_SOURCE
+    ),
+    ("CHILD_WORKER", "invocation_point"): _non_editable_decision(
+        "developer_only", "grouped_repair_owned_by_worker_promotion", _R12_SOURCE
+    ),
+    ("CHILD_WORKER", "result_handoff"): _non_editable_decision(
+        "developer_only", "grouped_repair_owned_by_worker_promotion", _R12_SOURCE
+    ),
+    ("EXCEPTION_FLOW", "condition"): _non_editable_decision(
+        "non_repairable", "source_defined_exception_condition", _IRS_SOURCE
+    ),
+    ("EXCEPTION_FLOW", "handler_action"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+    ("GENERAL_COMMAND", "action_text"): _non_editable_decision(
+        "review_only", "source_defined_command_semantics", _IRS_SOURCE
+    ),
+    ("GENERAL_COMMAND", "source_evidence"): _non_editable_decision(
+        "non_repairable", "source_evidence_cannot_be_invented", _IRS_SOURCE
+    ),
+    ("INVOKE_WORKER", "target_worker"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("INVOKE_WORKER", "handoff_id"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("INVOKE_WORKER", "input_bindings"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("INVOKE_WORKER", "output_bindings"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("REQUEST_INPUT", "prompt_text"): _non_editable_decision(
+        "review_only", "source_defined_user_prompt", _IRS_SOURCE
+    ),
+    ("REQUEST_INPUT", "value_target"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("REQUIRED_OUTPUT", "output_name"): _non_editable_decision(
+        "non_repairable", "source_defined_output_contract", _IRS_SOURCE
+    ),
+    ("REQUIRED_OUTPUT", "producer"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+    ("RESOURCE_CONTRACT_DEMAND", "materialization"): _non_editable_decision(
+        "developer_only", "compiler_materialization_gap", _IRS_SOURCE
+    ),
+    ("RESOURCE_CONTRACT_DEMAND", "resource_registry"): _non_editable_decision(
+        "developer_only", "compiler_registry_consistency_gap", _IRS_SOURCE
+    ),
+    ("RESOURCE_CONTRACT_DEMAND", "producer"): _non_editable_decision(
+        "developer_only", "alias_repair_owned_by_required_output", _IRS_SOURCE
+    ),
+    ("WORKER_CANDIDATE", "responsibility"): _non_editable_decision(
+        "review_only", "worker_candidate_source_fact", _IRS_SOURCE
+    ),
+    ("WORKER_CANDIDATE", "delegation_signal"): _non_editable_decision(
+        "non_repairable", "delegation_signal_is_source_evidence", _IRS_SOURCE
+    ),
+    ("WORKER_CANDIDATE", "source_evidence"): _non_editable_decision(
+        "non_repairable", "source_evidence_cannot_be_invented", _IRS_SOURCE
+    ),
+    ("WORKER_HANDOFF", "from_worker"): _non_editable_decision(
+        "developer_only", "grouped_repair_owned_by_worker_promotion", _R12_SOURCE
+    ),
+    ("WORKER_HANDOFF", "target"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("WORKER_HANDOFF", "input_bindings"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("WORKER_HANDOFF", "output_bindings"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("WORKER_HANDOFF", "invocation_site"): _editable_decision(
+        "legacy_affordance_requires_runtime_closure", _IRS_SOURCE, status="unresolved"
+    ),
+    ("WORKER_PROMOTION", "promotion_input_contract"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+    ("WORKER_PROMOTION", "promotion_output_contract"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+    ("WORKER_PROMOTION", "promotion_invocation_point"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+    ("WORKER_PROMOTION", "promotion_result_handoff"): _editable_decision(
+        "construct_strategy_runtime_complete", _R12_SOURCE
+    ),
+}
+
+
+def _apply_default_actionability_decisions(registry: SPLConstructRegistry) -> None:
+    for (construct_type, slot_name), decision in _DEFAULT_SLOT_ACTIONABILITY.items():
+        slot = registry.get(construct_type).get_slot(slot_name)
+        if slot is None:
+            raise ValueError(
+                f"Actionability decision references unknown slot {construct_type}.{slot_name}"
+            )
+        slot.actionability_decision = decision
 
 
 class SPLConstructRegistry:
@@ -462,6 +712,78 @@ class SPLConstructRegistry:
             ],
         ))
 
+        # -- API_DECLARATION --------------------------------------------------
+        registry.register(ConstructIRS(
+            construct_type="API_DECLARATION",
+            existence_policy="source_signal_required",
+            source_signals=[
+                "api_candidate",
+                "integration_hint",
+                "configured_api",
+                "api_resource_contract",
+            ],
+            no_demand_behavior="do_not_generate",
+            partial_rendering_allowed=True,
+            description="Declaration of an external API specification.",
+            slots=[
+                SlotSpec(
+                    slot_name="api_name",
+                    syntax_required=True,
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    renderable_without=False,
+                    evidence_kinds=["api_name", "api_ref"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(),
+                ),
+                SlotSpec(
+                    slot_name="source_evidence",
+                    syntax_required=False,
+                    required_for_partial=True,
+                    required_for_complete=True,
+                    renderable_without=False,
+                    evidence_kinds=[
+                        "source_span",
+                        "integration_hint",
+                        "configured_resource",
+                        "user_confirmed_repair",
+                    ],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(),
+                ),
+                SlotSpec(
+                    slot_name="authentication",
+                    syntax_required=True,
+                    required_for_partial=False,
+                    required_for_complete=True,
+                    renderable_without=True,
+                    evidence_kinds=["auth_config", "explicit_auth"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(),
+                ),
+                SlotSpec(
+                    slot_name="openapi_schema",
+                    syntax_required=True,
+                    required_for_partial=False,
+                    required_for_complete=True,
+                    renderable_without=True,
+                    evidence_kinds=["openapi_schema", "schema_definition"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(),
+                ),
+                SlotSpec(
+                    slot_name="functions",
+                    syntax_required=True,
+                    required_for_partial=False,
+                    required_for_complete=True,
+                    renderable_without=True,
+                    evidence_kinds=["api_function", "function_definition"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    repair_affordances=(),
+                ),
+            ],
+        ))
+
         # -- CALL_API --------------------------------------------------------
         registry.register(ConstructIRS(
             construct_type="CALL_API",
@@ -469,9 +791,8 @@ class SPLConstructRegistry:
             source_signals=["api_call_action", "tool_call_action", "connector_action"],
             partial_rendering_allowed=False,
             description=(
-                "An executable API / tool / connector call.  Requires a named "
-                "integration reference and explicit call-action evidence, not "
-                "just a mention that an API exists."
+                "An executable API / tool / connector call. Requires a named "
+                "integration reference, declared API reference, and explicit call-action evidence."
             ),
             slots=[
                 SlotSpec(
@@ -482,6 +803,14 @@ class SPLConstructRegistry:
                     missing_diagnostic="type_or_contract_ambiguity",
                 ),
                 SlotSpec(
+                    slot_name="declared_api_ref",
+                    syntax_required=False,
+                    required_for_complete=True,
+                    evidence_kinds=["api_ref", "declared_api_ref"],
+                    missing_diagnostic="type_or_contract_ambiguity",
+                    notes="Resolves to a gate-approved APISpec.",
+                ),
+                SlotSpec(
                     slot_name="call_action",
                     required_for_complete=True,
                     renderable_without=False,
@@ -489,13 +818,27 @@ class SPLConstructRegistry:
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
                         "Distinguishes an integration *mention* from executable "
-                        "call evidence.  Without an explicit call action the "
+                        "call evidence. Without an explicit call action the "
                         "construct should not become a rendered CALL_API."
                     ),
                 ),
                 SlotSpec(
+                    slot_name="request_bindings",
+                    required_for_complete=False,
+                    evidence_kinds=["request_binding", "input_binding"],
+                ),
+                SlotSpec(
+                    slot_name="response_binding",
+                    required_for_complete=False,
+                    evidence_kinds=["response", "output_variable"],
+                    notes=(
+                        "May be satisfied by one or more StepIR.outputs rendered "
+                        "as a RESPONSE COMMAND_RESULTS list."
+                    ),
+                ),
+                SlotSpec(
                     slot_name="integration_evidence",
-                    required_for_complete=True,
+                    required_for_complete=False,  # Compatibility alias: does not participate in completion authority
                     evidence_kinds=[
                         "api_ref",
                         "tool_ref",
@@ -504,9 +847,8 @@ class SPLConstructRegistry:
                     ],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
-                        "Source context alone is not integration evidence. "
-                        "A context-only mention must remain a resource "
-                        "candidate, not a rendered CALL_API."
+                        "Compatibility alias slot for snapshot/diagnostic tracing. "
+                        "Source context alone is not integration evidence."
                     ),
                     repair_affordances=(
                         RepairAffordanceSpec(
@@ -520,15 +862,6 @@ class SPLConstructRegistry:
                             default_verification_lane="A",
                             editable_artifacts=("WorkerStepPlanIR",),
                         ),
-                    ),
-                ),
-                SlotSpec(
-                    slot_name="response_binding",
-                    required_for_complete=False,
-                    evidence_kinds=["response", "output_variable"],
-                    notes=(
-                        "May be satisfied by one or more StepIR.outputs rendered "
-                        "as a RESPONSE COMMAND_RESULTS list."
                     ),
                 ),
             ],
@@ -752,17 +1085,22 @@ class SPLConstructRegistry:
                                 "convert to a main-flow step, or convert to a user-prompt step."
                             ),
                             supported_patch_types=(
-                                "CreateWorkerHandoffContract",
+                                "DefineChildWorkerClosure",
                                 "ConvertDelegationIntentToMainFlowStep",
-                                "ConvertDelegationIntentToRequestInput",
                             ),
-                            default_patch_type="CreateWorkerHandoffContract",
+                            default_patch_type="DefineChildWorkerClosure",
                             handler_id="type_or_contract_ambiguity",
                             context_id="worker_promotion_context",
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
-                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
-                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            editable_artifacts=(
+                                "WorkerPlanIR",
+                                "WorkerFlowPlanIR",
+                                "WorkerBlockPlanIR",
+                                "WorkerStepPlanIR",
+                                "SymbolTable",
+                            ),
+                            materialization_plan_id="worker_delegation.complete_closure.v2",
                             selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
                             intent_schema_id="intent.worker_promotion_resolution.v1",
                             required_context_facts=(
@@ -773,32 +1111,12 @@ class SPLConstructRegistry:
                                 "possible_outputs",
                                 "hierarchy_graph",
                             ),
-                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
-                            repair_strategy_id="worker_delegation.complete_closure.v1",
-                            patch_type_metadata=(
-                                PatchTypeMeta(
-                                    patch_type="CreateWorkerHandoffContract",
-                                    label="Create a worker handoff contract",
-                                    description="Use this if the task should become a separate "
-                                    "worker. The compiler will generate input/output bindings "
-                                    "and an invocation point for the child worker.",
-                                    verification_lane="B",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToMainFlowStep",
-                                    label="Convert to main-flow step",
-                                    description="Use this if the action should stay inside "
-                                    "the main worker instead of being delegated to a child.",
-                                    verification_lane="A",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToRequestInput",
-                                    label="Ask the user for missing information",
-                                    description="Use this if the missing contract details "
-                                    "should be requested at runtime rather than guessed.",
-                                    verification_lane="A",
-                                ),
+                            stage_authority=(
+                                "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+                                "stage5.worker_block_plan + stage7.worker_step_plan"
                             ),
+                            repair_strategy_id="worker_delegation.complete_closure.v2",
+                            patch_type_metadata=(),
                             notes=(
                                 "delegation-intent-sourced WORKER_PROMOTION gap. "
                                 "All four promotion slots share the same repair "
@@ -828,17 +1146,22 @@ class SPLConstructRegistry:
                                 "convert to a main-flow step, or convert to a user-prompt step."
                             ),
                             supported_patch_types=(
-                                "CreateWorkerHandoffContract",
+                                "DefineChildWorkerClosure",
                                 "ConvertDelegationIntentToMainFlowStep",
-                                "ConvertDelegationIntentToRequestInput",
                             ),
-                            default_patch_type="CreateWorkerHandoffContract",
+                            default_patch_type="DefineChildWorkerClosure",
                             handler_id="type_or_contract_ambiguity",
                             context_id="worker_promotion_context",
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
-                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
-                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            editable_artifacts=(
+                                "WorkerPlanIR",
+                                "WorkerFlowPlanIR",
+                                "WorkerBlockPlanIR",
+                                "WorkerStepPlanIR",
+                                "SymbolTable",
+                            ),
+                            materialization_plan_id="worker_delegation.complete_closure.v2",
                             selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
                             intent_schema_id="intent.worker_promotion_resolution.v1",
                             required_context_facts=(
@@ -849,32 +1172,12 @@ class SPLConstructRegistry:
                                 "possible_outputs",
                                 "hierarchy_graph",
                             ),
-                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
-                            repair_strategy_id="worker_delegation.complete_closure.v1",
-                            patch_type_metadata=(
-                                PatchTypeMeta(
-                                    patch_type="CreateWorkerHandoffContract",
-                                    label="Create a worker handoff contract",
-                                    description="Use this if the task should become a separate "
-                                    "worker. The compiler will generate input/output bindings "
-                                    "and an invocation point for the child worker.",
-                                    verification_lane="B",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToMainFlowStep",
-                                    label="Convert to main-flow step",
-                                    description="Use this if the action should stay inside "
-                                    "the main worker instead of being delegated to a child.",
-                                    verification_lane="A",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToRequestInput",
-                                    label="Ask the user for missing information",
-                                    description="Use this if the missing contract details "
-                                    "should be requested at runtime rather than guessed.",
-                                    verification_lane="A",
-                                ),
+                            stage_authority=(
+                                "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+                                "stage5.worker_block_plan + stage7.worker_step_plan"
                             ),
+                            repair_strategy_id="worker_delegation.complete_closure.v2",
+                            patch_type_metadata=(),
                         ),
                     ),
                 ),
@@ -898,17 +1201,22 @@ class SPLConstructRegistry:
                                 "convert to a main-flow step, or convert to a user-prompt step."
                             ),
                             supported_patch_types=(
-                                "CreateWorkerHandoffContract",
+                                "DefineChildWorkerClosure",
                                 "ConvertDelegationIntentToMainFlowStep",
-                                "ConvertDelegationIntentToRequestInput",
                             ),
-                            default_patch_type="CreateWorkerHandoffContract",
+                            default_patch_type="DefineChildWorkerClosure",
                             handler_id="type_or_contract_ambiguity",
                             context_id="worker_promotion_context",
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
-                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
-                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            editable_artifacts=(
+                                "WorkerPlanIR",
+                                "WorkerFlowPlanIR",
+                                "WorkerBlockPlanIR",
+                                "WorkerStepPlanIR",
+                                "SymbolTable",
+                            ),
+                            materialization_plan_id="worker_delegation.complete_closure.v2",
                             selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
                             intent_schema_id="intent.worker_promotion_resolution.v1",
                             required_context_facts=(
@@ -919,32 +1227,12 @@ class SPLConstructRegistry:
                                 "possible_outputs",
                                 "hierarchy_graph",
                             ),
-                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
-                            repair_strategy_id="worker_delegation.complete_closure.v1",
-                            patch_type_metadata=(
-                                PatchTypeMeta(
-                                    patch_type="CreateWorkerHandoffContract",
-                                    label="Create a worker handoff contract",
-                                    description="Use this if the task should become a separate "
-                                    "worker. The compiler will generate input/output bindings "
-                                    "and an invocation point for the child worker.",
-                                    verification_lane="B",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToMainFlowStep",
-                                    label="Convert to main-flow step",
-                                    description="Use this if the action should stay inside "
-                                    "the main worker instead of being delegated to a child.",
-                                    verification_lane="A",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToRequestInput",
-                                    label="Ask the user for missing information",
-                                    description="Use this if the missing contract details "
-                                    "should be requested at runtime rather than guessed.",
-                                    verification_lane="A",
-                                ),
+                            stage_authority=(
+                                "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+                                "stage5.worker_block_plan + stage7.worker_step_plan"
                             ),
+                            repair_strategy_id="worker_delegation.complete_closure.v2",
+                            patch_type_metadata=(),
                         ),
                     ),
                 ),
@@ -968,17 +1256,22 @@ class SPLConstructRegistry:
                                 "convert to a main-flow step, or convert to a user-prompt step."
                             ),
                             supported_patch_types=(
-                                "CreateWorkerHandoffContract",
+                                "DefineChildWorkerClosure",
                                 "ConvertDelegationIntentToMainFlowStep",
-                                "ConvertDelegationIntentToRequestInput",
                             ),
-                            default_patch_type="CreateWorkerHandoffContract",
+                            default_patch_type="DefineChildWorkerClosure",
                             handler_id="type_or_contract_ambiguity",
                             context_id="worker_promotion_context",
                             target_resolver_id="worker_promotion_target",
                             default_verification_lane="B",
-                            editable_artifacts=("WorkerPlanIR", "WorkerHandoffIR", "WorkerStepPlanIR"),
-                            materialization_plan_id="worker_handoff.contract_repair.v1",
+                            editable_artifacts=(
+                                "WorkerPlanIR",
+                                "WorkerFlowPlanIR",
+                                "WorkerBlockPlanIR",
+                                "WorkerStepPlanIR",
+                                "SymbolTable",
+                            ),
+                            materialization_plan_id="worker_delegation.complete_closure.v2",
                             selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
                             intent_schema_id="intent.worker_promotion_resolution.v1",
                             required_context_facts=(
@@ -989,32 +1282,12 @@ class SPLConstructRegistry:
                                 "possible_outputs",
                                 "hierarchy_graph",
                             ),
-                            stage_authority="stage3_5.worker_boundary + stage7.worker_step_plan",
-                            repair_strategy_id="worker_delegation.complete_closure.v1",
-                            patch_type_metadata=(
-                                PatchTypeMeta(
-                                    patch_type="CreateWorkerHandoffContract",
-                                    label="Create a worker handoff contract",
-                                    description="Use this if the task should become a separate "
-                                    "worker. The compiler will generate input/output bindings "
-                                    "and an invocation point for the child worker.",
-                                    verification_lane="B",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToMainFlowStep",
-                                    label="Convert to main-flow step",
-                                    description="Use this if the action should stay inside "
-                                    "the main worker instead of being delegated to a child.",
-                                    verification_lane="A",
-                                ),
-                                PatchTypeMeta(
-                                    patch_type="ConvertDelegationIntentToRequestInput",
-                                    label="Ask the user for missing information",
-                                    description="Use this if the missing contract details "
-                                    "should be requested at runtime rather than guessed.",
-                                    verification_lane="A",
-                                ),
+                            stage_authority=(
+                                "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+                                "stage5.worker_block_plan + stage7.worker_step_plan"
                             ),
+                            repair_strategy_id="worker_delegation.complete_closure.v2",
+                            patch_type_metadata=(),
                         ),
                     ),
                 ),
@@ -1189,4 +1462,5 @@ class SPLConstructRegistry:
             ],
         ))
 
+        _apply_default_actionability_decisions(registry)
         return registry

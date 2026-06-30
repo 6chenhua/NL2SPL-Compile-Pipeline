@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nl2spl.compiler.spl_editing.core.model import EditableIssue
+from nl2spl.compiler.spl_editing.core.model import EditableIssue, UserFacingIssue
 from nl2spl.compiler.spl_editing.presentation.contract.categories import (
     IssueCategory,
 )
@@ -36,7 +36,7 @@ class RequiredOutputPresenter:
         self,
         *,
         display_id: int,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         context: DisplayContext,
         repair_options: tuple[RepairOptionView, ...],
         suggested_resolution: str | None,
@@ -63,7 +63,7 @@ class RequiredOutputPresenter:
     def build_detail(
         self,
         *,
-        issue: EditableIssue,
+        issue: EditableIssue | UserFacingIssue,
         context: DisplayContext,
         repair_options: tuple[RepairOptionView, ...],
         suggested_resolution: str | None,

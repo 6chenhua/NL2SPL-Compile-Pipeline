@@ -15,9 +15,7 @@ from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 class TestResourceExtractor:
     """Tests for ResourceExtractor stage."""
 
-    def test_input_variables(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_input_variables(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test input variable identification."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="A user request is provided")]
@@ -46,9 +44,7 @@ class TestResourceExtractor:
         assert resources.variables[0].source == "input"
         assert "user_request" in symbols.variables
 
-    def test_output_variables(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_output_variables(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test output variable identification."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Produce a draft communication")]
@@ -77,9 +73,7 @@ class TestResourceExtractor:
         assert resources.variables[0].source == "output"
         assert "draft_communication" in symbols.variables
 
-    def test_step_variables(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_step_variables(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test intermediate variable identification."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Then use the result to continue")]
@@ -107,9 +101,7 @@ class TestResourceExtractor:
         assert len(resources.variables) == 1
         assert resources.variables[0].source == "step"
 
-    def test_api_extraction(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_api_extraction(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test API extraction."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Call source retrieval API")]
@@ -120,8 +112,11 @@ class TestResourceExtractor:
             "apis": [
                 {
                     "api_name": "source_retrieval",
-                    "auth": "api_key",
+                    "auth": "apikey",
+                    "authentication_status": "explicit",
                     "description": "Source retrieval API",
+                    "source_span_ids": ["s1"],
+                    "authentication_source_span_ids": ["s1"],
                     "functions": [
                         {
                             "name": "retrieve",
@@ -144,12 +139,48 @@ class TestResourceExtractor:
         # Assert
         assert len(resources.apis) == 1
         assert resources.apis[0].api_name == "source_retrieval"
-        assert resources.apis[0].auth == "api_key"
+        assert resources.apis[0].auth == "apikey"
+        assert resources.apis[0].auth_status == "source_backed"
+        assert resources.apis[0].auth_evidence_authority == ("stage6_api_contract_extractor")
+        assert resources.apis[0].source_span_ids == ["s1"]
+        assert resources.apis[0].auth_source_span_ids == ["s1"]
         assert len(resources.apis[0].functions) == 1
 
-    def test_file_extraction(
+    def test_unknown_required_auth_is_not_defaulted_to_none(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
+        spans = [SpanIR(span_id="s1", text="SecureAPI requires authentication")]
+        routes = FieldRouteIR(integrations=["s1"])
+        mock_client.call_json.return_value = {
+            "variables": [],
+            "files": [],
+            "apis": [
+                {
+                    "api_name": "SecureAPI",
+                    "auth": "unresolved",
+                    "authentication_status": "unresolved",
+                    "description": "Secure API",
+                    "functions": [],
+                    "source_span_ids": ["s1"],
+                    "authentication_source_span_ids": ["s1"],
+                }
+            ],
+            "types": [],
+        }
+
+        resources, _symbols = ResourceExtractor(pipeline_config, mock_client).execute(
+            (spans, routes)
+        )
+
+        api = resources.apis[0]
+        assert api.auth == "unresolved"
+        assert api.auth_status == "unresolved"
+        assert api.auth_evidence_authority == "stage6_api_contract_extractor"
+        assert api.source_span_ids == ["s1"]
+        assert api.auth_source_span_ids == ["s1"]
+        assert "authentication_status" in mock_client.call_json.call_args.kwargs["system_prompt"]
+
+    def test_file_extraction(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test file extraction."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Use template file for output")]
@@ -177,9 +208,7 @@ class TestResourceExtractor:
         assert resources.files[0].name == "template"
         assert resources.files[0].path == "/templates/output.txt"
 
-    def test_type_extraction(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_type_extraction(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test type extraction."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Define a structured type for data")]
@@ -246,9 +275,7 @@ class TestResourceExtractor:
         assert symbols.variables["user_request"].source == "input"
         assert symbols.variables["output_result"].source == "output"
 
-    def test_empty_input(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_empty_input(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test empty spans list."""
         # Arrange
         spans: list[SpanIR] = []
@@ -271,9 +298,7 @@ class TestResourceExtractor:
         assert len(resources.types) == 0
         assert len(symbols.variables) == 0
 
-    def test_llm_error(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_llm_error(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test LLM API error handling."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="A user request is provided")]
@@ -285,9 +310,7 @@ class TestResourceExtractor:
         with pytest.raises(StageError, match="LLM call failed"):
             extractor.execute((spans, routes))
 
-    def test_missing_fields(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_missing_fields(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test missing fields in LLM response."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="A user request is provided")]
@@ -308,9 +331,7 @@ class TestResourceExtractor:
         # Assert - invalid variables are skipped
         assert len(resources.variables) == 0
 
-    def test_multiple_spans(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_multiple_spans(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test extraction with multiple spans."""
         # Arrange
         spans = [
@@ -357,9 +378,7 @@ class TestResourceExtractor:
         assert len(resources.apis) == 1
         assert len(symbols.variables) == 2
 
-    def test_checkpoint_saved(
-        self, pipeline_config: MagicMock, mock_client: MagicMock
-    ) -> None:
+    def test_checkpoint_saved(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test that checkpoint is saved."""
         # Arrange
         pipeline_config.save_intermediate = True

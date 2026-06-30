@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo
+from nl2spl.ir.resource_registry_ir import APISpec
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR
+from nl2spl.pipeline.resource_declaration_gate import RenderableResourceRegistryView
 
-Origin = str  # "source_backed" | "handoff_generated" | "compiler_synthetic" | "user_confirmed_repair" | "assumed"
+Origin = str
+"""Step origin classification string."""
 
 
 class ExecutableElementGate:
@@ -22,6 +25,7 @@ class ExecutableElementGate:
         self,
         worker: WorkerIR,
         worker_plan: WorkerPlanIR | None = None,
+        renderable_resource_registry_view: RenderableResourceRegistryView | None = None,
     ) -> tuple[WorkerIR, list[StepRenderInfo], list[CompileDiagnostic]]:
         """Filter worker and child-worker steps through the renderability gate.
 
@@ -36,6 +40,12 @@ class ExecutableElementGate:
         handoff_index = self._build_handoff_index(worker_plan)
         child_worker_names = {cw.worker_name for cw in worker.child_workers}
         worker_by_id = self._build_worker_name_index(worker_plan)
+        registry_view = (
+            renderable_resource_registry_view
+            if renderable_resource_registry_view is not None
+            else getattr(self, "renderable_resource_registry_view", None)
+        )
+        approved_apis_by_name = self._approved_apis_by_name(registry_view)
 
         # Classify and filter main-worker steps
         renderable_steps, blocked_infos, blocked_diags = self._filter_steps(
@@ -43,6 +53,7 @@ class ExecutableElementGate:
             handoff_index,
             child_worker_names,
             worker_by_id,
+            approved_apis_by_name,
             diag_counter,
         )
         infos.extend(renderable_steps)
@@ -68,6 +79,7 @@ class ExecutableElementGate:
                 handoff_index,
                 child_worker_names,
                 worker_by_id,
+                approved_apis_by_name,
                 diag_counter,
             )
             infos.extend(renderable_child)
@@ -133,11 +145,12 @@ class ExecutableElementGate:
         handoff_index: dict[str, WorkerHandoffIR],
         child_worker_names: set[str],
         worker_by_id: dict[str, str],
+        approved_apis_by_name: dict[str, APISpec] | None = None,
     ) -> tuple[bool, str | None]:
         """Determine whether a step may be rendered as executable SPL."""
         # 1. source_backed -> renderable, with command-type guard rails
         if origin == "source_backed":
-            return self._source_backed_renderable(step)
+            return self._source_backed_renderable(step, approved_apis_by_name)
 
         # 2. handoff_generated -> renderable only with valid handoff contract
         if origin == "handoff_generated":
@@ -218,6 +231,13 @@ class ExecutableElementGate:
                         f"does not match handoff api_ref "
                         f"'{handoff.api_ref}'"
                     )
+                ok, reason = self._gate_approved_api_ref(
+                    step,
+                    approved_apis_by_name,
+                    require_binding_metadata=False,
+                )
+                if not ok:
+                    return ok, reason
             else:
                 return False, (
                     f"Handoff step has unexpected command_type "
@@ -236,7 +256,7 @@ class ExecutableElementGate:
         # 4. user_confirmed_repair — renderable with same command-type
         #    guard rails as source_backed.  R6.
         if origin == "user_confirmed_repair":
-            return self._source_backed_renderable(step)
+            return self._source_backed_renderable(step, approved_apis_by_name)
 
         # 5. assumed -> NOT renderable
         return False, "Step has no source evidence and is not handoff-backed"
@@ -265,8 +285,12 @@ class ExecutableElementGate:
         original_outputs = aggregation.get("original_outputs") or []
         return list(original_outputs) == expected_outputs
 
-    @staticmethod
-    def _source_backed_renderable(step: StepIR) -> tuple[bool, str | None]:
+    @classmethod
+    def _source_backed_renderable(
+        cls,
+        step: StepIR,
+        approved_apis_by_name: dict[str, APISpec] | None = None,
+    ) -> tuple[bool, str | None]:
         """Source-backed steps are generally renderable, but specific command
         types carry extra evidence requirements.
         """
@@ -282,12 +306,11 @@ class ExecutableElementGate:
 
         # CALL_API must name a concrete API target.
         if step.command_type == "CALL_API":
-            if not step.integration_ref:
-                return False, (
-                    "CALL_API requires a concrete integration_ref "
-                    "(API name)"
-                )
-            return True, None
+            return cls._gate_approved_api_ref(
+                step,
+                approved_apis_by_name,
+                require_binding_metadata=True,
+            )
 
         # REQUEST_INPUT must have explicit source evidence that the
         # user is being asked for input.
@@ -408,6 +431,7 @@ class ExecutableElementGate:
         handoff_index: dict[str, WorkerHandoffIR],
         child_worker_names: set[str],
         worker_by_id: dict[str, str],
+        approved_apis_by_name: dict[str, APISpec] | None,
         diag_counter: list[int],
     ) -> tuple[
         list[StepRenderInfo],  # renderable
@@ -417,7 +441,7 @@ class ExecutableElementGate:
         renderable_infos: list[StepRenderInfo] = []
         blocked_infos: list[StepRenderInfo] = []
         diags: list[CompileDiagnostic] = []
-        
+
         unpack_steps: list[StepIR] = []
 
         # Pass 1: Filter non-unpack steps
@@ -429,7 +453,7 @@ class ExecutableElementGate:
 
             ok, reason = self.is_renderable(
                 step, origin, handoff_index, child_worker_names,
-                worker_by_id,
+                worker_by_id, approved_apis_by_name,
             )
             info = StepRenderInfo(
                 step_id=step.step_id,
@@ -441,17 +465,17 @@ class ExecutableElementGate:
                 renderable_infos.append(info)
             else:
                 blocked_infos.append(info)
-                
+
         # Pass 2: Filter unpack steps based on producer renderability
         renderable_step_ids = {info.step_id for info in renderable_infos}
         renderable_step_by_id = {s.step_id: s for s in steps if s.step_id in renderable_step_ids}
-        
+
         for step in unpack_steps:
             origin = self.classify_origin(step)
             source_step_id = step.metadata.get("structured_source_step_id")
             structured_result = step.metadata.get("structured_result")
             unpacked_output = step.metadata.get("unpacked_output")
-            
+
             # Validate metadata presence
             if not source_step_id:
                 ok = False
@@ -554,3 +578,69 @@ class ExecutableElementGate:
         if worker_plan is None:
             return {}
         return {w.worker_id: w.worker_name for w in worker_plan.workers}
+
+    @staticmethod
+    def _approved_apis_by_name(
+        renderable_resource_registry_view: RenderableResourceRegistryView | None,
+    ) -> dict[str, APISpec] | None:
+        if renderable_resource_registry_view is None:
+            return None
+        return {
+            api.api_name: api
+            for api in renderable_resource_registry_view.apis
+            if api.api_name
+        }
+
+    @staticmethod
+    def _gate_approved_api_ref(
+        step: StepIR,
+        approved_apis_by_name: dict[str, APISpec] | None,
+        *,
+        require_binding_metadata: bool,
+    ) -> tuple[bool, str | None]:
+        if not step.integration_ref:
+            return False, (
+                "CALL_API requires a concrete integration_ref "
+                "(API name)"
+            )
+        if not require_binding_metadata:
+            if approved_apis_by_name is None:
+                return False, (
+                    "CALL_API requires a ResourceDeclarationGate-approved "
+                    "API registry view"
+                )
+            if step.integration_ref not in approved_apis_by_name:
+                return False, (
+                    f"CALL_API integration_ref '{step.integration_ref}' "
+                    "is not ResourceDeclarationGate-approved"
+                )
+            return True, None
+        required_metadata = (
+            "api_id",
+            "declaration_demand_id",
+            "api_binding_id",
+            "placement_ref",
+        )
+        if not all(step.metadata.get(key) for key in required_metadata):
+            return False, (
+                "CALL_API requires declared API binding metadata "
+                "(api_id, declaration_demand_id, api_binding_id, placement_ref)"
+            )
+        if approved_apis_by_name is None:
+            return False, (
+                "CALL_API requires a ResourceDeclarationGate-approved "
+                "API registry view"
+            )
+        api = approved_apis_by_name.get(step.integration_ref)
+        if api is None:
+            return False, (
+                f"CALL_API integration_ref '{step.integration_ref}' "
+                "is not ResourceDeclarationGate-approved"
+            )
+        api_id = str(step.metadata.get("api_id") or "")
+        if api_id != api.api_id:
+            return False, (
+                f"CALL_API api_id '{api_id}' does not match "
+                f"ResourceDeclarationGate-approved API '{api.api_id}'"
+            )
+        return True, None

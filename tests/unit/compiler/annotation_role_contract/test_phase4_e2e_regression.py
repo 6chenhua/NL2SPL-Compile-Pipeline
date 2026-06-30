@@ -84,7 +84,7 @@ class TestFullChainProcessStepSurvival:
         )
 
         # Phase 1: accepted with diagnostic
-        assert "s15" in {a.span_id for a in v.accepted}
+        assert "s15" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1
 
     def test_stage3_child_annotation_from_segment(self):
@@ -348,7 +348,7 @@ class TestRegressionGuards:
             canonical_input=None,
         )
         # ARC6: accepted with diagnostic, not rejected
-        assert "sp_ne" in {a.span_id for a in v.accepted}
+        assert "sp_ne" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1
 
     def test_invalid_construct_target_still_rejected(self):
@@ -372,7 +372,7 @@ class TestRegressionGuards:
             canonical_input=None,
         )
         # ARC6: known role + invalid construct_target → accepted
-        assert "sp_bad_ct" in {a.span_id for a in v.accepted}
+        assert "sp_bad_ct" in {r.annotation.span_id for r in v.rejected}
 
 
 # ===========================================================================

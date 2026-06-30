@@ -32,6 +32,10 @@ class IssueCategorySummary:
 class RepairOptionView:
     label: str
     description: str
+    option_id: str | None = None
+    strategy_id: str | None = None
+    interaction_contract_id: str | None = None
+    interaction_summary: str | None = None
     patch_types: tuple[str, ...] = ()
     verification_lane: str = ""
     availability: RepairOptionAvailability = RepairOptionAvailability.AVAILABLE

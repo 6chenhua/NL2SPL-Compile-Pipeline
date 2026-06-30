@@ -36,7 +36,8 @@ _OLD_ALLOWED_SEMANTIC_ROLES = frozenset({
 _OLD_ALLOWED_CONSTRUCT_TARGETS = frozenset({
     "EXCEPTION_FLOW",
     "WORKER_HANDOFF",
-    "API_CALL",
+    "API_DECLARATION",
+    "CALL_API",
     "RESOURCE_CONTRACT",
     "CONSTRAINT",
 })
@@ -47,6 +48,8 @@ _OLD_ALLOWED_SLOT_TARGETS = frozenset({
     "input",
     "output",
     "target",
+    "source_evidence",
+    "call_action",
     "boundary",
     "prohibition",
 })

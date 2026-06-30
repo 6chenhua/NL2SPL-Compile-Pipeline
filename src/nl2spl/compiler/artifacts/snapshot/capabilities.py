@@ -81,6 +81,12 @@ SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS: tuple[str, ...] = (
 )
 """Diagnostic kinds that can be used as SPL Editing repair targets."""
 
+SPL_EDITING_USER_FACING_DIAGNOSTIC_KINDS: tuple[str, ...] = (
+    *SPL_EDITING_EDITABLE_DIAGNOSTIC_KINDS,
+    "deferred_api_contract_validation",
+)
+"""Diagnostic kinds persisted for SPL Editing issue inventory display."""
+
 # ---------------------------------------------------------------------------
 # Capability requirement specification
 # ---------------------------------------------------------------------------

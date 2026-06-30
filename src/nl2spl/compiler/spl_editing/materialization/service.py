@@ -168,9 +168,7 @@ class RepairMaterializationService:
 
         # 3. Validation metadata consistency
         if request.intent.patch_type != plan.patch_type:
-            worker_promotion_plan = (
-                plan.materialization_plan_id == "worker_handoff.contract_repair.v1"
-            )
+            worker_promotion_plan = plan.target_construct_type == "WORKER_PROMOTION"
             if not (
                 worker_promotion_plan
                 and request.intent.patch_type in request.catalog_entry.supported_patch_types
@@ -194,9 +192,7 @@ class RepairMaterializationService:
                 f"but intent has '{request.intent.target_slot_name}'."
             )
         if request.intent.target_slot_name != plan.target_slot_name:
-            worker_promotion_plan = (
-                plan.materialization_plan_id == "worker_handoff.contract_repair.v1"
-            )
+            worker_promotion_plan = plan.target_construct_type == "WORKER_PROMOTION"
             if not (
                 worker_promotion_plan and request.intent.target_slot_name.startswith("promotion_")
             ):
@@ -402,6 +398,17 @@ class RepairMaterializationService:
             "ConvertDelegationIntentToMainFlowStep",
             "ConvertDelegationIntentToRequestInput",
         }:
+            if hasattr(intent.payload, "option_id"):
+                if intent.payload.option_id != "keep_in_main_flow":
+                    raise DependencyClosureValidationError("Invalid main-flow directive option")
+                action_text = intent.payload.delegated_responsibility
+                return "\n".join(
+                    (
+                        "[MAIN_FLOW]",
+                        "  " + self._command_line("GENERAL_COMMAND", action_text),
+                        "[END_MAIN_FLOW]",
+                    )
+                )
             stage7 = stage_slices.Stage7WorkerDelegationResolutionCommandRepairSlice()
             results.append(
                 stage7.execute(
@@ -413,12 +420,58 @@ class RepairMaterializationService:
                     )
                 )
             )
+        elif intent.patch_type == "DefineChildWorkerClosure":
+            directive_payload = intent.payload
+            if not hasattr(directive_payload, "admitted_outputs"):
+                raise DependencyClosureValidationError(
+                    "DefineChildWorkerClosure preview requires normalized directive"
+                )
+            return self._render_define_child_preview(directive_payload)
         else:
             raise DependencyClosureValidationError(
                 f"No dry-run stage-slice chain for patch type '{intent.patch_type}'."
             )
 
         return self._render_dry_run_preview(intent, target, tuple(results))
+
+    @staticmethod
+    def _render_define_child_preview(directive: Any) -> str:
+        inputs = tuple(item.ref.canonical_name for item in directive.selected_input_refs)
+        outputs = tuple(item.canonical_name for item in directive.admitted_outputs)
+        invoke_outputs = tuple(
+            item.parent_ref.ref.canonical_name
+            if item.parent_ref is not None
+            else item.parent_temporary_name
+            for item in directive.result_usage
+        )
+        command = RepairMaterializationService._command_line(
+            "GENERAL_COMMAND",
+            directive.delegated_responsibility,
+            inputs=inputs,
+            outputs=outputs,
+        )
+        invoke = RepairMaterializationService._command_line(
+            "INVOKE_WORKER",
+            "Child worker",
+            inputs=inputs,
+            outputs=invoke_outputs,
+            integration_ref="ChildWorker",
+        )
+        return "\n".join(
+            (
+                "[WORKER: ChildWorker]",
+                f"  PURPOSE {directive.delegated_responsibility}",
+                "  [MAIN_FLOW]",
+                "    [SEQUENTIAL_BLOCK]",
+                f"      {command}",
+                "    [END_SEQUENTIAL_BLOCK]",
+                "  [END_MAIN_FLOW]",
+                "[END_WORKER]",
+                "[MAIN_FLOW]",
+                f"  {invoke}",
+                "[END_MAIN_FLOW]",
+            )
+        )
 
     @staticmethod
     def _render_dry_run_preview(

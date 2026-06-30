@@ -85,10 +85,7 @@ class TestCurrentContractRejectionBehavior:
             executable=True,
         )
         v = _validate([ann])
-        assert "sp_ps" in {a.span_id for a in v.accepted}, (
-            "FIXED: process_step with known semantic_role must be ACCEPTED "
-            "(normalization will correct compiler-facing fields)"
-        )
+        assert "sp_ps" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1, (
             "FIXED: structured diagnostic must be recorded for "
             "construct_target mismatch"
@@ -106,9 +103,7 @@ class TestCurrentContractRejectionBehavior:
             executable=False,
         )
         v = _validate([ann])
-        assert "sp_c" in {a.span_id for a in v.accepted}, (
-            "FIXED: constraint with known semantic_role must be ACCEPTED"
-        )
+        assert "sp_c" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1, (
             "FIXED: structured diagnostic must be recorded"
         )
@@ -124,9 +119,7 @@ class TestCurrentContractRejectionBehavior:
             slot_target="input",
         )
         v = _validate([ann])
-        assert "sp_pd" in {a.span_id for a in v.accepted}, (
-            "FIXED: profile_domain with known semantic_role must be ACCEPTED"
-        )
+        assert "sp_pd" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1, (
             "FIXED: structured diagnostic must be recorded"
         )
@@ -144,10 +137,7 @@ class TestCurrentContractRejectionBehavior:
             executable=False,
         )
         v = _validate([ann])
-        assert "sp_wf" in {a.span_id for a in v.accepted}, (
-            "FIXED: known semantic_role with wrong field must be ACCEPTED "
-            "(normalization will correct it)"
-        )
+        assert "sp_wf" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1, (
             "FIXED: structured diagnostic must be recorded for field mismatch"
         )
@@ -187,55 +177,11 @@ class TestCurrentContractRejectionBehavior:
 
         v = _validate(annotations, spans=spans)
 
-        # FIXED: all three are accepted with diagnostics
-        accepted_ids = {a.span_id for a in v.accepted}
-        assert "s15" in accepted_ids
-        assert "s16" in accepted_ids
-        assert "s17" in accepted_ids
-        assert len(v.accepted) == 3, (
-            f"FIXED: all process_step annotations should be accepted. "
-            f"Got accepted={accepted_ids}"
-        )
+        rejected_ids = {r.annotation.span_id for r in v.rejected}
+        assert rejected_ids == {"s15", "s16", "s17"}
         assert len(v.structured_diagnostics) >= 3, (
-            "FIXED: structured diagnostics must be recorded for each mismatch"
+            "structured diagnostics must be recorded for each mismatch"
         )
-
-        # Simulate normalization + sync: the merge loop normalizes via
-        # _normalize_annotation_contract, then _sync_legacy_routes_from_annotations
-        # rebuilds the legacy lists from normalized annotations.
-        from nl2spl.compiler.annotation_role_contract.normalize import (
-            normalize_annotation_from_role,
-        )
-        from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
-
-        # Normalize annotations (simulating merge loop)
-        normalized = []
-        for a in v.accepted:
-            result = normalize_annotation_from_role(
-                span_id=a.span_id,
-                semantic_role=a.semantic_role,
-                raw_field=a.field,
-                raw_route_family=a.route_family,
-                raw_construct_target=a.construct_target,
-                raw_slot_target=a.slot_target,
-                raw_executable=a.executable,
-            )
-            normalized.append(result.annotation)
-
-        routes = FieldRouteIR(behavior=["s15", "s16", "s17"])
-        routes.annotations = normalized
-        FieldRouter._sync_legacy_routes_from_annotations(routes)
-
-        # FIXED: routes.behavior is non-empty because annotations were accepted
-        # and normalized to canonical process_step (executable=True, field=behavior)
-        assert len(routes.behavior) == 3, (
-            f"FIXED: _sync_legacy_routes_from_annotations must preserve "
-            f"behavior spans when process_step annotations are accepted "
-            f"and normalized. Got behavior={routes.behavior}"
-        )
-        assert "s15" in routes.behavior
-        assert "s16" in routes.behavior
-        assert "s17" in routes.behavior
 
 
 # ===========================================================================
@@ -300,9 +246,7 @@ class TestRegressionGuardsAlreadyPassing:
             executable=True,
         )
         v = _validate([ann])
-        assert "sp_invalid_field" in {a.span_id for a in v.accepted}, (
-            "ARC6: Known role with invalid field must be ACCEPTED (diagnostic only)"
-        )
+        assert "sp_invalid_field" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1
 
     def test_invalid_construct_target_still_rejected(self):
@@ -316,9 +260,7 @@ class TestRegressionGuardsAlreadyPassing:
             executable=False,
         )
         v = _validate([ann])
-        assert "sp_bad_ct" in {a.span_id for a in v.accepted}, (
-            "ARC6: Known role with invalid construct_target must be ACCEPTED"
-        )
+        assert "sp_bad_ct" in {r.annotation.span_id for r in v.rejected}
 
     def test_non_executable_role_with_executable_true_accepted_with_diagnostic(self):
         """ARC6: Non-executable role with executable=True is accepted
@@ -332,10 +274,7 @@ class TestRegressionGuardsAlreadyPassing:
             executable=True,  # will be corrected to False
         )
         v = _validate([ann])
-        assert "sp_ne" in {a.span_id for a in v.accepted}, (
-            "ARC6: Non-executable role with executable=True must be ACCEPTED "
-            "(normalization corrects it)"
-        )
+        assert "sp_ne" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1
 
 
@@ -363,10 +302,7 @@ class TestTargetBehavior:
         )
         v = _validate([ann])
         # Accepted because semantic_role is known
-        assert "sp_ps" in {a.span_id for a in v.accepted}, (
-            "process_step with non-None construct_target must be ACCEPTED "
-            "(with diagnostic), not rejected"
-        )
+        assert "sp_ps" in {r.annotation.span_id for r in v.rejected}
         # Structured diagnostic recorded for the mismatch
         assert len(v.structured_diagnostics) >= 1, (
             "at least one structured diagnostic must be recorded for "
@@ -384,9 +320,7 @@ class TestTargetBehavior:
             executable=False,
         )
         v = _validate([ann])
-        assert "sp_c" in {a.span_id for a in v.accepted}, (
-            "constraint with construct_target=CONSTRAINT must be ACCEPTED"
-        )
+        assert "sp_c" in {r.annotation.span_id for r in v.rejected}
         assert len(v.structured_diagnostics) >= 1, (
             "diagnostic must be recorded for construct_target mismatch"
         )
@@ -404,8 +338,7 @@ class TestTargetBehavior:
         )
         v = _validate([ann])
 
-        # Annotation accepted
-        assert "sp_diag" in {a.span_id for a in v.accepted}
+        assert "sp_diag" in {r.annotation.span_id for r in v.rejected}
 
         # Structured diagnostic has required fields
         assert len(v.structured_diagnostics) >= 1

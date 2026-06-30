@@ -93,3 +93,27 @@ class TestAcceptanceCriteria:
             ),
         ]
         assert compute_completeness(diagnostics=diags) == "partial"
+
+
+def test_deferred_api_validation_keeps_pipeline_complete() -> None:
+    deferred = CompileDiagnostic(
+        diagnostic_id="D_API_DEFERRED",
+        kind="deferred_api_contract_validation",
+        severity="info",
+        message="API validation pending.",
+        target_ref="api:SearchAPI",
+        blocks_rendering=False,
+        blocks_completion=False,
+    )
+    assert compute_completeness(diagnostics=[deferred]) == "complete"
+
+    structural = CompileDiagnostic(
+        diagnostic_id="D_API_STRUCTURAL",
+        kind="type_or_contract_ambiguity",
+        severity="warning",
+        message="Malformed API declaration.",
+        target_ref="api:SearchAPI",
+        blocks_rendering=True,
+        blocks_completion=True,
+    )
+    assert compute_completeness(diagnostics=[structural]) == "partial"

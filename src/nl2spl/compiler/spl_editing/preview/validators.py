@@ -26,6 +26,11 @@ class PreviewApplyExpectedState:
     slice_typed_plan_hashes: tuple[StageSliceTypedPlanRef, ...]
     preview_construct_hashes: tuple[str, ...]
     llm_generation_config_hash: str
+    strategy_id: str = ""
+    option_id: str = ""
+    interaction_contract_hash: str = ""
+    normalized_directive_hash: str = ""
+    admitted_fact_hashes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -97,6 +102,20 @@ def validate_preview_not_stale(
         "llm_generation_config_hash": (
             preview.llm_generation_config_hash,
             expected.llm_generation_config_hash,
+        ),
+        "strategy_id": (preview.strategy_id, expected.strategy_id),
+        "option_id": (preview.option_id, expected.option_id),
+        "interaction_contract_hash": (
+            preview.interaction_contract_hash,
+            expected.interaction_contract_hash,
+        ),
+        "normalized_directive_hash": (
+            preview.normalized_directive_hash,
+            expected.normalized_directive_hash,
+        ),
+        "admitted_fact_hashes": (
+            preview.admitted_fact_hashes,
+            expected.admitted_fact_hashes,
         ),
     }
     for field_name, (actual, expected_value) in comparisons.items():

@@ -369,16 +369,12 @@ class TestCreateWorkerHandoffContractPatchStatus:
             overlay_version=0, worker_plan=plan,
         )
         applier = CreateWorkerHandoffContractApplier()
-        patched, _event = applier.apply(patch, snap)
+        import pytest
 
-        new_plan = patched.require_worker_plan()
-        assert len(new_plan.handoffs) == 1
-        h = new_plan.handoffs[0]
-        assert h.input_binding_status == "known_present"
-        assert h.output_binding_status == "known_present"
-        assert h.input_binding_status_source == "user_confirmed_repair"
-        assert h.output_binding_status_source == "user_confirmed_repair"
-        assert h.materialization_status == "complete"
+        from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
+
+        with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+            applier.apply(patch, snap)
 
     def test_known_empty_with_empty_bindings_produces_confirmed_empty(self) -> None:
         """known_empty + empty bindings + source → confirmed_empty_contract."""
@@ -422,15 +418,12 @@ class TestCreateWorkerHandoffContractPatchStatus:
         from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
             CreateWorkerHandoffContractApplier,
         )
-        patched, _event = CreateWorkerHandoffContractApplier().apply(patch, snap)
+        import pytest
 
-        new_plan = patched.require_worker_plan()
-        h = new_plan.handoffs[0]
-        assert h.input_binding_status == "known_empty"
-        assert h.output_binding_status == "known_empty"
-        assert h.input_bindings == []
-        assert h.output_bindings == []
-        assert h.materialization_status == "confirmed_empty_contract"
+        from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
+
+        with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
+            CreateWorkerHandoffContractApplier().apply(patch, snap)
 
     def test_validator_rejects_known_empty_with_non_empty_bindings(self) -> None:
         """known_empty + non-empty bindings → validator rejects."""

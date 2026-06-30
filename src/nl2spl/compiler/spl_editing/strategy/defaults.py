@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from nl2spl.compiler.spl_editing.strategy.model import RepairStrategySpec
+from nl2spl.compiler.spl_editing.strategy.model import (
+    RepairStrategyOptionSpec,
+    RepairStrategySpec,
+)
 from nl2spl.compiler.spl_editing.strategy.registry import RepairStrategyRegistry
 
 
@@ -88,6 +91,73 @@ def iter_default_strategy_specs() -> Iterable[RepairStrategySpec]:
         ),
         display_label="Complete Worker Delegation Handoff Contract",
         closure_summary="Materialize worker handoff, invoke worker command, parent binding, and optional placement block",
+        preview_required=True,
+    )
+    yield RepairStrategySpec(
+        strategy_id="worker_delegation.complete_closure.v2",
+        target_construct_type="WORKER_PROMOTION",
+        target_slot_name="promotion_input_contract",
+        diagnostic_kind="type_or_contract_ambiguity",
+        missing_construct_closure=(
+            "CHILD_WORKER",
+            "FLOW",
+            "BLOCK",
+            "COMMAND",
+            "WORKER_HANDOFF",
+            "INVOKE_WORKER",
+        ),
+        default_policy_id="worker_delegation.complete_closure.v2",
+        directive_policy_id="worker_delegation.typed_directive.v1",
+        stage_slice_chain=(
+            "stage3_5.define_child_worker.v1",
+            "stage4.child_worker_flow.v1",
+            "stage5.child_worker_block.v1",
+            "stage7.child_worker_command.v1",
+            "stage3_5.worker_handoff_contract.v2",
+            "stage5.parent_invocation_placement.v1",
+            "stage7.worker_delegation_resolution_command_repair.v1",
+            "stage7.worker_invoke.v2",
+        ),
+        verification_lane="B",
+        supported_patch_types=(
+            "DefineChildWorkerClosure",
+            "ConvertDelegationIntentToMainFlowStep",
+        ),
+        options=(
+            RepairStrategyOptionSpec(
+                option_id="define_child_worker",
+                strategy_id="worker_delegation.complete_closure.v2",
+                label_key="worker_delegation.define_child_worker.label",
+                description_key="worker_delegation.define_child_worker.description",
+                interaction_contract_id="worker_delegation.define_child_worker.v1",
+                execution_patch_types=("DefineChildWorkerClosure",),
+                closure_policy_id="worker_delegation.define_child_worker_closure.v1",
+                user_facing=True,
+            ),
+            RepairStrategyOptionSpec(
+                option_id="keep_in_main_flow",
+                strategy_id="worker_delegation.complete_closure.v2",
+                label_key="worker_delegation.keep_in_main_flow.label",
+                description_key="worker_delegation.keep_in_main_flow.description",
+                interaction_contract_id="worker_delegation.keep_in_main_flow.v1",
+                execution_patch_types=("ConvertDelegationIntentToMainFlowStep",),
+                closure_policy_id="worker_delegation.main_flow_closure.v1",
+                user_facing=True,
+            ),
+        ),
+        selectable_ref_policy_id="worker_promotion.handoff.selectable_refs.v1",
+        required_context_facts=(
+            "delegation_intent",
+            "worker_id",
+            "candidate_name",
+            "possible_inputs",
+            "possible_outputs",
+            "hierarchy_graph",
+        ),
+        display_label="Complete Worker Delegation Closure",
+        closure_summary=(
+            "Materialize or retain the delegated responsibility as a verified closure"
+        ),
         preview_required=True,
     )
 

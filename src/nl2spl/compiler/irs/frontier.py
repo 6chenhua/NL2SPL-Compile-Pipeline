@@ -19,4 +19,6 @@ CutlineReason = Literal[
     "promotion_blocked",
     "non_renderable_candidate",
     "blocked_by_gate",
+    "missing_api_identity_or_evidence",
+    "incomplete_api_declaration_contract",
 ]

@@ -61,6 +61,25 @@ Keywords: API, service, call, fetch, retrieve from [service name]
 Do NOT declare a variable as an API just because it is used to retrieve
 data; only declare an API if the text names a specific external service.
 
+Authentication is part of the Stage 6 API contract extraction authority.
+For every extracted API, emit both `auth` and `authentication_status`:
+
+- no authentication requirement is mentioned: `auth: "none"`,
+  `authentication_status: "unmentioned"`;
+- the source explicitly says no authentication: `auth: "none"`,
+  `authentication_status: "explicit"`;
+- API key is explicit: `auth: "apikey"`,
+  `authentication_status: "explicit"`;
+- OAuth is explicit: `auth: "oauth"`,
+  `authentication_status: "explicit"`;
+- authentication is explicitly required but its type is unknown:
+  `auth: "unresolved"`, `authentication_status: "unresolved"`.
+
+Never convert an explicit but unknown authentication requirement to `none`.
+For explicit or unresolved authentication, include the supporting IDs in
+`authentication_source_span_ids`. Include only source span IDs supplied in
+the prompt; do not invent IDs.
+
 ## Type Definition Identification
 
 Identify custom types and data structures mentioned.
@@ -107,7 +126,17 @@ examine each demand and decide its resource kind based on the evidence text.
       "description": "one-line description"
     }
   ],
-  "apis": [...],
+  "apis": [
+    {
+      "api_name": "GrammarSafeAPIName",
+      "auth": "none | apikey | oauth | unresolved",
+      "authentication_status": "unmentioned | explicit | unresolved",
+      "description": "one-line description",
+      "functions": [],
+      "source_span_ids": ["s1"],
+      "authentication_source_span_ids": ["s1"]
+    }
+  ],
   "types": [...],
   "resource_contracts": [
     {

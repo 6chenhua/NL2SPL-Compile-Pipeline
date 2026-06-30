@@ -510,10 +510,11 @@ class TestR2NoSplEditingImports:
 class TestR2ExistingIRSBehaviorUnchanged:
     """R2: Adding repair_affordances does not change IRS outputs."""
 
-    def test_registry_construct_types_unchanged(self) -> None:
-        """R2: The set of construct types in default registry is unchanged."""
+    def test_registry_construct_types_include_api_declaration(self) -> None:
+        """R-API-1: registry adds API_DECLARATION as a new construct type."""
         registry = SPLConstructRegistry.default()
         expected = {
+            "API_DECLARATION",
             "EXCEPTION_FLOW",
             "REQUIRED_OUTPUT",
             "RESOURCE_CONTRACT_DEMAND",
@@ -529,8 +530,10 @@ class TestR2ExistingIRSBehaviorUnchanged:
         assert set(registry.list_constructs()) == expected
 
     def test_slot_count_per_construct_unchanged(self) -> None:
-        """R2: No slots were added or removed — only repair_affordances
-        metadata was added to existing slots.
+        """R-API-1: CALL_API gains declared API authority slots.
+
+        Existing SPL Editing repair affordances remain isolated; API
+        declaration slots are covered by API materialization tests.
         """
         registry = SPLConstructRegistry.default()
         expected_slot_counts = {
@@ -539,7 +542,7 @@ class TestR2ExistingIRSBehaviorUnchanged:
             "RESOURCE_CONTRACT_DEMAND": 3,
             "GENERAL_COMMAND": 3,
             "REQUEST_INPUT": 2,
-            "CALL_API": 4,
+            "CALL_API": 6,
             "INVOKE_WORKER": 4,
             "CHILD_WORKER": 5,
             "WORKER_CANDIDATE": 3,

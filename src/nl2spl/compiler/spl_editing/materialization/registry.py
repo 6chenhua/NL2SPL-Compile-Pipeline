@@ -102,6 +102,9 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
     from nl2spl.compiler.spl_editing.materialization.worker_handoff import (
         WorkerHandoffContractMaterializer,
     )
+    from nl2spl.compiler.spl_editing.materialization.worker_delegation_v2 import (
+        DefineChildWorkerClosureMaterializer,
+    )
 
     registry = MaterializationPlanRegistry()
 
@@ -214,5 +217,62 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
         materializer_id="worker_handoff.contract_repair.v1",
     )
     registry.register(plan, WorkerHandoffContractMaterializer())
+
+    plan = MaterializationPlan(
+        materialization_plan_id="worker_delegation.complete_closure.v2",
+        patch_type="DefineChildWorkerClosure",
+        target_construct_type="WORKER_PROMOTION",
+        target_slot_name="promotion_input_contract",
+        stage_authority=(
+            "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+            "stage5.worker_block_plan + stage7.worker_step_plan"
+        ),
+        dependency_closure=MaterializationDependencyClosure(
+            required_artifacts=(
+                "worker_plan",
+                "worker_flow_plan",
+                "worker_block_plan",
+                "worker_step_plan",
+                "symbol_table",
+            ),
+            required_artifact_fields=(
+                RequiredArtifactField("worker_plan", ("main_worker_id",)),
+                RequiredArtifactField("worker_flow_plan", ("worker_flows",)),
+                RequiredArtifactField("worker_block_plan", ("worker_blocks",)),
+                RequiredArtifactField("worker_step_plan", ("worker_steps",)),
+            ),
+            required_ref_role_constraints=(
+                RefRoleConstraint("target_worker", 1, 1, "target"),
+                RefRoleConstraint("selectable_input", 0, None, "target"),
+            ),
+            worker_scope_requirement="main",
+            required_id_allocator_namespaces=("step", "block", "handoff", "worker"),
+        ),
+        editable_artifacts=(
+            "WorkerPlanIR",
+            "WorkerFlowPlanIR",
+            "WorkerBlockPlanIR",
+            "WorkerStepPlanIR",
+            "SymbolTable",
+        ),
+        output_artifacts=(
+            "WorkerPlanIR",
+            "WorkerFlowPlanIR",
+            "WorkerBlockPlanIR",
+            "WorkerStepPlanIR",
+            "SymbolTable",
+        ),
+        writes_to=(
+            "worker_plan_pre_normalize",
+            "worker_flow_plan_pre_normalize",
+            "worker_block_plan_pre_normalize",
+            "worker_step_plan_pre_normalize",
+        ),
+        normalizer_required=True,
+        stage10_rebuild_required=True,
+        verification_lane="B",
+        materializer_id="worker_delegation.complete_closure.v2",
+    )
+    registry.register(plan, DefineChildWorkerClosureMaterializer())
 
     return registry

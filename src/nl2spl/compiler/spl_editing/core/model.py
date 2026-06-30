@@ -62,6 +62,62 @@ class EditableIssue:
     repairability: Literal["editable", "review_only", "non_repairable"] = "editable"
 
 
+IssueDisposition = Literal[
+    "editable",
+    "review_only",
+    "deferred_validation",
+    "developer_only",
+]
+
+
+@dataclass(frozen=True)
+class UserFacingIssue:
+    """A non-editable user-facing issue surfaced outside Fix-with-AI.
+
+    This is intentionally separate from ``EditableIssue`` so review-only and
+    deferred-validation items cannot be accidentally routed into repair
+    sessions or LLM repair handlers.
+    """
+
+    issue_id: str
+    primary_diagnostic_id: str
+    related_diagnostic_ids: tuple[str, ...]
+    issue_group_id: str | None
+    kind: str
+    target_ref: str
+    irs_ref: DiagnosticIRSRef
+    missing_slot: str | None
+    source_span_ids: tuple[str, ...]
+    message: str
+    suggested_resolution: str | None = None
+    blocks_rendering: bool = False
+    blocks_completion: bool = False
+    authority: str = "post_normalize_irs"
+    affordance_ids: tuple[str, ...] = ()
+    default_affordance_id: str | None = None
+    repairable: bool = False
+    repairability: Literal["review_only", "non_repairable", "developer_only"] = (
+        "review_only"
+    )
+    disposition: IssueDisposition = "review_only"
+    presentation_disposition: str | None = None
+    validation_authority: str | None = None
+
+
+@dataclass(frozen=True)
+class IssueInventory:
+    """Complete issue inventory partitioned by product disposition."""
+
+    editable: tuple[EditableIssue, ...] = ()
+    review: tuple[UserFacingIssue, ...] = ()
+    deferred: tuple[UserFacingIssue, ...] = ()
+    developer: tuple[UserFacingIssue, ...] = ()
+
+    @property
+    def user_facing(self) -> tuple[EditableIssue | UserFacingIssue, ...]:
+        return self.editable + self.review + self.deferred
+
+
 # ---------------------------------------------------------------------------
 # EditingSession
 # ---------------------------------------------------------------------------

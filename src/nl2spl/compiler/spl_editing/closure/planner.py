@@ -89,10 +89,11 @@ class ClosurePlanner:
                         f"Required selected reference '{hint}' not found in selectable refs."
                     )
 
-        nodes = get_default_nodes_for_strategy(strategy.strategy_id)
-        write_layers = tuple(
-            slice_id.split(".")[0] for slice_id in strategy.stage_slice_chain if slice_id
+        nodes = get_default_nodes_for_strategy(strategy.strategy_id, directive.option_id)
+        stage_slice_chain = tuple(
+            node.stage_slice_id for node in nodes if node.stage_slice_id is not None
         )
+        write_layers = tuple(slice_id.split(".")[0] for slice_id in stage_slice_chain)
 
         default_or_directive_driven = "default"
         if directive.source == "user" or directive.requested_behavior:
@@ -104,10 +105,11 @@ class ClosurePlanner:
             materialization_plan_id=affordance.materialization_plan_id,
             target_construct_ref=target.target_ref,
             closure_nodes=nodes,
-            stage_slice_chain=strategy.stage_slice_chain,
+            stage_slice_chain=stage_slice_chain,
             write_layers=write_layers,
             dependency_closure=(),
             default_or_directive_driven=default_or_directive_driven,
+            option_id=directive.option_id,
         )
 
         validate_closure_plan(plan, strategy, target)

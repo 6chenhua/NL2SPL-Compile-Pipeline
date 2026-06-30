@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
+
+from nl2spl.ir.structured_text_ir import StructuredTextIR
 
 if TYPE_CHECKING:
     from nl2spl.ir.worker_plan_ir import HandoffContractIR
@@ -46,20 +48,46 @@ class FileSpec:
 
 
 @dataclass
+class APIParameterSpec:
+    """Parameter specification for an API function."""
+
+    name: str
+    data_type: str
+    required: bool
+    description: str = ""
+
+
+@dataclass
+class APIReturnSpec:
+    """Return specification for an API function."""
+
+    data_type: str
+    controlled_output: bool
+    description: str = ""
+
+
+@dataclass
 class APIFunction:
     """API function specification.
 
     Attributes:
         name: Function name
         description: Function description
-        parameters: Function parameters
-        return_type: Return type
+        parameters: Legacy function parameters
+        return_type: Legacy return type
     """
 
     name: str
     description: str
     parameters: list[dict[str, str]] = field(default_factory=list)
     return_type: str = "text"
+
+    function_id: str = ""
+    url: str = ""
+    parameter_specs: list[APIParameterSpec] = field(default_factory=list)
+    controlled_input: bool = False
+    return_spec: APIReturnSpec | None = None
+    source_span_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -77,6 +105,60 @@ class APISpec:
     auth: str
     description: str
     functions: list[APIFunction] = field(default_factory=list)
+
+    api_id: str = ""
+    retry_count: int | None = None
+    log_exceptions: list[str] = field(default_factory=list)
+    openapi_schema: StructuredTextIR = field(
+        default_factory=lambda: StructuredTextIR("empty_placeholder", "{}")
+    )
+
+    source_span_ids: list[str] = field(default_factory=list)
+    source_annotation_ids: list[str] = field(default_factory=list)
+    declaration_demand_ids: list[str] = field(default_factory=list)
+    used_by_worker_ids: list[str] = field(default_factory=list)
+    origin: Literal[
+        "source_backed",
+        "adapter_hard_fact",
+        "configured_resource",
+        "user_confirmed_repair",
+    ] = "source_backed"
+
+    declaration_status: Literal[
+        "grammar_minimal_partial",
+        "partial_blocked",
+        "complete",
+    ] = "partial_blocked"
+    name_status: Literal[
+        "explicit_source_name",
+        "normalized_explicit_name",
+        "inferred_from_source",
+        "user_confirmed",
+    ] = "explicit_source_name"
+    auth_status: Literal[
+        "source_backed",
+        "configured",
+        "compiler_default_none",
+        "unresolved",
+    ] = "compiler_default_none"
+    auth_evidence_authority: str | None = None
+    auth_source_span_ids: list[str] = field(default_factory=list)
+    schema_status: Literal[
+        "known_present",
+        "known_empty",
+        "unknown_placeholder",
+    ] = "unknown_placeholder"
+    functions_status: Literal[
+        "known_present",
+        "known_empty",
+        "unknown_placeholder",
+    ] = "unknown_placeholder"
+    partial_reasons: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Initialize default api_id if empty."""
+        if not self.api_id and self.api_name:
+            self.api_id = f"api:{self.api_name}"
 
 
 @dataclass
@@ -136,7 +218,7 @@ class WorkerScopedResourceIR:
 
     global_resources: ResourceRegistryIR = field(default_factory=ResourceRegistryIR)
     worker_resources: dict[str, ResourceRegistryIR] = field(default_factory=dict)
-    handoff_contracts: dict[str, "HandoffContractIR"] = field(default_factory=dict)
+    handoff_contracts: dict[str, HandoffContractIR] = field(default_factory=dict)
     resource_contract_bindings: list[Any] = field(default_factory=list)
 
     def get_all_variables(self) -> list[VariableSpec]:

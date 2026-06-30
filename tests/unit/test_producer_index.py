@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from nl2spl.compiler.producer_index import ProducerIndex, ProducerRef, _step_is_renderable
+from nl2spl.ir.resource_registry_ir import APISpec, ResourceRegistryIR
+from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import (
     InputBindingIR,
@@ -436,12 +438,28 @@ class TestCallApiProducers:
         index = ProducerIndex(steps=steps, declared_apis={"SearchAPI"})
         assert not index.is_produced("r")
 
-    def test_extra_api_names(self) -> None:
+    def test_extra_api_names_do_not_authorize_direct_call_api(self) -> None:
         steps = [
             StepIR("st_api", "Call", ["s1"], "CALL_API",
                    integration_ref="ExtraAPI", outputs=["d"])
         ]
         index = ProducerIndex(steps=steps, extra_api_names={"ExtraAPI"})
+        assert not index.is_produced("d")
+
+    def test_handoff_api_ref_authorizes_matching_handoff_call_api(self) -> None:
+        handoff = _api_call_handoff("h_extra", api_ref="ExtraAPI")
+        steps = [
+            StepIR(
+                "st_api",
+                "Call",
+                [],
+                "CALL_API",
+                integration_ref="ExtraAPI",
+                outputs=["d"],
+                handoff_id="h_extra",
+            )
+        ]
+        index = ProducerIndex(steps=steps, handoffs=[handoff])
         assert index.is_produced("d")
 
     def test_call_api_no_double_record(self) -> None:
@@ -454,6 +472,28 @@ class TestCallApiProducers:
         refs = index.get_producers("r")
         assert len(refs) == 1
         assert refs[0].producer_kind == "api"
+
+    def test_raw_resource_registry_api_without_gate_view_not_producer(self) -> None:
+        raw_resources = ResourceRegistryIR(
+            apis=[APISpec("SearchAPI", "none", "Search API")]
+        )
+        gate_view = ResourceDeclarationGate().apply(raw_resources, [])
+        steps = [
+            StepIR(
+                "st_api",
+                "Call",
+                ["s_api"],
+                "CALL_API",
+                integration_ref="SearchAPI",
+                outputs=["results"],
+            )
+        ]
+
+        index = ProducerIndex(steps=steps, declared_apis=gate_view.api_names)
+
+        assert raw_resources.get_api_names() == {"SearchAPI"}
+        assert gate_view.api_names == set()
+        assert not index.is_produced("results")
 
 
 # ---------------------------------------------------------------------------

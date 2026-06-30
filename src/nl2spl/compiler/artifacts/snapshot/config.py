@@ -39,6 +39,9 @@ class SnapshotPersistenceConfig:
     include_stage_debug_payloads: bool = False
     serialization_format: str = "json"
     required_capabilities: tuple[SnapshotCapability, ...] = ()
+    precompute_issue_explanations: bool = True
+    issue_explanation_language: str = "zh-CN"
+    issue_explanation_max_workers: int = 4
 
     @classmethod
     def disabled(cls) -> SnapshotPersistenceConfig:

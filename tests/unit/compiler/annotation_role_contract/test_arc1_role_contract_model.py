@@ -140,13 +140,13 @@ class TestExactContractValues:
     def test_api_candidate(self, registry):
         _assert_contract(registry, "api_candidate",
             field="integrations", route_family="integration_candidate",
-            construct_target="API_CALL", slot_target="target",
+            construct_target="API_DECLARATION", slot_target="source_evidence",
             executable=False)
 
     def test_integration_hint(self, registry):
         _assert_contract(registry, "integration_hint",
             field="integrations", route_family="integration_candidate",
-            construct_target="API_CALL", slot_target="target",
+            construct_target="API_DECLARATION", slot_target="source_evidence",
             executable=False)
 
     # -- contract count ----------------------------------------------------
@@ -629,7 +629,8 @@ class TestAllowedSchemaDerived:
         ct = ROLE_CONTRACT_REGISTRY.allowed_construct_targets()
         assert "EXCEPTION_FLOW" in ct
         assert "WORKER_HANDOFF" in ct
-        assert "API_CALL" in ct
+        assert "API_DECLARATION" in ct
+        assert "CALL_API" in ct
         assert "RESOURCE_CONTRACT" in ct
         assert "CONSTRAINT" in ct
         # None is NOT in the allowed set — it's a contract value, not a schema literal
@@ -646,6 +647,8 @@ class TestAllowedSchemaDerived:
         assert "input" in st
         assert "output" in st
         assert "target" in st
+        assert "source_evidence" in st
+        assert "call_action" in st
         assert "boundary" in st
         assert "prohibition" in st
 

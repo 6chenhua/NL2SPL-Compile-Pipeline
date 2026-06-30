@@ -9,6 +9,7 @@ from nl2spl.compiler.spl_editing.strategy.errors import (
 )
 from nl2spl.compiler.spl_editing.strategy.model import (
     RepairDirective,
+    RepairStrategyOptionSpec,
     RepairStrategySpec,
 )
 from nl2spl.compiler.spl_editing.strategy.registry import (
@@ -18,6 +19,7 @@ from nl2spl.compiler.spl_editing.strategy.registry import (
 __all__ = [
     "RepairStrategySpec",
     "RepairDirective",
+    "RepairStrategyOptionSpec",
     "RepairStrategyRegistry",
     "StrategyRegistryError",
     "DuplicateStrategyError",

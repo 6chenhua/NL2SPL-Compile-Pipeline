@@ -12,6 +12,7 @@ from nl2spl.compiler.spl_editing.core.model import (
     EditableIssue,
     RepairContext,
     RepairTarget,
+    UserFacingIssue,
 )
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
 from nl2spl.compiler.spl_editing.presentation.contract.categories import (
@@ -23,6 +24,8 @@ from nl2spl.compiler.spl_editing.presentation.contract.quality import (
 from nl2spl.compiler.spl_editing.presentation.resolvers.source_excerpt import (
     source_excerpt_for_issue,
 )
+from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectView
+from nl2spl.compiler.spl_editing.presentation.resolvers.issue_subject import issue_subject_for
 
 _PROMOTION_SLOT_LABELS = {
     "promotion_input_contract": "input contract",
@@ -41,10 +44,11 @@ class DisplayContext:
     source_excerpt: str | None = None
     quality: PresentationQuality = PresentationQuality.COMPLETE
     degradation_reason: str | None = None
+    subject: IssueSubjectView | None = None
 
 
 def build_display_context(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     snapshot: ArtifactSnapshot,
     *,
     target: RepairTarget | None = None,
@@ -76,11 +80,19 @@ def build_display_context(
 
     if category == IssueCategory.WORKER_DELEGATION:
         missing_items = _worker_delegation_missing_items(issue, related_diagnostics)
+        subject = issue_subject_for(
+            issue,
+            snapshot,
+            target=target,
+            context=context,
+            related_diagnostics=related_diagnostics,
+        )
         return DisplayContext(
             category=category,
             missing_items=missing_items,
             source_excerpt=source,
             quality=PresentationQuality.COMPLETE,
+            subject=subject,
         )
 
     return DisplayContext(
@@ -91,7 +103,12 @@ def build_display_context(
     )
 
 
-def category_for_issue(issue: EditableIssue) -> IssueCategory:
+def category_for_issue(issue: EditableIssue | UserFacingIssue) -> IssueCategory:
+    if (
+        issue.kind == "deferred_api_contract_validation"
+        or getattr(issue, "presentation_disposition", None) == "deferred_validation"
+    ):
+        return IssueCategory.API_CONTRACT_REVIEW
     if issue.kind == "missing_handler" and issue.irs_ref.construct_type == "EXCEPTION_FLOW":
         return IssueCategory.EXCEPTION_HANDLING
     if (
@@ -110,7 +127,7 @@ def category_for_issue(issue: EditableIssue) -> IssueCategory:
 
 
 def _exception_condition(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     snapshot: ArtifactSnapshot,
     target: RepairTarget | None,
     context: RepairContext | None,
@@ -142,7 +159,7 @@ def _exception_condition(
 
 
 def _required_output_name(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     target: RepairTarget | None,
     context: RepairContext | None,
 ) -> str | None:
@@ -159,7 +176,7 @@ def _required_output_name(
 
 
 def _worker_delegation_missing_items(
-    issue: EditableIssue,
+    issue: EditableIssue | UserFacingIssue,
     related_diagnostics: tuple[object, ...],
 ) -> tuple[str, ...]:
     labels: list[str] = []

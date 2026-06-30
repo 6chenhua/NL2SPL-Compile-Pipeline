@@ -1,10 +1,10 @@
 {
   "stage": "stage3_ambiguity_resolver",
-  "timestamp": "2026-06-14T03:46:37.998388",
+  "timestamp": "2026-07-01T02:40:06.102485",
   "metadata": {},
   "result": {
     "original_spans_count": 30,
-    "resolved_spans_count": 31,
+    "resolved_spans_count": 59,
     "resolved_spans": [
       {
         "span_id": "s1",
@@ -326,6 +326,258 @@
         "source_packet_id": "p_list_item_provenance_failure"
       },
       {
+        "span_id": "s1",
+        "text": "Internal newsletters",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s2",
+        "text": "announcements",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s3",
+        "text": "update digests",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s4",
+        "text": "executive briefs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s5",
+        "text": "related\ninternal-comms artifacts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s6",
+        "text": "A user request",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s7",
+        "text": "optional known topics",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s8",
+        "text": "optional timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s9",
+        "text": "available connectors or\nsource repositories",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s10",
+        "text": "optional format preferences",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s11",
+        "text": "A draft communication artifact",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s12",
+        "text": "a source/evidence set",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s13",
+        "text": "a short assumptions log for any\nunresolved items",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s14",
+        "text": "a completion status",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s15",
+        "text": "First determine what kind of communication is requested. Then identify which required\nfields are still missing. Ask only the highest-value clarifying questions needed to move\nforward. If sources are needed and available",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s16",
+        "text": "retrieve them using approved source\nrecipes. Maintain provenance for externally sourced facts. When enough required\ninformation is available",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s17",
+        "text": "produce a draft. If the user asks for revision",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s19",
+        "text": "Do not invent links or unseen facts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s20",
+        "text": "Require evidence for sourced claims",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s21",
+        "text": "Limit questions\nper turn",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s22",
+        "text": "Prefer tool evidence over unnecessary user questioning",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s23",
+        "text": "Deny finalization if\ncritical slots are missing or provenance fails",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s24",
+        "text": "Missing timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s25",
+        "text": "conflicting instructions",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s26",
+        "text": "insufficient source access",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s27",
+        "text": "evidence\nshortage",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s28",
+        "text": "user refusal to answer",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s29",
+        "text": "provenance failure",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
         "span_id": "s30a",
         "text": "Optional delegated subtasks such as source gathering or template matching may be used",
         "ambiguity": {
@@ -352,7 +604,7 @@
       "identity": [],
       "audience": [],
       "rules": [
-        "s18",
+        "s18a",
         "s19",
         "s20",
         "s21",

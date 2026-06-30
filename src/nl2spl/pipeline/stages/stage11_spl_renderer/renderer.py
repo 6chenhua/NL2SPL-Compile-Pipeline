@@ -156,11 +156,10 @@ class SPLRenderer(
         if resources.apis:
             parts.append("[DEFINE_APIS:]")
             for api in resources.apis:
-                auth = api.auth or "none"
                 parts.append(
-                    f'    "{self._quote_text(api.description)}" {api.api_name} <{auth}>'
+                    f'    "{self._quote_text(api.description)}" {api.api_name} <{api.auth}>'
                 )
-                parts.append("    {}")
+                parts.append(f"    {api.openapi_schema.canonical_text}")
                 functions = [
                     {
                         "name": function.name,

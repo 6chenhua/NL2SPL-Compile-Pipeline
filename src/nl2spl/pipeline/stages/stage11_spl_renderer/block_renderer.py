@@ -124,7 +124,11 @@ class BlockRendererMixin:
             return f"{command_index} [COMMAND {text}{self._result_clause('RESULT', step.outputs)}]"
 
         if step.command_type == "CALL_API":
-            api_name = step.integration_ref or "Api"
+            if not step.integration_ref:
+                raise ValueError(
+                    f"CALL_API step {step.step_id} has no integration_ref"
+                )
+            api_name = step.integration_ref
             return (
                 f"{command_index} [CALL {api_name}"
                 f"{self._with_clause(step.inputs)}"

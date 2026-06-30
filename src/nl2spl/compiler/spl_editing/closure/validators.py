@@ -58,7 +58,7 @@ def validate_closure_plan(
             f"Closure plan strategy_id '{plan.strategy_id}' does not match "
             f"strategy '{strategy.strategy_id}'."
         )
-    if plan.stage_slice_chain != strategy.stage_slice_chain:
+    if not set(plan.stage_slice_chain).issubset(set(strategy.stage_slice_chain)):
         raise ClosurePlanError(
             "Closure plan stage_slice_chain does not match the strategy "
             "stage_slice_chain."
@@ -93,7 +93,7 @@ def validate_closure_plan(
             f"diagnostic '{target_slot.missing_diagnostic}'."
         )
 
-    canonical_nodes = get_default_nodes_for_strategy(strategy.strategy_id)
+    canonical_nodes = get_default_nodes_for_strategy(strategy.strategy_id, plan.option_id)
     if not canonical_nodes:
         raise ClosurePlanError(
             f"No closure node template is registered for strategy '{strategy.strategy_id}'."
@@ -122,13 +122,17 @@ def validate_closure_plan(
                     f"Illegal construct type '{node.construct_type}' "
                     "for materialize_producer strategy."
                 )
-        elif strategy.strategy_id == "worker_delegation.complete_closure.v1":
+        elif strategy.strategy_id in {
+            "worker_delegation.complete_closure.v1",
+            "worker_delegation.complete_closure.v2",
+        }:
             if node.construct_type not in {
                 "WORKER_HANDOFF",
                 "INVOKE_WORKER",
                 "CHILD_WORKER",
                 "BLOCK",
                 "COMMAND",
+                "FLOW",
             }:
                 raise ClosurePlanError(
                     f"Illegal construct type '{node.construct_type}' "

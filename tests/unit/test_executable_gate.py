@@ -710,15 +710,16 @@ class TestCommandTypeGuards:
         assert ok is False
         assert "integration_ref" in (reason or "").lower()
 
-    def test_source_backed_call_api_with_integration_ref_is_renderable(self) -> None:
-        """CALL_API with integration_ref + source spans -> renderable."""
+    def test_source_backed_call_api_with_integration_ref_requires_binding(self) -> None:
+        """CALL_API with integration_ref still needs declared API binding metadata."""
         gate = ExecutableElementGate()
         step = StepIR(
             "st1", "Call search API", ["s1"], "CALL_API",
             integration_ref="SearchAPI",
         )
         ok, reason = gate.is_renderable(step, "source_backed", {}, set(), {})
-        assert ok is True
+        assert ok is False
+        assert "declared API binding metadata" in (reason or "")
 
     def test_source_backed_request_input_is_renderable(self) -> None:
         """REQUEST_INPUT with source_span_ids -> renderable (source says ask user)."""
@@ -796,7 +797,11 @@ class TestGateApplyWithGuards:
             ],
         )
         filtered, infos, diags = gate.apply(worker)
-        assert len(filtered.steps) == 1
+        assert len(filtered.steps) == 0
+        assert infos[0].renderable is False
+        assert "declared API binding metadata" in (
+            infos[0].render_block_reason or ""
+        )
         assert len(diags) == 0
 
     def test_source_backed_request_input_passes(self) -> None:
@@ -981,7 +986,7 @@ class TestGateUserConfirmedRepair:
         )
         assert result is False
 
-    def test_ucr_call_api_with_integration_ref_renderable(self) -> None:
+    def test_ucr_call_api_with_integration_ref_requires_binding(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR("st_api", "Call API", [], "CALL_API",
                       integration_ref="SomeAPI",
@@ -990,7 +995,7 @@ class TestGateUserConfirmedRepair:
         result, _block_reason = gate.is_renderable(
             step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
         )
-        assert result is True
+        assert result is False
 
     def test_ucr_invoke_worker_without_handoff_blocked(self) -> None:
         gate = ExecutableElementGate()

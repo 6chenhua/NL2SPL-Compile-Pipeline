@@ -122,6 +122,10 @@ def normalize_annotation_from_role(
     # Requiredness passes through untouched
     if metadata:
         ann.metadata.update(metadata)
+    if _is_explicit_api_action_override(contract.semantic_role, ann.metadata):
+        ann.construct_target = "CALL_API"
+        ann.slot_target = "call_action"
+        ann.executable = True
     # Store raw values in metadata for downstream diagnostic projection
     ann.metadata.setdefault("_raw_", {})
     if raw_field is not None and raw_field != contract.field:
@@ -143,4 +147,15 @@ def normalize_annotation_from_role(
         raw_construct_target=raw_construct_target,
         raw_slot_target=raw_slot_target,
         raw_executable=raw_executable,
+    )
+
+
+def _is_explicit_api_action_override(
+    semantic_role: str,
+    metadata: Mapping[str, Any],
+) -> bool:
+    return (
+        semantic_role == "process_step"
+        and metadata.get("api_action") is True
+        and metadata.get("api_group_id") not in (None, "")
     )

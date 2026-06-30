@@ -17,8 +17,8 @@ def registry() -> SerializerRegistry:
 
 
 class TestRegistrySize:
-    def test_55_serializers_registered(self, registry: SerializerRegistry) -> None:
-        assert len(registry) == 55
+    def test_62_serializers_registered(self, registry: SerializerRegistry) -> None:
+        assert len(registry) == 62
 
     def test_all_type_ids_are_unique(self, registry: SerializerRegistry) -> None:
         ids = list(registry.registered_type_ids)

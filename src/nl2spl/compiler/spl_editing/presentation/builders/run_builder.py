@@ -21,6 +21,10 @@ def build_run_presentation(
     snapshot_path: Path | None = None,
     run_label: str | None = None,
     editable: bool = True,
+    editable_issue_count: int = 0,
+    review_issue_count: int = 0,
+    deferred_validation_count: int = 0,
+    developer_issue_count: int = 0,
 ) -> RunPresentationView:
     count = sum(item.count for item in issue_summary)
     return RunPresentationView(
@@ -31,6 +35,10 @@ def build_run_presentation(
         snapshot_status="available",
         editable=editable,
         issue_count=count,
+        editable_issue_count=editable_issue_count,
+        review_issue_count=review_issue_count,
+        deferred_validation_count=deferred_validation_count,
+        developer_issue_count=developer_issue_count,
         issue_summary=issue_summary,
         advanced=RunAdvancedDetails(
             snapshot_path=str(snapshot_path) if snapshot_path is not None else None,

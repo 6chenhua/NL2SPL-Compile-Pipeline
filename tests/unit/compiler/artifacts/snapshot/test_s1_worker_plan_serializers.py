@@ -319,3 +319,34 @@ class TestConstructPlanRoundTrip:
         assert restored.exception_flow_demands()[0].condition_text == (
             "when external sources fail"
         )
+
+    def test_api_call_argument_bindings_roundtrip(self) -> None:
+        reg = build_default_registry()
+        from nl2spl.compiler.construct_plan.model import (
+            APICallArgumentBindingIR,
+            ConstructPlan,
+        )
+
+        cp = ConstructPlan(
+            plan_id="cp_api",
+            api_call_argument_bindings=[
+                APICallArgumentBindingIR(
+                    call_demand_id="api_call_search",
+                    input_bindings={"query": "needed_sources"},
+                    output_bindings={"response": "source_evidence_set"},
+                    binding_status="fully_bound",
+                    source_span_ids=("s2",),
+                )
+            ],
+        )
+
+        data, restored = _rt(reg, cp)
+
+        canonical_json_dumps(data)
+        assert data["api_call_argument_bindings"][0]["call_demand_id"] == (
+            "api_call_search"
+        )
+        binding = restored.api_call_argument_bindings[0]
+        assert binding.input_bindings == {"query": "needed_sources"}
+        assert binding.output_bindings == {"response": "source_evidence_set"}
+        assert binding.binding_status == "fully_bound"

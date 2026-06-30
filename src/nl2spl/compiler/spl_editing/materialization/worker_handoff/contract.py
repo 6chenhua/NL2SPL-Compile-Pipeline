@@ -16,6 +16,7 @@ from nl2spl.compiler.spl_editing.materialization.model import (
     MaterializationInput,
     MaterializationResult,
 )
+from nl2spl.compiler.spl_editing.resolution.model import PromotionResolutionMarker
 
 _MATERIALIZER_ID = "worker_handoff.contract_repair.v1"
 _STAGE_AUTHORITY = "stage3_5.worker_boundary + stage7.worker_step_plan"
@@ -204,7 +205,30 @@ class WorkerHandoffContractMaterializer:
         }
         if worker_plan is not None:
             derive_kwargs["worker_plan"] = worker_plan
-        patched_snapshot: ArtifactSnapshot = snapshot.derive(next_token, **derive_kwargs)
+        resolution_kind = (
+            "kept_in_main_flow"
+            if input_data.intent.patch_type == "ConvertDelegationIntentToMainFlowStep"
+            else "defined_child_worker"
+        )
+        marker = PromotionResolutionMarker(
+            marker_id=f"promotion_resolution:{input_data.intent.intent_id}",
+            target_worker_promotion_id=input_data.intent.target_ref_id,
+            resolved_diagnostic_group_id=(
+                f"worker_promotion_group:{input_data.intent.target_ref_id}"
+            ),
+            resolution_kind=resolution_kind,
+            normalized_directive_id=f"dir_{input_data.intent.intent_id}",
+            materialized_construct_refs=changed_refs,
+            evidence_ref=input_data.evidence_packet.evidence_packet_id,
+        )
+        patched_snapshot: ArtifactSnapshot = snapshot.derive(
+            next_token,
+            **derive_kwargs,
+            promotion_resolution_markers=(
+                *snapshot.promotion_resolution_markers,
+                marker,
+            ),
+        )
         overlay_event = OverlayEvent(
             overlay_id=f"ov_{snapshot.snapshot_id}_{next_token.overlay_version}",
             base_compile_run_id=snapshot.compile_run_id,
@@ -216,6 +240,9 @@ class WorkerHandoffContractMaterializer:
             accepted=True,
         )
         stage7_step_metadata = {
+            "origin": "user_confirmed_repair",
+            "repair_patch_id": input_data.evidence_packet.repair_patch_id,
+            "related_diagnostic_id": input_data.evidence_packet.related_diagnostic_id,
             "user_text": input_data.evidence_packet.user_text,
             "resolution_kind": "stage_slice_delegation_resolution",
         }
@@ -242,4 +269,5 @@ class WorkerHandoffContractMaterializer:
             evidence_packet_id=input_data.evidence_packet.evidence_packet_id,
             dependency_validation_metadata={"stage7_step_metadata": stage7_step_metadata},
             stage_slice_results=stage_slice_results,
+            resolution_markers=(marker,),
         )

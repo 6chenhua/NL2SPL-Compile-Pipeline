@@ -1,6 +1,6 @@
 {
   "stage": "stage3_2_demand_view",
-  "timestamp": "2026-06-15T01:44:24.837153",
+  "timestamp": "2026-07-01T02:50:11.126809",
   "metadata": {},
   "result": {
     "demands": [
@@ -20,7 +20,8 @@
           "s10"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_input_s6",
@@ -38,7 +39,8 @@
           "s6"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_input_s7",
@@ -56,7 +58,8 @@
           "s7"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_input_s8",
@@ -74,7 +77,8 @@
           "s8"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_input_s9",
@@ -92,7 +96,8 @@
           "s9"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_output_s11",
@@ -110,7 +115,8 @@
           "s11"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_output_s12",
@@ -128,7 +134,8 @@
           "s12"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_output_s13",
@@ -146,7 +153,8 @@
           "s13"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       },
       {
         "demand_id": "rcd_output_s14",
@@ -164,7 +172,8 @@
           "s14"
         ],
         "evidence_source": "stage2_annotation",
-        "view_status": "valid"
+        "view_status": "valid",
+        "resource_ref": null
       }
     ],
     "view_diagnostics": [],

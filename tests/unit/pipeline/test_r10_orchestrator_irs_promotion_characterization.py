@@ -289,7 +289,7 @@ class TestEditableDiagnosticSnapshotContract:
 
         assert diag.metadata["repairability"] == "editable"
         assert diag.metadata["issue_group_id"] == (
-            "missing_handler_group:worker:w_main.exception_flow:exc_1"
+            "editable_group:worker:w_main.exception_flow:exc_1"
         )
         assert diag.metadata["issue_role"] == "primary"
         assert diag.metadata["primary_diagnostic_id"] == "diag_mh"

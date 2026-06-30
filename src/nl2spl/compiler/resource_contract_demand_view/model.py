@@ -91,6 +91,7 @@ class DemandViewDemand:
     route_annotation_ids: tuple[str, ...] = ()
     evidence_source: EvidenceSourceKind = "stage2_annotation"
     view_status: ViewStatusKind = "valid"
+    resource_ref: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
         """Return deterministic JSON-serializable payload."""
@@ -107,6 +108,7 @@ class DemandViewDemand:
             "route_annotation_ids": sorted(self.route_annotation_ids),
             "evidence_source": self.evidence_source,
             "view_status": self.view_status,
+            "resource_ref": self.resource_ref,
         }
 
 

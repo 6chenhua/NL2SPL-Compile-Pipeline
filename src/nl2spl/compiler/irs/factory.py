@@ -24,6 +24,7 @@ def build_irs_checker_registry(
     enable_exception_flow: bool = False,
     enable_step: bool = False,
     enable_post_normalize: bool = False,
+    enable_api_declaration: bool = False,
 ) -> IRSCheckerRegistry:
     """Build an IRS checker registry with optional checker registrations.
 
@@ -32,6 +33,7 @@ def build_irs_checker_registry(
         enable_exception_flow: If True, register Stage4ExceptionFlowIRSChecker
         enable_step: If True, register Stage7StepIRSChecker
         enable_post_normalize: If True, register post-normalize v6 checker
+        enable_api_declaration: If True, register APIDeclarationIRSChecker
 
     Returns:
         IRSCheckerRegistry with requested checkers registered
@@ -66,6 +68,13 @@ def build_irs_checker_registry(
 
         registry.register(PostNormalizeIRSCheckerV6())
 
+    if enable_api_declaration:
+        from nl2spl.compiler.irs.checkers.api_declaration import (
+            APIDeclarationIRSChecker,
+        )
+
+        registry.register(APIDeclarationIRSChecker())
+
     return registry
 
 
@@ -75,6 +84,7 @@ def build_irs_runner(
     enable_exception_flow: bool = False,
     enable_step: bool = False,
     enable_post_normalize: bool = False,
+    enable_api_declaration: bool = False,
     construct_registry: SPLConstructRegistry | None = None,
 ) -> IRSRunner:
     """Build an IRS runner with appropriate checker registrations.
@@ -84,6 +94,7 @@ def build_irs_runner(
         enable_exception_flow: If True, register Stage4ExceptionFlowIRSChecker
         enable_step: If True, register Stage7StepIRSChecker
         enable_post_normalize: If True, register PostNormalizeIRSCheckerV6
+        enable_api_declaration: If True, register APIDeclarationIRSChecker
         construct_registry: Optional construct registry to use.  When None,
             uses SPLConstructRegistry.default().
 
@@ -95,6 +106,7 @@ def build_irs_runner(
         enable_exception_flow=enable_exception_flow,
         enable_step=enable_step,
         enable_post_normalize=enable_post_normalize,
+        enable_api_declaration=enable_api_declaration,
     )
     if construct_registry is None:
         construct_registry = SPLConstructRegistry.default()
@@ -124,5 +136,6 @@ def build_irs_subsystem(config: IRSRuntimeConfig) -> IRSSubsystem:
         enable_exception_flow=config.exception_flow_enabled,
         enable_step=config.step_enabled,
         enable_post_normalize=config.post_normalize_enabled,
+        enable_api_declaration=getattr(config, "api_declaration_enabled", False),
     )
     return IRSSubsystem(config=config, runner=runner)

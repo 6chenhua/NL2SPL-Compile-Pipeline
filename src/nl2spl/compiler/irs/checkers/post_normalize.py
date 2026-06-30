@@ -299,7 +299,7 @@ class PostNormalizeIRSCheckerV6:
         worker = self._worker_from_context(context)
         all_steps = self._all_steps(worker)
         resources = self._merged_resources(context)
-        declared_apis = {api.api_name for api in resources.apis}
+        declared_apis = self._declared_api_names(context, resources)
         extra_api_names = self._collect_extra_api_names(worker_plan)
         api_handoff_refs = self._build_api_handoff_refs(worker_plan)
         child_ids = self._child_worker_ids(worker_plan)
@@ -492,7 +492,7 @@ class PostNormalizeIRSCheckerV6:
             index = ProducerIndex(
                 steps=self._all_steps(worker),
                 handoffs=worker_plan.handoffs if worker_plan else None,
-                declared_apis={api.api_name for api in resources.apis},
+                declared_apis=self._declared_api_names(context, resources),
                 extra_api_names=self._collect_extra_api_names(worker_plan),
                 api_handoff_refs=self._build_api_handoff_refs(worker_plan),
                 known_child_worker_ids=self._child_worker_ids(worker_plan),
@@ -531,7 +531,7 @@ class PostNormalizeIRSCheckerV6:
             index = ProducerIndex(
                 steps=self._all_steps(worker),
                 handoffs=worker_plan.handoffs if worker_plan else None,
-                declared_apis={api.api_name for api in resources.apis},
+                declared_apis=self._declared_api_names(context, resources),
                 extra_api_names=self._collect_extra_api_names(worker_plan),
                 api_handoff_refs=self._build_api_handoff_refs(worker_plan),
                 known_child_worker_ids=self._child_worker_ids(worker_plan),
@@ -618,7 +618,7 @@ class PostNormalizeIRSCheckerV6:
         step: StepIR = instance.metadata["step"]
         worker_plan = context.worker_plan
         resources = self._merged_resources(context)
-        declared_apis = {api.api_name for api in resources.apis}
+        declared_apis = self._declared_api_names(context, resources)
         extra_api_names = self._collect_extra_api_names(worker_plan)
         api_handoff_refs = self._build_api_handoff_refs(worker_plan)
         # None → no handoff index available (compat mode).
@@ -1207,19 +1207,39 @@ class PostNormalizeIRSCheckerV6:
     def _merged_resources(context: IRSCheckContext) -> ResourceRegistryIR:
         resources = context.resources
         worker_scoped = context.metadata.get("worker_scoped_resources")
+        renderable_resources = context.metadata.get("renderable_resource_registry_view")
         if resources is None:
             return ResourceRegistryIR()
         if not isinstance(worker_scoped, WorkerScopedResourceIR):
             return resources
+        apis = (
+            list(renderable_resources.apis)
+            if renderable_resources is not None and hasattr(renderable_resources, "apis")
+            else worker_scoped.get_all_apis()
+        )
         return ResourceRegistryIR(
             variables=worker_scoped.get_all_variables(),
-            apis=worker_scoped.get_all_apis(),
+            apis=apis,
             files=resources.files + [
                 f for wr in worker_scoped.worker_resources.values()
                 for f in wr.files
             ],
             types=resources.types,
         )
+
+    @staticmethod
+    def _declared_api_names(
+        context: IRSCheckContext,
+        resources: ResourceRegistryIR,
+    ) -> set[str]:
+        renderable_resources = context.metadata.get(
+            "renderable_resource_registry_view"
+        )
+        if renderable_resources is not None and hasattr(renderable_resources, "api_names"):
+            return set(renderable_resources.api_names)
+        if hasattr(resources, "api_reports") and hasattr(resources, "api_names"):
+            return set(resources.api_names)
+        return set()
 
     @staticmethod
     def _required_output_construct_id(
@@ -1290,8 +1310,6 @@ class PostNormalizeIRSCheckerV6:
         if step.handoff_id is not None and step.handoff_id in api_handoff_refs:
             return step.integration_ref == api_handoff_refs[step.handoff_id]
         if step.integration_ref in declared_apis:
-            return True
-        if step.integration_ref in extra_api_names:
             return True
         return False
 

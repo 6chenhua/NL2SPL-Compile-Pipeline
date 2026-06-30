@@ -11,6 +11,8 @@ compile run directory and is never used as the snapshot source.
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import subprocess
 import sys
@@ -50,7 +52,15 @@ if str(SRC_ROOT) not in sys.path:
 SNAPSHOT_FILENAME = "spl_editing_snapshot.json"
 
 
-def main() -> None:
+class _ListOnlySuggestionLLM:
+    """Placeholder suggestion backend for non-interactive issue-list rendering."""
+
+    def generate(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        raise RuntimeError("Suggestion generation is unavailable in --list-only mode.")
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
     from nl2spl.compiler.spl_editing.cli import (
         _build_default_service,
         build_suggestion_llm_from_env,
@@ -59,15 +69,14 @@ def main() -> None:
         SPLEditingPresentationService,
     )
 
-    snapshot_path = _choose_snapshot_path()
+    snapshot_path = _choose_snapshot_path(run_name=args.run)
     if snapshot_path is None:
         print("No spl_editing_snapshot.json found.")
         print("Run examples/usage.py first, or copy a snapshot JSON here.")
         return
 
-    service = _build_default_service(
-        suggestion_llm=build_suggestion_llm_from_env(),
-    )
+    llm = _ListOnlySuggestionLLM() if args.list_only else build_suggestion_llm_from_env()
+    service = _build_default_service(suggestion_llm=llm)
     run_id = service.register_snapshot_file(snapshot_path)
     presentation = SPLEditingPresentationService(service)
 
@@ -80,16 +89,36 @@ def main() -> None:
 
     _print_run_summary(run_view)
     selectable = _print_issue_list(issue_list)
+    if args.list_only:
+        return
     if not selectable:
         print("No editable issues found in this snapshot.")
         return
+
+    from nl2spl.compiler.spl_editing.presentation.explanation_cache import (
+        read_cached_issue_explanation,
+        schedule_issue_explanations,
+    )
+
+    explanation_future = schedule_issue_explanations(
+        snapshot_path,
+        llm,
+        language=os.getenv("SPL_EDITING_EXPLANATION_LANGUAGE", "zh-CN"),
+    )
 
     card = _choose_issue(selectable)
     if card is None:
         return
 
     detail = presentation.get_issue_detail_presentation(run_id, card.issue_id)
-    _print_issue_detail(detail)
+    explanation = read_cached_issue_explanation(snapshot_path, card.issue_id)
+    if explanation is None:
+        try:
+            explanation_future.result()
+        except Exception as exc:
+            print(f"\nAI explanation precompute failed: {exc}")
+        explanation = read_cached_issue_explanation(snapshot_path, card.issue_id)
+    _print_issue_explanation(explanation, detail)
     if not card.can_fix:
         print("\nThis issue is not fixable in the current snapshot.")
         return
@@ -161,7 +190,29 @@ def main() -> None:
     _print_verification(verification_view, failures=result.failure_reasons)
 
 
-def _choose_snapshot_path() -> Path | None:
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Render the SPL Editing demo from a persisted snapshot JSON."
+    )
+    parser.add_argument(
+        "--run",
+        default=os.getenv("SPL_EDITING_DEMO_RUN"),
+        help="Compile run directory under examples/output to load, e.g. 'demo'.",
+    )
+    parser.add_argument(
+        "--list-only",
+        action="store_true",
+        default=os.getenv("SPL_EDITING_DEMO_LIST_ONLY") == "1",
+        help="Print run and issue presentation without entering Fix-with-AI flow.",
+    )
+    return parser.parse_args(argv)
+
+
+def _choose_snapshot_path(run_name: str | None = None) -> Path | None:
+    if run_name:
+        path = RUNS_ROOT / run_name / SNAPSHOT_FILENAME
+        return path if path.is_file() else None
+
     candidates = _snapshot_candidates()
     if not candidates:
         return None
@@ -202,7 +253,9 @@ def _print_run_summary(view) -> None:
     print(f"  Run: {view.run_label}")
     print(f"  Snapshot: {view.snapshot_id}")
     print(f"  Version: overlay {view.overlay_version}")
-    print(f"  Editable issues: {view.issue_count}")
+    print(f"  Editable issues: {view.editable_issue_count}")
+    print(f"  Review needed: {view.review_issue_count}")
+    print(f"  Deferred validation: {view.deferred_validation_count}")
     if view.issue_summary:
         print("\nIssue summary")
         for item in view.issue_summary:
@@ -211,7 +264,7 @@ def _print_run_summary(view) -> None:
 
 def _print_issue_list(view) -> list[object]:
     selectable: list[object] = []
-    print("\nEditable issues")
+    print("\nIssues")
     for section in view.sections:
         if not section.visible_by_default or not section.items:
             continue
@@ -227,7 +280,8 @@ def _print_issue_list(view) -> list[object]:
                 print(f"       Missing: {', '.join(card.missing_items)}")
             if card.suggested_resolution:
                 print(f"       Suggested resolution: {card.suggested_resolution}")
-            selectable.append(card)
+            if card.can_fix:
+                selectable.append(card)
     return selectable
 
 
@@ -267,6 +321,14 @@ def _print_issue_detail(detail) -> None:
         print(f"      {option.description}")
         if option.unavailable_reason:
             print(f"      Unavailable: {option.unavailable_reason}")
+
+
+def _print_issue_explanation(explanation, detail) -> None:
+    if explanation is None:
+        _print_issue_detail(detail)
+        return
+    print("\nAI issue explanation (cached in snapshot)")
+    print(json.dumps(explanation, ensure_ascii=False, indent=2))
 
 
 def _choose_fix_option(

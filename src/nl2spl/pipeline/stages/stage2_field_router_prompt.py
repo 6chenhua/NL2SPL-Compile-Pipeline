@@ -16,7 +16,7 @@ This module defines:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dataclass_field
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
@@ -124,6 +124,7 @@ class RefinedAnnotation:
     source_packet_id: str | None = None
     primary: bool = True
     reason: str | None = None
+    metadata: dict[str, Any] = dataclass_field(default_factory=dict)
 
 
 @dataclass
@@ -143,7 +144,7 @@ class SplitRecommendation:
 
     parent_span_id: str
     reason: str
-    segments: list[SplitSegment] = field(default_factory=list)
+    segments: list[SplitSegment] = dataclass_field(default_factory=list)
 
 
 @dataclass
@@ -168,10 +169,10 @@ class ParseDiagnostic:
 class RouteRefinementResult:
     """Top-level LLM output for adapter-guided FieldRoute refinement."""
 
-    annotations: list[RefinedAnnotation] = field(default_factory=list)
-    split_recommendations: list[SplitRecommendation] = field(default_factory=list)
-    diagnostics: list[RouteDiagnostic] = field(default_factory=list)
-    parse_diagnostics: list[ParseDiagnostic] = field(default_factory=list)
+    annotations: list[RefinedAnnotation] = dataclass_field(default_factory=list)
+    split_recommendations: list[SplitRecommendation] = dataclass_field(default_factory=list)
+    diagnostics: list[RouteDiagnostic] = dataclass_field(default_factory=list)
+    parse_diagnostics: list[ParseDiagnostic] = dataclass_field(default_factory=list)
 
 
 # ===========================================================================
@@ -419,6 +420,7 @@ def parse_refinement_result(data: dict[str, Any]) -> RouteRefinementResult:
             source_packet_id=raw.get("source_packet_id"),
             primary=raw.get("primary", True),
             reason=raw.get("reason"),
+            metadata=dict(raw.get("metadata") or {}),
         ))
 
     split_recs: list[SplitRecommendation] = []

@@ -10,6 +10,7 @@ _CATEGORY_LABELS = {
     IssueCategory.EXCEPTION_HANDLING: "Exception handling",
     IssueCategory.REQUIRED_OUTPUTS: "Required outputs",
     IssueCategory.WORKER_DELEGATION: "Worker delegation",
+    IssueCategory.API_CONTRACT_REVIEW: "API contract validation",
     IssueCategory.OTHER_EDITABLE: "Other editable issues",
     IssueCategory.REVIEW_ONLY: "Review needed",
     IssueCategory.DEVELOPER_DIAGNOSTIC: "Developer diagnostics",
@@ -24,6 +25,10 @@ _IMPACT = {
     ),
     IssueCategory.WORKER_DELEGATION: (
         "The compiler detected a possible delegated worker, but the handoff contract is incomplete."
+    ),
+    IssueCategory.API_CONTRACT_REVIEW: (
+        "The API declaration is structurally renderable, but the real API contract "
+        "must be validated downstream."
     ),
     IssueCategory.OTHER_EDITABLE: "This issue can be reviewed for repair.",
     IssueCategory.REVIEW_ONLY: "This item needs review but cannot be fixed here.",
@@ -42,6 +47,10 @@ _WHAT_DETECTED = {
     IssueCategory.WORKER_DELEGATION: (
         "The compiler found a possible delegated worker without enough handoff "
         "contract information."
+    ),
+    IssueCategory.API_CONTRACT_REVIEW: (
+        "The compiler rendered grammar-safe API placeholders because no authoritative "
+        "OpenAPI or functions contract was available."
     ),
     IssueCategory.OTHER_EDITABLE: "The compiler found an editable issue.",
     IssueCategory.REVIEW_ONLY: "The compiler found an item that needs review.",
@@ -63,6 +72,11 @@ _WHY_IT_MATTERS = {
         "Without a complete handoff contract, the compiler cannot safely decide "
         "what to pass to the child worker, when to invoke it, or how to bind "
         "the result back."
+    ),
+    IssueCategory.API_CONTRACT_REVIEW: (
+        "NL2SPL can preserve a renderable API declaration, but the downstream SPL "
+        "compiler or API validation layer remains the authority for semantic contract "
+        "correctness."
     ),
     IssueCategory.OTHER_EDITABLE: "Review the issue before applying a repair.",
     IssueCategory.REVIEW_ONLY: "This cannot be repaired through the current flow.",
@@ -108,6 +122,8 @@ def issue_title(
         )
     if category == IssueCategory.WORKER_DELEGATION:
         return "Worker delegation is underspecified"
+    if category == IssueCategory.API_CONTRACT_REVIEW:
+        return "API contract validation is deferred"
     if category == IssueCategory.REVIEW_ONLY:
         return "Review needed"
     if category == IssueCategory.DEVELOPER_DIAGNOSTIC:
