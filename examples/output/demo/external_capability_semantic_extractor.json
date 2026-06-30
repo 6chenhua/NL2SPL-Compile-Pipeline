@@ -1,0 +1,350 @@
+{
+  "stage": "external_capability_semantic_extractor",
+  "timestamp": "2026-07-01T02:50:11.125767",
+  "metadata": {},
+  "result": {
+    "status": "available",
+    "failure_reason": null,
+    "candidates": [
+      {
+        "candidate_id": "cap_candidate_3f04a149465375f4",
+        "source_span_ids": [
+          "s31"
+        ],
+        "operation_surface": "delegated subtasks such as source gathering or template matching may be used if bounded",
+        "operation_text": "delegated subtasks such as source gathering or template matching may be used if bounded",
+        "capability_surface": "delegated subtasks such as source gathering or template matching",
+        "capability_ref_candidate": null,
+        "boundary_claim": "candidate_external",
+        "identity_claim": "described_unnamed",
+        "invocation_claim": "policy_only",
+        "evidence": [
+          {
+            "evidence_id": "cap_sem_ev_521acd50f0d54b6b",
+            "source_span_id": "s31",
+            "claim": "boundary",
+            "surface_text": "delegated subtasks such as source gathering or template matching",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_941cc3626e7a99cc",
+            "source_span_id": "s31",
+            "claim": "operation",
+            "surface_text": "delegated subtasks such as source gathering or template matching may be used if bounded",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_9ce149e0d3aa5cea",
+            "source_span_id": "s31",
+            "claim": "identity",
+            "surface_text": "delegated subtasks such as source gathering or template matching",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_ff8f9028e2968f41",
+            "source_span_id": "s31",
+            "claim": "invocation",
+            "surface_text": "may be used if bounded",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          }
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+        "metadata": {
+          "normalizer_version": "CapabilitySurfaceNormalizerV1",
+          "operation_anchor_relation": "normalized"
+        }
+      },
+      {
+        "candidate_id": "cap_candidate_dc7d673c9bb2c9ce",
+        "source_span_ids": [
+          "s16"
+        ],
+        "operation_surface": "retrieve them using approved source recipes",
+        "operation_text": "retrieve them using approved source recipes",
+        "capability_surface": "approved source recipes",
+        "capability_ref_candidate": null,
+        "boundary_claim": "external",
+        "identity_claim": "described_unnamed",
+        "invocation_claim": "executable",
+        "evidence": [
+          {
+            "evidence_id": "cap_sem_ev_2ea6d07c2a3f1f2e",
+            "source_span_id": "s16",
+            "claim": "operation",
+            "surface_text": "retrieve them using approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_5aa56ac32357772f",
+            "source_span_id": "s16",
+            "claim": "invocation",
+            "surface_text": "retrieve them using approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_baebe278b9b3e647",
+            "source_span_id": "s16",
+            "claim": "identity",
+            "surface_text": "approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_cd803f308d158f96",
+            "source_span_id": "s16",
+            "claim": "boundary",
+            "surface_text": "approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "metadata": {
+              "validated_anchor_relation": "normalized"
+            }
+          }
+        ],
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+        "metadata": {
+          "normalizer_version": "CapabilitySurfaceNormalizerV1",
+          "operation_anchor_relation": "normalized"
+        }
+      }
+    ],
+    "dispositions": [
+      {
+        "source_span_id": "s1",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain_only"
+      },
+      {
+        "source_span_id": "s2",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain_only"
+      },
+      {
+        "source_span_id": "s3",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain_only"
+      },
+      {
+        "source_span_id": "s4",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain_only"
+      },
+      {
+        "source_span_id": "s5",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain_only"
+      },
+      {
+        "source_span_id": "s6",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract_only"
+      },
+      {
+        "source_span_id": "s7",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract_only"
+      },
+      {
+        "source_span_id": "s8",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract_only"
+      },
+      {
+        "source_span_id": "s9",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "mentions_resources_not_operation"
+      },
+      {
+        "source_span_id": "s10",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract_only"
+      },
+      {
+        "source_span_id": "s11",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract_only"
+      },
+      {
+        "source_span_id": "s12",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract_only"
+      },
+      {
+        "source_span_id": "s13",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract_only"
+      },
+      {
+        "source_span_id": "s14",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract_only"
+      },
+      {
+        "source_span_id": "s15",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_without_external_mechanism"
+      },
+      {
+        "source_span_id": "s16",
+        "status": "candidate_emitted",
+        "related_candidate_ids": [
+          "cap_candidate_dc7d673c9bb2c9ce"
+        ],
+        "reason_code": null
+      },
+      {
+        "source_span_id": "s17",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_without_external_mechanism"
+      },
+      {
+        "source_span_id": "s18",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_without_external_mechanism"
+      },
+      {
+        "source_span_id": "s19",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_without_external_mechanism"
+      },
+      {
+        "source_span_id": "s20",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s21",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s22",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s23",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s24",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s25",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s26",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s27",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s28",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s29",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s30",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s31",
+        "status": "candidate_emitted",
+        "related_candidate_ids": [
+          "cap_candidate_3f04a149465375f4"
+        ],
+        "reason_code": null
+      }
+    ],
+    "diagnostics": [],
+    "metadata": {
+      "coverage_policy": "all_resolved_spans",
+      "model_config_fingerprint": "122ca40284b3b01520ce108a94dc8b3e86ee956588ab89419d924d6d9d41fca0",
+      "prompt_version": "external-capability-semantic-extractor.v1",
+      "resolved_span_count": 31,
+      "schema_version": "ExternalCapabilityIntentCandidateIR.v1",
+      "stage_name": "external_capability_semantic_extractor"
+    }
+  }
+}

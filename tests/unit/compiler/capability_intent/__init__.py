@@ -1,0 +1,1 @@
+"""Capability intent contract tests."""
