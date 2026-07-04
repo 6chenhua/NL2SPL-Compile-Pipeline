@@ -21,6 +21,7 @@ from nl2spl.compiler.artifacts.snapshot.model.editing_history import (
     SnapshotAcceptedPatchDTO,
     SnapshotEditingHistory,
     SnapshotOverlayEventDTO,
+    SnapshotPromotionResolutionDTO,
     SnapshotVerificationRecordDTO,
     empty_editing_history,
 )
@@ -89,6 +90,7 @@ __all__ = [
     # ── editing_history ──
     "SnapshotEditingHistory",
     "SnapshotOverlayEventDTO",
+    "SnapshotPromotionResolutionDTO",
     "SnapshotAcceptedPatchDTO",
     "SnapshotVerificationRecordDTO",
     "empty_editing_history",

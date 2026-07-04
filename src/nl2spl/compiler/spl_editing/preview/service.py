@@ -1,4 +1,4 @@
-﻿"""Service for orchestrating SPL Editing preview dry-runs."""
+"""Service for orchestrating SPL Editing preview dry-runs."""
 
 from __future__ import annotations
 
@@ -33,6 +33,10 @@ from nl2spl.compiler.spl_editing.preview.model import (
 from nl2spl.compiler.spl_editing.preview.store import PreviewStore
 from nl2spl.compiler.spl_editing.selectable_refs.model import SelectableRefSet
 from nl2spl.compiler.spl_editing.selectable_refs.resolver import resolve_ref_ids_to_result
+from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans import (
+    build_worker_delegation_typed_plans,
+    typed_plan_hashes,
+)
 from nl2spl.compiler.spl_editing.strategy.model import RepairDirective, RepairStrategySpec
 
 
@@ -276,25 +280,56 @@ class PreviewDryRunService:
 
         # 9b. Compute StageSliceTypedPlanRefs at preview service level
         slice_refs = []
-        for slice_id in closure_plan.stage_slice_chain:
-            combined_str = ":".join(
-                (
-                    slice_id,
-                    intent_hash,
-                    closure_plan_hash,
-                    refset_hash,
-                    affordance.materialization_plan_id,
+        v2_plan_hash_pairs: tuple[tuple[str, str], ...] = ()
+        normalized_payload = intent.payload
+        if strategy.strategy_id == "worker_delegation.complete_closure.v2" and hasattr(
+            normalized_payload, "directive_id"
+        ):
+            plan_bundle = build_worker_delegation_typed_plans(snapshot, target, normalized_payload)
+            v2_plan_hash_pairs = typed_plan_hashes(plan_bundle)
+            actual_hashes = dict(v2_plan_hash_pairs)
+            plan_for_slice = {
+                "stage3_5.define_child_worker.v1": "child_boundary",
+                "stage4.child_worker_flow.v1": "child_flow",
+                "stage5.child_worker_block.v1": "child_block",
+                "stage7.child_worker_command.v1": "child_command",
+                "stage3_5.worker_handoff_contract.v2": "handoff",
+                "stage5.parent_invocation_placement.v1": (
+                    "keep_main" if plan_bundle.keep_main is not None else "parent_invoke"
+                ),
+                "stage7.worker_invoke.v2": "parent_invoke",
+                "stage7.worker_delegation_resolution_command_repair.v1": "keep_main",
+            }
+            for slice_id in closure_plan.stage_slice_chain:
+                plan_name = plan_for_slice[slice_id]
+                slice_refs.append(StageSliceTypedPlanRef(slice_id, actual_hashes[plan_name]))
+        else:
+            for slice_id in closure_plan.stage_slice_chain:
+                combined_str = ":".join(
+                    (
+                        slice_id,
+                        intent_hash,
+                        closure_plan_hash,
+                        refset_hash,
+                        affordance.materialization_plan_id,
+                    )
                 )
-            )
-            typed_plan_hash = compute_sha256(combined_str)
-            slice_refs.append(
-                StageSliceTypedPlanRef(slice_id=slice_id, typed_plan_hash=typed_plan_hash)
-            )
+                typed_plan_hash = compute_sha256(combined_str)
+                slice_refs.append(
+                    StageSliceTypedPlanRef(slice_id=slice_id, typed_plan_hash=typed_plan_hash)
+                )
 
         # 9c. Compute preview construct hashes based on closure nodes
-        construct_hashes = tuple(
-            compute_sha256(f"construct:{node.construct_type}:{node.role}:{node.action}")
-            for node in closure_plan.closure_nodes
+        construct_hashes = (
+            tuple(
+                compute_sha256(("construct", plan_name, plan_hash))
+                for plan_name, plan_hash in v2_plan_hash_pairs
+            )
+            if v2_plan_hash_pairs
+            else tuple(
+                compute_sha256(f"construct:{node.construct_type}:{node.role}:{node.action}")
+                for node in closure_plan.closure_nodes
+            )
         )
 
         # 10. Compute collision-free scoped preview_id
@@ -305,7 +340,6 @@ class PreviewDryRunService:
         preview_id = f"prev_{compute_sha256(scope_str)}"
 
         # 11. Construct PreviewMaterializationResult
-        normalized_payload = intent.payload
         option_id = getattr(normalized_payload, "option_id", "")
         normalized_hash = (
             compute_sha256(normalized_payload)
@@ -313,8 +347,7 @@ class PreviewDryRunService:
             else ""
         )
         admitted_hashes = tuple(
-            compute_sha256(item)
-            for item in getattr(normalized_payload, "admitted_outputs", ())
+            compute_sha256(item) for item in getattr(normalized_payload, "admitted_outputs", ())
         )
         preview_res = PreviewMaterializationResult(
             preview_id=preview_id,
@@ -330,7 +363,14 @@ class PreviewDryRunService:
             strategy_id=strategy.strategy_id,
             option_id=option_id,
             interaction_contract_hash=(
-                compute_sha256((strategy.strategy_id, option_id)) if option_id else ""
+                compute_sha256(
+                    (
+                        getattr(normalized_payload, "interaction_contract_id", ""),
+                        getattr(normalized_payload, "interaction_contract_version", ""),
+                    )
+                )
+                if option_id
+                else ""
             ),
             normalized_directive_hash=normalized_hash,
             admitted_fact_hashes=admitted_hashes,
@@ -382,4 +422,3 @@ class PreviewDryRunService:
             raise PreviewError(
                 "Candidate intent selected_ref_ids do not match directive selected_ref_hints."
             )
-

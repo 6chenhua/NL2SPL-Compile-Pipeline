@@ -20,6 +20,9 @@ _REASONS = {
     RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE: (
         "No supported patch type is registered for this run."
     ),
+    RepairOptionAvailability.UNAVAILABLE_INCOMPLETE_RUNTIME_BUNDLE: (
+        "The interaction, materialization, or verification bundle is incomplete."
+    ),
     RepairOptionAvailability.REVIEW_ONLY: ("This item is review-only and cannot be fixed here."),
 }
 

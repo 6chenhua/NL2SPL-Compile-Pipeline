@@ -1,11 +1,20 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-07-01T02:50:16.755823",
+  "timestamp": "2026-07-04T14:51:13.660456",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_manage_clarifications_and_source_retrieval",
+        "candidate_id": "candidate_clarify_sources_and_missing_fields",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "API-owned spans were removed; residual spans require independent worker-boundary re-evaluation and are kept in main worker by default.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_draft_and_revise_communication",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
@@ -14,21 +23,12 @@
         "evidence": []
       },
       {
-        "candidate_id": "candidate_draft_and_revision_control",
+        "candidate_id": "candidate_finalize_run_status_and_assumptions",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "insufficient_semantic_boundary",
-        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_record_assumptions_and_completion_status",
-        "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "rejection_reason": "failure_recovery_protocol",
+        "reason": "Auto-rejected: blocking risk failure_recovery_protocol",
         "evidence": []
       }
     ]

@@ -76,6 +76,7 @@ class StageSliceInput:
     id_allocator: IdAllocator | None = None
     typed_plan: TypedPlan | None = None
     upstream_stage_results: tuple[Any, ...] = ()
+    issue: Any | None = None
     dry_run: bool = True
 
     def __post_init__(self) -> None:

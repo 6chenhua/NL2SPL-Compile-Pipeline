@@ -1,0 +1,40 @@
+{
+  "schema": "stage3_5_api_worker_boundary.apw_review_manifest.v1",
+  "phase": "APW0",
+  "generated_at": "2026-07-04T02:18:25+08:00",
+  "commands": [
+    ".venv\\Scripts\\python.exe -m pytest tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py -q",
+    "git diff --check -- tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py tests/fixtures/stage3_5_api_worker_boundary/target_behavior_pending_assertions.json",
+    "rg -n \"skip|xfail\" tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py tests/fixtures/stage3_5_api_worker_boundary/target_behavior_pending_assertions.json"
+  ],
+  "files": [
+    {
+      "path": "tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py",
+      "sha256": "98ea679a1eb3389464600466b7ea947e4514ac479e270b42aed0f1fe7d9866ec"
+    },
+    {
+      "path": "tests/fixtures/stage3_5_api_worker_boundary/target_behavior_pending_assertions.json",
+      "sha256": "e36a894eba27cd469710528a3c0bf8f9fc24168e58971ef837eae597d949481b"
+    },
+    {
+      "path": "examples/output/demo/external_capability_intent_resolver.json",
+      "sha256": "9b5d809aa847ffd67be98b6e98b97b1ce69c33bf6a047ddea4227926a549aed4"
+    },
+    {
+      "path": "examples/output/demo/stage3_5a_candidate_task_units.json",
+      "sha256": "fe62a9b370b2b2848dc2d0d45677d02fbd99e0993f19c25a7e7526fa13ad3164"
+    },
+    {
+      "path": "examples/output/demo/stage3_5b_worker_boundary_decisions.json",
+      "sha256": "f7ede6d3248bc2b4d358466c1343ec44babc00222e8a9d0e87ef051f2231c10d"
+    },
+    {
+      "path": "examples/output/demo/stage3_5c_worker_plan_materializer.json",
+      "sha256": "2593b9c3882e55194980b14a459ef83d9bab3e16eb4f3bb337f3c84cd639dd1c"
+    },
+    {
+      "path": "examples/output/demo/spl_editing_snapshot.json",
+      "sha256": "fe8778a4cf920b00a267a6051b34e7d942b80f6f7d3e575bbb7f388c89ac4f01"
+    }
+  ]
+}

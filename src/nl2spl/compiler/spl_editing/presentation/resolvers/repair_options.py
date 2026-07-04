@@ -25,6 +25,7 @@ def repair_options_for_issue(
     entries: tuple[RepairCatalogEntry, ...],
     runtime: SPLEditingRuntimeRegistry,
     snapshot: ArtifactSnapshot,
+    option_runtime_complete=None,
 ) -> tuple[RepairOptionView, ...]:
     if issue.repairability != "editable":
         return (
@@ -39,7 +40,13 @@ def repair_options_for_issue(
     for entry in entries:
         if entry.strategy_options:
             for option in entry.strategy_options:
-                availability = _option_availability(entry, option, runtime, snapshot)
+                availability = _option_availability(
+                    entry,
+                    option,
+                    runtime,
+                    snapshot,
+                    option_runtime_complete=option_runtime_complete,
+                )
                 result.append(
                     RepairOptionView(
                         option_id=option.option_id,
@@ -114,7 +121,14 @@ def _availability(
     return RepairOptionAvailability.AVAILABLE
 
 
-def _option_availability(entry, option, runtime, snapshot) -> RepairOptionAvailability:
+def _option_availability(
+    entry,
+    option,
+    runtime,
+    snapshot,
+    *,
+    option_runtime_complete=None,
+) -> RepairOptionAvailability:
     base = _availability(entry, runtime, snapshot, check_patch_types=False)
     if base != RepairOptionAvailability.AVAILABLE:
         return base
@@ -124,6 +138,8 @@ def _option_availability(entry, option, runtime, snapshot) -> RepairOptionAvaila
         runtime.patches.has(patch_type) for patch_type in option.execution_patch_types
     ):
         return RepairOptionAvailability.UNAVAILABLE_UNSUPPORTED_PATCH_TYPE
+    if option_runtime_complete is not None and not option_runtime_complete(entry, option):
+        return RepairOptionAvailability.UNAVAILABLE_INCOMPLETE_RUNTIME_BUNDLE
     return RepairOptionAvailability.AVAILABLE
 
 

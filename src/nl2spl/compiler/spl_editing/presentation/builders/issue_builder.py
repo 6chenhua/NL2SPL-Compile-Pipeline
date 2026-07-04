@@ -62,9 +62,11 @@ class IssuePresentationBuilder:
         *,
         catalog: RepairCatalog,
         runtime: SPLEditingRuntimeRegistry,
+        option_runtime_complete=None,
     ) -> None:
         self._catalog = catalog
         self._runtime = runtime
+        self._option_runtime_complete = option_runtime_complete
         self._exception = ExceptionHandlingPresenter()
         self._required = RequiredOutputPresenter()
         self._delegation = WorkerDelegationPresenter()
@@ -138,7 +140,13 @@ class IssuePresentationBuilder:
             context=context,
             related_diagnostics=related,
         )
-        options = repair_options_for_issue(issue, entries, self._runtime, snapshot)
+        options = repair_options_for_issue(
+            issue,
+            entries,
+            self._runtime,
+            snapshot,
+            self._option_runtime_complete,
+        )
         advanced = build_advanced_details(issue, related)
         suggested = suggested_resolution_for_issue(issue, related)
         presenter = self._presenter_for(category_for_issue(issue))
@@ -171,7 +179,13 @@ class IssuePresentationBuilder:
             context=context,
             related_diagnostics=related,
         )
-        options = repair_options_for_issue(issue, entries, self._runtime, snapshot)
+        options = repair_options_for_issue(
+            issue,
+            entries,
+            self._runtime,
+            snapshot,
+            self._option_runtime_complete,
+        )
         advanced = build_advanced_details(issue, related)
         suggested = suggested_resolution_for_issue(issue, related)
         presenter = self._presenter_for(category_for_issue(issue))

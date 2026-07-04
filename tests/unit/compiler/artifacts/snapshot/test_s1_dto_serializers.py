@@ -9,6 +9,7 @@ import pytest
 from nl2spl.compiler.artifacts.snapshot.model.editing_history import (
     SnapshotAcceptedPatchDTO,
     SnapshotOverlayEventDTO,
+    SnapshotPromotionResolutionDTO,
     SnapshotVerificationRecordDTO,
 )
 from nl2spl.compiler.artifacts.snapshot.serialization.registry import (
@@ -112,3 +113,21 @@ class TestVerificationRecordDTORoundTrip:
 
         with pytest.raises(dataclasses.FrozenInstanceError):
             restored.metadata = ()  # type: ignore[misc]
+
+
+class TestPromotionResolutionDTORoundTrip:
+    def test_full_roundtrip_preserves_closure_refs(self) -> None:
+        reg = build_default_registry()
+        dto = SnapshotPromotionResolutionDTO(
+            marker_id="promotion_resolution:directive_1",
+            target_worker_promotion_id="worker_promotion:candidate_1",
+            resolved_diagnostic_group_id="worker_promotion_group:candidate_1",
+            resolution_kind="defined_child_worker",
+            normalized_directive_id="directive_1",
+            materialized_construct_refs=("worker:w_child", "handoff:h_1", "step:w_main:s_1"),
+            evidence_ref="ev_packet_1",
+        )
+        data, restored = _rt(reg, dto)
+        assert data["$type"] == "SnapshotPromotionResolutionDTO"
+        assert restored == dto
+        assert isinstance(restored.materialized_construct_refs, tuple)

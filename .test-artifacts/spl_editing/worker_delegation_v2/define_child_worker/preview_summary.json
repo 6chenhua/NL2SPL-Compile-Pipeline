@@ -1,0 +1,56 @@
+{
+  "admitted_fact_hashes": [
+    "14253ca2634692efcfab3751f784380c0c172d888c98631846a8cb47e606368a"
+  ],
+  "base_snapshot_id": "snap_fce858edb833",
+  "closure_plan_hash": "0600d5fae5cb583603225db953ea238611f5fd9a78fe273b33e571a9ebde7aed",
+  "directive_hash": "f6c6cb4ca91ef2b65d09e345ce3db3131f482bf672b8e6de3212b0fa8ea55f08",
+  "intent_hash": "54e10fa1f3a0f6e5d788a548ad30f47a2b69e0bf033d981c3f741c5a98234f4f",
+  "interaction_contract_hash": "596eed0c624eecd0c0258875c96ce341fb1d9ac07012dea356a99b699f6c3562",
+  "llm_generation_config_hash": "15f732dfc3cfa61e67b56cd0f1635426e7dfc80cb205eff3ace4907f90300716",
+  "normalized_directive_hash": "94e8c0fd4e86e44039b5889ce167a285d792f0b0de8cf822b5b033f6b89c1f82",
+  "option_id": "define_child_worker",
+  "preview_construct_hashes": [
+    "fa015e037a7dcf0617595f7444118bf723dda7ab73a067aa8621f3232d9c2f7e",
+    "60d21a25e883c7056ad17fb95815afa301d3ae4bebcb04f08b58faf6666106a7",
+    "8ddc9b130818d54c7dac43520f0d6df501ec6609b9a041b3dc68f3e742769899",
+    "b178b09c11bf37076116d33cb6ae74921bfe75a4ba8e853ad0d46d7ed905217e",
+    "63e832d9777bf54cad4f9a6662bb2011aa63abbcf608a6cf1f7520cbda50fdbd",
+    "ce538287feb12bfb61664a0c7ee7fc9c1715681948a74f78631bfdd22c7dd95f",
+    "15b30422b8ec9992ce27743fee5ce356a02b46924a446675e2ac7fc429934418"
+  ],
+  "preview_id": "prev_3de5d208e5e5e46632c9548a63c547f6f84d45c43bd71b1483ff24955ae09eae",
+  "rendered_preview": "[WORKER: ChildWorker_560d7c6086]\n  PURPOSE Gather approved source evidence\n  [MAIN_FLOW]\n    [SEQUENTIAL_BLOCK]\n      COMMAND-X [COMMAND Gather approved source evidence USING user_request RESULT delegated_evidence:text SET]\n    [END_SEQUENTIAL_BLOCK]\n  [END_MAIN_FLOW]\n[END_WORKER]\n[MAIN_FLOW]\n  COMMAND-X [INVOKE_WORKER ChildWorker_560d7c6086 WITH user_request RESULT tmp_delegated_evidence_c1dc0e22 SET]\n[END_MAIN_FLOW]",
+  "selected_refset_id": "set_irs_16c0d5b20df4_snap_fce858edb833_0",
+  "slice_typed_plan_hashes": [
+    {
+      "slice_id": "stage3_5.define_child_worker.v1",
+      "typed_plan_hash": "85755b297bc3d580ce9abdc15c73a3b102d6ec7c3b186f44361a2c9c1e61a143"
+    },
+    {
+      "slice_id": "stage4.child_worker_flow.v1",
+      "typed_plan_hash": "33a20621426a6126616cbc1f9500b28d36a134caa0021c8fcd86f87ac4bd164c"
+    },
+    {
+      "slice_id": "stage5.child_worker_block.v1",
+      "typed_plan_hash": "0987490699f3d3da5f17251ab6e3438efb56f11998aab83f1c1be66c86c5aabd"
+    },
+    {
+      "slice_id": "stage7.child_worker_command.v1",
+      "typed_plan_hash": "f9ef53eba649ac670fbd49795bdbe31d8a0d360691a2e63708796f7703e7219e"
+    },
+    {
+      "slice_id": "stage3_5.worker_handoff_contract.v2",
+      "typed_plan_hash": "43bbd27e433b0a60657d08f6697b00b712b8cccb0e588d670e47bf83cc3538ea"
+    },
+    {
+      "slice_id": "stage5.parent_invocation_placement.v1",
+      "typed_plan_hash": "6f8a645a4d8c3934e5d06cb8d5c62cb69b48e9ce5b5871b3e72c14a28db45e70"
+    },
+    {
+      "slice_id": "stage7.worker_invoke.v2",
+      "typed_plan_hash": "6f8a645a4d8c3934e5d06cb8d5c62cb69b48e9ce5b5871b3e72c14a28db45e70"
+    }
+  ],
+  "strategy_id": "worker_delegation.complete_closure.v2"
+}

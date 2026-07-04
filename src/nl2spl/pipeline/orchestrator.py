@@ -309,6 +309,7 @@ class PipelineOrchestrator:
             resolved_routes,
             canonical_input,
             demand_view=demand_view,
+            external_capability_intent_plan=capability_intent_plan,
         )
         pre_repair_validation = WorkerPlanValidator().validate(
             worker_plan,
@@ -1058,16 +1059,29 @@ class PipelineOrchestrator:
         canonical_input: CanonicalCompileInput | None = None,
         resource_contract_plan: Any = None,
         demand_view: Any = None,
+        external_capability_intent_plan: Any = None,
     ) -> WorkerPlanIR:
         """Stage 3.5: Worker Boundary Planning."""
         stage = WorkerBoundaryPlanner(self.config, self.client)
         if demand_view is not None:
             return stage.execute(
-                (spans, routes, canonical_input, demand_view)
+                (
+                    spans,
+                    routes,
+                    canonical_input,
+                    demand_view,
+                    external_capability_intent_plan,
+                )
             )
         if resource_contract_plan is not None:
             return stage.execute(
-                (spans, routes, canonical_input, resource_contract_plan)
+                (
+                    spans,
+                    routes,
+                    canonical_input,
+                    resource_contract_plan,
+                    external_capability_intent_plan,
+                )
             )
         return stage.execute((spans, routes, canonical_input))
 

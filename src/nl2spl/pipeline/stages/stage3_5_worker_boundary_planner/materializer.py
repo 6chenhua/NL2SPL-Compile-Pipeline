@@ -64,6 +64,7 @@ class WorkerPlanMaterializer:
         annotations: list[RouteAnnotation] | None = None,
         demand_inputs: list[ContractFieldIR] | None = None,
         demand_outputs: list[ContractFieldIR] | None = None,
+        api_consumed_span_ids: set[str] | None = None,
     ) -> tuple[WorkerPlanIR, list[str]]:
         """Materialize a WorkerPlanIR from decisions and candidates."""
         warnings: list[str] = []
@@ -99,6 +100,7 @@ class WorkerPlanMaterializer:
             self._materialize_accepted(
                 decisions, candidates_by_id, hard_inputs, hard_outputs,
                 span_order, main_worker, all_demand_ids,
+                api_consumed_span_ids or set(),
             )
         )
         warnings.extend(decision_warnings)
@@ -187,6 +189,7 @@ class WorkerPlanMaterializer:
         span_order: list[str],
         main_worker: WorkerSpecIR,
         all_demand_ids: set[str] | None = None,
+        api_consumed_span_ids: set[str] | None = None,
     ) -> tuple[
         list[WorkerSpecIR],
         list[WorkerHandoffIR],
@@ -205,6 +208,7 @@ class WorkerPlanMaterializer:
             decisions,
             candidates_by_id,
         )
+        api_consumed = set(api_consumed_span_ids or set())
 
         for decision in decisions:
             if decision.decision != "extract_child_worker":
@@ -221,6 +225,24 @@ class WorkerPlanMaterializer:
                     decision,
                     "insufficient_semantic_boundary",
                     "Accepted decision references an unknown candidate.",
+                )
+                materialized_decisions.append(rejected_decision)
+                continue
+
+            api_overlap = sorted(set(candidate.source_span_ids) & api_consumed)
+            if api_overlap:
+                warnings.append(
+                    f"Candidate {candidate.candidate_id} accepted but consumes "
+                    f"API-owned spans {api_overlap}; not materializing as child worker."
+                )
+                rejected_decision = self._reject_decision(
+                    decision,
+                    (
+                        "single_api_call"
+                        if set(candidate.source_span_ids).issubset(api_consumed)
+                        else "insufficient_semantic_boundary"
+                    ),
+                    "Accepted candidate consumed confirmed API invocation spans.",
                 )
                 materialized_decisions.append(rejected_decision)
                 continue

@@ -5,7 +5,7 @@ Excludes module-level side-effects.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from nl2spl.compiler.spl_editing.strategy.model import (
     RepairStrategyOptionSpec,
@@ -90,7 +90,10 @@ def iter_default_strategy_specs() -> Iterable[RepairStrategySpec]:
             "hierarchy_graph",
         ),
         display_label="Complete Worker Delegation Handoff Contract",
-        closure_summary="Materialize worker handoff, invoke worker command, parent binding, and optional placement block",
+        closure_summary=(
+            "Materialize worker handoff, invoke worker command, parent binding, "
+            "and optional placement block"
+        ),
         preview_required=True,
     )
     yield RepairStrategySpec(

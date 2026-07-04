@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+import inspect
+
 from nl2spl.compiler.spl_editing.cli import _build_default_service
+from nl2spl.compiler.spl_editing.stage_slices import (
+    build_worker_delegation_stage_slice_registry,
+)
+from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_v2 import (
+    DefineChildWorkerClosureMaterializer,
+)
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR, WorkerStepPlanIR
@@ -10,7 +18,7 @@ from tests.spl_editing_stub_llm import StubSuggestionLLM
 from tests.unit.compiler.spl_editing.test_c6_create_worker_handoff_contract import _snap
 
 
-def test_worker_delegation_apply_materializes_matching_handoff_and_invoke_step() -> None:
+def test_worker_delegation_legacy_handoff_option_is_not_exposed() -> None:
     svc = _build_default_service(suggestion_llm=StubSuggestionLLM())
     diag = CompileDiagnostic(
         "diag_promo",
@@ -64,22 +72,51 @@ def test_worker_delegation_apply_materializes_matching_handoff_and_invoke_step()
 
     run_id = svc.register_compile_result(snap)
     issue = svc.list_editable_issues(run_id)[0]
-    session = svc.create_session(run_id, issue)
-    suggestion = [
-        s
-        for s in svc.generate_suggestions(session.session_id)
-        if s.patch.patch_type == "CreateWorkerHandoffContract"
-    ][0]
+    from nl2spl.compiler.spl_editing.presentation.service import (
+        SPLEditingPresentationService,
+    )
 
-    updated = svc.apply_suggestion(session.session_id, suggestion.suggestion_id)
-    patched = svc._snapshots.get(run_id, snap.snapshot_id, overlay_version=updated.overlay_version)
-    invoke_steps = [
-        step
-        for step in patched.worker_step_plan.worker_steps["w_main"]
-        if step.command_type == "INVOKE_WORKER" and step.metadata.get("origin") == "user_confirmed_repair"
+    detail = SPLEditingPresentationService(svc).get_issue_detail_presentation(
+        run_id, issue.issue_id
+    )
+    assert [option.option_id for option in detail.available_repairs] == [
+        "define_child_worker",
+        "keep_in_main_flow",
     ]
-    handoff_ids = {handoff.handoff_id for handoff in patched.worker_plan.handoffs}
+    assert all(
+        "CreateWorkerHandoffContract" not in option.patch_types
+        and "ConvertDelegationIntentToRequestInput" not in option.patch_types
+        for option in detail.available_repairs
+    )
 
-    assert len(invoke_steps) == 1
-    assert invoke_steps[0].handoff_id in handoff_ids
-    assert svc.verify_session(session.session_id).accepted is True
+
+def test_worker_delegation_v2_registers_independent_single_layer_slices() -> None:
+    registry = build_worker_delegation_stage_slice_registry()
+    expected = {
+        "stage3_5.define_child_worker.v2",
+        "stage4.child_worker_flow.v2",
+        "stage5.worker_delegation_blocks.v2",
+        "stage7.child_worker_command.v2",
+        "stage3_5.worker_handoff_contract.v2",
+        "stage7.worker_invoke.v2",
+        "stage3_5.worker_symbol_bindings.v2",
+        "stage3_5.keep_main_boundary.v2",
+        "stage4.keep_main_flow_cleanup.v2",
+        "stage5.keep_main_placement.v2",
+        "stage7.keep_main_command.v2",
+    }
+    assert set(registry.list_slice_ids()) == expected
+    for slice_id in expected:
+        stage_slice = registry.get(slice_id)
+        assert len(stage_slice.output_artifacts) == 1
+        assert len(stage_slice.write_layers) == 1
+
+
+def test_worker_delegation_v2_orchestrator_has_no_ir_write_implementation() -> None:
+    source = inspect.getsource(DefineChildWorkerClosureMaterializer)
+    assert "def _stage_results" not in source
+    assert "copy.deepcopy" not in source
+    assert "WorkerSpecIR" not in source
+    assert "WorkerHandoffIR" not in source
+    assert "StepIR(" not in source
+    assert "BlockIR(" not in source

@@ -14,7 +14,12 @@ def _find_repo_root() -> Path:
     current = Path(__file__).resolve()
     for parent in current.parents:
         if (parent / "pyproject.toml").exists() and (parent / "src").exists():
-            return parent
+            relative = current.relative_to(parent).as_posix()
+            if relative in {
+                ".agents/skills/audit-irs-contract/scripts/audit_irs_contract.py",
+                ".codex/skills/audit-irs-contract/scripts/audit_irs_contract.py",
+            }:
+                return parent
     raise RuntimeError("Could not locate repository root from audit skill path")
 
 

@@ -30,6 +30,11 @@ class WorkerDelegationInteractionProvider:
             for ref in (refset.refs if refset is not None else ())
             if ref.ref_role == "placement_anchor"
         )
+        result_target_options = tuple(
+            RepairInputOptionView(ref.ref_id, ref.display_label, ref.ref_id)
+            for ref in (refset.refs if refset is not None else ())
+            if ref.ref_role == "binding_target"
+        )
         output_schema = RepairInputSchemaView(
             schema_id="worker_delegation.new_child_output.v1",
             schema_version="1",
@@ -47,7 +52,14 @@ class WorkerDelegationInteractionProvider:
             schema_version="1",
             fields=(
                 RepairInputFieldView("output_local_id", "Child result", "short_text", True),
-                RepairInputFieldView("parent_ref_id", "Parent result target", "short_text", False),
+                RepairInputFieldView(
+                    "parent_ref_id",
+                    "Parent result target",
+                    "reference_select",
+                    False,
+                    options=result_target_options,
+                    ref_role="binding_target",
+                ),
                 RepairInputFieldView(
                     "create_parent_local_temporary",
                     "Create parent-local temporary result",
@@ -69,32 +81,54 @@ class WorkerDelegationInteractionProvider:
                 value=subject.summary,
             ),
             RepairInputFieldView(
-                "input_refs", "Required information", "reference_select", False,
-                options=ref_options, ref_role="selectable_input"
+                "input_refs",
+                "Required information",
+                "reference_select",
+                False,
+                options=ref_options,
+                ref_role="selectable_input",
             ),
             RepairInputFieldView(
-                "input_empty_semantics", "No-input semantics", "single_choice", False,
-                options=(RepairInputOptionView("explicit_none", "No parent input", "explicit_none"),)
+                "input_empty_semantics",
+                "No-input semantics",
+                "single_choice",
+                False,
+                options=(
+                    RepairInputOptionView("explicit_none", "No parent input", "explicit_none"),
+                ),
             ),
             RepairInputFieldView(
-                "returned_results", "Returned results", "new_fact_list", True,
-                fact_schema_id=output_schema.schema_id
+                "returned_results",
+                "Returned results",
+                "new_fact_list",
+                True,
+                fact_schema_id=output_schema.schema_id,
             ),
             RepairInputFieldView(
-                "invocation_timing", "Invocation timing", "single_choice", True,
+                "invocation_timing",
+                "Invocation timing",
+                "single_choice",
+                True,
                 options=(
                     RepairInputOptionView("append", "Append to main flow", "append"),
                     RepairInputOptionView("before", "Before selected command", "before"),
                     RepairInputOptionView("after", "After selected command", "after"),
-                )
+                ),
             ),
             RepairInputFieldView(
-                "placement_ref", "Placement anchor", "reference_select", False,
-                options=placement_options, ref_role="placement_anchor"
+                "placement_ref",
+                "Placement anchor",
+                "reference_select",
+                False,
+                options=placement_options,
+                ref_role="placement_anchor",
             ),
             RepairInputFieldView(
-                "result_usage", "Result usage", "structured_object", True,
-                object_schema_id=result_schema.schema_id
+                "result_usage",
+                "Result usage",
+                "structured_object",
+                True,
+                object_schema_id=result_schema.schema_id,
             ),
             RepairInputFieldView(
                 "additional_instruction", "Additional instruction", "long_text", False
@@ -115,16 +149,19 @@ class WorkerDelegationInteractionProvider:
         )
 
     def _keep_main(self, spec, issue, option, subject, refset, snapshot):
-        concrete = subject.specificity == "concrete"
-        fields = () if concrete else (
+        fields = (
             RepairInputFieldView(
                 "task_selection",
                 "Task boundary",
                 "single_choice",
                 True,
                 options=(
-                    RepairInputOptionView("source_gathering", "Source gathering", "source gathering"),
-                    RepairInputOptionView("template_matching", "Template matching", "template matching"),
+                    RepairInputOptionView(
+                        "source_gathering", "Source gathering", "source gathering"
+                    ),
+                    RepairInputOptionView(
+                        "template_matching", "Template matching", "template matching"
+                    ),
                     RepairInputOptionView("both", "Both", "source gathering and template matching"),
                 ),
             ),
@@ -139,8 +176,8 @@ class WorkerDelegationInteractionProvider:
             contract_id=spec.contract_id,
             contract_version=spec.contract_version,
             revision_token=revision_token_string(snapshot.revision_token),
-            interaction_kind="natural_language" if concrete else "structured_with_notes",
+            interaction_kind="structured_with_notes",
             availability="available",
-            input_readiness="not_required" if concrete else "input_required",
+            input_readiness="input_required",
             fields=fields,
         )

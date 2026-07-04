@@ -266,13 +266,22 @@ class TestB10IntegrationAntiFabrication:
         run_id = svc.register_compile_result(snap)
         issues = svc.list_editable_issues(run_id)
         assert len(issues) == 1
-        session = svc.create_session(run_id, issues[0])
-        suggestions = svc.generate_suggestions(session.session_id)
-        hc = [s for s in suggestions if s.patch.patch_type == "CreateWorkerHandoffContract"]
-        assert len(hc) >= 1
-        svc.apply_suggestion(session.session_id, hc[0].suggestion_id)
-        result = svc.verify_session(session.session_id)
-        assert result.accepted is True
+        from nl2spl.compiler.spl_editing.presentation.service import (
+            SPLEditingPresentationService,
+        )
+
+        detail = SPLEditingPresentationService(svc).get_issue_detail_presentation(
+            run_id, issues[0].issue_id
+        )
+        assert {item.option_id for item in detail.available_repairs} == {
+            "define_child_worker",
+            "keep_in_main_flow",
+        }
+        assert all(
+            "CreateWorkerHandoffContract" not in item.patch_types
+            and "ConvertDelegationIntentToRequestInput" not in item.patch_types
+            for item in detail.available_repairs
+        )
 
     def test_delegation_intent_not_in_catalog_or_registry(self) -> None:
         """B10: DELEGATION_INTENT never appears as construct or target."""

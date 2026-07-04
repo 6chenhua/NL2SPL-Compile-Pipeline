@@ -1,6 +1,6 @@
 {
   "stage": "stage3_5_worker_boundary_planner",
-  "timestamp": "2026-07-01T02:50:16.757433",
+  "timestamp": "2026-07-04T14:51:13.662690",
   "metadata": {},
   "result": {
     "main_worker_id": "worker_main",
@@ -171,20 +171,30 @@
     "handoffs": [],
     "candidates": [
       {
-        "candidate_id": "candidate_manage_clarifications_and_source_retrieval",
+        "candidate_id": "candidate_clarify_sources_and_missing_fields",
         "source_span_ids": [
           "s15",
-          "s16"
+          "s20",
+          "s21",
+          "s22",
+          "s23",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30"
         ],
-        "task_text": "Determine the requested communication type, identify missing required fields, ask only the highest-value clarifying questions, and retrieve needed sources via approved source recipes while maintaining provenance.",
-        "purpose": "Collect enough validated information to support drafting without over-questioning or losing provenance.",
+        "task_text": "Determine the requested communication type, identify missing required fields, ask the highest-value clarifying questions, and retrieve needed sources using approved recipes while maintaining provenance.",
+        "purpose": "To gather just enough valid input and evidence to proceed without over-questioning or unsupported claims.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
             "name": "user_request",
             "data_type": "text",
             "required": true,
-            "description": "The user request to interpret for communication type and missing fields.",
+            "description": "The user's request for the communication artifact.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -197,7 +207,33 @@
             "name": "connectors_or_source_repositories",
             "data_type": "text",
             "required": true,
-            "description": "Available connectors or source repositories for retrieval.",
+            "description": "Available connectors or source repositories.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "known_topics",
+            "data_type": "text",
+            "required": false,
+            "description": "Known topics relevant to the communication.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "timeframe",
+            "data_type": "text",
+            "required": false,
+            "description": "Requested timeframe, if provided.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -212,7 +248,7 @@
             "name": "clarifying_questions",
             "data_type": "text",
             "required": false,
-            "description": "The highest-value clarifying questions to ask the user.",
+            "description": "Highest-value questions needed to fill missing required fields.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -222,10 +258,10 @@
             "requiredness": "unspecified"
           },
           {
-            "name": "retrieved_sources",
+            "name": "source_evidence_set",
             "data_type": "text",
             "required": false,
-            "description": "Sources retrieved using approved source recipes, with provenance maintained.",
+            "description": "Retrieved evidence with provenance for externally sourced facts.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -239,12 +275,12 @@
           "bounded_io",
           "multi_step_process",
           "external_integration",
-          "testability",
           "complex_control"
         ],
         "risks": [
           "no_clear_output_contract",
-          "policy_or_constraint",
+          "exception_flow",
+          "alternative_flow",
           "insufficient_semantic_boundary"
         ],
         "input_contract_status": "unknown",
@@ -253,20 +289,20 @@
         "output_contract_status_source": null
       },
       {
-        "candidate_id": "candidate_draft_and_revision_control",
+        "candidate_id": "candidate_draft_and_revise_communication",
         "source_span_ids": [
           "s17",
           "s18"
         ],
-        "task_text": "Produce a draft communication artifact and revise it when requested, rechecking constraints and withholding finalization if required slots remain missing unless the draft is explicitly assumption-bearing and the user confirms.",
-        "purpose": "Create and iteratively refine the communication artifact under constraint checks.",
+        "task_text": "Produce a draft communication artifact and revise it when requested while re-checking constraints and respecting missing-slot and confirmation conditions.",
+        "purpose": "To create and update the communication artifact under the run's content constraints.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
             "name": "user_request",
             "data_type": "text",
             "required": true,
-            "description": "The user request that drives drafting and revision.",
+            "description": "The communication request being drafted.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -276,10 +312,23 @@
             "requiredness": "unspecified"
           },
           {
-            "name": "required_information",
+            "name": "source_evidence_set",
             "data_type": "text",
             "required": false,
-            "description": "Any required information available for the draft.",
+            "description": "Evidence available for grounding the draft.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "revision_request",
+            "data_type": "text",
+            "required": false,
+            "description": "User request for revision, if any.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -294,20 +343,7 @@
             "name": "draft_communication_artifact",
             "data_type": "text",
             "required": true,
-            "description": "A draft communication artifact.",
-            "source": "output",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "revised_draft",
-            "data_type": "text",
-            "required": false,
-            "description": "A revised version of the draft after user revision request.",
+            "description": "The drafted communication artifact.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -321,12 +357,12 @@
           "bounded_io",
           "multi_step_process",
           "complex_control",
-          "testability"
+          "reuse_potential"
         ],
         "risks": [
           "no_clear_output_contract",
-          "ordinary_sequential_step",
-          "policy_or_constraint",
+          "alternative_flow",
+          "unclear_result_handoff",
           "insufficient_semantic_boundary"
         ],
         "input_contract_status": "unknown",
@@ -335,19 +371,33 @@
         "output_contract_status_source": null
       },
       {
-        "candidate_id": "candidate_record_assumptions_and_completion_status",
+        "candidate_id": "candidate_finalize_run_status_and_assumptions",
         "source_span_ids": [
-          "s19"
+          "s19",
+          "s24"
         ],
-        "task_text": "Record a short assumptions log for unresolved items and set a completion status for the run.",
-        "purpose": "Summarize unresolved assumptions and mark the run’s completion state.",
+        "task_text": "Record a short assumptions log for unresolved items and set the completion status for the run, while denying finalization when critical slots are missing or provenance fails.",
+        "purpose": "To close out the run with a status and assumptions record when completion conditions are met.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
             "name": "unresolved_items",
             "data_type": "text",
             "required": false,
-            "description": "Any unresolved items that need to be logged as assumptions.",
+            "description": "Items that remain unresolved at the end of the run.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "provenance_status",
+            "data_type": "text",
+            "required": false,
+            "description": "Whether provenance requirements were satisfied.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -362,7 +412,7 @@
             "name": "assumptions_log",
             "data_type": "text",
             "required": true,
-            "description": "A short assumptions log for unresolved items.",
+            "description": "Short log of assumptions for unresolved items.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -387,13 +437,14 @@
         ],
         "signals": [
           "bounded_io",
-          "testability",
-          "reuse_potential"
+          "complex_control"
         ],
         "risks": [
           "no_clear_input_contract",
-          "ordinary_sequential_step",
-          "unclear_result_handoff"
+          "no_clear_output_contract",
+          "exception_flow",
+          "policy_or_constraint",
+          "failure_recovery_protocol"
         ],
         "input_contract_status": "unknown",
         "output_contract_status": "unknown",
@@ -403,7 +454,16 @@
     ],
     "decisions": [
       {
-        "candidate_id": "candidate_manage_clarifications_and_source_retrieval",
+        "candidate_id": "candidate_clarify_sources_and_missing_fields",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "API-owned spans were removed; residual spans require independent worker-boundary re-evaluation and are kept in main worker by default.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_draft_and_revise_communication",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
@@ -412,27 +472,27 @@
         "evidence": []
       },
       {
-        "candidate_id": "candidate_draft_and_revision_control",
+        "candidate_id": "candidate_finalize_run_status_and_assumptions",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "insufficient_semantic_boundary",
-        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_record_assumptions_and_completion_status",
-        "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "rejection_reason": "failure_recovery_protocol",
+        "reason": "Auto-rejected: blocking risk failure_recovery_protocol",
         "evidence": []
       }
     ],
     "rejected_candidates": [
       {
-        "candidate_id": "candidate_manage_clarifications_and_source_retrieval",
+        "candidate_id": "candidate_clarify_sources_and_missing_fields",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "not_a_worker",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "API-owned spans were removed; residual spans require independent worker-boundary re-evaluation and are kept in main worker by default.",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_draft_and_revise_communication",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
@@ -441,21 +501,12 @@
         "evidence": []
       },
       {
-        "candidate_id": "candidate_draft_and_revision_control",
+        "candidate_id": "candidate_finalize_run_status_and_assumptions",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "insufficient_semantic_boundary",
-        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_record_assumptions_and_completion_status",
-        "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "rejection_reason": "failure_recovery_protocol",
+        "reason": "Auto-rejected: blocking risk failure_recovery_protocol",
         "evidence": []
       }
     ],

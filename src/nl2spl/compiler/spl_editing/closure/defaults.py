@@ -93,12 +93,54 @@ def get_default_nodes_for_strategy(
                 ),
             )
         return (
-            ConstructClosureNode("child_worker", "CHILD_WORKER", "ensure", True, "stage3_5.define_child_worker.v1"),
-            ConstructClosureNode("child_flow", "FLOW", "ensure", True, "stage4.child_worker_flow.v1"),
-            ConstructClosureNode("child_block", "BLOCK", "ensure", True, "stage5.child_worker_block.v1"),
-            ConstructClosureNode("child_command", "COMMAND", "materialize", True, "stage7.child_worker_command.v1"),
-            ConstructClosureNode("worker_handoff", "WORKER_HANDOFF", "materialize", True, "stage3_5.worker_handoff_contract.v2"),
-            ConstructClosureNode("parent_placement", "BLOCK", "ensure", False, "stage5.parent_invocation_placement.v1"),
-            ConstructClosureNode("parent_invoke", "INVOKE_WORKER", "materialize", True, "stage7.worker_invoke.v2"),
+            ConstructClosureNode(
+                "child_worker",
+                "CHILD_WORKER",
+                "ensure",
+                True,
+                "stage3_5.define_child_worker.v1",
+            ),
+            ConstructClosureNode(
+                "child_flow",
+                "FLOW",
+                "ensure",
+                True,
+                "stage4.child_worker_flow.v1",
+            ),
+            ConstructClosureNode(
+                "child_block",
+                "BLOCK",
+                "ensure",
+                True,
+                "stage5.child_worker_block.v1",
+            ),
+            ConstructClosureNode(
+                "child_command",
+                "COMMAND",
+                "materialize",
+                True,
+                "stage7.child_worker_command.v1",
+            ),
+            ConstructClosureNode(
+                "worker_handoff",
+                "WORKER_HANDOFF",
+                "materialize",
+                True,
+                "stage3_5.worker_handoff_contract.v2",
+            ),
+            ConstructClosureNode(
+                "parent_placement",
+                "BLOCK",
+                "ensure",
+                False,
+                "stage5.parent_invocation_placement.v1",
+            ),
+            ConstructClosureNode(
+                "parent_invoke",
+                "INVOKE_WORKER",
+                "materialize",
+                True,
+                "stage7.worker_invoke.v2",
+            ),
         )
     return ()

@@ -87,6 +87,19 @@ class MaterializationPlanRegistry:
             )
         return self._materializers[plan_id]
 
+    def has_complete(self, plan_id: str) -> bool:
+        """Return whether both a plan and its materializer are registered."""
+        if plan_id not in self._plans or plan_id not in self._materializers:
+            return False
+        materializer = self._materializers[plan_id]
+        required_slices = getattr(materializer, "required_stage_slice_ids", ())
+        if not required_slices:
+            return True
+        stage_registry = getattr(materializer, "stage_slice_registry", None)
+        return stage_registry is not None and all(
+            stage_registry.has(slice_id) for slice_id in required_slices
+        )
+
 
 def build_default_materialization_registry() -> MaterializationPlanRegistry:
     """Return the default registry containing all registered materialization plans."""
@@ -99,11 +112,11 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
         ExceptionHandlerStageSliceChainMaterializer,
         Stage7ProducerRepairMaterializer,
     )
-    from nl2spl.compiler.spl_editing.materialization.worker_handoff import (
-        WorkerHandoffContractMaterializer,
-    )
     from nl2spl.compiler.spl_editing.materialization.worker_delegation_v2 import (
         DefineChildWorkerClosureMaterializer,
+    )
+    from nl2spl.compiler.spl_editing.materialization.worker_handoff import (
+        WorkerHandoffContractMaterializer,
     )
 
     registry = MaterializationPlanRegistry()
@@ -246,7 +259,7 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
                 RefRoleConstraint("selectable_input", 0, None, "target"),
             ),
             worker_scope_requirement="main",
-            required_id_allocator_namespaces=("step", "block", "handoff", "worker"),
+            required_id_allocator_namespaces=("step", "block", "handoff"),
         ),
         editable_artifacts=(
             "WorkerPlanIR",
@@ -267,6 +280,7 @@ def build_default_materialization_registry() -> MaterializationPlanRegistry:
             "worker_flow_plan_pre_normalize",
             "worker_block_plan_pre_normalize",
             "worker_step_plan_pre_normalize",
+            "symbol_table_pre_normalize",
         ),
         normalizer_required=True,
         stage10_rebuild_required=True,

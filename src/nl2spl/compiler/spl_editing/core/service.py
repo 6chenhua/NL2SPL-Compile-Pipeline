@@ -7,6 +7,8 @@ Materialized construct repair goes through the materialization path.
 Patch types without a materialization context are rejected.
 """
 
+# ruff: noqa: E501 -- legacy source contains one mojibake migration comment.
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -42,6 +44,7 @@ from nl2spl.compiler.spl_editing.core.model import (
     RepairEvidence,
     RepairPatch,
     RepairSuggestion,
+    RepairTarget,
     SuggestionGenerationResult,
     VerificationResult,
 )
@@ -69,6 +72,7 @@ from nl2spl.compiler.spl_editing.materialization import (
     build_default_materialization_registry,
 )
 from nl2spl.compiler.spl_editing.selectable_refs import (
+    SelectableRefSet,
     SelectableRefSetBuilder,
     resolve_ref_ids_to_result,
 )
@@ -169,7 +173,9 @@ class SPLEditingService:
         )
 
     @staticmethod
-    def _requested_behavior_from_intent(intent: ConstructRepairIntent, user_text: str | None) -> str:
+    def _requested_behavior_from_intent(
+        intent: ConstructRepairIntent, user_text: str | None
+    ) -> str:
         if user_text and user_text.strip():
             return user_text.strip()
         payload = intent.payload
@@ -195,8 +201,8 @@ class SPLEditingService:
         *,
         user_text: str | None,
     ):
-        RepairDirective, _, _, _ = self._preview_runtime()
-        return RepairDirective(
+        repair_directive_cls, _, _, _ = self._preview_runtime()
+        return repair_directive_cls(
             directive_id=f"dir_{intent.intent_id}",
             source="user" if user_text and user_text.strip() else "system_default",
             target_construct_type=intent.target_construct_type,
@@ -243,6 +249,7 @@ class SPLEditingService:
             candidate_intent=intent,
             ttl_seconds=ttl_seconds,
         )
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -550,6 +557,121 @@ class SPLEditingService:
         """Return the in-memory preview store for diagnostics and tests."""
         return self._preview_store
 
+    def seal_worker_delegation_directive(
+        self,
+        *,
+        run_id: str,
+        issue: EditableIssue,
+        target: RepairTarget,
+        catalog_entry: RepairCatalogEntry,
+        refset: SelectableRefSet,
+        directive,
+    ) -> tuple[EditingSession, RepairSuggestion]:
+        """Create a sealed suggestion from a validated v2 typed directive.
+
+        This is the only bridge from the interaction/admission domain into the
+        existing preview/apply lifecycle.  It performs no LLM generation.
+        """
+        from datetime import UTC, datetime
+
+        from nl2spl.compiler.spl_editing.core.confirmation_context import (
+            RepairConfirmationContext,
+        )
+        from nl2spl.compiler.spl_editing.selectable_refs.resolver import (
+            resolve_ref_ids_to_result,
+        )
+
+        snapshot = self._get_snapshot(run_id)
+        if directive.base_revision != (
+            f"{snapshot.compile_run_id}:{snapshot.snapshot_id}:{snapshot.overlay_version}"
+        ):
+            raise StaleRevisionError("Normalized directive base revision is stale")
+        patch_type = (
+            "DefineChildWorkerClosure"
+            if directive.option_id == "define_child_worker"
+            else "ConvertDelegationIntentToMainFlowStep"
+        )
+        selected_ref_ids = tuple(item.ref.ref_id for item in directive.selected_input_refs)
+        resolved = resolve_ref_ids_to_result(refset, selected_ref_ids, "selectable_input")
+        if not resolved.is_success:
+            raise SPLEditingError("Sealed directive references are no longer valid")
+        target_ref = next(
+            (
+                ref.ref_id
+                for ref in refset.refs
+                if ref.ref_role == "target_worker" and ref.canonical_name == target.canonical_name
+            ),
+            None,
+        )
+        if target_ref is None:
+            raise SPLEditingError("Worker promotion target ref is unavailable")
+        intent = ConstructRepairIntent(
+            intent_id=f"intent_{directive.directive_id}",
+            issue_id=issue.issue_id,
+            patch_type=patch_type,
+            affordance_id=catalog_entry.affordance_id,
+            target_construct_type="WORKER_PROMOTION",
+            target_construct_id=issue.irs_ref.construct_id,
+            target_slot_name=issue.irs_ref.slot_name,
+            target_ref_id=target_ref,
+            selected_ref_ids=selected_ref_ids,
+            intent_summary="Complete Worker Delegation closure",
+            repair_goal=directive.delegated_responsibility,
+            materialization_plan_id="worker_delegation.complete_closure.v2",
+            constraints=(directive.option_id,),
+            payload=directive,
+        )
+        session = self.create_session(run_id, issue)
+        suggestion_id = f"suggestion_{directive.directive_id}"
+        patch = RepairPatch(
+            patch_id=f"patch_{directive.directive_id}",
+            affordance_id=catalog_entry.affordance_id,
+            patch_type=patch_type,
+            target_ref=target.target_ref,
+            irs_ref=issue.irs_ref,
+            base_compile_run_id=snapshot.compile_run_id,
+            artifact_snapshot_id=snapshot.snapshot_id,
+            overlay_version=snapshot.overlay_version,
+            payload=intent,
+            verification_lane="B",
+        )
+        if patch_type == "DefineChildWorkerClosure" and self._runtime.patches.has(patch_type):
+            self._runtime.patches.get(patch_type).validator.validate(patch, snapshot)
+        suggestion = RepairSuggestion(
+            suggestion_id=suggestion_id,
+            session_id=session.session_id,
+            affordance_id=catalog_entry.affordance_id,
+            title=(
+                "Define this work as a child worker"
+                if directive.option_id == "define_child_worker"
+                else "Keep this work in the main workflow"
+            ),
+            explanation="Validated typed Worker Delegation directive.",
+            patch=patch,
+            expected_effect=(directive.delegated_responsibility,),
+        )
+        self._suggestions.put(suggestion)
+        self._confirmation_contexts.seal(
+            RepairConfirmationContext(
+                context_id=f"ctx_{suggestion_id}",
+                session_id=session.session_id,
+                suggestion_id=suggestion_id,
+                patch_id=patch.patch_id,
+                compile_run_id=run_id,
+                intent_id=intent.intent_id,
+                issue=issue,
+                target=target,
+                catalog_entry=catalog_entry,
+                refset=refset,
+                selected_ref_ids=selected_ref_ids,
+                resolved_refs=resolved.resolved_refs,
+                snapshot_id=snapshot.snapshot_id,
+                overlay_version=snapshot.overlay_version,
+                created_at=datetime.now(UTC).isoformat(),
+            )
+        )
+        return session, suggestion
+
     def preview_suggestion(
         self,
         session_id: str,
@@ -593,10 +715,10 @@ class SPLEditingService:
                 f"'{suggestion.session_id}', not '{session_id}'"
             )
         ctx = self._confirmation_contexts.get(f"ctx_{suggestion_id}")
-        _, PreviewStore, PreviewApplyExpectedState, validate_preview_not_stale = (
+        _, preview_store_cls, expected_state_cls, validate_preview_not_stale = (
             self._preview_runtime()
         )
-        candidate_store = PreviewStore()
+        candidate_store = preview_store_cls()
         candidate = self._generate_preview_for_context(
             session=session,
             ctx=ctx,
@@ -604,7 +726,7 @@ class SPLEditingService:
             user_text=user_text,
             store=candidate_store,
         )
-        expected = PreviewApplyExpectedState(
+        expected = expected_state_cls(
             session_id=session.session_id,
             issue_id=session.issue.issue_id,
             base_snapshot_id=candidate.base_snapshot_id,
@@ -650,6 +772,7 @@ class SPLEditingService:
         )
         self._preview_store.expire(preview_id)
         return updated
+
     def apply_suggestion(
         self,
         session_id: str,
@@ -823,6 +946,7 @@ class SPLEditingService:
                         "materialization_authority": result.materialization_authority,
                         "evidence_packet_id": result.evidence_packet_id,
                         "consumed_selected_ref_ids": result.consumed_selected_ref_ids,
+                        "stage_slice_results": result.stage_slice_results,
                     },
                 )
                 self._applied_patches[ov_id] = patch
@@ -934,13 +1058,16 @@ class SPLEditingService:
         return self._verification_results.list_all(session_id)
 
     def get_patched_spl(self, run_id: str) -> str:
-        """Return the rendered SPL from real Lane A replay of the latest
-        patched snapshot.  Raises if replay fails --caller should handle
-        or display the error."""
-        from nl2spl.compiler.spl_editing.verification.lanes import LaneAReplayAdapter
+        """Render the latest patched snapshot through full Lane B replay.
+
+        SPL Editing materializes stage-owned pre-normalize artifacts.  Reusing
+        Lane A here could display a different program from the one accepted by
+        verification, especially for Worker Delegation closure repairs.
+        """
+        from nl2spl.compiler.spl_editing.verification.lanes import LaneBReplayAdapter
 
         snap = self._get_snapshot(run_id)
-        artifacts = LaneAReplayAdapter().replay(snap)
+        artifacts = LaneBReplayAdapter().replay(snap)
         return artifacts.rendered_spl
 
     # ------------------------------------------------------------------

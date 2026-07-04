@@ -21,6 +21,7 @@ WriteLayer = Literal[
     "worker_block_plan_pre_normalize",
     "worker_step_plan_pre_normalize",
     "worker_step_plan_post_normalize",
+    "symbol_table_pre_normalize",
 ]
 
 
@@ -52,6 +53,10 @@ WRITE_LAYER_SPECS: dict[WriteLayer, WriteLayerSpec] = {
     "worker_step_plan_post_normalize": WriteLayerSpec(
         snapshot_field="worker_step_plan",
         catalog_artifact="WorkerStepPlanIR",
+    ),
+    "symbol_table_pre_normalize": WriteLayerSpec(
+        snapshot_field="symbol_table",
+        catalog_artifact="SymbolTable",
     ),
 }
 

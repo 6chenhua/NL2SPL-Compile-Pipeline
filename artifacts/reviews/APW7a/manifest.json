@@ -1,0 +1,40 @@
+{
+  "phase": "APW7a",
+  "files": [
+    {
+      "path": "artifacts/reviews/APW7a/list_only_output.txt",
+      "sha256": "7fc55340c9157bf5561b1830b5f07286a916c4283c9a4e6912dad0be0d771364",
+      "bytes": 5834
+    },
+    {
+      "path": "examples/output/demo/stage3_5a_candidate_task_units.json",
+      "sha256": "1410b10a1947a77c9850c25ce19eb51d84f46505e121743edfc9140bfe026517",
+      "bytes": 13472
+    },
+    {
+      "path": "examples/output/demo/stage3_5b_worker_boundary_decisions.json",
+      "sha256": "c9c4b5592b6a2fc68efeeb7f8f0f26f6faf86fa9418bedcc5109db6b05e8c301",
+      "bytes": 2439
+    },
+    {
+      "path": "examples/output/demo/stage3_5c_worker_plan_materializer.json",
+      "sha256": "a88960429f7002d3c88289c18e445b988bc7ca83788383c64c4827bc568e457d",
+      "bytes": 22769
+    },
+    {
+      "path": "examples/output/demo/stage3_5_worker_boundary_planner.json",
+      "sha256": "b9f7c86f0d07d7e833b0692feebe452c82d3b1503da0c2dddc830a380bef42f3",
+      "bytes": 22767
+    },
+    {
+      "path": "examples/output/demo/final_spl.txt",
+      "sha256": "16e19b0f8bc2a4ef151c55da51cf969018991c3d4de1bc8e33551c44ff6d0174",
+      "bytes": 7097
+    },
+    {
+      "path": "examples/output/demo/spl_editing_snapshot.json",
+      "sha256": "91360f72e9bb14cacdce4db6fb09f20f95dedccaa0c3edf17d0e6d73fc0f4e58",
+      "bytes": 252084
+    }
+  ]
+}

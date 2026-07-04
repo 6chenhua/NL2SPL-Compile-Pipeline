@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import ast
-import pathlib
 import sys
+
 import pytest
 
-from nl2spl.compiler.construct_registry import SPLConstructRegistry, RepairAffordanceSpec
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder, RepairCatalogEntry
-from nl2spl.compiler.spl_editing.presentation.templates.repair_option_copy import option_label_for_entry
-from nl2spl.compiler.spl_editing.strategy import RepairStrategySpec, RepairStrategyRegistry
+from nl2spl.compiler.spl_editing.presentation.templates.repair_option_copy import (
+    option_label_for_entry,
+)
+from nl2spl.compiler.spl_editing.strategy import RepairStrategyRegistry
 from nl2spl.compiler.spl_editing.strategy.defaults import (
     build_default_strategy_registry,
     iter_default_strategy_specs,
@@ -18,16 +19,17 @@ from nl2spl.compiler.spl_editing.strategy.defaults import (
 from nl2spl.compiler.spl_editing.strategy.errors import DuplicateStrategyError
 
 
-def test_defaults_registry_populates_three_strategies() -> None:
-    """Verify defaults.py builds the registry with exactly the three expected MVP strategies."""
+def test_defaults_registry_populates_versioned_strategies() -> None:
+    """The v2 worker strategy coexists internally until legacy cleanup completes."""
     specs = list(iter_default_strategy_specs())
-    assert len(specs) == 3
+    assert len(specs) == 4
 
     strategy_ids = {spec.strategy_id for spec in specs}
     expected_ids = {
         "exception_flow.complete_handler_action.v1",
         "required_output.materialize_producer.v1",
         "worker_delegation.complete_closure.v1",
+        "worker_delegation.complete_closure.v2",
     }
     assert strategy_ids == expected_ids
 
@@ -64,10 +66,12 @@ def test_catalog_entry_without_strategy_is_legacy() -> None:
 
 
 def test_catalog_builder_with_empty_strategy_registry_safe_miss() -> None:
-    """Verify that passing an empty strategy registry to the catalog builder succeeds and all strategy metadata defaults to None/False."""
+    """An empty strategy registry preserves safe catalog defaults."""
     registry = SPLConstructRegistry.default()
     empty_strategy_reg = RepairStrategyRegistry()
-    catalog = RepairCatalogBuilder.from_construct_registry(registry, strategy_registry=empty_strategy_reg)
+    catalog = RepairCatalogBuilder.from_construct_registry(
+        registry, strategy_registry=empty_strategy_reg
+    )
 
     entries = catalog.find_by_construct_slot_kind(
         "EXCEPTION_FLOW",
@@ -83,10 +87,11 @@ def test_catalog_builder_with_empty_strategy_registry_safe_miss() -> None:
 
 
 def test_catalog_projection_helper_safe_miss() -> None:
-    """Verify that catalog_projection.project_strategy_metadata behaves correctly on mismatch and None inputs."""
+    """Projection helper safely handles mismatches and absent inputs."""
     from nl2spl.compiler.spl_editing.strategy.catalog_projection import project_strategy_metadata
+
     empty_strategy_reg = RepairStrategyRegistry()
-    
+
     # 1. Non-existent strategy
     proj = project_strategy_metadata("non_existent_strategy_id", empty_strategy_reg)
     assert proj["repair_strategy_id"] is None
@@ -122,7 +127,7 @@ def test_catalog_entry_with_strategy_enriches_metadata() -> None:
 
 
 def test_presentation_uses_strategy_label_not_patch_type() -> None:
-    """Verify option_label_for_entry uses strategy label rather than leaking patch type names when strategy id exists."""
+    """Strategy labels take precedence over transitional patch type names."""
     entry = RepairCatalogEntry(
         entry_id="e1",
         affordance_id="exception_flow.add_handler_step",
@@ -139,7 +144,7 @@ def test_presentation_uses_strategy_label_not_patch_type() -> None:
 
 
 def test_presentation_falls_back_to_patch_label_for_legacy() -> None:
-    """Verify option_label_for_entry falls back to patch-type label for legacy entry (no repair_strategy_id)."""
+    """Legacy entries without strategy identity retain patch-label fallback."""
     entry = RepairCatalogEntry(
         entry_id="e1",
         affordance_id="exception_flow.add_handler_step",
@@ -179,13 +184,17 @@ def test_worker_promotion_slots_preserve_own_names_under_shared_strategy() -> No
         )
         assert len(entries) == 1
         entry = entries[0]
-        assert entry.repair_strategy_id == "worker_delegation.complete_closure.v1"
+        assert entry.repair_strategy_id == "worker_delegation.complete_closure.v2"
         assert entry.slot_name == slot_name  # Preserved!
-        assert entry.strategy_display_label == "Complete Worker Delegation Handoff Contract"
+        assert entry.strategy_display_label == "Complete Worker Delegation Closure"
+        assert {option.option_id for option in entry.strategy_options} == {
+            "define_child_worker",
+            "keep_in_main_flow",
+        }
 
 
 def test_catalog_does_not_import_stage_slices_handlers_or_llm() -> None:
-    """Enforce import isolation: verify strategy/defaults and catalog do not import runtime modules."""
+    """Catalog and strategy defaults remain isolated from runtime modules."""
     forbidden_modules = {
         "nl2spl.compiler.spl_editing.patches",
         "nl2spl.compiler.spl_editing.handlers",
@@ -193,11 +202,12 @@ def test_catalog_does_not_import_stage_slices_handlers_or_llm() -> None:
         "nl2spl.compiler.spl_editing.core.service",
     }
     for mod in list(sys.modules.keys()):
-        if mod.startswith("nl2spl.compiler.spl_editing.strategy") or \
-           mod.startswith("nl2spl.compiler.spl_editing.core.catalog"):
+        if mod.startswith("nl2spl.compiler.spl_editing.strategy") or mod.startswith(
+            "nl2spl.compiler.spl_editing.core.catalog"
+        ):
             module_obj = sys.modules[mod]
             module_vars = vars(module_obj)
-            for var_name, var_val in module_vars.items():
+            for _var_name, var_val in module_vars.items():
                 if hasattr(var_val, "__name__"):
                     mod_name = var_val.__name__
                     assert not any(mod_name.startswith(f) for f in forbidden_modules), (

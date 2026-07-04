@@ -213,6 +213,7 @@ def _worker_promotion_case() -> _Case:
                         outputs=["result"],
                         handoff_id="handoff_repair_cand_1",
                         integration_ref="Child",
+                        metadata={"target_worker_promotion_ref_id": "worker_promotion:cand_1"},
                     ),
                 ],
                 "w_child": [
@@ -401,19 +402,63 @@ def test_persisted_snapshot_full_editing_flow(
     issues = svc.list_editable_issues(run_id)
     assert len(issues) == 1
 
-    session = svc.create_session(run_id, issues[0])
-    suggestions = svc.generate_suggestions(session.session_id)
-    selected = next(
-        suggestion
-        for suggestion in suggestions
-        if suggestion.patch.patch_type == case.expected_patch_type
-    )
-    svc.apply_suggestion(session.session_id, selected.suggestion_id)
-    result = svc.verify_session(session.session_id)
+    if issues[0].irs_ref.construct_type == "WORKER_PROMOTION":
+        from nl2spl.compiler.spl_editing.interaction.model import (
+            SubmitRepairDirectiveDraftRequest,
+        )
+        from nl2spl.compiler.spl_editing.presentation.service import (
+            SPLEditingPresentationService,
+        )
+
+        presentation = SPLEditingPresentationService(svc)
+        snapshot = svc._get_snapshot(run_id)
+        revision = f"{snapshot.compile_run_id}:{snapshot.snapshot_id}:{snapshot.overlay_version}"
+        request = SubmitRepairDirectiveDraftRequest(
+            run_id,
+            issues[0].issue_id,
+            "worker_delegation.complete_closure.v2",
+            "keep_in_main_flow",
+            "worker_delegation.keep_in_main_flow.v1",
+            "1",
+            revision,
+            {"task_selection": "confirmed main-flow task"},
+            {},
+            (),
+        )
+        submitted = presentation.submit_repair_directive_draft(request)
+        preview = presentation.preview_repair_directive(submitted.normalized_directive_id)
+        _session, result = presentation.apply_repair_preview(
+            submitted.normalized_directive_id, preview.preview.preview_id
+        )
+    else:
+        session = svc.create_session(run_id, issues[0])
+        suggestions = svc.generate_suggestions(session.session_id)
+        selected = next(
+            suggestion
+            for suggestion in suggestions
+            if suggestion.patch.patch_type == case.expected_patch_type
+        )
+        svc.apply_suggestion(session.session_id, selected.suggestion_id)
+        result = svc.verify_session(session.session_id)
 
     assert result.accepted is True
-    assert (snapshot_path.parent / "spl_editing_overlays").exists()
-    assert list((snapshot_path.parent / "spl_editing_overlays").glob("*.json"))
+    overlay_dir = snapshot_path.parent / "spl_editing_overlays"
+    assert overlay_dir.exists()
+    overlay_paths = list(overlay_dir.glob("*.json"))
+    assert overlay_paths
+    if issues[0].irs_ref.construct_type == "WORKER_PROMOTION":
+        from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
+            JsonFileSnapshotRepository,
+        )
+        from nl2spl.compiler.artifacts.snapshot.persistence.loader import SnapshotLoader
+        from nl2spl.compiler.spl_editing.core.snapshot_adapter import (
+            artifact_snapshot_from_document,
+        )
+
+        document = SnapshotLoader(JsonFileSnapshotRepository()).load(overlay_paths[-1])
+        reloaded = artifact_snapshot_from_document(document)
+        assert len(reloaded.promotion_resolution_markers) == 1
+        assert reloaded.promotion_resolution_markers[0].resolution_kind == "kept_in_main_flow"
 
 
 def test_snapshot_without_irs_ref_is_not_editable(

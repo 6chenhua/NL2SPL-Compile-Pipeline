@@ -31,3 +31,7 @@ class RepairInteractionContractRegistry:
 
     def has(self, contract_id: str) -> bool:
         return contract_id in self._contracts
+
+    def has_complete(self, contract_id: str) -> bool:
+        spec = self._contracts.get(contract_id)
+        return spec is not None and spec.provider_id in self._providers

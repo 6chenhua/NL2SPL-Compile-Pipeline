@@ -12,11 +12,13 @@ compile run directory and is never used as the snapshot source.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
 import sys
 from collections.abc import Iterable
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -75,6 +77,10 @@ def main(argv: list[str] | None = None) -> None:
         print("Run examples/usage.py first, or copy a snapshot JSON here.")
         return
 
+    if args.e2e_worker_delegation:
+        _run_worker_delegation_e2e(snapshot_path)
+        return
+
     llm = _ListOnlySuggestionLLM() if args.list_only else build_suggestion_llm_from_env()
     service = _build_default_service(suggestion_llm=llm)
     run_id = service.register_snapshot_file(snapshot_path)
@@ -125,6 +131,16 @@ def main(argv: list[str] | None = None) -> None:
 
     option = _choose_fix_option(detail.available_repairs)
     if option is None:
+        return
+
+    if getattr(option, "option_id", None):
+        _run_typed_interaction_repair(
+            service=service,
+            presentation=presentation,
+            run_id=run_id,
+            issue_id=card.issue_id,
+            option=option,
+        )
         return
 
     user_instruction = _collect_user_repair_instruction()
@@ -204,6 +220,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         default=os.getenv("SPL_EDITING_DEMO_LIST_ONLY") == "1",
         help="Print run and issue presentation without entering Fix-with-AI flow.",
+    )
+    parser.add_argument(
+        "--e2e-worker-delegation",
+        action="store_true",
+        help=(
+            "Run deterministic Define-child, Keep-main, and negative Worker "
+            "Delegation scenarios and write acceptance bundles."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -362,7 +386,6 @@ def _choose_fix_option(
         print(f"Invalid choice: {raw}")
 
 
-
 def _collect_user_repair_instruction() -> str | None:
     print("\nOptional repair instruction")
     print("  Press Enter to let SPL Editing choose the simplest valid repair.")
@@ -371,6 +394,462 @@ def _collect_user_repair_instruction() -> str | None:
     except EOFError:
         return None
     return raw or None
+
+
+def _run_typed_interaction_repair(*, service, presentation, run_id, issue_id, option) -> None:
+    """Render and submit a backend-owned interaction without issue-specific UI logic."""
+    from nl2spl.compiler.spl_editing.interaction.model import (
+        SubmitRepairDirectiveDraftRequest,
+    )
+
+    snapshot = service._get_snapshot(run_id)
+    revision = f"{snapshot.compile_run_id}:{snapshot.snapshot_id}:{snapshot.overlay_version}"
+    interaction = presentation.get_repair_interaction(run_id, issue_id, option.option_id, revision)
+    field_values, selected_ref_ids, new_facts, additional_instruction = _collect_interaction_values(
+        interaction
+    )
+    request = SubmitRepairDirectiveDraftRequest(
+        run_id=run_id,
+        issue_id=issue_id,
+        strategy_id=interaction.strategy_id,
+        option_id=interaction.option_id,
+        contract_id=interaction.contract_id,
+        contract_version=interaction.contract_version,
+        revision_token=interaction.revision_token,
+        field_values=field_values,
+        selected_ref_ids=selected_ref_ids,
+        new_fact_declarations=new_facts,
+        additional_instruction=additional_instruction,
+    )
+    result = presentation.submit_repair_directive_draft(request)
+    if result.input_readiness != "input_complete":
+        print(f"\nInput status: {result.input_readiness}")
+        for error in result.errors:
+            print(f"  - {error.field_id or 'request'}: {error.message} ({error.code})")
+        return
+    handle = presentation.preview_repair_directive(result.normalized_directive_id)
+    print("\nPreview:")
+    for line in handle.preview.rendered_preview.splitlines():
+        print(f"  {line}")
+    if input("Confirm apply? [y/N] ").strip().lower() != "y":
+        print("Cancelled. Snapshot was not changed.")
+        return
+    updated, verification = presentation.apply_repair_preview(
+        result.normalized_directive_id, handle.preview.preview_id
+    )
+    print(f"Applied. overlay_version={updated.overlay_version}")
+    patched_spl = service.get_patched_spl(run_id) if verification.accepted else None
+    view = presentation.present_verification(run_id, verification, updated_spl=patched_spl)
+    _print_verification(view, failures=verification.failure_reasons)
+
+
+def _collect_interaction_values(interaction):
+    schemas = {schema.schema_id: schema for schema in interaction.schemas}
+    values: dict[str, object] = {}
+    refs: dict[str, tuple[str, ...]] = {}
+    facts: list[dict[str, object]] = []
+    additional_instruction = None
+    print("\nRequired information")
+    for field in interaction.fields:
+        value = _collect_field_value(field, schemas)
+        if field.field_id == "additional_instruction":
+            additional_instruction = value or None
+        elif field.input_type == "reference_select":
+            refs[field.field_id] = tuple(value or ())
+        elif field.input_type == "new_fact_list":
+            facts.extend(value or ())
+        elif value is not None:
+            values[field.field_id] = value
+    return values, refs, tuple(facts), additional_instruction
+
+
+def _collect_field_value(field, schemas):
+    label = field.label + (" *" if field.required else "")
+    if field.input_type in {"short_text", "long_text"}:
+        default = str(field.value) if field.value is not None else ""
+        prompt = f"{label}" + (f" [{default}]" if default else "") + ": "
+        raw = input(prompt).strip()
+        return raw or default or None
+    if field.input_type in {"single_choice", "multi_choice", "reference_select"}:
+        if not field.options:
+            return () if field.input_type != "single_choice" else None
+        print(f"{label}:")
+        for index, choice in enumerate(field.options, 1):
+            print(f"  [{index}] {choice.label}")
+        raw = input("Select number(s), comma-separated: ").strip()
+        if not raw:
+            return () if field.input_type != "single_choice" else None
+        selected = tuple(field.options[int(item.strip()) - 1].value for item in raw.split(","))
+        return selected[0] if field.input_type == "single_choice" else selected
+    if field.input_type in {"structured_object", "new_fact_list"}:
+        schema_id = field.object_schema_id or field.fact_schema_id
+        schema = schemas[schema_id]
+        raw_count = input(f"{label} - number of entries: ").strip()
+        count = int(raw_count or ("1" if field.required else "0"))
+        return tuple(_collect_schema_object(schema, schemas) for _ in range(count))
+    raise ValueError(f"Unsupported interaction input type: {field.input_type}")
+
+
+def _collect_schema_object(schema, schemas) -> dict[str, object]:
+    result: dict[str, object] = {}
+    print(f"  {schema.schema_id}")
+    for field in schema.fields:
+        value = _collect_field_value(field, schemas)
+        if field.input_type == "reference_select":
+            values = tuple(value or ())
+            value = values[0] if values else None
+        if value is not None:
+            result[field.field_id] = value
+    return result
+
+
+def _run_worker_delegation_e2e(snapshot_path: Path) -> None:
+    """Execute deterministic real-snapshot E2E scenarios and emit audit bundles."""
+    root = REPO_ROOT / ".test-artifacts" / "spl_editing" / "worker_delegation_v2"
+    root.mkdir(parents=True, exist_ok=True)
+    define = _execute_worker_scenario(snapshot_path, "define_child_worker")
+    keep = _execute_worker_scenario(snapshot_path, "keep_in_main_flow")
+    negative = _execute_negative_worker_scenario(snapshot_path)
+    if not define["accepted"] or not keep["accepted"] or negative["accepted"]:
+        raise RuntimeError("Worker Delegation E2E acceptance criteria failed")
+    print("Worker Delegation v2 E2E: PASS")
+    print(f"  Define child worker: Lane {define['lane']} accepted")
+    print(f"  Keep in main flow: Lane {keep['lane']} accepted")
+    print("  Negative validation: rejected without overlay")
+    print(f"  Acceptance bundles: {root}")
+
+
+def _worker_runtime(snapshot_path: Path):
+    from nl2spl.compiler.spl_editing.cli import _build_default_service
+    from nl2spl.compiler.spl_editing.presentation import SPLEditingPresentationService
+
+    service = _build_default_service(suggestion_llm=_ListOnlySuggestionLLM())
+    run_id = service.register_snapshot_file(snapshot_path)
+    # E2E acceptance output belongs under .test-artifacts.  Keep the loaded
+    # canonical fixture read-only and disable overlay persistence for this run.
+    service._snapshot_repository = None
+    presentation = SPLEditingPresentationService(service)
+    issue = next(
+        item
+        for item in service.list_editable_issues(run_id)
+        if item.irs_ref.construct_type == "WORKER_PROMOTION"
+    )
+    snapshot = service._get_snapshot(run_id)
+    revision = f"{snapshot.compile_run_id}:{snapshot.snapshot_id}:{snapshot.overlay_version}"
+    return service, presentation, run_id, issue, snapshot, revision
+
+
+def _execute_worker_scenario(snapshot_path: Path, option_id: str) -> dict[str, object]:
+    from nl2spl.compiler.spl_editing.interaction.model import (
+        SubmitRepairDirectiveDraftRequest,
+    )
+
+    service, presentation, run_id, issue, before, revision = _worker_runtime(snapshot_path)
+    interaction = presentation.get_repair_interaction(run_id, issue.issue_id, option_id, revision)
+    if option_id == "define_child_worker":
+        input_ref = next(
+            choice.value
+            for field in interaction.fields
+            if field.field_id == "input_refs"
+            for choice in field.options
+            if choice.label == "user_request"
+        )
+        field_values = {
+            "delegated_responsibility": "Gather approved source evidence",
+            "invocation_timing": "append",
+            "result_usage": (
+                {
+                    "output_local_id": "evidence",
+                    "create_parent_local_temporary": "yes",
+                },
+            ),
+        }
+        selected = {"input_refs": (input_ref,)}
+        facts = (
+            {
+                "local_id": "evidence",
+                "display_name": "delegated evidence",
+                "semantic_description": "Approved evidence returned by the child worker",
+                "data_type_hint": "text",
+            },
+        )
+        contract_id = "worker_delegation.define_child_worker.v1"
+    else:
+        field_values = {"task_selection": "source gathering and template matching"}
+        selected = {}
+        facts = ()
+        contract_id = "worker_delegation.keep_in_main_flow.v1"
+    request = SubmitRepairDirectiveDraftRequest(
+        run_id,
+        issue.issue_id,
+        "worker_delegation.complete_closure.v2",
+        option_id,
+        contract_id,
+        "1",
+        revision,
+        field_values,
+        selected,
+        facts,
+    )
+    submitted = presentation.submit_repair_directive_draft(request)
+    if submitted.input_readiness != "input_complete":
+        raise RuntimeError(f"{option_id} draft rejected: {submitted.errors}")
+    handle = presentation.preview_repair_directive(submitted.normalized_directive_id)
+    updated, verification = presentation.apply_repair_preview(
+        submitted.normalized_directive_id, handle.preview.preview_id
+    )
+    after = service._get_snapshot(run_id)
+    after_spl = service.get_patched_spl(run_id)
+    if verification.lane != "B" or not verification.accepted:
+        raise RuntimeError(f"{option_id} verification failed: {verification.failure_reasons}")
+    if option_id == "define_child_worker":
+        if "ChildWorker_" not in after_spl or "[INVOKE ChildWorker_" not in after_spl:
+            child_visible = "ChildWorker_" in after_spl
+            invoke_visible = "[INVOKE ChildWorker_" in after_spl
+            raise RuntimeError(
+                "Define-child result is not visible in rendered SPL "
+                f"(child={child_visible}, invoke={invoke_visible}): " + after_spl[-2000:]
+            )
+    elif "source gathering and template matching" not in after_spl.casefold():
+        raise RuntimeError("Keep-main command is not visible in rendered SPL: " + after_spl[-1800:])
+    summary = {
+        "scenario_id": option_id,
+        "accepted": verification.accepted,
+        "lane": verification.lane,
+        "directive_id": submitted.normalized_directive_id,
+        "preview_id": handle.preview.preview_id,
+        "patch_id": verification.patch_id,
+        "overlay_version": updated.overlay_version,
+    }
+    _write_acceptance_bundle(
+        scenario_id=option_id,
+        before=before,
+        after=after,
+        before_spl=before.final_spl or "",
+        after_spl=after_spl,
+        preview=handle.preview,
+        verification=verification,
+        service=service,
+        directive_id=submitted.normalized_directive_id,
+    )
+    return summary
+
+
+def _execute_negative_worker_scenario(snapshot_path: Path) -> dict[str, object]:
+    from nl2spl.compiler.spl_editing.interaction.model import (
+        SubmitRepairDirectiveDraftRequest,
+    )
+
+    service, presentation, run_id, issue, before, revision = _worker_runtime(snapshot_path)
+    request = SubmitRepairDirectiveDraftRequest(
+        run_id,
+        issue.issue_id,
+        "worker_delegation.complete_closure.v2",
+        "define_child_worker",
+        "worker_delegation.define_child_worker.v1",
+        "1",
+        revision,
+        {"invocation_timing": "after", "placement_ref": "unknown-ref"},
+        {"input_refs": ("unknown-ref",)},
+        (),
+    )
+    result = presentation.submit_repair_directive_draft(request)
+    after = service._get_snapshot(run_id)
+    accepted = (
+        result.input_readiness == "input_complete"
+        or after.overlay_version != before.overlay_version
+    )
+    _write_acceptance_bundle(
+        scenario_id="negative",
+        before=before,
+        after=after,
+        before_spl=before.final_spl or "",
+        after_spl=after.final_spl or "",
+        preview={
+            "input_readiness": result.input_readiness,
+            "errors": [_jsonable(item) for item in result.errors],
+        },
+        verification={
+            "accepted": False,
+            "lane": None,
+            "failure_reasons": [item.code for item in result.errors],
+        },
+        service=service,
+        directive_id=None,
+    )
+    return {"scenario_id": "negative", "accepted": accepted, "lane": None}
+
+
+def _write_acceptance_bundle(
+    *,
+    scenario_id,
+    before,
+    after,
+    before_spl,
+    after_spl,
+    preview,
+    verification,
+    service,
+    directive_id,
+) -> None:
+    bundle_dir = (
+        REPO_ROOT / ".test-artifacts" / "spl_editing" / "worker_delegation_v2" / scenario_id
+    )
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    before_inventory = _typed_artifact_inventory(before)
+    after_inventory = _typed_artifact_inventory(after)
+    if after.overlay_version > before.overlay_version:
+        from nl2spl.compiler.spl_editing.verification.lanes import LaneBReplayAdapter
+
+        replay = LaneBReplayAdapter().replay(after)
+        after_diagnostics = replay.post_normalize_diagnostics
+    else:
+        after_diagnostics = after.compile_diagnostics
+    payloads = {
+        "before_final.spl": before_spl,
+        "after_final.spl": after_spl,
+        "before_diagnostics.json": _json_text(before.compile_diagnostics),
+        "after_diagnostics.json": _json_text(after_diagnostics),
+        "preview_summary.json": _json_text(preview),
+        "verification_result.json": _json_text(verification),
+        "evidence_provenance_summary.json": _json_text(
+            _evidence_summary(after, service, directive_id)
+        ),
+        "artifact_diff.json": _json_text(
+            {
+                "changed_categories": [
+                    name
+                    for name in before_inventory
+                    if before_inventory[name] != after_inventory[name]
+                ],
+                "before": before_inventory,
+                "after": after_inventory,
+            }
+        ),
+    }
+    hashes: dict[str, str] = {}
+    for name, content in payloads.items():
+        path = bundle_dir / name
+        path.write_text(content, encoding="utf-8", newline="")
+        hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    verification_data = _jsonable(verification)
+    preview_data = _jsonable(preview)
+    evidence = _evidence_summary(after, service, directive_id)
+    manifest = {
+        "scenario_id": scenario_id,
+        "base_snapshot_id": before.snapshot_id,
+        "base_overlay_version": before.overlay_version,
+        "result_overlay_version": after.overlay_version,
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "option_id": scenario_id if scenario_id != "negative" else "define_child_worker",
+        "normalized_directive_id": directive_id,
+        "preview_id": preview_data.get("preview_id"),
+        "patch_id": verification_data.get("patch_id"),
+        "evidence_ids": evidence.get("evidence_packet_ids", []),
+        "verification_lane": verification_data.get("lane"),
+        "verification_status": "accepted" if verification_data.get("accepted") else "rejected",
+        "file_hashes": hashes,
+    }
+    (bundle_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _typed_artifact_inventory(snapshot) -> dict[str, object]:
+    workers = snapshot.worker_plan.workers if snapshot.worker_plan is not None else ()
+    handoffs = snapshot.worker_plan.handoffs if snapshot.worker_plan is not None else ()
+    steps = snapshot.worker_step_plan.worker_steps if snapshot.worker_step_plan is not None else {}
+    blocks = (
+        snapshot.worker_block_plan.worker_blocks if snapshot.worker_block_plan is not None else {}
+    )
+    flows = snapshot.worker_flow_plan.worker_flows if snapshot.worker_flow_plan is not None else {}
+    symbols = getattr(snapshot.symbol_table, "_variables", {}) if snapshot.symbol_table else {}
+    return {
+        "WorkerPlanIR": {
+            "workers": [_jsonable(item) for item in workers],
+            "handoffs": [_jsonable(item) for item in handoffs],
+        },
+        "WorkerFlowPlanIR": sorted(flows),
+        "WorkerBlockPlanIR": {
+            worker_id: [_jsonable(item) for item in structure.main_flow_blocks]
+            for worker_id, structure in sorted(blocks.items())
+        },
+        "WorkerStepPlanIR": {
+            worker_id: [_jsonable(item) for item in values]
+            for worker_id, values in sorted(steps.items())
+        },
+        "handoff_invoke_bindings": [
+            {
+                "handoff_id": item.handoff_id,
+                "input_bindings": _jsonable(item.input_bindings),
+                "output_bindings": _jsonable(item.output_bindings),
+                "invoke_step_ids": [
+                    step.step_id
+                    for values in steps.values()
+                    for step in values
+                    if step.handoff_id == item.handoff_id
+                ],
+            }
+            for item in handoffs
+        ],
+        "PromotionResolutionMarker": _jsonable(snapshot.promotion_resolution_markers),
+        "SymbolTable_local_temporary_results": [
+            _jsonable(value)
+            for (_scope_kind, _scope_id, name), value in sorted(symbols.items())
+            if name.startswith("tmp_")
+        ],
+    }
+
+
+def _evidence_summary(snapshot, service, directive_id) -> dict[str, object]:
+    steps = (
+        snapshot.worker_step_plan.get_all_steps() if snapshot.worker_step_plan is not None else []
+    )
+    matching = [
+        step
+        for step in steps
+        if directive_id and step.metadata.get("normalized_directive_id") == directive_id
+    ]
+    apply_results = tuple(getattr(service, "_apply_results", {}).values())
+    evidence_packet_ids = sorted(
+        {
+            step.metadata.get("evidence_packet_id")
+            for step in matching
+            if step.metadata.get("evidence_packet_id")
+        }
+    )
+    return {
+        "evidence_packet_ids": evidence_packet_ids,
+        "changed_artifact_evidence": [
+            _jsonable(item) for result in apply_results for item in result.evidence_refs
+        ],
+        "step_provenance": [
+            {"step_id": step.step_id, "metadata": _jsonable(step.metadata)} for step in matching
+        ],
+        "resolution_markers": [
+            _jsonable(marker)
+            for marker in snapshot.promotion_resolution_markers
+            if directive_id and marker.normalized_directive_id == directive_id
+        ],
+    }
+
+
+def _jsonable(value):
+    if is_dataclass(value):
+        return {key: _jsonable(item) for key, item in asdict(value).items()}
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    return value
+
+
+def _json_text(value) -> str:
+    return json.dumps(_jsonable(value), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
 
 def _print_suggestions(suggestions: tuple[object, ...]) -> None:
     print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")

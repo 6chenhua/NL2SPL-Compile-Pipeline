@@ -426,7 +426,9 @@ class RepairMaterializationService:
                 raise DependencyClosureValidationError(
                     "DefineChildWorkerClosure preview requires normalized directive"
                 )
-            return self._render_define_child_preview(directive_payload)
+            return self._render_define_child_preview(
+                directive_payload, snapshot=snapshot, target=target
+            )
         else:
             raise DependencyClosureValidationError(
                 f"No dry-run stage-slice chain for patch type '{intent.patch_type}'."
@@ -435,15 +437,13 @@ class RepairMaterializationService:
         return self._render_dry_run_preview(intent, target, tuple(results))
 
     @staticmethod
-    def _render_define_child_preview(directive: Any) -> str:
-        inputs = tuple(item.ref.canonical_name for item in directive.selected_input_refs)
-        outputs = tuple(item.canonical_name for item in directive.admitted_outputs)
-        invoke_outputs = tuple(
-            item.parent_ref.ref.canonical_name
-            if item.parent_ref is not None
-            else item.parent_temporary_name
-            for item in directive.result_usage
-        )
+    def _render_define_child_preview(directive: Any, *, snapshot, target) -> str:
+        plans = import_module("nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans")
+
+        bundle = plans.build_worker_delegation_typed_plans(snapshot, target, directive)
+        inputs = bundle.child_command.input_names
+        outputs = bundle.child_command.output_names
+        invoke_outputs = bundle.parent_invoke.output_names
         command = RepairMaterializationService._command_line(
             "GENERAL_COMMAND",
             directive.delegated_responsibility,
@@ -452,15 +452,15 @@ class RepairMaterializationService:
         )
         invoke = RepairMaterializationService._command_line(
             "INVOKE_WORKER",
-            "Child worker",
+            f"Invoke {bundle.child_boundary.worker_name}",
             inputs=inputs,
             outputs=invoke_outputs,
-            integration_ref="ChildWorker",
+            integration_ref=bundle.child_boundary.worker_name,
         )
         return "\n".join(
             (
-                "[WORKER: ChildWorker]",
-                f"  PURPOSE {directive.delegated_responsibility}",
+                f"[WORKER: {bundle.child_boundary.worker_name}]",
+                f"  PURPOSE {bundle.child_boundary.purpose}",
                 "  [MAIN_FLOW]",
                 "    [SEQUENTIAL_BLOCK]",
                 f"      {command}",
@@ -494,9 +494,7 @@ class RepairMaterializationService:
             )
             flow_label = RepairMaterializationService._exception_flow_label(target)
             header = f"[EXCEPTION_FLOW: {flow_label}]" if flow_label else "[EXCEPTION_FLOW]"
-            command_line = RepairMaterializationService._command_line(
-                command_family, command_text
-            )
+            command_line = RepairMaterializationService._command_line(command_family, command_text)
             return "\n".join(
                 (
                     header,
@@ -512,9 +510,7 @@ class RepairMaterializationService:
                 payload, ("producer_goal",), default="Produce required output"
             )
             output_name = target.canonical_name or "required_output"
-            selected_inputs = RepairMaterializationService._selected_ref_names(
-                stage_results
-            )
+            selected_inputs = RepairMaterializationService._selected_ref_names(stage_results)
             return "\n".join(
                 (
                     "[SEQUENTIAL_BLOCK]",
@@ -531,9 +527,7 @@ class RepairMaterializationService:
 
         if intent.patch_type == "CreateWorkerHandoffContract":
             child_worker = (
-                getattr(payload, "child_worker_id", None)
-                or target.canonical_name
-                or "worker"
+                getattr(payload, "child_worker_id", None) or target.canonical_name or "worker"
             )
             parent_inputs = tuple(
                 parent for parent, _child in getattr(payload, "input_bindings", ())
@@ -589,7 +583,8 @@ class RepairMaterializationService:
             )
 
         return RepairMaterializationService._first_payload_text(
-            payload, ("handler_goal", "producer_goal", "action_text", "prompt_text"),
+            payload,
+            ("handler_goal", "producer_goal", "action_text", "prompt_text"),
             default="Repair preview unavailable.",
         )
 

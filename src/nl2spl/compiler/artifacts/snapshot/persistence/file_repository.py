@@ -54,9 +54,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
         # Validate before writing
         result = self._validator.validate(document)
         if not result.is_valid:
-            raise ValueError(
-                f"Cannot save invalid snapshot: {', '.join(result.errors[:5])}"
-            )
+            raise ValueError(f"Cannot save invalid snapshot: {', '.join(result.errors[:5])}")
 
         # If integrity hashes are missing, compute them from the full
         # persistence dict (not the hash summary view).
@@ -87,7 +85,8 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                 declared_capabilities=document.declared_capabilities,
                 payload=document.payload,
                 integrity=SnapshotIntegrity(
-                    payload_hash=ph, artifact_set_hash=ash,
+                    payload_hash=ph,
+                    artifact_set_hash=ash,
                 ),
             )
 
@@ -99,7 +98,8 @@ class JsonFileSnapshotRepository(SnapshotRepository):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp_path = tempfile.mkstemp(
-            dir=str(path.parent), prefix=".snapshot_tmp_",
+            dir=str(path.parent),
+            prefix=".snapshot_tmp_",
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -111,7 +111,9 @@ class JsonFileSnapshotRepository(SnapshotRepository):
             raise
 
     def save_overlay(
-        self, document: SnapshotDocument, path: Path,
+        self,
+        document: SnapshotDocument,
+        path: Path,
     ) -> None:
         """Persist an overlay snapshot (same atomic semantics as ``save``)."""
         self.save(document, path)
@@ -151,18 +153,14 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                 raise ValueError(f"Invalid JSON in {path}: {e}") from e
 
         if not isinstance(data, dict):
-            raise ValueError(
-                f"Snapshot JSON must be a dict, got {type(data).__name__}"
-            )
+            raise ValueError(f"Snapshot JSON must be a dict, got {type(data).__name__}")
 
         # Check required top-level sections before reconstruction
         from nl2spl.compiler.artifacts.snapshot.constants import TOP_LEVEL_SECTIONS
 
         for section in TOP_LEVEL_SECTIONS:
             if section not in data:
-                raise ValueError(
-                    f"Snapshot JSON missing required section: {section!r}"
-                )
+                raise ValueError(f"Snapshot JSON missing required section: {section!r}")
 
         # Check artifact_kind and schema_version (lightweight, before hash)
         from nl2spl.compiler.artifacts.snapshot.constants import (
@@ -179,8 +177,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
         sv = data.get("schema_version", "")
         if not is_schema_compatible(sv):
             raise ValueError(
-                f"Schema version {sv!r} is not compatible. "
-                f"Expected {SNAPSHOT_SCHEMA_VERSION!r}."
+                f"Schema version {sv!r} is not compatible. Expected {SNAPSHOT_SCHEMA_VERSION!r}."
             )
 
         # Persisted snapshots MUST carry integrity hashes
@@ -206,8 +203,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                 computed_ph = _compute_hash(ph_dict, HASH_ALGORITHM)
                 if computed_ph != stored_ph:
                     raise ValueError(
-                        f"payload_hash mismatch: stored={stored_ph}, "
-                        f"computed={computed_ph}"
+                        f"payload_hash mismatch: stored={stored_ph}, computed={computed_ph}"
                     )
             if stored_ah:
                 ash_dict = deepcopy(ph_dict)
@@ -220,8 +216,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                 computed_ah = _compute_hash(ash_dict, HASH_ALGORITHM)
                 if computed_ah != stored_ah:
                     raise ValueError(
-                        f"artifact_set_hash mismatch: stored={stored_ah}, "
-                        f"computed={computed_ah}"
+                        f"artifact_set_hash mismatch: stored={stored_ah}, computed={computed_ah}"
                     )
 
         # Reconstruct a SnapshotDocument and run S2 validation
@@ -237,9 +232,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
         )
         result = self._validator.validate(doc)
         if not result.is_valid:
-            raise ValueError(
-                f"S2 validation failed: {'; '.join(result.errors[:5])}"
-            )
+            raise ValueError(f"S2 validation failed: {'; '.join(result.errors[:5])}")
 
         return data
 
@@ -278,9 +271,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                 "producer_version": ident.producer_version,
             },
             "capabilities": {
-                "declared": [
-                    c.value for c in document.declared_capabilities.capabilities
-                ],
+                "declared": [c.value for c in document.declared_capabilities.capabilities],
             },
             "payload": {
                 "source": {
@@ -346,6 +337,9 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                     "verification_history": _serialize_if_present(
                         payload.editing.history.verification_history,
                     ),
+                    "promotion_resolutions": _serialize_if_present(
+                        payload.editing.history.promotion_resolutions,
+                    ),
                 },
             },
             "integrity": (
@@ -353,7 +347,8 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                     "payload_hash": document.integrity.payload_hash,
                     "artifact_set_hash": document.integrity.artifact_set_hash,
                 }
-                if document.integrity else None
+                if document.integrity
+                else None
             ),
         }
 
@@ -426,6 +421,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
         edit_overlay = _deserialize_list(edit.get("overlay_events"))
         edit_patches = _deserialize_list(edit.get("accepted_patches"))
         edit_verify = _deserialize_list(edit.get("verification_history"))
+        edit_resolutions = _deserialize_list(edit.get("promotion_resolutions"))
 
         from nl2spl.compiler.artifacts.snapshot.model.editing_history import (
             SnapshotEditingHistory,
@@ -479,6 +475,7 @@ class JsonFileSnapshotRepository(SnapshotRepository):
                     overlay_events=tuple(edit_overlay) if edit_overlay else (),
                     accepted_patches=tuple(edit_patches) if edit_patches else (),
                     verification_history=tuple(edit_verify) if edit_verify else (),
+                    promotion_resolutions=(tuple(edit_resolutions) if edit_resolutions else ()),
                 ),
             ),
         )

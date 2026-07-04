@@ -1,0 +1,28 @@
+{
+  "schema": "stage3_5_api_worker_boundary.apw_review_manifest.v1",
+  "phase": "APW2",
+  "generated_at": "2026-07-04T02:18:25+08:00",
+  "commands": [
+    ".venv\\Scripts\\python.exe -m pytest tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_candidate_sanitizer.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_api_exclusion_view.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py tests/unit/pipeline/stages/test_stage3_5_worker_boundary_planner.py -q",
+    ".venv\\Scripts\\ruff.exe check src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/api_exclusion.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/candidate_sanitizer.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/executor.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/__init__.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_candidate_sanitizer.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_api_exclusion_view.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py",
+    "git diff --check -- src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/api_exclusion.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/candidate_sanitizer.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/executor.py src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/__init__.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_candidate_sanitizer.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_api_exclusion_view.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_apw0_current_gap_lock.py"
+  ],
+  "files": [
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/candidate_sanitizer.py",
+      "sha256": "180a4aac9c02ad5227c5edff118ed3ebe05572f8fa37459f9c20b80a0a4c19e2"
+    },
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/executor.py",
+      "sha256": "9f79928f5f9d76476f3b1296fc74b88068c32fe3eb71e1b569bfc7c5066f2765"
+    },
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/__init__.py",
+      "sha256": "e6b5d0b6735d9ad1fe1ef95504be234afa5a75bcf7eb1592b98bb344a626fa49"
+    },
+    {
+      "path": "tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_candidate_sanitizer.py",
+      "sha256": "9d79d716a6c0e4bc6fbd91ccd648d6f043eb41c212c27eaffbb6e0ff88fdc248"
+    }
+  ]
+}

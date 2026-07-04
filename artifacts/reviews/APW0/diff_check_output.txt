@@ -1,0 +1,4 @@
+git diff --check completed with no output for APW0 touched files.
+
+skip / xfail scan:
+  rg returned no matches.

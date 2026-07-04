@@ -1,0 +1,332 @@
+[
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_eb6a6a2f0b5c",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_00, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_00",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_00"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_00' has condition but no handler step.",
+      "required_for": "exc_adapter_00",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s26"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s26"
+    ],
+    "suggested_resolution": "Add a handler step for 'conflicting instructions', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_00"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_ea4aabf8f488",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_01",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_01"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_01' has condition but no handler step.",
+      "required_for": "exc_adapter_01",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s28"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s28"
+    ],
+    "suggested_resolution": "Add a handler step for 'evidence\nshortage', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_01"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_fd83d44e3194",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_02, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_02",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_02"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_02' has condition but no handler step.",
+      "required_for": "exc_adapter_02",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s27"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s27"
+    ],
+    "suggested_resolution": "Add a handler step for 'insufficient source access', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_02"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_82aa44be011f",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_03",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_03"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_03' has condition but no handler step.",
+      "required_for": "exc_adapter_03",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s25"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s25"
+    ],
+    "suggested_resolution": "Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_03"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_de963025d6c8",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_04",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_04"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_04' has condition but no handler step.",
+      "required_for": "exc_adapter_04",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s30"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s30"
+    ],
+    "suggested_resolution": "Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_04"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_b5c75258c745",
+    "kind": "missing_handler",
+    "message": "Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.exception_flow:exc_adapter_05",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "exception_flows",
+          "exc_adapter_05"
+        ],
+        "construct_type": "EXCEPTION_FLOW",
+        "slot_name": "handler_action",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Exception flow 'exc_adapter_05' has condition but no handler step.",
+      "required_for": "exc_adapter_05",
+      "slot_name": "handler_action",
+      "source_span_ids": [
+        "s29"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s29"
+    ],
+    "suggested_resolution": "Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.",
+    "target_ref": "worker:worker_main.exception_flow:exc_adapter_05"
+  },
+  {
+    "blocks_completion": false,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_995dca55be8f",
+    "kind": "deferred_api_contract_validation",
+    "message": "Schema placeholder is valid; downstream API validation is pending. [construct=api_declaration:api:ApprovedSourceRecipesAPI, slot=openapi_schema]",
+    "metadata": {
+      "api_contract_validation_status": "pending",
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "api_declaration:api:ApprovedSourceRecipesAPI",
+        "construct_path": [
+          "resources",
+          "apis",
+          "api:ApprovedSourceRecipesAPI"
+        ],
+        "construct_type": "API_DECLARATION",
+        "slot_name": "openapi_schema",
+        "source_authority": "post_normalize_irs"
+      },
+      "issue_group_id": "api_contract_deferred:api:ApprovedSourceRecipesAPI",
+      "nl2spl_renderable": true,
+      "placeholder_fields": [
+        "openapi_schema",
+        "functions"
+      ],
+      "presentation_disposition": "deferred_validation",
+      "repairability": "review_only",
+      "validation_authority": "downstream_spl_compiler"
+    },
+    "missing_slot": {
+      "reason": "Schema placeholder is valid; downstream API validation is pending.",
+      "required_for": "downstream_api_validation",
+      "slot_name": "openapi_schema",
+      "source_span_ids": [
+        "s16"
+      ],
+      "suggested_question": null
+    },
+    "severity": "info",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s16"
+    ],
+    "suggested_resolution": "Provide an OpenAPI schema or explicitly confirm the schema is empty.",
+    "target_ref": "api_declaration:api:ApprovedSourceRecipesAPI"
+  },
+  {
+    "blocks_completion": false,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_b1a69d1cc286",
+    "kind": "deferred_api_contract_validation",
+    "message": "Functions placeholder is valid; downstream API validation is pending. [construct=api_declaration:api:ApprovedSourceRecipesAPI, slot=functions]",
+    "metadata": {
+      "api_contract_validation_status": "pending",
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "api_declaration:api:ApprovedSourceRecipesAPI",
+        "construct_path": [
+          "resources",
+          "apis",
+          "api:ApprovedSourceRecipesAPI"
+        ],
+        "construct_type": "API_DECLARATION",
+        "slot_name": "functions",
+        "source_authority": "post_normalize_irs"
+      },
+      "issue_group_id": "api_contract_deferred:api:ApprovedSourceRecipesAPI",
+      "nl2spl_renderable": true,
+      "placeholder_fields": [
+        "openapi_schema",
+        "functions"
+      ],
+      "presentation_disposition": "deferred_validation",
+      "repairability": "review_only",
+      "validation_authority": "downstream_spl_compiler"
+    },
+    "missing_slot": {
+      "reason": "Functions placeholder is valid; downstream API validation is pending.",
+      "required_for": "downstream_api_validation",
+      "slot_name": "functions",
+      "source_span_ids": [
+        "s16"
+      ],
+      "suggested_question": null
+    },
+    "severity": "info",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s16"
+    ],
+    "suggested_resolution": "Provide function declarations or explicitly confirm the API has no callable functions.",
+    "target_ref": "api_declaration:api:ApprovedSourceRecipesAPI"
+  }
+]

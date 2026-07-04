@@ -501,7 +501,7 @@ class TestR3MetadataExtension:
         wp_entries = catalog.find_by_affordance_id("worker_promotion.resolve_contract")
         assert len(wp_entries) == 4
         for wp_entry in wp_entries:
-            assert wp_entry.materialization_plan_id == "worker_handoff.contract_repair.v1"
+            assert wp_entry.materialization_plan_id == "worker_delegation.complete_closure.v2"
             assert (
                 wp_entry.selectable_ref_policy_id == "worker_promotion.handoff.selectable_refs.v1"
             )
@@ -514,7 +514,10 @@ class TestR3MetadataExtension:
                 "possible_outputs",
                 "hierarchy_graph",
             )
-            assert wp_entry.stage_authority == "stage3_5.worker_boundary + stage7.worker_step_plan"
+            assert wp_entry.stage_authority == (
+                "stage3_5.worker_boundary + stage4.worker_flow_plan + "
+                "stage5.worker_block_plan + stage7.worker_step_plan"
+            )
             assert wp_entry.user_facing is True
 
     def test_construct_registry_does_not_import_runtime_materialization(self) -> None:

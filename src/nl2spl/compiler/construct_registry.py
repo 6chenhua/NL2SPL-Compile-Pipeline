@@ -520,7 +520,10 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="exception_flow.add_handler_step",
-                            description="Add a handler step to an exception flow that has a condition but no handler action.",
+                            description=(
+                                "Add a handler step to an exception flow that has "
+                                "a condition but no handler action."
+                            ),
                             supported_patch_types=("AddExceptionHandlerStep",),
                             default_patch_type="AddExceptionHandlerStep",
                             handler_id="missing_handler",
@@ -597,7 +600,10 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="required_output.insert_or_bind_producer",
-                            description="Insert a new producer step or bind an existing step as the producer for a required output.",
+                            description=(
+                                "Insert a new producer step or bind an existing step "
+                                "as the producer for a required output."
+                            ),
                             supported_patch_types=("InsertProducerStep",),
                             default_patch_type="InsertProducerStep",
                             handler_id="missing_output_producer",
@@ -838,7 +844,8 @@ class SPLConstructRegistry:
                 ),
                 SlotSpec(
                     slot_name="integration_evidence",
-                    required_for_complete=False,  # Compatibility alias: does not participate in completion authority
+                    # Compatibility alias: does not participate in completion authority.
+                    required_for_complete=False,
                     evidence_kinds=[
                         "api_ref",
                         "tool_ref",
@@ -853,7 +860,10 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="call_api.specify_integration_evidence",
-                            description="Provide integration evidence (API/tool/connector ref) for a CALL_API step.",
+                            description=(
+                                "Provide integration evidence (API/tool/connector ref) "
+                                "for a CALL_API step."
+                            ),
                             supported_patch_types=("SpecifyAPIIntegration",),
                             default_patch_type="SpecifyAPIIntegration",
                             handler_id="type_or_contract_ambiguity",
@@ -906,8 +916,14 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="invoke_worker.create_or_bind_handoff",
-                            description="Create a new worker handoff contract or bind an existing one for an INVOKE_WORKER step.",
-                            supported_patch_types=("CreateWorkerHandoffContract", "BindExistingHandoff"),
+                            description=(
+                                "Create a new worker handoff contract or bind an "
+                                "existing one for an INVOKE_WORKER step."
+                            ),
+                            supported_patch_types=(
+                                "CreateWorkerHandoffContract",
+                                "BindExistingHandoff",
+                            ),
                             default_patch_type="CreateWorkerHandoffContract",
                             handler_id="type_or_contract_ambiguity",
                             context_id="invoke_worker_context",
@@ -1081,8 +1097,8 @@ class SPLConstructRegistry:
                             affordance_id="worker_promotion.resolve_contract",
                             description=(
                                 "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
-                                "User can confirm delegation (create handoff contract), "
-                                "convert to a main-flow step, or convert to a user-prompt step."
+                                "User can define a complete child-worker closure or keep an "
+                                "explicitly selected task in the main flow."
                             ),
                             supported_patch_types=(
                                 "DefineChildWorkerClosure",
@@ -1142,8 +1158,8 @@ class SPLConstructRegistry:
                             affordance_id="worker_promotion.resolve_contract",
                             description=(
                                 "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
-                                "User can confirm delegation (create handoff contract), "
-                                "convert to a main-flow step, or convert to a user-prompt step."
+                                "User can define a complete child-worker closure or keep an "
+                                "explicitly selected task in the main flow."
                             ),
                             supported_patch_types=(
                                 "DefineChildWorkerClosure",
@@ -1197,8 +1213,8 @@ class SPLConstructRegistry:
                             affordance_id="worker_promotion.resolve_contract",
                             description=(
                                 "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
-                                "User can confirm delegation (create handoff contract), "
-                                "convert to a main-flow step, or convert to a user-prompt step."
+                                "User can define a complete child-worker closure or keep an "
+                                "explicitly selected task in the main flow."
                             ),
                             supported_patch_types=(
                                 "DefineChildWorkerClosure",
@@ -1252,8 +1268,8 @@ class SPLConstructRegistry:
                             affordance_id="worker_promotion.resolve_contract",
                             description=(
                                 "Resolve a delegation-intent-sourced WORKER_PROMOTION gap. "
-                                "User can confirm delegation (create handoff contract), "
-                                "convert to a main-flow step, or convert to a user-prompt step."
+                                "User can define a complete child-worker closure or keep an "
+                                "explicitly selected task in the main flow."
                             ),
                             supported_patch_types=(
                                 "DefineChildWorkerClosure",
@@ -1329,7 +1345,10 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="worker_handoff.specify_target",
-                            description="Specify the target (to_worker or api_ref) for an incomplete worker handoff.",
+                            description=(
+                                "Specify the target (to_worker or api_ref) for an "
+                                "incomplete worker handoff."
+                            ),
                             supported_patch_types=("UpdateHandoffContract",),
                             default_patch_type="UpdateHandoffContract",
                             handler_id="type_or_contract_ambiguity",
@@ -1392,7 +1411,10 @@ class SPLConstructRegistry:
                     repair_affordances=(
                         RepairAffordanceSpec(
                             affordance_id="worker_handoff.specify_invocation_site",
-                            description="Specify the invocation site for an incomplete worker handoff.",
+                            description=(
+                                "Specify the invocation site for an incomplete "
+                                "worker handoff."
+                            ),
                             supported_patch_types=("UpdateHandoffContract",),
                             default_patch_type="UpdateHandoffContract",
                             handler_id="type_or_contract_ambiguity",

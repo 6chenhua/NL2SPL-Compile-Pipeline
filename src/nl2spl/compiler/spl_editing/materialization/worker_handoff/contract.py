@@ -43,7 +43,13 @@ class WorkerHandoffContractMaterializer:
         payload = input_data.intent.payload
         if isinstance(payload, CreateWorkerHandoffContractIntentPayload):
             return self._materialize_handoff_contract(input_data, payload)
-        if isinstance(payload, (ConvertDelegationToMainFlowStepIntentPayload, ConvertDelegationToRequestInputIntentPayload)):
+        if isinstance(
+            payload,
+            (
+                ConvertDelegationToMainFlowStepIntentPayload,
+                ConvertDelegationToRequestInputIntentPayload,
+            ),
+        ):
             return self._materialize_resolution_step(input_data, payload)
         raise DependencyClosureValidationError(
             "WorkerHandoffContractMaterializer requires a worker-promotion "
@@ -51,8 +57,8 @@ class WorkerHandoffContractMaterializer:
         )
 
     def _directive(self, input_data: MaterializationInput, requested_behavior: str):
-        stage_slices, RepairDirective = _load_runtime()
-        return RepairDirective(
+        stage_slices, repair_directive_cls = _load_runtime()
+        return repair_directive_cls(
             directive_id=f"dir_{input_data.intent.intent_id}",
             source="system_default",
             target_construct_type=input_data.intent.target_construct_type,
@@ -66,7 +72,7 @@ class WorkerHandoffContractMaterializer:
         input_data: MaterializationInput,
         payload: CreateWorkerHandoffContractIntentPayload,
     ) -> MaterializationResult:
-        stage_slices, _RepairDirective = _load_runtime()
+        stage_slices, _repair_directive_cls = _load_runtime()
         snapshot = input_data.snapshot
         if snapshot.worker_plan is None:
             raise DependencyClosureValidationError("worker_plan is missing from snapshot.")
@@ -126,7 +132,10 @@ class WorkerHandoffContractMaterializer:
             input_data,
             worker_plan=stage35_result.artifact_updates["worker_plan"],
             step_plan=stage7_result.artifact_updates["worker_step_plan"],
-            changed_refs=(stage7_result.generated_construct_refs[0], stage35_result.generated_construct_refs[0]),
+            changed_refs=(
+                stage7_result.generated_construct_refs[0],
+                stage35_result.generated_construct_refs[0],
+            ),
             changed_step_ids=(stage7_result.generated_construct_refs[0].rsplit(":", 1)[-1],),
             changed_handoff_ids=(stage35_result.generated_construct_refs[0].rsplit(":", 1)[-1],),
             consumed_selected_ref_ids=selected_ref_ids,
@@ -136,9 +145,12 @@ class WorkerHandoffContractMaterializer:
     def _materialize_resolution_step(
         self,
         input_data: MaterializationInput,
-        payload: ConvertDelegationToMainFlowStepIntentPayload | ConvertDelegationToRequestInputIntentPayload,
+        payload: (
+            ConvertDelegationToMainFlowStepIntentPayload
+            | ConvertDelegationToRequestInputIntentPayload
+        ),
     ) -> MaterializationResult:
-        stage_slices, _RepairDirective = _load_runtime()
+        stage_slices, _repair_directive_cls = _load_runtime()
         snapshot = input_data.snapshot
         if snapshot.worker_step_plan is None:
             raise DependencyClosureValidationError("worker_step_plan is missing from snapshot.")
@@ -220,6 +232,8 @@ class WorkerHandoffContractMaterializer:
             normalized_directive_id=f"dir_{input_data.intent.intent_id}",
             materialized_construct_refs=changed_refs,
             evidence_ref=input_data.evidence_packet.evidence_packet_id,
+            repair_patch_id=input_data.evidence_packet.repair_patch_id,
+            user_confirmed=True,
         )
         patched_snapshot: ArtifactSnapshot = snapshot.derive(
             next_token,

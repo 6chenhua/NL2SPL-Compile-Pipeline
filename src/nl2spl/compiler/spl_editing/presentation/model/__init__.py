@@ -20,10 +20,10 @@ from nl2spl.compiler.spl_editing.presentation.model.sections import (
     IssueListPresentationView,
     IssueSectionView,
 )
+from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectView
 from nl2spl.compiler.spl_editing.presentation.model.suggestion import (
     SuggestionPresentationView,
 )
-from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectView
 from nl2spl.compiler.spl_editing.presentation.model.verification import (
     VerificationPresentationView,
 )

@@ -256,9 +256,8 @@ class TestR2MvpAffordances:
             "promotion_result_handoff",
         ]
         expected_patch_types = (
-            "CreateWorkerHandoffContract",
+            "DefineChildWorkerClosure",
             "ConvertDelegationIntentToMainFlowStep",
-            "ConvertDelegationIntentToRequestInput",
         )
         for name in slot_names:
             slot = irs.get_slot(name)
@@ -269,9 +268,11 @@ class TestR2MvpAffordances:
                 f"{name}: expected affordance_id='worker_promotion.resolve_contract'"
             )
             assert aff.supported_patch_types == expected_patch_types, (
-                f"{name}: expected 3 delegation resolution patch types"
+                f"{name}: expected the two v2 delegation outcome adapters"
             )
-            assert aff.default_patch_type == "CreateWorkerHandoffContract"
+            assert aff.default_verification_lane == "B"
+            assert aff.repair_strategy_id == "worker_delegation.complete_closure.v2"
+            assert aff.default_patch_type == "DefineChildWorkerClosure"
             assert aff.handler_id == "type_or_contract_ambiguity"
             assert aff.context_id == "worker_promotion_context"
             assert aff.default_verification_lane == "B"

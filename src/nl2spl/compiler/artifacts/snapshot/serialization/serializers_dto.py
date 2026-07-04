@@ -11,6 +11,7 @@ from typing import Any
 from nl2spl.compiler.artifacts.snapshot.model.editing_history import (
     SnapshotAcceptedPatchDTO,
     SnapshotOverlayEventDTO,
+    SnapshotPromotionResolutionDTO,
     SnapshotVerificationRecordDTO,
 )
 from nl2spl.compiler.artifacts.snapshot.serialization._canonical import (
@@ -109,13 +110,48 @@ class SnapshotVerificationRecordDTOSerializer(ArtifactSerializer):
         )
 
 
+class SnapshotPromotionResolutionDTOSerializer(ArtifactSerializer):
+    type_id = "SnapshotPromotionResolutionDTO"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        dto: SnapshotPromotionResolutionDTO = obj
+        return {
+            "$type": self.type_id,
+            "marker_id": dto.marker_id,
+            "target_worker_promotion_id": dto.target_worker_promotion_id,
+            "resolved_diagnostic_group_id": dto.resolved_diagnostic_group_id,
+            "resolution_kind": dto.resolution_kind,
+            "normalized_directive_id": dto.normalized_directive_id,
+            "materialized_construct_refs": tuple_to_list(dto.materialized_construct_refs),
+            "evidence_ref": dto.evidence_ref,
+            "repair_patch_id": dto.repair_patch_id,
+            "user_confirmed": dto.user_confirmed,
+        }
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        return SnapshotPromotionResolutionDTO(
+            marker_id=data["marker_id"],
+            target_worker_promotion_id=data["target_worker_promotion_id"],
+            resolved_diagnostic_group_id=data["resolved_diagnostic_group_id"],
+            resolution_kind=data["resolution_kind"],
+            normalized_directive_id=data["normalized_directive_id"],
+            materialized_construct_refs=list_to_tuple(data["materialized_construct_refs"]),
+            evidence_ref=data["evidence_ref"],
+            repair_patch_id=data.get("repair_patch_id", ""),
+            user_confirmed=bool(data.get("user_confirmed", False)),
+        )
+
+
 def register_all(registry: SerializerRegistry) -> None:
     s1 = SnapshotOverlayEventDTOSerializer()
     s2 = SnapshotAcceptedPatchDTOSerializer()
     s3 = SnapshotVerificationRecordDTOSerializer()
+    s4 = SnapshotPromotionResolutionDTOSerializer()
     registry.register(s1)
     registry.register(s2)
     registry.register(s3)
+    registry.register(s4)
     registry.register_for_class(SnapshotOverlayEventDTO, s1)
     registry.register_for_class(SnapshotAcceptedPatchDTO, s2)
     registry.register_for_class(SnapshotVerificationRecordDTO, s3)
+    registry.register_for_class(SnapshotPromotionResolutionDTO, s4)

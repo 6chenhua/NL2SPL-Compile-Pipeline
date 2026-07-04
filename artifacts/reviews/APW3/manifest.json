@@ -1,0 +1,36 @@
+{
+  "schema": "stage3_5_api_worker_boundary.apw_review_manifest.v1",
+  "phase": "APW3",
+  "generated_at": "2026-07-04T02:18:25+08:00",
+  "commands": [
+    ".venv\\Scripts\\python.exe -m pytest tests/unit/pipeline/stages/stage3_5_worker_boundary_planner tests/unit/pipeline/stages/test_stage3_5_worker_boundary_planner.py -q",
+    ".venv\\Scripts\\ruff.exe check src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner src/nl2spl/pipeline/orchestrator.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner",
+    "git diff --check -- src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner src/nl2spl/pipeline/orchestrator.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner"
+  ],
+  "files": [
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/prompt_builder.py",
+      "sha256": "767c1766461cdab4e7b1974eac42adae1dd9032bc266b05b47bd095afbea698b"
+    },
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/decision_validator.py",
+      "sha256": "8a98e9525f168d2d3db30153f3555c47890938e0763017a44c926689dc28fea6"
+    },
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/materializer.py",
+      "sha256": "1c8ed128d1ba7d4a56a79d1055fc2677246438e97cc11782750d4c83843b5155"
+    },
+    {
+      "path": "src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner/executor.py",
+      "sha256": "e22856f13557e0d7e751914b93e306cb79801c74fcef886e2bb2a32333f062d9"
+    },
+    {
+      "path": "src/nl2spl/pipeline/orchestrator.py",
+      "sha256": "7a3426c913ae0886af1cbc4995caefc42140e24d739181f0ac6526870916dff0"
+    },
+    {
+      "path": "tests/unit/pipeline/stages/stage3_5_worker_boundary_planner/test_api_exclusion_decision_guard.py",
+      "sha256": "cd5a30485d0dc802227546d5289059e087be47935d6c9dd95581df2dbb1857b7"
+    }
+  ]
+}

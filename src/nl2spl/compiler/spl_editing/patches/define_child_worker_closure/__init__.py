@@ -1,7 +1,15 @@
-from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.applier import DefineChildWorkerClosureApplier
-from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.preview import DefineChildWorkerClosurePreviewer
-from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.validator import DefineChildWorkerClosureValidator
-from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.verifier import DefineChildWorkerClosureVerifier
+from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.applier import (
+    DefineChildWorkerClosureApplier,
+)
+from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.preview import (
+    DefineChildWorkerClosurePreviewer,
+)
+from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.validator import (
+    DefineChildWorkerClosureValidator,
+)
+from nl2spl.compiler.spl_editing.patches.define_child_worker_closure.verifier import (
+    DefineChildWorkerClosureVerifier,
+)
 
 
 def register_define_child_worker_closure_patch(runtime) -> None:
@@ -24,6 +32,7 @@ def register_define_child_worker_closure_patch(runtime) -> None:
             ),
         ),
     )
+
 
 __all__ = [
     name

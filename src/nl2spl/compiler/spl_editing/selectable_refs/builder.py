@@ -1,4 +1,4 @@
-﻿"""Builder for SelectableRefSet from ArtifactSnapshot and RepairContext."""
+"""Builder for SelectableRefSet from ArtifactSnapshot and RepairContext."""
 
 from __future__ import annotations
 
@@ -212,6 +212,26 @@ class SelectableRefSetBuilder:
             for wid, steps in snapshot.worker_step_plan.worker_steps.items():
                 if worker_id is None or wid == worker_id:
                     for step in steps:
+                        if wid == snapshot.worker_plan.main_worker_id:
+                            refs.append(
+                                SelectableRef(
+                                    ref_id=build_ref_id(
+                                        "existing_step",
+                                        wid,
+                                        step.step_id,
+                                        ("main_flow", "placement"),
+                                        step.step_id,
+                                    ),
+                                    ref_kind="existing_step",
+                                    ref_role="placement_anchor",
+                                    canonical_name=step.step_id,
+                                    display_label=step.text,
+                                    worker_id=wid,
+                                    source_artifact="worker_step_plan",
+                                    source_artifact_ref=step.step_id,
+                                    scope_path=("main_flow", "placement"),
+                                )
+                            )
                         for out in step.outputs:
                             refs.append(
                                 SelectableRef(
@@ -229,7 +249,7 @@ class SelectableRefSetBuilder:
 
         # 4. Harvest symbol table variables (from snapshot.symbol_table)
         if snapshot.symbol_table is not None:
-            for key, _var in _get_symbol_table_variables(snapshot.symbol_table):
+            for key, var in _get_symbol_table_variables(snapshot.symbol_table):
                 scope_kind, scope_id, name = key
                 if (
                     scope_kind == "global"
@@ -254,6 +274,31 @@ class SelectableRefSetBuilder:
                             source_artifact_ref="symbol_table",
                             scope_path=(scope_kind,),
                             scope=scope_kind,
+                            type_hint=getattr(var, "data_type", None),
+                        )
+                    )
+                    # Result bindings are a distinct authority role.  Give the
+                    # role its own stable ref identity rather than allowing a
+                    # selectable-input ref to be reinterpreted at submission.
+                    refs.append(
+                        SelectableRef(
+                            ref_id=build_ref_id(
+                                "variable",
+                                scope_id,
+                                "symbol_table.binding_target",
+                                (scope_kind, "binding_target"),
+                                name,
+                            ),
+                            ref_kind="variable",
+                            ref_role="binding_target",
+                            canonical_name=name,
+                            display_label=name,
+                            worker_id=scope_id if scope_kind == "worker" else None,
+                            source_artifact="symbol_table",
+                            source_artifact_ref="symbol_table.binding_target",
+                            scope_path=(scope_kind, "binding_target"),
+                            scope=scope_kind,
+                            type_hint=getattr(var, "data_type", None),
                         )
                     )
 

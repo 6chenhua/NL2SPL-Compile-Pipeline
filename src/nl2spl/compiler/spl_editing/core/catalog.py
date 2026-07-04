@@ -268,9 +268,21 @@ class RepairCatalogBuilder:
                                 strategy_spec = strategy_registry.get(aff.repair_strategy_id)
                                 if strategy_spec:
                                     repair_strategy_id = aff.repair_strategy_id
-                                    strategy_display_label = getattr(strategy_spec, "display_label", None)
-                                    closure_summary = getattr(strategy_spec, "closure_summary", None)
-                                    preview_required = getattr(strategy_spec, "preview_required", False)
+                                    strategy_display_label = getattr(
+                                        strategy_spec,
+                                        "display_label",
+                                        None,
+                                    )
+                                    closure_summary = getattr(
+                                        strategy_spec,
+                                        "closure_summary",
+                                        None,
+                                    )
+                                    preview_required = getattr(
+                                        strategy_spec,
+                                        "preview_required",
+                                        False,
+                                    )
                                     strategy_options = tuple(
                                         RepairCatalogOption(
                                             option_id=option.option_id,
@@ -289,9 +301,21 @@ class RepairCatalogBuilder:
                                 strategy_spec = strategy_registry.get(aff.repair_strategy_id)
                                 if strategy_spec:
                                     repair_strategy_id = aff.repair_strategy_id
-                                    strategy_display_label = getattr(strategy_spec, "display_label", None)
-                                    closure_summary = getattr(strategy_spec, "closure_summary", None)
-                                    preview_required = getattr(strategy_spec, "preview_required", False)
+                                    strategy_display_label = getattr(
+                                        strategy_spec,
+                                        "display_label",
+                                        None,
+                                    )
+                                    closure_summary = getattr(
+                                        strategy_spec,
+                                        "closure_summary",
+                                        None,
+                                    )
+                                    preview_required = getattr(
+                                        strategy_spec,
+                                        "preview_required",
+                                        False,
+                                    )
                                     strategy_options = tuple(
                                         RepairCatalogOption(
                                             option_id=option.option_id,

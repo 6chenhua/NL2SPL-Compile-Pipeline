@@ -1,0 +1,61 @@
+{
+  "phase": "APW7b",
+  "acceptance_bundle_root": ".test-artifacts/spl_editing/worker_delegation_v2",
+  "files": [
+    {
+      "path": "artifacts/reviews/APW7b/e2e_worker_delegation_output.txt",
+      "sha256": "eb1af3cbfcaa95f634bd95baa03a6fbdcacccf0c020b32bf2f51a26492589e6e",
+      "bytes": 566
+    },
+    {
+      "path": "artifacts/reviews/APW7b/irs_audit_output.json",
+      "sha256": "d46795344aea551b8ba1134e27e9c02ffcdb302850a6384e421ef385890aefbe",
+      "bytes": 23756
+    },
+    {
+      "path": "artifacts/reviews/APW7b/ruff_output.txt",
+      "sha256": "401471ccecf9910406ca89af4794d5c1085fb1d02b6bd0198b84e1930e709929",
+      "bytes": 1154
+    },
+    {
+      "path": "artifacts/reviews/APW7b/pytest_summary_output.txt",
+      "sha256": "233060549cd5ac89024a8059a97baac6ef3d693374203c75e8f1addac46ac682",
+      "bytes": 370
+    },
+    {
+      "path": "artifacts/reviews/APW7b/diff_check_output.txt",
+      "sha256": "0feb7060f0c8f078cd9fa01e7587e5569257dc94c13c0af06b5bbb4a34bf3a95",
+      "bytes": 17978
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/define_child_worker/manifest.json",
+      "sha256": "56365dc84659020707047c19cb030e7982b1dbe7da2204c3fd200b105aafc550",
+      "bytes": 1419
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/define_child_worker/verification_result.json",
+      "sha256": "15048c41126b0690172bbe45a49fa493745b07ee8bd1cb686851e71b9cd84ecd",
+      "bytes": 361
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/keep_in_main_flow/manifest.json",
+      "sha256": "5afcf41b8144af3e94491c1a60ed668c64b932aa5fae90f3c695fdd4e90da599",
+      "bytes": 1415
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/keep_in_main_flow/verification_result.json",
+      "sha256": "5bad8ecf58e7e1a6d7990da65b107a32544d789846f63d24dd2f645fe98baa8f",
+      "bytes": 361
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/negative/manifest.json",
+      "sha256": "89fd0420f5f3ec6985fc55a036af39b7e48e794ebf1851f68b26eb8ca2dcca10",
+      "bytes": 1221
+    },
+    {
+      "path": ".test-artifacts/spl_editing/worker_delegation_v2/negative/verification_result.json",
+      "sha256": "74767089961c4a4e3bfde3d2b6a283112af6b04fa7c537aad5898316ca493405",
+      "bytes": 171
+    }
+  ]
+}

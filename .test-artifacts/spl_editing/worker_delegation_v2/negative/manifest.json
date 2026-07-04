@@ -1,0 +1,24 @@
+{
+  "base_overlay_version": 0,
+  "base_snapshot_id": "snap_fce858edb833",
+  "evidence_ids": [],
+  "file_hashes": {
+    "after_diagnostics.json": "cc541a502aa26b8bbe3ab2456e9d75aa5e513b4ec6dd6c9352098a4dc6e4d3c6",
+    "after_final.spl": "a0a60f713d4fb094c027260b384b52239bc9f662d446dc9b11cceec4351a5840",
+    "artifact_diff.json": "df0ee20caa791ba20b8a0d6eb5ff6205f70f5333d46f356323cd47ec9ae5fe85",
+    "before_diagnostics.json": "cc541a502aa26b8bbe3ab2456e9d75aa5e513b4ec6dd6c9352098a4dc6e4d3c6",
+    "before_final.spl": "a0a60f713d4fb094c027260b384b52239bc9f662d446dc9b11cceec4351a5840",
+    "evidence_provenance_summary.json": "bc843c7180abb739a6473ec94bbb0cab64f02afcb5b02c2aa44346f63b7f175b",
+    "preview_summary.json": "cf474c7c91fda43fdffa6ec9d567029693b8b505d1880705b6639a874c01b7c0",
+    "verification_result.json": "74767089961c4a4e3bfde3d2b6a283112af6b04fa7c537aad5898316ca493405"
+  },
+  "normalized_directive_id": null,
+  "option_id": "define_child_worker",
+  "patch_id": null,
+  "preview_id": null,
+  "result_overlay_version": 0,
+  "scenario_id": "negative",
+  "strategy_id": "worker_delegation.complete_closure.v2",
+  "verification_lane": null,
+  "verification_status": "rejected"
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "stage3_5_api_worker_boundary.apw0.target_behavior_pending.v1",
+  "purpose": "APW0b target behavior scenarios. This file is intentionally not a pytest module and must not be collected by default pytest.",
+  "scenarios": [
+    {
+      "id": "s16_api_only_authority",
+      "activates_in": ["APW2", "APW3", "APW7a"],
+      "given": {
+        "api_consumed_span_ids": ["s16"],
+        "candidate_id": "candidate_retrieve_approved_sources",
+        "candidate_source_span_ids": ["s16"]
+      },
+      "expect": {
+        "decision": "compile_as_call_api",
+        "boundary_kind": "call_api",
+        "child_worker_owned_span_ids_excludes": ["s16"]
+      }
+    },
+    {
+      "id": "mixed_candidate_residual_re_evaluation",
+      "activates_in": ["APW2", "APW3", "APW7a"],
+      "given": {
+        "api_consumed_span_ids": ["s16"],
+        "candidate_id": "candidate_retrieve_approved_sources",
+        "candidate_source_span_ids": ["s16", "s23", "s30"]
+      },
+      "expect": {
+        "removed_api_span_ids": ["s16"],
+        "residual_source_span_ids": ["s23", "s30"],
+        "requires_residual_re_evaluation": true,
+        "ambiguous_residual_default_decision": "keep_in_main_worker",
+        "audit_reason": "residual_after_api_exclusion_insufficient"
+      }
+    },
+    {
+      "id": "source_side_worker_promotion_subject",
+      "activates_in": ["APW4", "APW7a"],
+      "given": {
+        "target_ref": "worker_promotion:del_s31",
+        "marker": null
+      },
+      "expect": {
+        "primary_subject": "source_side_promotion",
+        "primary_subject_must_not_be": "Worker_retrieve_approved_sources"
+      }
+    },
+    {
+      "id": "define_child_worker_result_binding_closed",
+      "activates_in": ["APW6", "APW7b"],
+      "given": {
+        "repair_option": "define_child_worker",
+        "target_ref": "worker_promotion:del_s31"
+      },
+      "expect": {
+        "marker_user_confirmed": true,
+        "target_match": "exact",
+        "child_output_to_handoff_to_invoke_to_parent_required_output": "closed",
+        "missing_output_producer_regression": false
+      }
+    }
+  ]
+}

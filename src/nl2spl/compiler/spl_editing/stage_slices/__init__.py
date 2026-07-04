@@ -37,6 +37,9 @@ from nl2spl.compiler.spl_editing.stage_slices.typed_plan import (
     TypedPlanGenerator,
     TypedPlanValidator,
 )
+from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_closure import (
+    build_worker_delegation_stage_slice_registry,
+)
 
 __all__ = [
     "BlockShapePlan",
@@ -53,6 +56,7 @@ __all__ = [
     "StageSliceRegistry",
     "StageSliceResult",
     "StageSliceValidationError",
+    "build_worker_delegation_stage_slice_registry",
     "Stage35WorkerHandoffContractRepairSlice",
     "Stage5ExceptionHandlerBlockRepairSlice",
     "Stage7ExceptionHandlerCommandRepairSlice",

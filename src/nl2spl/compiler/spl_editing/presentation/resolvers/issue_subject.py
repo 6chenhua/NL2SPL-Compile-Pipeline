@@ -13,6 +13,9 @@ from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectV
 from nl2spl.compiler.spl_editing.presentation.resolvers.source_excerpt import (
     source_excerpt_for_issue,
 )
+from nl2spl.compiler.spl_editing.resolution.model import (
+    validate_promotion_resolution_marker,
+)
 
 
 def issue_subject_for(
@@ -37,8 +40,9 @@ def issue_subject_for(
         )
 
     metadata = context.metadata if context is not None else {}
-    child_id = metadata.get("derived_child_worker_id")
-    if isinstance(child_id, str) and child_id:
+    marker = _valid_marker(snapshot, issue.target_ref)
+    if marker is not None and marker.resolution_kind == "defined_child_worker":
+        child_id = _child_worker_id_from_marker(marker)
         child = _worker(snapshot, child_id)
         name = getattr(child, "worker_name", None) or child_id
         purpose = getattr(child, "purpose", None)
@@ -46,6 +50,16 @@ def issue_subject_for(
             subject_kind="worker",
             display_name=name,
             summary=purpose if isinstance(purpose, str) and purpose.strip() else None,
+            specificity="concrete",
+            source_excerpt=source_excerpt,
+            source_ref_ids=source_ids,
+            internal_ref=issue.target_ref,
+        )
+    if marker is not None and marker.resolution_kind == "kept_in_main_flow":
+        summary = _structured_candidate_summary(metadata)
+        return IssueSubjectView(
+            subject_kind="delegated_task_candidate",
+            summary=summary or source_excerpt,
             specificity="concrete",
             source_excerpt=source_excerpt,
             source_ref_ids=source_ids,
@@ -80,6 +94,20 @@ def _worker(snapshot: ArtifactSnapshot, worker_id: str):
     if plan is None:
         return None
     return next((worker for worker in plan.workers if worker.worker_id == worker_id), None)
+
+
+def _valid_marker(snapshot: ArtifactSnapshot, target_ref: str):
+    for marker in snapshot.promotion_resolution_markers:
+        if validate_promotion_resolution_marker(marker, target_ref).valid:
+            return marker
+    return None
+
+
+def _child_worker_id_from_marker(marker) -> str:
+    for ref in marker.materialized_construct_refs:
+        if isinstance(ref, str) and ref.startswith("worker:"):
+            return ref.removeprefix("worker:")
+    return ""
 
 
 __all__ = ["issue_subject_for"]

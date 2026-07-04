@@ -12,6 +12,7 @@ class RepairOptionAvailability(StrEnum):
     UNAVAILABLE_MISSING_TARGET_RESOLVER = "unavailable_missing_target_resolver"
     UNAVAILABLE_MISSING_CONTEXT_BUILDER = "unavailable_missing_context_builder"
     UNAVAILABLE_UNSUPPORTED_PATCH_TYPE = "unavailable_unsupported_patch_type"
+    UNAVAILABLE_INCOMPLETE_RUNTIME_BUNDLE = "unavailable_incomplete_runtime_bundle"
     REVIEW_ONLY = "review_only"
 
 

@@ -17,8 +17,8 @@ def registry() -> SerializerRegistry:
 
 
 class TestRegistrySize:
-    def test_62_serializers_registered(self, registry: SerializerRegistry) -> None:
-        assert len(registry) == 62
+    def test_63_serializers_registered(self, registry: SerializerRegistry) -> None:
+        assert len(registry) == 63
 
     def test_all_type_ids_are_unique(self, registry: SerializerRegistry) -> None:
         ids = list(registry.registered_type_ids)
@@ -105,7 +105,6 @@ class TestFailFast:
         r.register(s1)
         with pytest.raises(ValueError, match="already registered"):
             r.register(s2)
-
 
     def test_duplicate_class_registration_raises(self) -> None:
         """register_for_class must raise if cls already mapped to different serializer."""

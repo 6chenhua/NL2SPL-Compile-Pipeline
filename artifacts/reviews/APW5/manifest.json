@@ -1,0 +1,40 @@
+{
+  "phase": "APW5",
+  "files": [
+    {
+      "path": "artifacts/reviews/APW5/pytest_output.txt",
+      "sha256": "f0fc4f16dad1b454444cae769bfc9cfe64152a2523eb0998e5f37dedd9080c24",
+      "bytes": 202
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/resolution/model.py",
+      "sha256": "d1abc71589b2c2ce53bcd687a4dd53342898f39c42ddcdd47de3c1546b2f83df",
+      "bytes": 1931
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/resolution/store.py",
+      "sha256": "2de179f1a01a4fa7851c4188cdd4b3e8c3978adfeb17bdd95d9fcc4271450f90",
+      "bytes": 887
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/core/snapshot_adapter.py",
+      "sha256": "4935380a485c218b356631912afd0e4ad853f916c32951805682f9f31bbdf1b1",
+      "bytes": 10703
+    },
+    {
+      "path": "src/nl2spl/compiler/artifacts/snapshot/model/editing_history.py",
+      "sha256": "7078c9e0b62ae753032b86001840d32dad92de57c123926dc7b39170a59601c4",
+      "bytes": 5019
+    },
+    {
+      "path": "src/nl2spl/compiler/artifacts/snapshot/serialization/serializers_dto.py",
+      "sha256": "0330fdf2647fcb21675865c8524b4908e83cb507cc0d88646930513fb504d912",
+      "bytes": 6153
+    },
+    {
+      "path": "tests/unit/compiler/spl_editing/resolution/test_promotion_resolution_marker_lifecycle.py",
+      "sha256": "8b7962289c4c7ad0849aebd66539a5dee2359e0113a8e73f8f1a06047a39e4bd",
+      "bytes": 3728
+    }
+  ]
+}

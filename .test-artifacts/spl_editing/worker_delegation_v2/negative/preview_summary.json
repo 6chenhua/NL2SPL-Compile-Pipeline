@@ -1,0 +1,25 @@
+{
+  "errors": [
+    {
+      "code": "required_field_missing",
+      "field_id": "delegated_responsibility",
+      "message": "Responsibility is required"
+    },
+    {
+      "code": "required_field_missing",
+      "field_id": "returned_results",
+      "message": "At least one child result is required"
+    },
+    {
+      "code": "invalid_ref_id",
+      "field_id": "input_refs",
+      "message": "unknown-ref"
+    },
+    {
+      "code": "invalid_ref_id",
+      "field_id": "placement_ref",
+      "message": "unknown-ref"
+    }
+  ],
+  "input_readiness": "input_invalid"
+}

@@ -1,6 +1,6 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-07-01T02:50:03.208854",
+  "timestamp": "2026-07-04T14:51:00.568246",
   "metadata": {},
   "result": {
     "routes": {
@@ -1028,13 +1028,43 @@
         }
       ],
       "route_diagnostics": [
-        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label."
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route.",
+        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
       ],
       "structured_route_diagnostics": [
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label."
+          "message": "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
         }
       ]
     },
@@ -1044,7 +1074,12 @@
     "llm_refinement": {
       "used": true,
       "route_diagnostics": [
-        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label."
+        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
+        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route.",
+        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
       ],
       "split_recommendations": []
     }

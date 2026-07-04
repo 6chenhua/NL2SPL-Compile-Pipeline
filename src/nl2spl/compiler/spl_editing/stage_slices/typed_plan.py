@@ -172,11 +172,13 @@ class TypedPlanValidator:
 
     def _reject_raw_ir_shape(self, value: Any, path: str = "plan") -> None:
         if type(value).__name__ in _RAW_IR_TYPE_NAMES:
-            raise StageSliceValidationError(
-                f"Typed plan cannot contain raw IR object at {path}."
-            )
+            raise StageSliceValidationError(f"Typed plan cannot contain raw IR object at {path}.")
         if is_dataclass(value):
-            self._reject_raw_ir_shape(asdict(value), path)
+            # Frozen typed-plan DTOs may legitimately use semantic fields such
+            # as worker_id/block_id.  Reject raw IR by object type, while still
+            # recursively checking every nested value for embedded IR objects.
+            for field_name, child in asdict(value).items():
+                self._reject_raw_ir_shape(child, f"{path}.{field_name}")
             return
         if isinstance(value, dict):
             for key, child in value.items():

@@ -63,8 +63,7 @@ def validate_integrity(
 
     if stored.payload_hash and stored.payload_hash != payload_hash:
         errors.append(
-            f"payload_hash mismatch: stored={stored.payload_hash}, "
-            f"computed={payload_hash}"
+            f"payload_hash mismatch: stored={stored.payload_hash}, computed={payload_hash}"
         )
     if stored.artifact_set_hash and stored.artifact_set_hash != artifact_set_hash:
         errors.append(
@@ -98,9 +97,7 @@ def document_to_canonical(
             "producer_version": ident.producer_version,
         },
         "capabilities": {
-            "declared": [
-                c.value for c in document.declared_capabilities.capabilities
-            ],
+            "declared": [c.value for c in document.declared_capabilities.capabilities],
         },
         "payload": _payload_to_canonical(document, exclude_volatile),
         "integrity": (
@@ -108,7 +105,8 @@ def document_to_canonical(
                 "payload_hash": document.integrity.payload_hash,
                 "artifact_set_hash": document.integrity.artifact_set_hash,
             }
-            if document.integrity else None
+            if document.integrity
+            else None
         ),
     }
 
@@ -137,9 +135,7 @@ def _payload_to_canonical(document: SnapshotDocument, exclude_volatile: bool) ->
             "worker_block_plan": _serialize_if_present(sa.worker_block_plan),
             "worker_step_plan": _serialize_if_present(sa.worker_step_plan),
             "resources": _serialize_if_present(sa.resources),
-            "worker_scoped_resources": _serialize_if_present(
-                sa.worker_scoped_resources
-            ),
+            "worker_scoped_resources": _serialize_if_present(sa.worker_scoped_resources),
             "symbol_table": _serialize_if_present(sa.symbol_table),
             "constraints": _serialize_if_present(sa.constraints),
             "agent_profile": _serialize_if_present(sa.agent_profile),
@@ -148,25 +144,17 @@ def _payload_to_canonical(document: SnapshotDocument, exclude_volatile: bool) ->
             "normalizer_input": _serialize_if_present(ra.normalizer_input),
             "normalizer_output": _serialize_if_present(ra.normalizer_output),
             "stage10_input": _serialize_if_present(ra.stage10_input),
-            "assembled_worker_pre_gate": _serialize_if_present(
-                ra.assembled_worker_pre_gate
-            ),
+            "assembled_worker_pre_gate": _serialize_if_present(ra.assembled_worker_pre_gate),
             "gated_worker": _serialize_if_present(ra.gated_worker),
             "final_spl": ra.final_spl,
         },
         "diagnostics": {
-            "compile_diagnostics": _serialize_if_present(
-                payload.diagnostics.compile_diagnostics
-            ),
+            "compile_diagnostics": _serialize_if_present(payload.diagnostics.compile_diagnostics),
             "post_normalize_diagnostics": _serialize_if_present(
                 payload.diagnostics.post_normalize_diagnostics
             ),
-            "gate_diagnostics": _serialize_if_present(
-                payload.diagnostics.gate_diagnostics
-            ),
-            "render_diagnostics": _serialize_if_present(
-                payload.diagnostics.render_diagnostics
-            ),
+            "gate_diagnostics": _serialize_if_present(payload.diagnostics.gate_diagnostics),
+            "render_diagnostics": _serialize_if_present(payload.diagnostics.render_diagnostics),
         },
         "provenance": {
             "traces": _serialize_if_present(payload.provenance.traces),
@@ -184,6 +172,9 @@ def _payload_to_canonical(document: SnapshotDocument, exclude_volatile: bool) ->
             ),
             "verification_history": _serialize_if_present(
                 payload.editing.history.verification_history,
+            ),
+            "promotion_resolutions": _serialize_if_present(
+                payload.editing.history.promotion_resolutions,
             ),
         }
 
@@ -203,10 +194,7 @@ def _serialize_if_present(value: object) -> object:
         items = [_serialize_if_present(v) for v in value]
         return items if isinstance(value, list) else items
     if isinstance(value, dict):
-        return {
-            str(k): _serialize_if_present(v)
-            for k, v in value.items()
-        }
+        return {str(k): _serialize_if_present(v) for k, v in value.items()}
 
     from nl2spl.compiler.artifacts.snapshot.serialization.registry import (
         get_default_registry,

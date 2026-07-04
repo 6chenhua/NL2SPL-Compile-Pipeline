@@ -9,6 +9,9 @@ from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import CandidateTaskUnitIR
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.api_exclusion import (
+    WorkerBoundaryExclusionView,
+)
 
 
 class PromptBuilderMixin:
@@ -46,7 +49,9 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        exclusion_view: WorkerBoundaryExclusionView | None = None,
     ) -> str:
+        api_exclusion = self._format_api_exclusion_context(exclusion_view)
         if routes.annotations:
             exec_ids = routes.get_executable_behavior_span_ids()
             non_exec_ids = routes.get_non_executable_behavior_span_ids()
@@ -66,6 +71,7 @@ Return JSON only. Use span_id values in source_span_ids and owned_span_ids."""
                 f"Discover candidate task units before worker-boundary decisions.\n\n"
                 f"{exec_section}\n"
                 f"{ctx_section}\n"
+                f"{api_exclusion}"
                 f"Non-behavior context:\n---\n{non_beh}\n---\n\n"
                 f"Adapter metadata:\n---\n"
                 f"{self._format_adapter_metadata(canonical_input, resource_contract_plan)}\n---\n\n"
@@ -79,6 +85,7 @@ Behavior spans available for candidate source_span_ids:
 {self._format_route_spans(spans, routes.behavior)}
 ---
 
+{api_exclusion}
 Non-behavior context:
 ---
 {self._format_non_behavior_context(spans, routes)}
@@ -99,7 +106,9 @@ Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
         canonical_input: CanonicalCompileInput | None,
         candidates: list[CandidateTaskUnitIR],
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        exclusion_view: WorkerBoundaryExclusionView | None = None,
     ) -> str:
+        api_exclusion = self._format_api_exclusion_context(exclusion_view)
         if routes.annotations:
             exec_ids = routes.get_executable_behavior_span_ids()
             non_exec_ids = routes.get_non_executable_behavior_span_ids()
@@ -120,6 +129,7 @@ Do not output workers, handoffs, decisions, flow, blocks, steps, or SPL."""
                 f"{self._format_candidates(candidates)}\n---\n\n"
                 f"{exec_section}\n"
                 f"{ctx_section}\n"
+                f"{api_exclusion}"
                 f"Adapter metadata:\n---\n"
                 f"{self._format_adapter_metadata(canonical_input, resource_contract_plan)}\n---\n\n"
                 f"Return JSON only with a top-level \"decisions\" array.\n"
@@ -138,6 +148,7 @@ Behavior span context:
 {self._format_route_spans(spans, routes.behavior)}
 ---
 
+{api_exclusion}
 Adapter metadata:
 ---
 {self._format_adapter_metadata(canonical_input, resource_contract_plan)}
@@ -196,6 +207,37 @@ Do not output workers, handoffs, flow, blocks, steps, or SPL."""
                 f"signals={candidate.signals}; risks={candidate.risks}"
             )
         return "\n".join(lines)
+
+    def _format_api_exclusion_context(
+        self,
+        exclusion_view: WorkerBoundaryExclusionView | None,
+    ) -> str:
+        if exclusion_view is None or (
+            not exclusion_view.api_consumed_span_ids
+            and not exclusion_view.api_residual_span_ids
+        ):
+            return ""
+        lines = [
+            "API-consumed spans (context only; NOT child-worker evidence):",
+        ]
+        if exclusion_view.api_consumed_span_ids:
+            for span_id in sorted(exclusion_view.api_consumed_span_ids):
+                demand_ids = ", ".join(
+                    exclusion_view.api_call_demand_ids_by_span.get(span_id, ())
+                )
+                suffix = f" -> {demand_ids}" if demand_ids else ""
+                lines.append(f"- {span_id}{suffix}")
+        if exclusion_view.api_residual_span_ids:
+            lines.append("API-related residual spans requiring normal evaluation:")
+            lines.extend(
+                f"- {span_id}"
+                for span_id in sorted(exclusion_view.api_residual_span_ids)
+            )
+        lines.append(
+            "Mixed candidates must remove API-consumed spans and decide only on "
+            "independently re-evaluated residual spans."
+        )
+        return "\n".join(lines) + "\n\n"
 
     def _format_adapter_metadata(
         self,

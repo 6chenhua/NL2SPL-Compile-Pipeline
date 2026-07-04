@@ -1,0 +1,20 @@
+{
+  "phase": "APW4",
+  "files": [
+    {
+      "path": "artifacts/reviews/APW4/pytest_output.txt",
+      "sha256": "223bd0c30fba3190a654715382d1118f56839cf64d21ae5103edf3f0a5d6dd6d",
+      "bytes": 202
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/presentation/resolvers/issue_subject.py",
+      "sha256": "cb50b3b5100d85b99142141c3b5e7597480ba5326fb862758cf48307d423d13a",
+      "bytes": 4235
+    },
+    {
+      "path": "tests/unit/compiler/spl_editing/presentation/test_worker_promotion_subject_projection.py",
+      "sha256": "3a6e0552647767d336f0f56290111ecb32dabb1430756f8ed15dfebd10c70994",
+      "bytes": 6047
+    }
+  ]
+}

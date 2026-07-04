@@ -1,0 +1,9 @@
+git diff --check completed with no whitespace errors for APW1 touched files.
+
+Anti-pattern scan:
+  Allowed hits:
+    - WorkerBoundaryExclusionView / api_consumed_span_ids in api_exclusion.py and tests.
+    - diagnostic_id in APW0 current-gap test and APW1 source-safety assertion.
+    - suggested_repairs in pre-existing plan_parser.py.
+  No ConstructIRS or CompileDiagnostic definitions in api_exclusion.py.
+  No integration_call or overlap/drop implementation in APW1 code.

@@ -18,6 +18,13 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
 )
 from nl2spl.llm.prompts import load_prompt
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.api_exclusion import (
+    WorkerBoundaryExclusionView,
+    build_worker_boundary_exclusion_view,
+)
+from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.candidate_sanitizer import (
+    sanitize_candidates_for_api_exclusion,
+)
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.materializer import (
     WorkerPlanMaterializer,
 )
@@ -32,6 +39,13 @@ PlannerInput = (
         FieldRouteIR,
         CanonicalCompileInput | None,
         ResourceContractPlanIR | None,
+    ]
+    | tuple[
+        list[SpanIR],
+        FieldRouteIR,
+        CanonicalCompileInput | None,
+        ResourceContractPlanIR | None,
+        object | None,
     ]
 )
 
@@ -51,12 +65,24 @@ class ExecutorMixin:
         Raises:
             StageError: If the planner call or WorkerPlanIR validation fails.
         """
-        spans, routes, canonical_input, resource_contract_plan = self._unpack_input(
+        (
+            spans,
+            routes,
+            canonical_input,
+            resource_contract_plan,
+            external_capability_intent_plan,
+        ) = self._unpack_input(
             input_data
         )
         self.logger.info("Starting worker boundary planning for %d spans", len(spans))
 
-        return self._execute_split(spans, routes, canonical_input, resource_contract_plan)
+        return self._execute_split(
+            spans,
+            routes,
+            canonical_input,
+            resource_contract_plan,
+            external_capability_intent_plan,
+        )
 
     def _execute_split(
         self,
@@ -64,6 +90,7 @@ class ExecutorMixin:
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
         resource_contract_plan: ResourceContractPlanIR | object | None = None,
+        external_capability_intent_plan: object | None = None,
     ) -> WorkerPlanIR:
         """Run Stage 3.5a/3.5b/3.5c as separate compiler sub-stages."""
         hard_inputs, hard_outputs = self._hard_fact_contracts(canonical_input)
@@ -71,17 +98,45 @@ class ExecutorMixin:
         known_span_ids = {span.span_id for span in spans}
 
         try:
-            candidates = self._run_candidate_extraction(
-                spans, routes, canonical_input, resource_contract_plan,
+            exclusion_view = build_worker_boundary_exclusion_view(
+                external_capability_intent_plan,
             )
+            candidates = self._run_candidate_extraction(
+                spans,
+                routes,
+                canonical_input,
+                resource_contract_plan,
+                exclusion_view,
+            )
+            sanitizer_batch = sanitize_candidates_for_api_exclusion(
+                candidates,
+                exclusion_view,
+            )
+            candidates = list(sanitizer_batch.candidates)
             self._save_substage_checkpoint(
                 "stage3_5a_candidate_task_units",
-                {"candidates": [asdict(candidate) for candidate in candidates]},
+                {
+                    "candidates": [asdict(candidate) for candidate in candidates],
+                    "worker_boundary_exclusion_view": exclusion_view.to_payload(),
+                    "sanitization_results": [
+                        result.to_payload()
+                        for result in sanitizer_batch.results
+                    ],
+                },
             )
 
             # Filter out candidates with blocking risks — auto-reject them
             # instead of passing to 3.5b where the LLM might contradict itself.
-            eligible, auto_rejected = self._split_by_blocking_risks(candidates)
+            sanitizer_auto_ids = {
+                decision.candidate_id
+                for decision in sanitizer_batch.auto_decisions
+            }
+            decision_candidates = [
+                candidate
+                for candidate in candidates
+                if candidate.candidate_id not in sanitizer_auto_ids
+            ]
+            eligible, auto_rejected = self._split_by_blocking_risks(decision_candidates)
 
             if eligible:
                 decisions = self._run_boundary_decisions(
@@ -90,14 +145,23 @@ class ExecutorMixin:
                     canonical_input,
                     eligible,
                     resource_contract_plan,
+                    exclusion_view,
+                    list(sanitizer_batch.results),
                 )
-                decisions.extend(auto_rejected)
+                decisions = [
+                    *sanitizer_batch.auto_decisions,
+                    *decisions,
+                    *auto_rejected,
+                ]
             else:
                 self.logger.info(
                     "No eligible candidates after blocking-risk filter; "
                     "skipping Stage 3.5b boundary decisions"
                 )
-                decisions = auto_rejected
+                decisions = [
+                    *sanitizer_batch.auto_decisions,
+                    *auto_rejected,
+                ]
             self._save_substage_checkpoint(
                 "stage3_5b_worker_boundary_decisions",
                 {"decisions": [asdict(decision) for decision in decisions]},
@@ -108,7 +172,7 @@ class ExecutorMixin:
             if resource_contract_plan is not None:
                 if hasattr(resource_contract_plan, "valid_demands"):
                     demand_view_demands = list(
-                        getattr(resource_contract_plan, "valid_demands")()
+                        resource_contract_plan.valid_demands()
                     )
                 else:
                     # legacy compat path — intentionally kept for ResourceContractPlanIR callers
@@ -139,6 +203,7 @@ class ExecutorMixin:
                 annotations=routes.annotations if routes.annotations else None,
                 demand_inputs=demand_inputs,
                 demand_outputs=demand_outputs,
+                api_consumed_span_ids=set(exclusion_view.api_consumed_span_ids),
             )
             plan.warnings.extend(materialize_warnings)
             self._save_substage_checkpoint(
@@ -176,11 +241,17 @@ class ExecutorMixin:
         routes: FieldRouteIR,
         canonical_input: CanonicalCompileInput | None,
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        exclusion_view: WorkerBoundaryExclusionView | None = None,
     ) -> list[CandidateTaskUnitIR]:
         system_prompt = load_prompt("stage3_5a")
-        user_prompt = self._build_candidate_prompt(
-            spans, routes, canonical_input, resource_contract_plan,
-        )
+        if exclusion_view is None:
+            user_prompt = self._build_candidate_prompt(
+                spans, routes, canonical_input, resource_contract_plan,
+            )
+        else:
+            user_prompt = self._build_candidate_prompt(
+                spans, routes, canonical_input, resource_contract_plan, exclusion_view,
+            )
         result = self.client.call_json(
             stage_name="stage3_5a_candidate_task_units",
             system_prompt=system_prompt,
@@ -199,15 +270,27 @@ class ExecutorMixin:
         canonical_input: CanonicalCompileInput | None,
         candidates: list[CandidateTaskUnitIR],
         resource_contract_plan: ResourceContractPlanIR | None = None,
+        exclusion_view: WorkerBoundaryExclusionView | None = None,
+        sanitization_results: list[Any] | None = None,
     ) -> list[WorkerBoundaryDecisionIR]:
         system_prompt = load_prompt("stage3_5b")
-        user_prompt = self._build_decision_prompt(
-            spans,
-            routes,
-            canonical_input,
-            candidates,
-            resource_contract_plan,
-        )
+        if exclusion_view is None:
+            user_prompt = self._build_decision_prompt(
+                spans,
+                routes,
+                canonical_input,
+                candidates,
+                resource_contract_plan,
+            )
+        else:
+            user_prompt = self._build_decision_prompt(
+                spans,
+                routes,
+                canonical_input,
+                candidates,
+                resource_contract_plan,
+                exclusion_view,
+            )
         result = self.client.call_json(
             stage_name="stage3_5b_worker_boundary_decisions",
             system_prompt=system_prompt,
@@ -219,13 +302,20 @@ class ExecutorMixin:
             for decision in result.get("decisions", [])
             if decision.get("candidate_id") in candidate_ids
         ]
-        self._validate_split_decisions(candidates, decisions)
+        self._validate_split_decisions(
+            candidates,
+            decisions,
+            exclusion_view,
+            sanitization_results or [],
+        )
         return decisions
 
     def _validate_split_decisions(
         self,
         candidates: list[CandidateTaskUnitIR],
         decisions: list[WorkerBoundaryDecisionIR],
+        exclusion_view: WorkerBoundaryExclusionView | None = None,
+        sanitization_results: list[Any] | None = None,
     ) -> None:
         candidate_ids = {candidate.candidate_id for candidate in candidates}
         decision_ids = [decision.candidate_id for decision in decisions]
@@ -249,7 +339,15 @@ class ExecutorMixin:
             candidates=candidates,
             decisions=decisions,
         )
-        self._validate_planner_decisions(plan)
+        self._validate_planner_decisions(
+            plan,
+            api_consumed_span_ids=(
+                set(exclusion_view.api_consumed_span_ids)
+                if exclusion_view is not None
+                else set()
+            ),
+            sanitization_results=sanitization_results,
+        )
 
     def _dedupe_candidates(
         self,
@@ -387,15 +485,31 @@ class ExecutorMixin:
         FieldRouteIR,
         CanonicalCompileInput | None,
         ResourceContractPlanIR | None,
+        object | None,
     ]:
         if len(input_data) == 2:
             spans, routes = input_data
-            return spans, routes, None, None
+            return spans, routes, None, None, None
         if len(input_data) == 3:
             spans, routes, canonical_input = input_data
-            return spans, routes, canonical_input, None
-        spans, routes, canonical_input, resource_contract_plan = input_data
-        return spans, routes, canonical_input, resource_contract_plan
+            return spans, routes, canonical_input, None, None
+        if len(input_data) == 4:
+            spans, routes, canonical_input, resource_contract_plan = input_data
+            return spans, routes, canonical_input, resource_contract_plan, None
+        (
+            spans,
+            routes,
+            canonical_input,
+            resource_contract_plan,
+            external_capability_intent_plan,
+        ) = input_data
+        return (
+            spans,
+            routes,
+            canonical_input,
+            resource_contract_plan,
+            external_capability_intent_plan,
+        )
 
     def _str_list(self, value: Any) -> list[str]:
         if value is None:

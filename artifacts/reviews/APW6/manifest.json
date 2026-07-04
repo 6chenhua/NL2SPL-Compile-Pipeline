@@ -1,0 +1,35 @@
+{
+  "phase": "APW6",
+  "files": [
+    {
+      "path": "artifacts/reviews/APW6/pytest_output.txt",
+      "sha256": "7641460ed5d178bc9afc52fd1254aa245b3fa2d64b48dcea284c7fb3b3d04b7e",
+      "bytes": 204
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/patches/define_child_worker_closure/verifier.py",
+      "sha256": "e178e9ba4752c50e2453267f04083bd72187b96c08af2c87f2b12f3e415955b8",
+      "bytes": 10694
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/stage_slices/worker_delegation_plans.py",
+      "sha256": "cb6ee1f0ff92088f412d720d4c67e8f1d4e6d43b7a90dac8fdd911e665203738",
+      "bytes": 17695
+    },
+    {
+      "path": "src/nl2spl/compiler/spl_editing/stage_slices/worker_delegation_closure.py",
+      "sha256": "42f4cbc4a19de7db2b1d5f8bd17916d0f359055af823a0a7d2f30722b54c33ac",
+      "bytes": 30486
+    },
+    {
+      "path": "tests/integration/compiler/spl_editing/test_worker_delegation_result_binding_invariant.py",
+      "sha256": "4e3c1dbcc544b52943cd359c9af04c4dde79a34005b175e176c350df283980b9",
+      "bytes": 10066
+    },
+    {
+      "path": "tests/integration/compiler/spl_editing/test_worker_delegation_v2_e2e.py",
+      "sha256": "7a5a40cb3c440528600d2884facd64b7385c8c2baff1665ff1e31da260966daf",
+      "bytes": 29299
+    }
+  ]
+}

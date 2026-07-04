@@ -1,80 +1,11 @@
 {
   "stage": "external_capability_semantic_extractor",
-  "timestamp": "2026-07-01T02:50:11.125767",
+  "timestamp": "2026-07-04T14:51:06.497608",
   "metadata": {},
   "result": {
     "status": "available",
     "failure_reason": null,
     "candidates": [
-      {
-        "candidate_id": "cap_candidate_3f04a149465375f4",
-        "source_span_ids": [
-          "s31"
-        ],
-        "operation_surface": "delegated subtasks such as source gathering or template matching may be used if bounded",
-        "operation_text": "delegated subtasks such as source gathering or template matching may be used if bounded",
-        "capability_surface": "delegated subtasks such as source gathering or template matching",
-        "capability_ref_candidate": null,
-        "boundary_claim": "candidate_external",
-        "identity_claim": "described_unnamed",
-        "invocation_claim": "policy_only",
-        "evidence": [
-          {
-            "evidence_id": "cap_sem_ev_521acd50f0d54b6b",
-            "source_span_id": "s31",
-            "claim": "boundary",
-            "surface_text": "delegated subtasks such as source gathering or template matching",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-            "metadata": {
-              "validated_anchor_relation": "direct"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_941cc3626e7a99cc",
-            "source_span_id": "s31",
-            "claim": "operation",
-            "surface_text": "delegated subtasks such as source gathering or template matching may be used if bounded",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-            "metadata": {
-              "validated_anchor_relation": "normalized"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_9ce149e0d3aa5cea",
-            "source_span_id": "s31",
-            "claim": "identity",
-            "surface_text": "delegated subtasks such as source gathering or template matching",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-            "metadata": {
-              "validated_anchor_relation": "direct"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_ff8f9028e2968f41",
-            "source_span_id": "s31",
-            "claim": "invocation",
-            "surface_text": "may be used if bounded",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-            "metadata": {
-              "validated_anchor_relation": "normalized"
-            }
-          }
-        ],
-        "source_section_id": "sec_delegation_policy",
-        "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-        "metadata": {
-          "normalizer_version": "CapabilitySurfaceNormalizerV1",
-          "operation_anchor_relation": "normalized"
-        }
-      },
       {
         "candidate_id": "cap_candidate_dc7d673c9bb2c9ce",
         "source_span_ids": [
@@ -150,91 +81,91 @@
         "source_span_id": "s1",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain_only"
+        "reason_code": "profile_domain"
       },
       {
         "source_span_id": "s2",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain_only"
+        "reason_code": "profile_domain"
       },
       {
         "source_span_id": "s3",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain_only"
+        "reason_code": "profile_domain"
       },
       {
         "source_span_id": "s4",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain_only"
+        "reason_code": "profile_domain"
       },
       {
         "source_span_id": "s5",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain_only"
+        "reason_code": "profile_domain"
       },
       {
         "source_span_id": "s6",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract_only"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s7",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract_only"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s8",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract_only"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s9",
-        "status": "insufficient_evidence",
+        "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "mentions_resources_not_operation"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s10",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract_only"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s11",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract_only"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s12",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract_only"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s13",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract_only"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s14",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract_only"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s15",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_external_mechanism"
+        "reason_code": "process_step_without_explicit_external_boundary"
       },
       {
         "source_span_id": "s16",
@@ -248,93 +179,91 @@
         "source_span_id": "s17",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_external_mechanism"
+        "reason_code": "process_step_without_explicit_external_boundary"
       },
       {
         "source_span_id": "s18",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_external_mechanism"
+        "reason_code": "process_step_without_explicit_external_boundary"
       },
       {
         "source_span_id": "s19",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_external_mechanism"
+        "reason_code": "process_step_without_explicit_external_boundary"
       },
       {
         "source_span_id": "s20",
         "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "constraint_only"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s21",
         "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "constraint_only"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s22",
         "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "constraint_only"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s23",
         "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "constraint_only"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s24",
         "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "constraint_only"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s25",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s26",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s27",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s28",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s29",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s30",
-        "status": "no_external_boundary",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
+        "reason_code": "failure_mode_context"
       },
       {
         "source_span_id": "s31",
-        "status": "candidate_emitted",
-        "related_candidate_ids": [
-          "cap_candidate_3f04a149465375f4"
-        ],
-        "reason_code": null
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "extractor_disposition_missing"
       }
     ],
     "diagnostics": [],

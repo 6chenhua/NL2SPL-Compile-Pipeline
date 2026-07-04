@@ -99,7 +99,7 @@ def test_missing_handler_closure_plan(strategy_registry) -> None:
 
 
 def test_missing_output_producer_closure_plan(strategy_registry) -> None:
-    """Verify missing_output_producer closure plan has ensure optional placement_block + materialize producer command."""
+    """Missing-output closure ensures placement and materializes a producer."""
     strategy = strategy_registry.get("required_output.materialize_producer.v1")
     target = _make_target(
         construct_type="REQUIRED_OUTPUT",
@@ -128,43 +128,36 @@ def test_missing_output_producer_closure_plan(strategy_registry) -> None:
 
 def test_worker_delegation_closure_plan(strategy_registry) -> None:
     """Verify worker_delegation closure plan has handoff + invoke + binding nodes."""
-    strategy = strategy_registry.get("worker_delegation.complete_closure.v1")
+    strategy = strategy_registry.get("worker_delegation.complete_closure.v2")
     target = _make_target(
         construct_type="WORKER_PROMOTION",
         slot_name="promotion_input_contract",
         affordance_id="worker_promotion.resolve_contract",
     )
-    directive = _directive_for_target(target)
+    directive = RepairDirective(
+        directive_id="dir_worker_v2",
+        source="user",
+        target_construct_type="WORKER_PROMOTION",
+        target_slot_name="promotion_input_contract",
+        requested_behavior="Define the child worker closure",
+        option_id="define_child_worker",
+    )
 
     plan = ClosurePlanner.generate_closure_plan("plan_3", strategy, target, directive)
 
-    assert plan.materialization_plan_id == "worker_handoff.contract_repair.v1"
-    assert len(plan.closure_nodes) == 4
-    n0, n1, n2, n3 = plan.closure_nodes
-
-    assert n0.role == "worker_handoff"
-    assert n0.construct_type == "WORKER_HANDOFF"
-    assert n0.action == "materialize"
-    assert n0.required is True
-    assert n0.stage_slice_id == "stage3_5.worker_boundary"
-
-    assert n1.role == "invoke_worker_command"
-    assert n1.construct_type == "COMMAND"
-    assert n1.action == "materialize"
-    assert n1.required is True
-    assert n1.stage_slice_id == "stage7.worker_step_plan"
-
-    assert n2.role == "target_worker"
-    assert n2.construct_type == "CHILD_WORKER"
-    assert n2.action == "bind_existing"
-    assert n2.required is True
-    assert n2.stage_slice_id == "stage3_5.worker_boundary"
-
-    assert n3.role == "placement_block"
-    assert n3.construct_type == "BLOCK"
-    assert n3.action == "ensure"
-    assert n3.required is False
-    assert n3.stage_slice_id == "stage7.worker_step_plan"
+    assert plan.materialization_plan_id == "worker_delegation.complete_closure.v2"
+    assert plan.option_id == "define_child_worker"
+    assert [node.construct_type for node in plan.closure_nodes] == [
+        "CHILD_WORKER",
+        "FLOW",
+        "BLOCK",
+        "COMMAND",
+        "WORKER_HANDOFF",
+        "BLOCK",
+        "INVOKE_WORKER",
+    ]
+    assert plan.closure_nodes[0].action == "ensure"
+    assert plan.closure_nodes[-1].action == "materialize"
 
 
 def test_missing_target_ref_rejected(strategy_registry) -> None:
@@ -414,4 +407,3 @@ def test_closure_plan_hash_determinism(strategy_registry) -> None:
 
     assert hash1 == hash2
     assert hash1 != hash3
-

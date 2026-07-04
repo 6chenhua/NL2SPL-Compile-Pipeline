@@ -1,4 +1,4 @@
-﻿"""Canonical JSON artifact snapshot -- NL2SPL <-> SPL Editing handoff contract.
+"""Canonical JSON artifact snapshot -- NL2SPL <-> SPL Editing handoff contract.
 
 This package defines the frozen compiler output document that SPL Editing
 consumes.  It is owned by the compiler, not by SPL Editing internals.
@@ -92,6 +92,7 @@ from nl2spl.compiler.artifacts.snapshot.model import (
     SnapshotLineageError,
     SnapshotOverlayEventDTO,
     SnapshotPayload,
+    SnapshotPromotionResolutionDTO,
     SnapshotSchemaError,
     SnapshotValidationResult,
     SnapshotVerificationRecordDTO,
@@ -200,6 +201,7 @@ __all__ = [
     "SnapshotValidationResult",
     "SnapshotEditingHistory",
     "SnapshotOverlayEventDTO",
+    "SnapshotPromotionResolutionDTO",
     "SnapshotAcceptedPatchDTO",
     "SnapshotVerificationRecordDTO",
     "empty_editing_history",

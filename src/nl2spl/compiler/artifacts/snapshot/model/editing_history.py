@@ -101,6 +101,19 @@ class SnapshotVerificationRecordDTO:
     metadata: tuple[tuple[str, str], ...] = ()
 
 
+@dataclass(frozen=True)
+class SnapshotPromotionResolutionDTO:
+    marker_id: str
+    target_worker_promotion_id: str
+    resolved_diagnostic_group_id: str
+    resolution_kind: str
+    normalized_directive_id: str
+    materialized_construct_refs: tuple[str, ...]
+    evidence_ref: str
+    repair_patch_id: str = ""
+    user_confirmed: bool = False
+
+
 # ---------------------------------------------------------------------------
 # Editing history container
 # ---------------------------------------------------------------------------
@@ -122,6 +135,7 @@ class SnapshotEditingHistory:
     overlay_events: tuple[SnapshotOverlayEventDTO, ...] = ()
     accepted_patches: tuple[SnapshotAcceptedPatchDTO, ...] = ()
     verification_history: tuple[SnapshotVerificationRecordDTO, ...] = ()
+    promotion_resolutions: tuple[SnapshotPromotionResolutionDTO, ...] = ()
 
     @property
     def is_empty(self) -> bool:
@@ -130,6 +144,7 @@ class SnapshotEditingHistory:
             len(self.overlay_events) == 0
             and len(self.accepted_patches) == 0
             and len(self.verification_history) == 0
+            and len(self.promotion_resolutions) == 0
         )
 
 

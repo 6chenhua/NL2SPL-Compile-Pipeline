@@ -1,0 +1,26 @@
+{
+  "base_overlay_version": 0,
+  "base_snapshot_id": "snap_fce858edb833",
+  "evidence_ids": [
+    "ev_packet_intent_directive_a1f6c91720161182c580"
+  ],
+  "file_hashes": {
+    "after_diagnostics.json": "3fefc6c371a288211d7bfb9e51cd50d382658717154c82c4c8ba24ca7e3fd403",
+    "after_final.spl": "fba9f8e712b4fe52c28bcccb6a9e9f780bbc25c0db9ab68402bcc6ce63d184cd",
+    "artifact_diff.json": "48773c14db8033e3e4484e8a93e66b67c340ba141a73bc69e7841176d1ba0134",
+    "before_diagnostics.json": "cc541a502aa26b8bbe3ab2456e9d75aa5e513b4ec6dd6c9352098a4dc6e4d3c6",
+    "before_final.spl": "a0a60f713d4fb094c027260b384b52239bc9f662d446dc9b11cceec4351a5840",
+    "evidence_provenance_summary.json": "6714c4d2290ca274849fa43714518f7619807d03555d5f0adc2473c713e370c0",
+    "preview_summary.json": "1c34bd511d5ae348adac7ff7e1d4605743ae375ca3c89d72059c19ddeac70bbe",
+    "verification_result.json": "15048c41126b0690172bbe45a49fa493745b07ee8bd1cb686851e71b9cd84ecd"
+  },
+  "normalized_directive_id": "directive_a1f6c91720161182c580",
+  "option_id": "define_child_worker",
+  "patch_id": "patch_directive_a1f6c91720161182c580",
+  "preview_id": "prev_3de5d208e5e5e46632c9548a63c547f6f84d45c43bd71b1483ff24955ae09eae",
+  "result_overlay_version": 1,
+  "scenario_id": "define_child_worker",
+  "strategy_id": "worker_delegation.complete_closure.v2",
+  "verification_lane": "B",
+  "verification_status": "accepted"
+}

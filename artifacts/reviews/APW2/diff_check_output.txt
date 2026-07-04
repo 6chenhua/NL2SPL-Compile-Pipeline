@@ -1,0 +1,9 @@
+git diff --check completed with no whitespace errors for APW2 touched files.
+
+Anti-pattern scan:
+  Allowed hits:
+    - SanitizedCandidateResult and api_only_auto_decision in candidate_sanitizer.py and tests.
+    - mixed_trimmed_candidate appears only as an allowed result-kind literal for future policy extension.
+    - api_consumed_span_ids in api_exclusion.py, candidate_sanitizer.py, and tests.
+  No if-overlap-drop implementation was found.
+  No integration_call implementation was found.

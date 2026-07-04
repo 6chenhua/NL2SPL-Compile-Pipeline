@@ -1,0 +1,46 @@
+{
+  "api_consumed_span_ids": [
+    "s16"
+  ],
+  "api_residual_span_ids": [],
+  "api_call_demand_ids_by_span": {
+    "s16": [
+      "api_call_19e71fc8b204a57a"
+    ]
+  },
+  "exclusion_authority": "external_capability_intent_plan",
+  "audit_payload": {
+    "authority": "external_capability_intent_plan",
+    "intent_count": 2,
+    "intents": [
+      {
+        "api_call_demand_id": null,
+        "boundary_status": "candidate_external",
+        "capability_admission_status": "candidate_capability",
+        "capability_surface": null,
+        "consumed_by_api_authority": false,
+        "intent_id": "cap_intent_4099bddb59a45fcf",
+        "invocation_admission_status": "no_invocation",
+        "invocation_status": "policy_only",
+        "operation_text": "source gathering",
+        "source_span_ids": [
+          "s31"
+        ]
+      },
+      {
+        "api_call_demand_id": "api_call_19e71fc8b204a57a",
+        "boundary_status": "confirmed_external",
+        "capability_admission_status": "confirmed_capability",
+        "capability_surface": "approved source recipes",
+        "consumed_by_api_authority": true,
+        "intent_id": "cap_intent_8326912547e62e9c",
+        "invocation_admission_status": "confirmed_invocation",
+        "invocation_status": "executable",
+        "operation_text": "retrieve them using approved source recipes",
+        "source_span_ids": [
+          "s16"
+        ]
+      }
+    ]
+  }
+}

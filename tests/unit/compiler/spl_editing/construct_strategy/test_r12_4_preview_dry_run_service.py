@@ -553,108 +553,12 @@ def test_preview_dry_run_policy_and_availability_checks(
 def test_preview_worker_delegation_explicit_routing(
     preview_service, strategy_registry, store
 ) -> None:
-    """Verify routing of the three worker delegation patch types."""
-    strategy = strategy_registry.get("worker_delegation.complete_closure.v1")
-    snapshot = _make_snapshot("snap_1")
-    refset = _make_refset(
-        "iss_1",
-        "snap_1",
-        target_role="target_worker",
-        target_worker="w_main",
-        target_name="child_worker",
-        policy_id="worker_promotion.handoff.selectable_refs.v1",
-    )
-    target = _make_target(
-        construct_type="WORKER_PROMOTION",
-        slot_name="promotion_input_contract",
-        affordance_id="worker_promotion.resolve_contract",
-        worker_id="w_main",
-        canonical_name="child_worker",
-    )
-    session = _make_session("sess_1", "iss_1", "snap_1")
-
-    # A. Handoff contract route
-    directive_handoff = RepairDirective(
-        directive_id="dir_1",
-        source="user",
-        target_construct_type="WORKER_PROMOTION",
-        target_slot_name="promotion_input_contract",
-        requested_behavior="create handoff contract",
-    )
-    res_handoff = preview_service.preview(
-        session=session,
-        issue=session.issue,
-        strategy=strategy,
-        directive=directive_handoff,
-        target=target,
-        refset=refset,
-        snapshot=snapshot,
-        store=store,
-    )
-    assert "[INVOKE_WORKER child_worker" in res_handoff.rendered_preview
-    assert "stage3_5." not in res_handoff.rendered_preview
-
-    # B. Main flow inline route
-    directive_main = RepairDirective(
-        directive_id="dir_2",
-        source="user",
-        target_construct_type="WORKER_PROMOTION",
-        target_slot_name="promotion_input_contract",
-        requested_behavior="convert delegation to main flow step",
-    )
-    res_main = preview_service.preview(
-        session=session,
-        issue=session.issue,
-        strategy=strategy,
-        directive=directive_main,
-        target=target,
-        refset=refset,
-        snapshot=snapshot,
-        store=store,
-    )
-    assert "[COMMAND" in res_main.rendered_preview
-    assert "main flow" in res_main.rendered_preview
-    assert "stage7." not in res_main.rendered_preview
-
-    # C. Request input route
-    directive_request = RepairDirective(
-        directive_id="dir_3",
-        source="user",
-        target_construct_type="WORKER_PROMOTION",
-        target_slot_name="promotion_input_contract",
-        requested_behavior="convert to request input step",
-    )
-    res_request = preview_service.preview(
-        session=session,
-        issue=session.issue,
-        strategy=strategy,
-        directive=directive_request,
-        target=target,
-        refset=refset,
-        snapshot=snapshot,
-        store=store,
-    )
-    assert "[INPUT DISPLAY" in res_request.rendered_preview
-    assert "stage7." not in res_request.rendered_preview
-
-    # D. Ambiguous behavior raises PreviewError
-    directive_ambiguous = RepairDirective(
-        directive_id="dir_4",
-        source="user",
-        target_construct_type="WORKER_PROMOTION",
-        target_slot_name="promotion_input_contract",
-        requested_behavior="unclear goal",
-    )
-    with pytest.raises(
-        PreviewError, match="Cannot determine target patch type for worker delegation"
-    ):
-        preview_service.preview(
-            session=session,
-            issue=session.issue,
-            strategy=strategy,
-            directive=directive_ambiguous,
-            target=target,
-            refset=refset,
-            snapshot=snapshot,
-            store=store,
-        )
+    """Worker v2 exposes stable outcome options; REQUEST_INPUT is not one."""
+    strategy = strategy_registry.get("worker_delegation.complete_closure.v2")
+    assert [option.option_id for option in strategy.options] == [
+        "define_child_worker",
+        "keep_in_main_flow",
+    ]
+    assert {
+        patch_type for option in strategy.options for patch_type in option.execution_patch_types
+    } == {"DefineChildWorkerClosure", "ConvertDelegationIntentToMainFlowStep"}

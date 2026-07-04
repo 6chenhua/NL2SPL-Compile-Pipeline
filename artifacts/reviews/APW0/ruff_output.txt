@@ -1,0 +1,1 @@
+Not run for APW0. APW0 added test/spec only and no production Python path. Targeted pytest and git diff --check passed.

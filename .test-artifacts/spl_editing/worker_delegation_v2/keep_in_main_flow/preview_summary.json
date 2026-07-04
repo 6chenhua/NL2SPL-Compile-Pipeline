@@ -1,0 +1,28 @@
+{
+  "admitted_fact_hashes": [],
+  "base_snapshot_id": "snap_fce858edb833",
+  "closure_plan_hash": "6cbbfafede952b79b3065b2bed4b14200c08aa5e4af81edc8aaca956ee092aac",
+  "directive_hash": "1dffbfa27f04958c97b984734d0b80506903d45307b5d2dd455c9661dba73ce2",
+  "intent_hash": "c112351865722ed81e3a5c2ca4ccc4af039643a2c9bb3ab4479cc16979ebc314",
+  "interaction_contract_hash": "a28ab7ceab722ac528fb2131e829745162ae4ed281ba28dc48dc65c192670976",
+  "llm_generation_config_hash": "15f732dfc3cfa61e67b56cd0f1635426e7dfc80cb205eff3ace4907f90300716",
+  "normalized_directive_hash": "d0dbd556a231403bb92de7a8fb7fa159986ab67216d00e46e9930ea7e62ff5d6",
+  "option_id": "keep_in_main_flow",
+  "preview_construct_hashes": [
+    "3391eb2735d98eb48078409e2f4e89a0d1d7377d2b30dadaa173c64c48771cc8"
+  ],
+  "preview_id": "prev_47100b45329b5af6fe7dccf5203b0164605ee6b5852e3722e8a6d2634421073c",
+  "rendered_preview": "[MAIN_FLOW]\n  COMMAND-X [COMMAND source gathering and template matching]\n[END_MAIN_FLOW]",
+  "selected_refset_id": "set_irs_16c0d5b20df4_snap_fce858edb833_0",
+  "slice_typed_plan_hashes": [
+    {
+      "slice_id": "stage5.parent_invocation_placement.v1",
+      "typed_plan_hash": "af30ffaac8e726c52067333167f3651c6e12bc0d79715d7af651edcd7b22e805"
+    },
+    {
+      "slice_id": "stage7.worker_delegation_resolution_command_repair.v1",
+      "typed_plan_hash": "af30ffaac8e726c52067333167f3651c6e12bc0d79715d7af651edcd7b22e805"
+    }
+  ],
+  "strategy_id": "worker_delegation.complete_closure.v2"
+}

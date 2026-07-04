@@ -1,0 +1,4 @@
+.venv\Scripts\python.exe -m pytest tests/unit/pipeline/stages/stage3_5_worker_boundary_planner tests/unit/pipeline/stages/test_stage3_5_worker_boundary_planner.py -q
+.venv\Scripts\ruff.exe check src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner src/nl2spl/pipeline/orchestrator.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner
+git diff --check -- src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner src/nl2spl/pipeline/orchestrator.py tests/unit/pipeline/stages/stage3_5_worker_boundary_planner
+rg -n "integration_call|compile_as_call_api|api_consumed_span_ids|extract_child_worker" src/nl2spl/pipeline/stages/stage3_5_worker_boundary_planner tests/unit/pipeline/stages/stage3_5_worker_boundary_planner

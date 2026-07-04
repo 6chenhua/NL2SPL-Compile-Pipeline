@@ -479,21 +479,18 @@ class TestC6dServiceLevel:
         assert len(issues) >= 1
         assert issues[0].kind == "type_or_contract_ambiguity"
 
-        session = svc.create_session(run_id, issues[0])
-        suggestions = svc.generate_suggestions(session.session_id)
-
-        hc_sugs = [s for s in suggestions if s.patch.patch_type == "CreateWorkerHandoffContract"]
-        assert len(hc_sugs) >= 1, (
-            f"Expected CreateWorkerHandoffContract suggestion, "
-            f"got {[s.patch.patch_type for s in suggestions]}"
+        from nl2spl.compiler.spl_editing.presentation.service import (
+            SPLEditingPresentationService,
         )
 
-        updated = svc.apply_suggestion(session.session_id, hc_sugs[0].suggestion_id)
-        assert updated.overlay_version > 0
-
-        result = svc.verify_session(session.session_id)
-        assert result.accepted is True
-        assert result.lane == "B"
+        detail = SPLEditingPresentationService(svc).get_issue_detail_presentation(
+            run_id, issues[0].issue_id
+        )
+        assert [item.option_id for item in detail.available_repairs] == [
+            "define_child_worker",
+            "keep_in_main_flow",
+        ]
+        assert all(item.verification_lane == "B" for item in detail.available_repairs)
 
     def test_lane_b_verification_accepted(self) -> None:
         """C6: Materialized handoff snapshot with Lane B verification is accepted."""

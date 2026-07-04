@@ -611,6 +611,7 @@ def test_default_registry_contains_registered_stage7_plans() -> None:
         "stage7.step_producer_repair.v1",
         "stage7.exception_handler_step_repair.v1",
         "worker_handoff.contract_repair.v1",
+        "worker_delegation.complete_closure.v2",
     }
 
 

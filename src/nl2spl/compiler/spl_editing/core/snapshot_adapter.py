@@ -14,6 +14,7 @@ from nl2spl.compiler.artifacts.snapshot.model.editing_history import (
     SnapshotAcceptedPatchDTO,
     SnapshotEditingHistory,
     SnapshotOverlayEventDTO,
+    SnapshotPromotionResolutionDTO,
     SnapshotVerificationRecordDTO,
 )
 from nl2spl.compiler.artifacts.snapshot.model.identity import (
@@ -37,6 +38,7 @@ from nl2spl.compiler.spl_editing.core.revision import (
     ArtifactSnapshot,
     OverlayEvent,
 )
+from nl2spl.compiler.spl_editing.resolution.model import PromotionResolutionMarker
 from nl2spl.ir.diagnostics import CompileDiagnostic, DiagnosticIRSRef
 
 
@@ -70,6 +72,20 @@ def artifact_snapshot_from_document(document: SnapshotDocument) -> ArtifactSnaps
         final_spl=replay.final_spl,
         compile_diagnostics=_runtime_diagnostics(diagnostics.compile_diagnostics),
         traces=tuple(provenance.traces),
+        promotion_resolution_markers=tuple(
+            PromotionResolutionMarker(
+                marker_id=item.marker_id,
+                target_worker_promotion_id=item.target_worker_promotion_id,
+                resolved_diagnostic_group_id=item.resolved_diagnostic_group_id,
+                resolution_kind=item.resolution_kind,
+                normalized_directive_id=item.normalized_directive_id,
+                materialized_construct_refs=tuple(item.materialized_construct_refs),
+                evidence_ref=item.evidence_ref,
+                repair_patch_id=item.repair_patch_id,
+                user_confirmed=item.user_confirmed,
+            )
+            for item in payload.editing.history.promotion_resolutions
+        ),
     )
 
 
@@ -122,6 +138,7 @@ def document_with_verification_record(
         overlay_events=history.overlay_events,
         accepted_patches=history.accepted_patches,
         verification_history=(history.verification_history + _verification_dtos(result, event)),
+        promotion_resolutions=history.promotion_resolutions,
     )
     updated_payload = replace(
         payload,
@@ -154,6 +171,20 @@ def _payload_from_artifact_snapshot(
         verification_history=(
             parent_history.verification_history
             + _verification_dtos(verification_result, overlay_event)
+        ),
+        promotion_resolutions=tuple(
+            SnapshotPromotionResolutionDTO(
+                marker_id=item.marker_id,
+                target_worker_promotion_id=item.target_worker_promotion_id,
+                resolved_diagnostic_group_id=item.resolved_diagnostic_group_id,
+                resolution_kind=item.resolution_kind,
+                normalized_directive_id=item.normalized_directive_id,
+                materialized_construct_refs=tuple(item.materialized_construct_refs),
+                evidence_ref=item.evidence_ref,
+                repair_patch_id=item.repair_patch_id,
+                user_confirmed=item.user_confirmed,
+            )
+            for item in snapshot.promotion_resolution_markers
         ),
     )
     return SnapshotPayload(

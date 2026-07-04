@@ -27,7 +27,17 @@ def parse_worker_delegation_draft(
         else None
     )
     timing_value = values.get("invocation_timing", "append")
-    placement_ref = values.get("placement_ref")
+    placement_ref_ids = tuple(request.selected_ref_ids.get("placement_ref", ()))
+    if len(placement_ref_ids) > 1:
+        raise ValueError("placement_ref accepts exactly one reference")
+    legacy_placement_ref = values.get("placement_ref")
+    placement_ref = placement_ref_ids[0] if placement_ref_ids else legacy_placement_ref
+    if (
+        placement_ref_ids
+        and legacy_placement_ref is not None
+        and legacy_placement_ref != placement_ref_ids[0]
+    ):
+        raise ValueError("placement_ref differs between reference and field channels")
     timing = InvocationTimingDraft(
         placement_mode=timing_value,
         placement_ref_id=placement_ref if isinstance(placement_ref, str) else None,
@@ -96,25 +106,103 @@ def parse_worker_delegation_draft(
     )
 
 
-def validate_worker_delegation_draft(draft, *, option, refset) -> tuple[RepairInputValidationError, ...]:
+def validate_worker_delegation_draft(
+    draft, *, option, refset
+) -> tuple[RepairInputValidationError, ...]:
     errors: list[RepairInputValidationError] = []
     if draft.delegated_responsibility is None:
-        errors.append(_error("required_field_missing", "delegated_responsibility", "Responsibility is required"))
+        errors.append(
+            _error(
+                "required_field_missing", "delegated_responsibility", "Responsibility is required"
+            )
+        )
     if draft.option_id == "define_child_worker":
         if not draft.returned_results:
-            errors.append(_error("required_field_missing", "returned_results", "At least one child result is required"))
+            errors.append(
+                _error(
+                    "required_field_missing",
+                    "returned_results",
+                    "At least one child result is required",
+                )
+            )
         if len(draft.result_usage) != len(draft.returned_results):
-            errors.append(_error("missing_result_usage", "result_usage", "Every child result requires result usage"))
-    if draft.invocation_timing is None or draft.invocation_timing.placement_mode not in {"append", "before", "after"}:
-        errors.append(_error("invalid_invocation_timing", "invocation_timing", "Only append/before/after are supported"))
-    elif draft.invocation_timing.placement_mode in {"before", "after"} and not draft.invocation_timing.placement_ref_id:
-        errors.append(_error("required_field_missing", "placement_ref", "Placement anchor is required"))
+            errors.append(
+                _error(
+                    "missing_result_usage",
+                    "result_usage",
+                    "Every child result requires result usage",
+                )
+            )
+        if not draft.selected_input_ref_ids and draft.input_empty_semantics != "explicit_none":
+            errors.append(
+                _error(
+                    "required_field_missing",
+                    "input_empty_semantics",
+                    "Confirm that the child requires no parent input",
+                )
+            )
+        if draft.selected_input_ref_ids and draft.input_empty_semantics is not None:
+            errors.append(
+                _error(
+                    "conflicting_input_semantics",
+                    "input_empty_semantics",
+                    "No-input confirmation cannot be combined with selected inputs",
+                )
+            )
+    if draft.invocation_timing is None or draft.invocation_timing.placement_mode not in {
+        "append",
+        "before",
+        "after",
+    }:
+        errors.append(
+            _error(
+                "invalid_invocation_timing",
+                "invocation_timing",
+                "Only append/before/after are supported",
+            )
+        )
+    elif (
+        draft.invocation_timing.placement_mode in {"before", "after"}
+        and not draft.invocation_timing.placement_ref_id
+    ):
+        errors.append(
+            _error("required_field_missing", "placement_ref", "Placement anchor is required")
+        )
     local_ids = {item.local_id for item in draft.returned_results}
+    declarations_by_id = {item.local_id: item for item in draft.returned_results}
     for usage in draft.result_usage:
         if usage.output_local_id not in local_ids:
             errors.append(_error("unknown_output_local_id", "result_usage", usage.output_local_id))
         if bool(usage.parent_ref_id) == bool(usage.create_parent_local_temporary):
-            errors.append(_error("invalid_result_usage", "result_usage", "Choose one parent target mode"))
+            errors.append(
+                _error("invalid_result_usage", "result_usage", "Choose one parent target mode")
+            )
+        if usage.parent_ref_id:
+            ref = refset.get_ref(usage.parent_ref_id) if refset is not None else None
+            if ref is None:
+                errors.append(_error("invalid_ref_id", "result_usage", usage.parent_ref_id))
+            elif ref.ref_role != "binding_target":
+                errors.append(_error("invalid_ref_role", "result_usage", usage.parent_ref_id))
+            elif ref.scope not in {"global", "worker"}:
+                errors.append(_error("invalid_ref_scope", "result_usage", usage.parent_ref_id))
+            else:
+                declared_type = (
+                    declarations_by_id.get(usage.output_local_id).data_type_hint
+                    if usage.output_local_id in declarations_by_id
+                    else None
+                )
+                if (
+                    declared_type
+                    and ref.type_hint
+                    and declared_type.strip().casefold() != ref.type_hint.strip().casefold()
+                ):
+                    errors.append(
+                        _error(
+                            "result_binding_type_mismatch",
+                            "result_usage",
+                            f"{declared_type} cannot bind to {ref.type_hint}",
+                        )
+                    )
     for ref_id in draft.selected_input_ref_ids:
         ref = refset.get_ref(ref_id) if refset is not None else None
         if ref is None:
@@ -122,15 +210,29 @@ def validate_worker_delegation_draft(draft, *, option, refset) -> tuple[RepairIn
         elif ref.ref_role != "selectable_input":
             errors.append(_error("invalid_ref_role", "input_refs", ref_id))
     if draft.invocation_timing and draft.invocation_timing.placement_ref_id:
-        ref = refset.get_ref(draft.invocation_timing.placement_ref_id) if refset is not None else None
+        ref = (
+            refset.get_ref(draft.invocation_timing.placement_ref_id) if refset is not None else None
+        )
         if ref is None:
-            errors.append(_error("invalid_ref_id", "placement_ref", draft.invocation_timing.placement_ref_id))
+            errors.append(
+                _error("invalid_ref_id", "placement_ref", draft.invocation_timing.placement_ref_id)
+            )
         elif ref.ref_role != "placement_anchor":
-            errors.append(_error("invalid_ref_role", "placement_ref", draft.invocation_timing.placement_ref_id))
+            errors.append(
+                _error(
+                    "invalid_ref_role", "placement_ref", draft.invocation_timing.placement_ref_id
+                )
+            )
     forbidden = ("patch_type", "verification_lane", "selected_ref_ids", "create required output")
     instruction = (draft.additional_instruction or "").lower()
     if any(token in instruction for token in forbidden):
-        errors.append(_error("instruction_conflicts_with_structured_input", "additional_instruction", "Instruction attempts to override structured authority"))
+        errors.append(
+            _error(
+                "instruction_conflicts_with_structured_input",
+                "additional_instruction",
+                "Instruction attempts to override structured authority",
+            )
+        )
     return tuple(errors)
 
 

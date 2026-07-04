@@ -86,11 +86,37 @@ class RepairInteractionView:
         if len(ids) != len(set(ids)):
             raise ValueError("schema refs must resolve exactly once in one interaction view")
         known = set(ids)
-        for field in self.fields:
+        all_fields = (*self.fields, *(field for schema in self.schemas for field in schema.fields))
+        for field in all_fields:
             if field.object_schema_id and field.object_schema_id not in known:
                 raise ValueError(f"Unknown object schema '{field.object_schema_id}'")
             if field.fact_schema_id and field.fact_schema_id not in known:
                 raise ValueError(f"Unknown fact schema '{field.fact_schema_id}'")
+        graph = {
+            schema.schema_id: {
+                ref
+                for field in schema.fields
+                for ref in (field.object_schema_id, field.fact_schema_id)
+                if ref is not None
+            }
+            for schema in self.schemas
+        }
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(schema_id: str) -> None:
+            if schema_id in visiting:
+                raise ValueError(f"Cyclic interaction schema reference at '{schema_id}'")
+            if schema_id in visited:
+                return
+            visiting.add(schema_id)
+            for dependency in graph[schema_id]:
+                visit(dependency)
+            visiting.remove(schema_id)
+            visited.add(schema_id)
+
+        for schema_id in graph:
+            visit(schema_id)
 
 
 @dataclass(frozen=True)
@@ -181,6 +207,8 @@ class NormalizedWorkerDelegationDirective:
     result_usage: tuple[NormalizedResultUsage, ...]
     additional_instruction: str | None
     input_contract_hash: str
+    interaction_contract_id: str = ""
+    interaction_contract_version: str = ""
     verification_lane: Literal["B"] = "B"
 
 
@@ -189,6 +217,15 @@ class RepairDirectiveValidationResult:
     input_readiness: RepairInputReadiness
     normalized_directive_id: str | None
     errors: tuple[RepairInputValidationError, ...]
+
+
+@dataclass(frozen=True)
+class WorkerDelegationPreviewHandle:
+    directive_id: str
+    session_id: str
+    suggestion_id: str
+    preview: Any
+    evidence_user_text: str = ""
 
 
 __all__ = [name for name in globals() if name.startswith("Repair")]
