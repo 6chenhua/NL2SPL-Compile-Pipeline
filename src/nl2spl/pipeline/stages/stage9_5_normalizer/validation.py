@@ -25,9 +25,7 @@ class ValidationMixin:
         errors: list[str] = []
         worker_by_id = {worker.worker_id: worker for worker in worker_plan.workers}
         final_outputs = {
-            variable.name
-            for variable in resources.variables
-            if variable.source == "output"
+            variable.name for variable in resources.variables if variable.source == "output"
         }
         invoked_worker_names = {
             worker_by_id[handoff.to_worker].worker_name
@@ -129,9 +127,7 @@ class ValidationMixin:
             return by_handoff_id
 
         planned_inputs = [
-            binding.parent_variable
-            for binding in handoff.input_bindings
-            if binding.parent_variable
+            binding.parent_variable for binding in handoff.input_bindings if binding.parent_variable
         ]
         planned_outputs = [
             binding.parent_variable
@@ -148,10 +144,7 @@ class ValidationMixin:
             and not step.handoff_id
             and list(step.inputs) == planned_inputs
             and list(step.outputs) == planned_outputs
-            and (
-                not planned_spans
-                or set(step.source_span_ids) == planned_spans
-            )
+            and (not planned_spans or set(step.source_span_ids) == planned_spans)
         ]
 
     def _validate_handoff_step_bindings(
@@ -234,9 +227,7 @@ class ValidationMixin:
                 f"{step.integration_ref} != {handoff.api_ref}."
             )
 
-        errors.extend(
-            self._validate_parent_input_bindings(handoff, step, symbol_table)
-        )
+        errors.extend(self._validate_parent_input_bindings(handoff, step, symbol_table))
         errors.extend(
             self._validate_parent_output_bindings(
                 handoff,
@@ -260,10 +251,7 @@ class ValidationMixin:
                     f"Handoff {handoff.handoff_id} required input "
                     f"{binding.parent_variable} is missing from step {step.step_id}."
                 )
-            if (
-                binding.required
-                and binding.parent_variable not in symbol_table.variables
-            ):
+            if binding.required and binding.parent_variable not in symbol_table.variables:
                 errors.append(
                     f"Handoff {handoff.handoff_id} required input "
                     f"{binding.parent_variable} is not declared."
@@ -328,8 +316,7 @@ class ValidationMixin:
         if variable is None:
             return False
         return any(
-            consumer_step_id != producer_step_id
-            for consumer_step_id in variable.consumer_steps
+            consumer_step_id != producer_step_id for consumer_step_id in variable.consumer_steps
         )
 
     def _validate_references(
@@ -461,9 +448,7 @@ class ValidationMixin:
         for step in steps:
             if step.outputs and not step.inputs and step.command_type == "GENERAL_COMMAND":
                 if step.source_span_ids:  # Only warn for steps with source spans
-                    warnings.append(
-                        f"Step {step.step_id} produces outputs but has no inputs"
-                    )
+                    warnings.append(f"Step {step.step_id} produces outputs but has no inputs")
 
         return warnings
 
@@ -481,9 +466,7 @@ class ValidationMixin:
             List of reconciled constraint IRs
         """
         step_ids = {step.step_id for step in steps}
-        compact_to_step_id = {
-            self._compact_step_id(step_id): step_id for step_id in step_ids
-        }
+        compact_to_step_id = {self._compact_step_id(step_id): step_id for step_id in step_ids}
 
         for constraint in constraints:
             if not constraint.targets:

@@ -11,8 +11,8 @@ from nl2spl.compiler.capability_intent.model import (
 from nl2spl.compiler.construct_plan import (
     APICallDemand,
     APIDeclarationDemand,
-    ConstructPlanner,
     ConstructPlan,
+    ConstructPlanner,
     OperationCoverageIR,
 )
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
@@ -190,7 +190,9 @@ def test_construct_plan_serializer_preserves_api_demand_types() -> None:
     assert isinstance(call, APICallDemand)
     assert declaration.explicit_name_candidates == ["SearchAPI"]
     assert declaration.capability_intent_id == "cap_intent_search"
-    assert call.operation_coverage[0].operation_surface == "Retrieve approved sources using SearchAPI."
+    assert call.operation_coverage[0].operation_surface == (
+        "Retrieve approved sources using SearchAPI."
+    )
     assert call.behavior_lowering_policy == "api_call_replaces_behavior"
 
 
@@ -244,3 +246,174 @@ def _intent_plan(operation: str) -> ExternalCapabilityIntentPlanIR:
         intents=(intent,),
         candidate_resolution_map={"candidate_search": "cap_intent_search"},
     )
+
+
+def test_conditional_trigger_coverage_expansion_upstream() -> None:
+    # Span with conditional trigger prefix and operation surface
+    span = SpanIR(
+        "s16",
+        (
+            "If sources are needed and available, retrieve them using approved "
+            "source recipes. Maintain provenance for externally sourced facts."
+        ),
+    )
+    # The raw resolved evidence only points to the subset:
+    # 'retrieve them using approved source recipes'
+    operation_text = "retrieve them using approved source recipes"
+    evidence = (
+        CapabilityEvidenceIR(
+            evidence_id="ev_operation",
+            source_span_id="s16",
+            claim="operation",
+            surface_text=operation_text,
+            relation="direct",
+        ),
+    )
+    intent = ExternalCapabilityIntentIR(
+        intent_id="cap_intent_approved_sources",
+        source_candidate_ids=("candidate_search",),
+        source_span_ids=("s16",),
+        operation_text=operation_text,
+        capability_surface="ApprovedSourceRecipesAPI",
+        capability_ref="ApprovedSourceRecipesAPI",
+        boundary_status="confirmed_external",
+        identity_status="explicit_name",
+        invocation_status="executable",
+        capability_admission_status="confirmed_capability",
+        invocation_admission_status="confirmed_invocation",
+        evidence=evidence,
+    )
+    intent_plan = ExternalCapabilityIntentPlanIR(
+        plan_id="cap_plan",
+        intents=(intent,),
+        candidate_resolution_map={"candidate_search": "cap_intent_approved_sources"},
+    )
+
+    plan = ConstructPlanner().plan(
+        [span],
+        FieldRouteIR(behavior=["s16"], integrations=[]),
+        source_schema="generic_nl",
+        capability_intent_plan=intent_plan,
+    )
+
+    calls = plan.api_call_demands()
+    assert len(calls) == 1
+    call = calls[0]
+
+    # Assert OperationCoverageIR expanded starting index to 0
+    # and surface_text to the full first sentence
+    assert len(call.operation_coverage) == 1
+    cov = call.operation_coverage[0]
+    assert cov.char_start == 0
+    assert cov.char_end == 81
+    assert cov.operation_surface == (
+        "If sources are needed and available, retrieve them using approved source recipes."
+    )
+
+
+def test_operation_coverage_prefers_full_invocation_surface_when_operation_is_narrow() -> None:
+    span = SpanIR(
+        "s16",
+        (
+            "retrieve them using approved source\n"
+            "recipes. Maintain provenance for externally sourced facts."
+        ),
+    )
+    evidence = (
+        CapabilityEvidenceIR(
+            evidence_id="ev_invocation",
+            source_span_id="s16",
+            claim="invocation",
+            surface_text="retrieve them using approved source recipes",
+            relation="direct",
+        ),
+        CapabilityEvidenceIR(
+            evidence_id="ev_operation",
+            source_span_id="s16",
+            claim="operation",
+            surface_text="retrieve them",
+            relation="direct",
+        ),
+        CapabilityEvidenceIR(
+            evidence_id="ev_identity",
+            source_span_id="s16",
+            claim="identity",
+            surface_text="approved source recipes",
+            relation="direct",
+        ),
+    )
+    intent = ExternalCapabilityIntentIR(
+        intent_id="cap_intent_approved_sources",
+        source_candidate_ids=("candidate_search",),
+        source_span_ids=("s16",),
+        operation_text="retrieve them",
+        capability_surface="approved source recipes",
+        capability_ref=None,
+        boundary_status="confirmed_external",
+        identity_status="described_unnamed",
+        invocation_status="executable",
+        capability_admission_status="confirmed_capability",
+        invocation_admission_status="confirmed_invocation",
+        evidence=evidence,
+    )
+    plan = ConstructPlanner().plan(
+        [span],
+        FieldRouteIR(behavior=["s16"], integrations=[]),
+        source_schema="structural_nl",
+        capability_intent_plan=ExternalCapabilityIntentPlanIR(
+            plan_id="cap_plan",
+            intents=(intent,),
+            candidate_resolution_map={"candidate_search": intent.intent_id},
+        ),
+    )
+
+    call = plan.api_call_demands()[0]
+    cov = call.operation_coverage[0]
+    assert cov.operation_surface == "retrieve them using approved source recipes"
+    assert cov.char_start == 0
+    assert cov.char_end == len("retrieve them using approved source\nrecipes")
+    assert call.behavior_lowering_policy == "api_call_augments_behavior"
+
+
+def test_api_only_span_is_reserved_from_generic_step_extraction() -> None:
+    span = SpanIR("s1", "retrieve them using approved source recipes.")
+    operation = "retrieve them using approved source recipes"
+    evidence = (
+        CapabilityEvidenceIR(
+            evidence_id="ev_operation",
+            source_span_id="s1",
+            claim="operation",
+            surface_text=operation,
+            relation="direct",
+        ),
+    )
+    intent = ExternalCapabilityIntentIR(
+        intent_id="cap_intent_approved_sources",
+        source_candidate_ids=("candidate_search",),
+        source_span_ids=("s1",),
+        operation_text=operation,
+        capability_surface="ApprovedSourceRecipesAPI",
+        capability_ref="ApprovedSourceRecipesAPI",
+        boundary_status="confirmed_external",
+        identity_status="explicit_name",
+        invocation_status="executable",
+        capability_admission_status="confirmed_capability",
+        invocation_admission_status="confirmed_invocation",
+        evidence=evidence,
+    )
+
+    plan = ConstructPlanner().plan(
+        [span],
+        FieldRouteIR(behavior=["s1"], integrations=[]),
+        source_schema="generic_nl",
+        capability_intent_plan=ExternalCapabilityIntentPlanIR(
+            plan_id="cap_plan",
+            intents=(intent,),
+            candidate_resolution_map={"candidate_search": intent.intent_id},
+        ),
+    )
+
+    assert plan.api_call_demands()[0].behavior_lowering_policy == (
+        "api_call_replaces_behavior"
+    )
+    assert "s1" in plan.reserved_without_dual_role()

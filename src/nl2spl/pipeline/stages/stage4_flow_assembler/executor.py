@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re as _re
 from dataclasses import asdict
+from typing import Any
 
 from nl2spl.compiler.construct_plan import ConstructPlan
 from nl2spl.compiler.construct_plan.exception_materializer import (
@@ -17,8 +18,8 @@ from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR, WorkerSpecIR
 from nl2spl.llm.prompts import load_prompt
 from nl2spl.pipeline.route_exception_materializer import (
-    materialize_route_exception_flows,
     _is_empty_condition,
+    materialize_route_exception_flows,
 )
 
 
@@ -45,6 +46,16 @@ class ExecutorMixin:
             if routes.annotations
             else set(routes.behavior)
         )
+        behavior_span_ids.update(
+            span.span_id
+            for span in spans
+            if span.source_section_id == "sec_reusable_process"
+            and span.segmentation_kind in {
+                "atomic_action_candidate",
+                "guarded_action",
+                "continuation_repaired",
+            }
+        )
         # Phase 3 defensive diagnostic: routes.behavior non-empty but zero
         # executable behavior span IDs from annotations.
         if routes.annotations and routes.behavior and not behavior_span_ids:
@@ -59,7 +70,7 @@ class ExecutorMixin:
                 len(routes.behavior),
             )
         if construct_plan is not None:
-            behavior_span_ids -= construct_plan.reserved_without_dual_role()
+            behavior_span_ids -= construct_plan.reserved_for_flow_assembly()
         behavior_spans = [s for s in spans if s.span_id in behavior_span_ids]
         self.logger.info(
             "Starting flow assembly for %d behavior spans (out of %d total)",
@@ -128,7 +139,7 @@ class ExecutorMixin:
                 len(routes.behavior),
             )
         if construct_plan is not None:
-            behavior_span_ids -= construct_plan.reserved_without_dual_role()
+            behavior_span_ids -= construct_plan.reserved_for_flow_assembly()
         span_by_id = {span.span_id: span for span in spans}
         worker_flows: dict[str, FlowStructureIR] = {}
         warnings = list(worker_plan.warnings)
@@ -315,11 +326,11 @@ Return JSON only."""
             span = span_by_id.get(sid)
             if span is None:
                 continue
-            
+
             # 跳过 placeholder spans
             if span.is_placeholder:
                 continue
-            
+
             owners = owners_by_span.get(sid, [])
             if len(owners) == 1:
                 target_worker = owners[0]
@@ -412,17 +423,17 @@ def _filter_non_condition_exception_flows(
             continue
         cond_span = span_by_id.get(condition_spans[0])
         condition_text = cond_span.text if cond_span else exc.condition_text
-        
+
         # 检查是否为空标记（文本级别检查）
         if _is_empty_condition(condition_text):
             changed = True
             continue
-        
+
         # 检查是否为 placeholder span
         if cond_span and cond_span.is_placeholder:
             changed = True
             continue
-        
+
         norm = _re.sub(r"[^\w\s]", "", condition_text.strip().lower())
         if norm in existing_norms:
             changed = True

@@ -45,6 +45,10 @@ class StepExtractor(
     their input/output variables.
     """
 
+    def __init__(self, config: any, client: any) -> None:
+        super().__init__(config, client)
+        self.last_action_plan = None
+
     @property
     def name(self) -> str:
         """Stage name for logging and checkpointing."""
@@ -196,6 +200,9 @@ Output JSON:"""
                 self.logger.warning("Skipping invalid step: %s", e)
                 continue
 
+        # Stage 7 fail-closed: guard-only residual step detection (Phase F)
+        steps = self._filter_guard_only_residual_steps(steps)
+
         self._validate_step_type_contracts(steps)
 
         # 3.5 D6 guard: drop steps sourced only from non-executable spans
@@ -336,3 +343,48 @@ Output JSON:"""
             ),
             stage=self.name,
         )
+
+    def _filter_guard_only_residual_steps(self, steps: list[StepIR]) -> list[StepIR]:
+        guard_words = {
+            "when",
+            "if",
+            "unless",
+            "once",
+            "as long as",
+            "provided that",
+            "in case",
+            "on condition that",
+        }
+        filtered_steps = []
+        for step in steps:
+            text_clean = step.text.strip()
+            text_lower = text_clean.lower()
+            starts_with_guard = False
+            for gw in guard_words:
+                if text_lower.startswith(gw + " ") or text_lower == gw:
+                    starts_with_guard = True
+                    break
+            if starts_with_guard:
+                has_separator = "," in text_clean or " then " in text_lower
+                if not has_separator:
+                    msg = (
+                        f"Guard-only residual step detected: '{text_clean}'. "
+                        "Action clause is missing."
+                    )
+                    self.logger.warning(msg)
+                    diag = CompileDiagnostic(
+                        diagnostic_id=(
+                            f"diag_s7_guard_residual_not_materialized_{step.step_id}"
+                        ),
+                        kind="stage7_guard_residual_not_materialized",
+                        severity="warning",
+                        message=msg,
+                        target_ref=f"step:{step.step_id}",
+                        source_span_ids=step.source_span_ids,
+                        blocks_rendering=False,
+                        blocks_completion=True,
+                    )
+                    self.stage7_diagnostics.append(diag)
+                    continue
+            filtered_steps.append(step)
+        return filtered_steps

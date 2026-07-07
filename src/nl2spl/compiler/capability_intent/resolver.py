@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from collections import defaultdict
-from typing import Iterable
+from collections.abc import Iterable
 
 from nl2spl.compiler.capability_intent.admission import (
     capability_admission,
@@ -112,7 +112,11 @@ class ExternalCapabilityIntentResolver:
         )
         evidence = tuple(
             sorted(
-                {item.evidence_id: item for candidate in candidates for item in candidate.evidence}.values(),
+                {
+                    item.evidence_id: item
+                    for candidate in candidates
+                    for item in candidate.evidence
+                }.values(),
                 key=lambda item: item.evidence_id,
             )
         )
@@ -166,6 +170,7 @@ class ExternalCapabilityIntentResolver:
             source_span_ids,
             synthetic.source_section_id,
             synthetic.source_packet_id,
+            synthetic.operation_text,
             binding_view,
         )
         intent_id = _intent_id(
@@ -272,6 +277,7 @@ def _bind_resources(
     source_span_ids: tuple[str, ...],
     source_section_id: str | None,
     source_packet_id: str | None,
+    operation_text: str,
     view: tuple[CapabilityDemandBindingViewIR, ...],
 ) -> tuple[tuple[str, ...], tuple[str, ...], str, tuple[str, ...]]:
     relevant = [
@@ -285,9 +291,30 @@ def _bind_resources(
         )
     ]
     if not relevant:
+        inferred_outputs = _infer_source_retrieval_outputs(operation_text, view)
+        if inferred_outputs:
+            return (), inferred_outputs, "fully_bound", ()
         return (), (), "not_required", ()
-    inputs = tuple(sorted({item.resource_ref for item in relevant if item.direction == "input" and item.resource_ref}))
-    outputs = tuple(sorted({item.resource_ref for item in relevant if item.direction == "output" and item.resource_ref}))
+    inputs = tuple(
+        sorted(
+            {
+                item.resource_ref
+                for item in relevant
+                if item.direction == "input" and item.resource_ref
+            }
+        )
+    )
+    outputs = tuple(
+        sorted(
+            {
+                item.resource_ref
+                for item in relevant
+                if item.direction == "output" and item.resource_ref
+            }
+        )
+    )
+    if not outputs:
+        outputs = _infer_source_retrieval_outputs(operation_text, view)
     unresolved = tuple(
         sorted(
             f"{item.direction}:{item.demand_id}"
@@ -303,6 +330,58 @@ def _bind_resources(
     else:
         status = "fully_bound"
     return inputs, outputs, status, unresolved
+
+
+def _infer_source_retrieval_outputs(
+    operation_text: str,
+    view: tuple[CapabilityDemandBindingViewIR, ...],
+) -> tuple[str, ...]:
+    operation = operation_text.lower()
+    if "source" not in operation and "evidence" not in operation:
+        return ()
+    if not any(verb in operation for verb in ("retrieve", "gather", "collect", "fetch")):
+        return ()
+
+    outputs = []
+    for item in view:
+        if item.view_status != "valid" or item.direction != "output":
+            continue
+        output_ref = item.resource_ref or _resource_ref_from_output_demand(item)
+        if output_ref is None:
+            continue
+        evidence_text = item.evidence_text.lower()
+        if "source" in evidence_text or "evidence" in evidence_text:
+            outputs.append(output_ref)
+    return tuple(sorted(set(outputs)))
+
+
+def _resource_ref_from_output_demand(
+    item: CapabilityDemandBindingViewIR,
+) -> str | None:
+    """Derive a grammar-safe output ref from source-backed demand metadata.
+
+    This is intentionally narrower than a general naming fallback. It exists
+    for source/resource demands whose structured view omitted ``resource_ref``
+    but still carries a source packet or evidence phrase such as
+    ``p_list_item_source_evidence_set`` / ``a source/evidence set``.
+    """
+
+    candidates: list[str] = []
+    if item.source_packet_id and item.source_packet_id.startswith("p_list_item_"):
+        candidates.append(item.source_packet_id.removeprefix("p_list_item_"))
+    if item.evidence_text:
+        candidates.append(_canonical_resource_ref(item.evidence_text))
+    for candidate in candidates:
+        if _grammar_safe_name(candidate):
+            return candidate
+    return None
+
+
+def _canonical_resource_ref(value: str) -> str:
+    lowered = value.lower().replace("/", "_")
+    lowered = re.sub(r"\b(a|an|the)\b", " ", lowered)
+    lowered = re.sub(r"[^a-z0-9]+", "_", lowered)
+    return re.sub(r"_+", "_", lowered).strip("_")
 
 
 def _unanimous(values: Iterable[str]) -> str:
@@ -350,7 +429,10 @@ def _candidate_diagnostic(intent: ExternalCapabilityIntentIR) -> CompileDiagnost
         diagnostic_id=f"diag_{intent.intent_id}_candidate",
         kind="external_capability_candidate_not_admitted",
         severity="warning",
-        message="External capability evidence is incomplete or conflicting; no API demand was authorized.",
+        message=(
+            "External capability evidence is incomplete or conflicting; "
+            "no API demand was authorized."
+        ),
         target_ref=f"capability_intent:{intent.intent_id}",
         source_span_ids=list(intent.source_span_ids),
         source_section_id=intent.source_section_id,

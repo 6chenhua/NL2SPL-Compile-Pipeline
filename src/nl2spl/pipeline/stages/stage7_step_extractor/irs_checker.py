@@ -6,7 +6,8 @@ each executable step against its command-type ConstructIRS.
 Rules (Phase 4):
 - GENERAL_COMMAND: source_span_ids non-empty ->satisfied; empty ->assumed_command_not_renderable
 - REQUEST_INPUT: source_span_ids non-empty ->satisfied; empty ->type_or_contract_ambiguity
-- CALL_API: integration_ref non-empty + source_span_ids non-empty ->satisfied; either empty ->type_or_contract_ambiguity
+- CALL_API: integration_ref non-empty + source_span_ids non-empty ->satisfied;
+  either empty ->type_or_contract_ambiguity
 - INVOKE_WORKER: handoff_id non-empty ->satisfied; empty ->type_or_contract_ambiguity
 - DISPLAY_MESSAGE / unknown types: skipped (no IRS check).
 
@@ -26,7 +27,6 @@ from nl2spl.compiler.irs.factory import build_irs_runner
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
-
 
 # Command types that have IRS construct specs.
 _IRS_COMMAND_TYPES = {"GENERAL_COMMAND", "REQUEST_INPUT", "CALL_API", "INVOKE_WORKER"}

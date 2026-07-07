@@ -133,7 +133,10 @@ class ConstructPlanner:
         demands.extend(api_declaration_demands)
         demands.extend(api_call_demands)
 
-        reserved_span_ids = {ann.span_id for ann in handlers} - dual_role_span_ids
+        reserved_span_ids = (
+            ({ann.span_id for ann in handlers} - dual_role_span_ids)
+            | _api_reserved_span_ids(api_call_demands)
+        )
         plan = ConstructPlan(
             plan_id="construct_plan_00",
             source_schema=source_schema,
@@ -431,7 +434,28 @@ def _operation_coverage(
         span = span_by_id.get(item.source_span_id)
         if span is None:
             continue
-        start, end, relation = _locate_operation_surface(span.text, item.surface_text)
+        surface_text, start, end, relation = _select_operation_coverage_surface(
+            item,
+            intent.evidence,
+            span.text,
+        )
+        if start >= 0 and end is not None:
+            for match in re.finditer(r"[^.!?]+[.!?]?", span.text):
+                s_start, s_end = match.start(), match.end()
+                if s_start <= start < s_end:
+                    leading_part = span.text[s_start:start]
+                    cleaned_leading = leading_part.strip(" ,;.")
+                    is_conditional = re.match(
+                        r"^(if|when|unless|in\s+case|provided\s+that|on\s+condition\s+that|once|as\s+long\s+as)\b",
+                        cleaned_leading,
+                        re.IGNORECASE,
+                    )
+                    if is_conditional:
+                        start = s_start
+                        end = s_end
+                        surface_text = match.group(0)
+                        break
+
         coverage_id = _stable_capability_demand_id(
             "operation_coverage",
             f"{intent.intent_id}|{item.source_span_id}|{item.surface_text}",
@@ -440,7 +464,7 @@ def _operation_coverage(
             OperationCoverageIR(
                 coverage_id=coverage_id,
                 source_span_id=item.source_span_id,
-                operation_surface=item.surface_text,
+                operation_surface=surface_text,
                 char_start=start if start >= 0 else None,
                 char_end=end,
                 relation=relation,
@@ -462,6 +486,60 @@ def _operation_coverage(
     else:
         policy = "api_call_replaces_behavior"
     return coverage, consumed, residual, policy
+
+
+def _api_reserved_span_ids(api_call_demands: list[APICallDemand]) -> set[str]:
+    """Return API-owned spans that should not enter generic step extraction."""
+    reserved: set[str] = set()
+    for demand in api_call_demands:
+        residual = set(demand.residual_behavior_span_ids)
+        for span_id in demand.consumes_behavior_span_ids:
+            if span_id not in residual:
+                reserved.add(span_id)
+    return reserved
+
+
+def _select_operation_coverage_surface(
+    operation_item: object,
+    evidence_items: tuple[object, ...],
+    span_text: str,
+) -> tuple[str, int, int | None, str]:
+    """Choose the source surface that best covers the API operation action.
+
+    Semantic extraction can split a single API invocation into a narrow operation
+    claim (for example, "retrieve them") and a wider invocation claim (for
+    example, "retrieve them using approved source recipes"). Stage 7 action
+    partitioning needs the wider action surface when it is source-backed and
+    contains the operation range; otherwise the capability phrase becomes a fake
+    trailing residual clause and CALL_API materialization is blocked.
+    """
+    surface_text = operation_item.surface_text
+    start, end, relation = _locate_operation_surface(span_text, surface_text)
+    if start < 0 or end is None:
+        return surface_text, start, end, relation
+
+    best = (surface_text, start, end, relation)
+    for candidate in evidence_items:
+        if candidate is operation_item:
+            continue
+        if candidate.claim != "invocation":
+            continue
+        if candidate.source_span_id != operation_item.source_span_id:
+            continue
+        cand_start, cand_end, cand_relation = _locate_operation_surface(
+            span_text,
+            candidate.surface_text,
+        )
+        if cand_start < 0 or cand_end is None:
+            continue
+        if cand_start <= start and cand_end >= end and cand_end - cand_start > end - start:
+            best = (
+                candidate.surface_text,
+                cand_start,
+                cand_end,
+                cand_relation,
+            )
+    return best
 
 
 def _locate_operation_surface(text: str, surface_text: str) -> tuple[int, int | None, str]:

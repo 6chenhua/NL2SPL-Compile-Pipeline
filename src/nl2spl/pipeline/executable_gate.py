@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo
 from nl2spl.ir.resource_registry_ir import APISpec
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import StepVariableRelationPlan
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR, WorkerPlanIR
 from nl2spl.pipeline.resource_declaration_gate import RenderableResourceRegistryView
@@ -20,6 +22,11 @@ class ExecutableElementGate:
     source-backed or valid-handoff-backed steps pass through to the
     renderer.  Blocked steps become diagnostics, not executable SPL.
     """
+
+    def __init__(self) -> None:
+        self.renderable_resource_registry_view = None
+        self.composite_output_plans: tuple[CompositeOutputPlan, ...] = ()
+        self.step_variable_relation_plan: StepVariableRelationPlan | None = None
 
     def apply(
         self,
@@ -269,21 +276,14 @@ class ExecutableElementGate:
         if list(step.outputs) == expected_outputs:
             return True
 
-        aggregation = step.metadata.get("structured_aggregation")
-        if not isinstance(aggregation, dict):
-            return False
+        for plan in self.composite_output_plans:
+            if plan.step_id == step.step_id:
+                if len(step.outputs) != 1 or step.outputs[0] != plan.composite_variable_name:
+                    return False
+                original_outputs = [intent.variable_name for intent in plan.original_output_intents]
+                return list(original_outputs) == expected_outputs
 
-        # Must have exactly 1 output matching the structured result_name
-        result_name = aggregation.get("result_name")
-        if not result_name or len(step.outputs) != 1 or step.outputs[0] != result_name:
-            return False
-
-        # Must have type_name properly generated
-        if not aggregation.get("type_name"):
-            return False
-
-        original_outputs = aggregation.get("original_outputs") or []
-        return list(original_outputs) == expected_outputs
+        return False
 
     @classmethod
     def _source_backed_renderable(
@@ -519,15 +519,9 @@ class ExecutableElementGate:
                     )
                 # Verify unpacked_output is in producer's original_outputs
                 else:
-                    aggregation = producer.metadata.get("structured_aggregation")
-                    if not isinstance(aggregation, dict):
-                        ok = False
-                        reason = (
-                            f"compiler_unpack producer '{source_step_id}' "
-                            f"missing structured_aggregation metadata"
-                        )
-                    else:
-                        original_outputs = aggregation.get("original_outputs", [])
+                    producer_plan = next((p for p in self.composite_output_plans if p.step_id == source_step_id), None)
+                    if producer_plan:
+                        original_outputs = [intent.variable_name for intent in producer_plan.original_output_intents]
                         if unpacked_output not in original_outputs:
                             ok = False
                             reason = (
@@ -537,6 +531,24 @@ class ExecutableElementGate:
                         else:
                             ok = True
                             reason = None
+                    else:
+                        produced_by_relation = False
+                        if self.step_variable_relation_plan:
+                            produced_by_relation = any(
+                                rel.step_id == source_step_id
+                                and rel.variable_name == unpacked_output
+                                and rel.relation == "produces"
+                                for rel in self.step_variable_relation_plan.relations
+                            )
+                        if produced_by_relation:
+                            ok = True
+                            reason = None
+                        else:
+                            ok = False
+                            reason = (
+                                f"compiler_unpack output '{unpacked_output}' is not produced by "
+                                f"producer '{source_step_id}' according to composite plans or relation plan"
+                            )
 
             info = StepRenderInfo(
                 step_id=step.step_id,

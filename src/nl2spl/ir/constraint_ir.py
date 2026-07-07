@@ -39,6 +39,4 @@ class ConstraintIR:
     def __post_init__(self) -> None:
         """Validate constraint_id format."""
         if not self.constraint_id.startswith("c"):
-            raise ValueError(
-                f"constraint_id must start with 'c', got: {self.constraint_id}"
-            )
+            raise ValueError(f"constraint_id must start with 'c', got: {self.constraint_id}")

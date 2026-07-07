@@ -709,10 +709,32 @@ class WorkerStepPlanIRSerializer(ArtifactSerializer):
                 for wid, steps in p.worker_steps.items()
             },
             "warnings": p.warnings,
+            "step_variable_relation_plan": (
+                p.step_variable_relation_plan.to_payload()
+                if p.step_variable_relation_plan is not None
+                else None
+            ),
+            "composite_output_plans": [plan.to_payload() for plan in p.composite_output_plans],
         }
 
     def from_canonical(self, data: dict[str, Any]) -> Any:
+        from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan
+        from nl2spl.ir.step_variable_relation_ir import StepVariableRelationPlan
+
         step_ser = StepIRSerializer()
+
+        step_var_rel_data = data.get("step_variable_relation_plan")
+        step_variable_relation_plan = (
+            StepVariableRelationPlan.from_payload(step_var_rel_data)
+            if step_var_rel_data is not None
+            else None
+        )
+
+        composite_output_plans = tuple(
+            CompositeOutputPlan.from_payload(plan_data)
+            for plan_data in data.get("composite_output_plans", [])
+        )
+
         return WorkerStepPlanIR(
             main_worker_id=data["main_worker_id"],
             worker_steps={
@@ -720,6 +742,8 @@ class WorkerStepPlanIRSerializer(ArtifactSerializer):
                 for wid, steps in data.get("worker_steps", {}).items()
             },
             warnings=data.get("warnings", []),
+            step_variable_relation_plan=step_variable_relation_plan,
+            composite_output_plans=composite_output_plans,
         )
 
 

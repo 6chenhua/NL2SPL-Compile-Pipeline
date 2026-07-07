@@ -16,13 +16,20 @@ from nl2spl.compiler.resource_contract_demand_view.model import (
 )
 
 
-def _candidate(candidate_id: str = "c1", span_id: str = "s1") -> ExternalCapabilityIntentCandidateIR:
+def _candidate(
+    candidate_id: str = "c1",
+    span_id: str = "s1",
+) -> ExternalCapabilityIntentCandidateIR:
     evidence = tuple(
         CapabilityEvidenceIR(
             evidence_id=f"{candidate_id}_{claim}",
             source_span_id=span_id,
             claim=claim,
-            surface_text=("RecordsAPI" if claim in {"boundary", "identity"} else "retrieve records"),
+            surface_text=(
+                "RecordsAPI"
+                if claim in {"boundary", "identity"}
+                else "retrieve records"
+            ),
             relation="direct",
         )
         for claim in ("operation", "boundary", "identity", "invocation")
@@ -111,6 +118,43 @@ def test_policy_only_never_becomes_call_admission() -> None:
 
     assert plan.intents[0].capability_admission_status == "confirmed_capability"
     assert plan.intents[0].invocation_admission_status == "no_invocation"
+
+
+def test_source_retrieval_output_ref_can_be_inferred_from_source_backed_demand() -> None:
+    demand_view = ResourceContractDemandView(
+        demands=(
+            DemandViewDemand(
+                demand_id="rcd_output_s1",
+                direction="output",
+                requiredness="required",
+                required=True,
+                evidence_text="a source/evidence set",
+                source_span_ids=("s9",),
+                source_packet_id="p_list_item_source_evidence_set",
+                resource_ref=None,
+            ),
+        )
+    )
+    candidate = _candidate()
+    candidate = ExternalCapabilityIntentCandidateIR(
+        **{
+            **candidate.__dict__,
+            "operation_text": "retrieve them using approved source recipes",
+            "operation_surface": "retrieve them using approved source recipes",
+        }
+    )
+
+    plan = ExternalCapabilityIntentResolver().resolve(
+        source_schema="generic_nl",
+        extraction=ExternalCapabilityExtractionResult(candidates=(candidate,)),
+        early_evidence=EarlyCapabilityEvidenceView(),
+        demand_view=demand_view,
+    )
+
+    intent = plan.intents[0]
+    assert intent.output_refs == ("source_evidence_set",)
+    assert intent.binding_status == "fully_bound"
+    assert intent.unresolved_binding_claims == ()
 
 
 def test_extractor_unavailable_with_only_route_clue_does_not_create_intent() -> None:

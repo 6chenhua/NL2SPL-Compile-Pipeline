@@ -320,6 +320,25 @@ class ConstructPlan:
         """Return handler-only spans that should be excluded from main candidates."""
         return set(self.reserved_span_ids) - set(self.dual_role_span_ids)
 
+    def api_reserved_span_ids(self) -> set[str]:
+        """Return reserved spans that are owned by CALL_API materialization."""
+        api_spans: set[str] = set()
+        for call in self.api_call_demands():
+            slot = call.slots.get("call_action")
+            if slot is not None and slot.source_span_ids:
+                api_spans.update(slot.source_span_ids)
+            else:
+                api_spans.update(call.source_span_ids)
+        return api_spans & self.reserved_without_dual_role()
+
+    def reserved_for_flow_assembly(self) -> set[str]:
+        """Return reserved spans that should be excluded from flow/block placement.
+
+        CALL_API spans are reserved from generic StepIR extraction, but they still
+        need flow/block ownership so the API materializer can place the call.
+        """
+        return self.reserved_without_dual_role() - self.api_reserved_span_ids()
+
     def to_payload(self) -> dict[str, Any]:
         """Return deterministic JSON-serializable payload."""
         return {

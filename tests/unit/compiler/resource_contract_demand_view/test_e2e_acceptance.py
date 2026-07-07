@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from nl2spl.canonical.compile_input import (
     CanonicalCompileInput,
     EvidenceRef,
@@ -17,16 +15,9 @@ from nl2spl.canonical.compile_input import (
     VariableFact,
 )
 from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
-from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.subsystem import IRSSubsystem
-from nl2spl.compiler.producer_index import ProducerIndex
 from nl2spl.compiler.resource_contract_demand_view.builder import DemandViewBuilder
 from nl2spl.compiler.resource_contract_demand_view.coverage_validator import (
     ResourceContractAnnotationCoverageValidator,
-)
-from nl2spl.compiler.resource_contract_demand_view.model import (
-    DemandViewDemand,
-    ResourceContractDemandView,
 )
 from nl2spl.compiler.resource_contract_demand_view.projector import (
     ViewDiagnosticProjector,
@@ -39,22 +30,17 @@ from nl2spl.ir.resource_contract_ir import (
 from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
     VariableSpec,
-    WorkerScopedResourceIR,
 )
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.ir.worker_ir import WorkerInput, WorkerIR, WorkerOutput
-from nl2spl.ir.worker_plan_ir import (
-    ContractFieldIR,
-    WorkerSpecIR,
+from nl2spl.ir.step_variable_relation_ir import (
+    StepVariableRelation,
+    StepVariableRelationPlan,
 )
-from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import _required_keyword
+from nl2spl.ir.worker_ir import WorkerInput
 from nl2spl.pipeline.stages.stage3_5_worker_boundary_planner.executor import (
     ExecutorMixin,
 )
-from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
-    build_resource_context,
-)
-
+from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import _required_keyword
 
 # =============================================================================
 # Scenario 1: Structured NL Happy Path
@@ -101,13 +87,6 @@ def test_e2e_happy_path():
     assert inps[0].contract_demand_id == "rcd_input_s1"
     assert outs[0].contract_demand_id == "rcd_output_s2"
 
-    # -- Stage 6: materialization --
-    # Build a ResourceContractFieldIR (simulating LLM output)
-    field = ResourceContractFieldIR(
-        demand_id="rcd_output_s2", name="draft", resource_kind="variable",
-        direction="output", data_type="text", required=True,
-        requiredness="required", description="Finished draft",
-    )
     binding = ResourceContractBindingIR(
         contract_demand_id="rcd_output_s2", resource_name="draft",
         resource_kind="variable", direction="output",
@@ -126,6 +105,18 @@ def test_e2e_happy_path():
     irs.get_slot.return_value = None
     ctx = MagicMock()
     ctx.worker_plan = None
+    ctx.worker_steps = MagicMock()
+    ctx.worker_steps.step_variable_relation_plan = StepVariableRelationPlan(
+        relations=(
+            StepVariableRelation(
+                step_id="st_draft",
+                variable_name="draft",
+                relation="produces",
+                source_span_ids=("s2",),
+                evidence_kind="test_source_backed_output",
+            ),
+        )
+    )
     resources = ResourceRegistryIR(variables=[
         VariableSpec("draft", "text", True, "Finished draft", "output"),
     ])
@@ -133,7 +124,13 @@ def test_e2e_happy_path():
     ctx.worker_scoped_resources = None
     worker = MagicMock()
     worker.steps = [
-        MagicMock(outputs=["draft"], inputs=[], handoff_id=None, integration_ref=None),
+        MagicMock(
+            step_id="st_draft",
+            outputs=["draft"],
+            inputs=[],
+            handoff_id=None,
+            integration_ref=None,
+        ),
     ]
     checker._merged_resources = lambda c: resources
     checker._worker_from_context = lambda c: worker

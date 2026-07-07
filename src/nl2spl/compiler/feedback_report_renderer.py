@@ -29,6 +29,7 @@ _API_DEFERRED_SLOT_ORDER: dict[str, int] = {
 _DIAG_ORDER: dict[str, int] = {
     "missing_handler": 0,
     "missing_output_producer": 1,
+    "required_output_deferred": 1,
     "type_or_contract_ambiguity": 2,
     "deferred_api_contract_validation": 3,
     "assumed_command_not_renderable": 3,
@@ -376,7 +377,7 @@ def _render_traces(traces: list[TraceRecord]) -> list[str]:
         if source_parts:
             lines.append(f"  - Source: {', '.join(source_parts)}")
         if t.explanation:
-            lines.append(f"  - Explanation: {t.explanation}")
+            lines.append(f"  - Explanation: {t.explanation.rstrip()}")
     return lines
 
 

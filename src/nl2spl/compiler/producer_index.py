@@ -16,11 +16,23 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Literal
 
+from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan
 from nl2spl.ir.resource_contract_ir import ResourceContractBindingIR, ResourceKind
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import (
+    RequiredOutputFulfillmentState,
+    StepVariableRelationPlan,
+)
 from nl2spl.ir.worker_plan_ir import WorkerHandoffIR
 
-ProducerKind = Literal["step", "handoff", "api", "compiler_scaffold"]
+ProducerKind = Literal[
+    "step",
+    "handoff",
+    "api",
+    "compiler_scaffold",
+    "field_projection",
+    "handoff_field_projection",
+]
 
 
 @dataclass
@@ -95,8 +107,43 @@ def _step_origin(step: StepIR) -> ProducerKind:
     return "step"  # assumed — still recorded but marked non-renderable
 
 
+def _looks_like_source_evidence_output(output_name: str) -> bool:
+    normalized = output_name.lower()
+    return (
+        "source_evidence" in normalized
+        or "evidence_set" in normalized
+        or normalized in {"source_evidence_set", "evidence_sources"}
+    )
+
+
+def _call_api_has_unknown_retrieval_response(step: StepIR) -> bool:
+    if step.command_type != "CALL_API" or not step.source_span_ids:
+        return False
+    metadata = step.metadata or {}
+    if metadata.get("api_response_binding_status") == "deferred_until_api_return_contract_known":
+        return True
+    functions_unknown = metadata.get("api_functions_status") in {
+        "unknown_placeholder",
+        "unknown",
+        None,
+    }
+    schema_unknown = metadata.get("api_schema_status") in {
+        "unknown_placeholder",
+        "unknown",
+        None,
+    }
+    if not (functions_unknown or schema_unknown):
+        return False
+    text = step.text.lower()
+    return any(marker in text for marker in ("retrieve", "fetch", "search", "source"))
+
+
 class ProducerIndex:
     """Index of variable producers built from steps, handoffs, and API declarations.
+
+    Normalized worker-aware runs use StepVariableRelationPlan as producer
+    authority. StepIR.outputs is only a compatibility fallback when no
+    non-empty relation plan is supplied; CALL_API outputs remain ignored there.
 
     A variable is *produced* when at least one of its producers is renderable.
     Worker OUTPUTS declarations alone do NOT count — the producer must be a
@@ -116,6 +163,8 @@ class ProducerIndex:
         api_handoff_refs: dict[str, str] | None = None,
         known_child_worker_ids: set[str] | None = None,
         resource_contract_bindings: list[ResourceContractBindingIR] | None = None,
+        step_variable_relation_plan: StepVariableRelationPlan | None = None,
+        composite_output_plans: tuple[CompositeOutputPlan, ...] = (),
     ) -> None:
         """Build the producer index.
 
@@ -129,52 +178,130 @@ class ProducerIndex:
                 the main worker and ``not_a_worker`` sentinel).  When
                 provided, invoke-handoff target workers must be in this set
                 for the handoff to count as renderable.
+            composite_output_plans: Typed authority for structured aggregate
+                producer registration. Debug metadata is never producer
+                authority.
         """
         self._producers: dict[str, list[ProducerRef]] = defaultdict(list)
+        self._deferred_outputs: dict[str, list[str]] = defaultdict(list)
+        self._implicit_evidence_deferred_refs: list[str] = []
         self._handoff_index = self._build_handoff_index(handoffs)
+        self._composite_output_plans = composite_output_plans
         self._known_child_worker_ids = known_child_worker_ids or set()
         self._resource_kind_by_name = self._build_resource_kind_lookup(
             resource_contract_bindings,
         )
+        self.compat_warnings: list[str] = []
+
         steps = steps or []
         declared = declared_apis or set()
         extra = extra_api_names or set()
         api_refs = api_handoff_refs or {}
 
-        # 1. Step producers — skip CALL_API and handoff-backed steps.
-        #    CALL_API is handled in section 3.  Handoff-backed steps are
-        #    NOT trusted for output production because the gate requires
-        #    step.outputs to match handoff.output_bindings exactly and
-        #    blocks the entire step on mismatch.
-        for step in steps:
-            if step.command_type == "CALL_API":
-                continue
-            if step.handoff_id is not None:
-                self._add_structured_handoff_producer(
-                    step,
-                    declared,
-                    extra,
-                    api_refs,
+        # 1. Determine authority mode
+        relation_outputs = (
+            tuple(step_variable_relation_plan.producing_relations())
+            if step_variable_relation_plan
+            else ()
+        )
+        relation_authority_mode = bool(relation_outputs)
+
+        if relation_authority_mode:
+            self.mode = "relation_authority"
+        else:
+            self.mode = "legacy_fallback"
+            self.compat_warnings.append(
+                "ProducerIndex legacy_fallback: no non-empty StepVariableRelationPlan supplied; "
+                "StepIR.outputs used for compatibility."
+            )
+
+        if relation_authority_mode and step_variable_relation_plan is not None:
+            # RELATION AUTHORITY MODE
+            step_by_id = {step.step_id: step for step in steps}
+
+            # Step produces
+            for relation in step_variable_relation_plan.producing_relations():
+                step = step_by_id.get(relation.step_id)
+                if step is not None and step.command_type == "CALL_API":
+                    continue
+                renderable = (
+                    _step_is_renderable(step, self._handoff_index) if step is not None else False
                 )
-                continue
-            renderable = _step_is_renderable(step, self._handoff_index)
-            kind = _step_origin(step)
-            for output in step.outputs:
-                self._producers[output].append(
+                self._producers[relation.variable_name].append(
                     ProducerRef(
-                        variable_name=output,
-                        producer_kind=kind,
-                        producer_ref=step.step_id,
-                        source_span_ids=list(step.source_span_ids),
+                        variable_name=relation.variable_name,
+                        producer_kind=_step_origin(step) if step is not None else "step",
+                        producer_ref=relation.step_id,
+                        source_span_ids=list(relation.source_span_ids),
                         renderable=renderable,
-                        resource_kind=self._resource_kind_for_output(output),
+                        resource_kind=self._resource_kind_for_output(relation.variable_name),
                     )
                 )
 
-        # 2. Handoff output bindings — the authoritative producer for
-        #    handoff-backed variables.  A handoff binding is renderable
-        #    only when the handoff itself passes the same checks the gate
-        #    would apply (target worker, IO bindings, API evidence).
+            # CALL_API produces
+            for step in steps:
+                if step.command_type != "CALL_API":
+                    continue
+                self._record_pending_api_response_bindings(step)
+                api_ref = step.integration_ref
+                if not api_ref:
+                    continue
+                step_renderable = _step_is_renderable(step, self._handoff_index)
+                api_declared = self._api_is_declared(api_ref, declared, extra, api_refs, step)
+                if not (step_renderable and api_declared):
+                    continue
+
+                for relation in step_variable_relation_plan.producing_relations():
+                    if relation.step_id == step.step_id:
+                        self._producers[relation.variable_name].append(
+                            ProducerRef(
+                                variable_name=relation.variable_name,
+                                producer_kind="api",
+                                producer_ref=step.step_id,
+                                source_span_ids=list(relation.source_span_ids),
+                                renderable=True,
+                                resource_kind=self._resource_kind_for_output(
+                                    relation.variable_name
+                                ),
+                            )
+                        )
+
+        else:
+            # LEGACY FALLBACK MODE
+            for step in steps:
+                if step.command_type == "CALL_API":
+                    self._record_pending_api_response_bindings(step)
+                    self.compat_warnings.append(
+                        "ProducerIndex legacy_fallback: CALL_API StepIR.outputs "
+                        f"ignored for {step.step_id}; API producers require a "
+                        "StepVariableRelationPlan or explicit response contract."
+                    )
+                    continue
+
+                if step.handoff_id is not None:
+                    self._add_structured_handoff_producer_from_plan(
+                        step,
+                        declared,
+                        extra,
+                        api_refs,
+                    )
+                    continue
+
+                renderable = _step_is_renderable(step, self._handoff_index)
+                kind = _step_origin(step)
+                for output in step.outputs:
+                    self._producers[output].append(
+                        ProducerRef(
+                            variable_name=output,
+                            producer_kind=kind,
+                            producer_ref=step.step_id,
+                            source_span_ids=list(step.source_span_ids),
+                            renderable=renderable,
+                            resource_kind=self._resource_kind_for_output(output),
+                        )
+                    )
+
+        # 2. Handoff output bindings
         if handoffs:
             for handoff in handoffs:
                 handoff_renderable = self._handoff_renderable(handoff, declared, extra, api_refs)
@@ -189,30 +316,6 @@ class ProducerIndex:
                             resource_kind=self._resource_kind_for_output(
                                 binding.parent_variable,
                             ),
-                        )
-                    )
-
-        # 3. CALL_API steps with declared API evidence.
-        #    When the step carries a handoff_id the API must be declared
-        #    via that handoff's api_ref — no fallback to the global registry.
-        for step in steps:
-            if step.command_type != "CALL_API":
-                continue
-            api_ref = step.integration_ref
-            if not api_ref:
-                continue
-            step_renderable = _step_is_renderable(step, self._handoff_index)
-            api_declared = self._api_is_declared(api_ref, declared, extra, api_refs, step)
-            if step_renderable and api_declared:
-                for output in step.outputs:
-                    self._producers[output].append(
-                        ProducerRef(
-                            variable_name=output,
-                            producer_kind="api",
-                            producer_ref=step.step_id,
-                            source_span_ids=list(step.source_span_ids),
-                            renderable=True,
-                            resource_kind=self._resource_kind_for_output(output),
                         )
                     )
 
@@ -240,59 +343,111 @@ class ProducerIndex:
 
     def all_produced_variables(self) -> set[str]:
         """Return the set of variable names that have at least one renderable producer."""
-        return {name for name, refs in self._producers.items()
-                if any(ref.renderable for ref in refs)}
+        return {
+            name for name, refs in self._producers.items() if any(ref.renderable for ref in refs)
+        }
 
     def find_unproduced(self, required_outputs: list[str]) -> list[str]:
         """Return required outputs that lack a renderable producer."""
         return [name for name in required_outputs if not self.is_produced(name)]
 
-    def _add_structured_handoff_producer(
+    def fulfillment_for(
+        self,
+        output_name: str,
+        resource_kind: ResourceKind | None = None,
+    ) -> RequiredOutputFulfillmentState:
+        producers = [
+            ref
+            for ref in self.get_producers(output_name)
+            if ref.renderable and (resource_kind is None or ref.resource_kind == resource_kind)
+        ]
+        if producers:
+            return RequiredOutputFulfillmentState(
+                output_name=output_name,
+                status="produced",
+                producer_step_ids=tuple(ref.producer_ref for ref in producers),
+                reason="source_backed_producer",
+            )
+        deferred_refs = tuple(self._deferred_outputs.get(output_name, ()))
+        if not deferred_refs and _looks_like_source_evidence_output(output_name):
+            deferred_refs = tuple(self._implicit_evidence_deferred_refs)
+        if deferred_refs:
+            return RequiredOutputFulfillmentState(
+                output_name=output_name,
+                status="deferred",
+                deferred_refs=deferred_refs,
+                reason="api_return_contract_unknown",
+            )
+        return RequiredOutputFulfillmentState(
+            output_name=output_name,
+            status="missing",
+            reason="missing_source_backed_producer",
+        )
+
+    def fulfillment_for_many(
+        self,
+        output_names: list[str],
+    ) -> list[RequiredOutputFulfillmentState]:
+        return [self.fulfillment_for(name) for name in output_names]
+
+    def _add_structured_handoff_producer_from_plan(
         self,
         step: StepIR,
         declared: set[str],
         extra: set[str],
         api_refs: dict[str, str],
     ) -> None:
-        """Index legacy structured results that faithfully wrap handoff outputs."""
+        """Index structured handoff aggregate only from typed CompositeOutputPlan."""
         if not step.handoff_id:
             return
         handoff = self._handoff_index.get(step.handoff_id)
         if handoff is None:
             return
 
-        aggregation = step.metadata.get("structured_aggregation")
-        if not isinstance(aggregation, dict):
+        plan = next(
+            (
+                candidate
+                for candidate in self._composite_output_plans
+                if candidate.step_id == step.step_id
+            ),
+            None,
+        )
+        if plan is None:
             return
 
-        result_name = aggregation.get("result_name")
-        original_outputs = aggregation.get("original_outputs") or []
-        expected_outputs = [
-            binding.parent_variable
-            for binding in handoff.output_bindings
-        ]
+        original_outputs = [intent.variable_name for intent in plan.original_output_intents]
+        expected_outputs = [binding.parent_variable for binding in handoff.output_bindings]
         if (
-            not result_name
-            or len(step.outputs) != 1
-            or step.outputs[0] != result_name
+            len(step.outputs) != 1
+            or step.outputs[0] != plan.composite_variable_name
             or list(original_outputs) != expected_outputs
         ):
             return
 
-        renderable = (
-            _step_is_renderable(step, self._handoff_index)
-            and self._handoff_renderable(handoff, declared, extra, api_refs)
+        renderable = _step_is_renderable(step, self._handoff_index) and self._handoff_renderable(
+            handoff, declared, extra, api_refs
         )
-        self._producers[result_name].append(
+        self._producers[plan.composite_variable_name].append(
             ProducerRef(
-                variable_name=result_name,
+                variable_name=plan.composite_variable_name,
                 producer_kind="handoff",
                 producer_ref=step.handoff_id,
                 source_span_ids=list(step.source_span_ids),
                 renderable=renderable,
-                resource_kind=self._resource_kind_for_output(result_name),
+                resource_kind=self._resource_kind_for_output(plan.composite_variable_name),
             )
         )
+
+    def _record_pending_api_response_bindings(self, step: StepIR) -> None:
+        pending = step.metadata.get("pending_response_bindings")
+        if not isinstance(pending, dict):
+            if _call_api_has_unknown_retrieval_response(step):
+                self._implicit_evidence_deferred_refs.append(step.step_id)
+            return
+        for value in pending.values():
+            if not isinstance(value, str) or not value:
+                continue
+            self._deferred_outputs[value].append(step.step_id)
 
     # ------------------------------------------------------------------
     # Internal helpers

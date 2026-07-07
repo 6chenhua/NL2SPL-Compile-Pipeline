@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockIR
 from nl2spl.ir.constraint_ir import ConstraintIR
@@ -424,8 +426,8 @@ class TestSPLRenderer:
             "RESULT output1: text SET]"
         ) in spl_text
 
-    def test_general_command_renders_multiple_results(self) -> None:
-        """GENERAL_COMMAND renders all outputs in one RESULT list."""
+    def test_general_command_rejects_multiple_results(self) -> None:
+        """GENERAL_COMMAND must be lowered before rendering multiple outputs."""
         renderer = SPLRenderer()
         worker = WorkerIR(
             worker_name="TestWorker",
@@ -448,17 +450,11 @@ class TestSPLRenderer:
             )
         ]
 
-        spl_text, _, _ = renderer.render(
-            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
-        )
+        with pytest.raises(ValueError, match="Composite lowering must have run"):
+            renderer.render(worker, AgentProfileIR(), resources, SymbolTable(), steps, [])
 
-        assert (
-            "COMMAND-1 [COMMAND Produce results "
-            "RESULT summary: text, score: number SET]"
-        ) in spl_text
-
-    def test_call_api_renders_multiple_responses(self) -> None:
-        """CALL_API renders all outputs in one RESPONSE list."""
+    def test_call_api_rejects_multiple_responses(self) -> None:
+        """CALL_API must bind one structured response before rendering."""
         renderer = SPLRenderer()
         worker = WorkerIR(
             worker_name="TestWorker",
@@ -482,14 +478,11 @@ class TestSPLRenderer:
             )
         ]
 
-        spl_text, _, _ = renderer.render(
-            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
-        )
+        with pytest.raises(ValueError, match="Composite lowering must have run"):
+            renderer.render(worker, AgentProfileIR(), resources, SymbolTable(), steps, [])
 
-        assert "COMMAND-1 [CALL SearchAPI RESPONSE payload: text, count: number SET]" in spl_text
-
-    def test_invoke_worker_renders_multiple_responses(self) -> None:
-        """INVOKE_WORKER renders all outputs in one RESPONSE list."""
+    def test_invoke_worker_rejects_multiple_responses(self) -> None:
+        """INVOKE_WORKER must bind one structured response before rendering."""
         renderer = SPLRenderer()
         worker = WorkerIR(
             worker_name="TestWorker",
@@ -514,15 +507,11 @@ class TestSPLRenderer:
             )
         ]
 
-        spl_text, errors, _ = renderer.render(
-            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
-        )
+        with pytest.raises(ValueError, match="Composite lowering must have run"):
+            renderer.render(worker, AgentProfileIR(), resources, SymbolTable(), steps, [])
 
-        assert errors == []
-        assert "COMMAND-1 [INVOKE ChildWorker RESPONSE draft: text, status: text SET]" in spl_text
-
-    def test_request_input_renders_multiple_values(self) -> None:
-        """REQUEST_INPUT renders all outputs in one VALUE list."""
+    def test_request_input_rejects_multiple_values(self) -> None:
+        """REQUEST_INPUT must bind one value target before rendering."""
         renderer = SPLRenderer()
         worker = WorkerIR(
             worker_name="TestWorker",
@@ -545,17 +534,11 @@ class TestSPLRenderer:
             )
         ]
 
-        spl_text, _, _ = renderer.render(
-            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
-        )
+        with pytest.raises(ValueError, match="Composite lowering must have run"):
+            renderer.render(worker, AgentProfileIR(), resources, SymbolTable(), steps, [])
 
-        assert (
-            "COMMAND-1 [INPUT Ask for clarification "
-            "VALUE answer: text, reason: text SET]"
-        ) in spl_text
-
-    def test_result_list_mixes_refs_and_new_declarations(self) -> None:
-        """Existing outputs render as refs while new outputs stay declarations."""
+    def test_multiple_outputs_with_existing_refs_are_rejected(self) -> None:
+        """Renderer must not mix refs and declarations in one result list."""
         renderer = SPLRenderer()
         worker = WorkerIR(
             worker_name="TestWorker",
@@ -589,15 +572,8 @@ class TestSPLRenderer:
             ),
         ]
 
-        spl_text, errors, _ = renderer.render(
-            worker, AgentProfileIR(), resources, SymbolTable(), steps, []
-        )
-
-        assert errors == []
-        assert (
-            "COMMAND-2 [COMMAND Revise draft and summarize based on <REF>draft</REF> "
-            "RESULT <REF>draft</REF>, summary: text SET]"
-        ) in spl_text
+        with pytest.raises(ValueError, match="Composite lowering must have run"):
+            renderer.render(worker, AgentProfileIR(), resources, SymbolTable(), steps, [])
 
     def test_conditional_command_text_is_rewritten(self) -> None:
         """Test command text does not repeat an IF block condition."""

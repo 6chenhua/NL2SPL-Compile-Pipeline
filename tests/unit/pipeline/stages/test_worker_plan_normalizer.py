@@ -140,14 +140,16 @@ def test_worker_scoped_preserves_multi_output_handoff_step() -> None:
 
     assert errors == []
     main_steps = normalized_steps.worker_steps["worker_main"]
-    assert main_steps[0].outputs == ["out_one", "out_two"]
+    assert main_steps[0].outputs == ["out_one_out_two"]
     assert len(main_steps) == 1
     assert [field.name for field in plan.workers[0].output_contract] == [
-        "out_one",
-        "out_two",
+        "out_one_out_two",
     ]
-    assert resources.types == []
-    assert not any("Aggregated multi-output step" in warning for warning in warnings)
+    assert [type_spec.type_name for type_spec in resources.types] == [
+        "OutOneOutTwo",
+        "ChildOneChildTwo",
+    ]
+    assert any("Aggregated multi-output step" in warning for warning in warnings)
     assert getattr(normalizer, "construct_findings", {}).get(
         "missing_output_producer"
     ) in (None, [])
@@ -402,17 +404,16 @@ def test_worker_scoped_multi_output_cleans_self_inputs_only() -> None:
 
     assert errors == []
     main_steps = normalized_steps.worker_steps["worker_main"]
-    assert main_steps[0].outputs == ["revision_history", "readiness_status"]
+    assert main_steps[0].outputs == ["revision_history_readiness_status"]
     assert main_steps[0].inputs == ["request"]
     assert main_steps[1].inputs == [
         "polished_draft",
-        "revision_history",
-        "readiness_status",
+        "revision_history_readiness_status.revision_history",
+        "revision_history_readiness_status.readiness_status",
     ]
     assert [field.name for field in plan.workers[0].output_contract] == [
         "polished_draft",
-        "revision_history",
-        "readiness_status",
+        "revision_history_readiness_status",
     ]
     assert not any("revision_history' consumed but not produced" in warning for warning in warnings)
     assert not any("readiness_status' consumed but not produced" in warning for warning in warnings)

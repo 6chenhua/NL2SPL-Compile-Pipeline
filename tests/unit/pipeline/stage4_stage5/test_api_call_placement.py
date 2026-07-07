@@ -109,6 +109,82 @@ def test_projector_marks_unresolved_block_without_stage7_repair() -> None:
     assert placement.reason == "block_not_resolved"
 
 
+def test_projector_uses_validated_control_region_block_over_legacy_flow_ref() -> None:
+    plan = ConstructPlan(demands=[_call_demand("api_call_1", ["s18"])], plan_id="cp")
+    worker_plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[_worker("worker_main", ["s18"])],
+    )
+    flow_plan = WorkerFlowPlanIR(
+        worker_flows={
+            "worker_main": FlowStructureIR(
+                main_flow_spans=[],
+                alternative_flows=[
+                    AlternativeFlow("alt_1", "sources are needed and available", ["s18"])
+                ],
+            )
+        }
+    )
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[
+                    BlockIR(
+                        "b_cr_local_if_s18",
+                        "IF",
+                        condition_text="sources are needed and available",
+                        spans=["s18"],
+                    )
+                ],
+                alternative_flow_blocks={"alt_1": []},
+            )
+        }
+    )
+
+    placement = project_api_call_placements(
+        plan, worker_plan, flow_plan, block_plan,
+    )[0]
+
+    assert placement.status == "placed"
+    assert placement.flow_ref == "main"
+    assert placement.block_ref == "b_cr_local_if_s18"
+    assert placement.reason == "block_resolved_from_validated_control_region"
+
+
+def test_projector_fails_closed_when_api_span_has_no_worker_owner() -> None:
+    plan = ConstructPlan(demands=[_call_demand("api_call_1", ["s16"])], plan_id="cp")
+    worker_plan = WorkerPlanIR(
+        main_worker_id="worker_main",
+        workers=[_worker("worker_main", ["s15", "s17"])],
+    )
+    flow_plan = WorkerFlowPlanIR(
+        worker_flows={
+            "worker_main": FlowStructureIR(main_flow_spans=["s15", "s17"])
+        }
+    )
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[
+                    BlockIR("b_1", "SEQUENTIAL", spans=["s15"]),
+                    BlockIR("b_2", "IF", condition_text="ready", spans=["s17"]),
+                ]
+            )
+        }
+    )
+
+    placement = project_api_call_placements(
+        plan, worker_plan, flow_plan, block_plan,
+    )[0]
+
+    assert placement.status == "unresolved"
+    assert placement.owner_worker_id is None
+    assert placement.flow_ref is None
+    assert placement.block_ref is None
+    assert placement.source_span_ids == ["s16"]
+    assert placement.reason == "owner_not_resolved"
+
+
 def _call_demand(demand_id: str, span_ids: list[str]) -> APICallDemand:
     return APICallDemand(
         demand_id=demand_id,

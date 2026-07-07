@@ -60,13 +60,13 @@ def _project_one(
             reason=flow_reason,
         )
 
-    block_status, block_ref, block_reason = _resolve_block(
+    block_status, resolved_flow_ref, block_ref, block_reason = _resolve_block(
         owner_id, flow_ref, span_ids, worker_block_plan,
     )
     return APICallPlacementIR(
         call_demand_id=call.demand_id,
         owner_worker_id=owner_id,
-        flow_ref=flow_ref if block_status == "placed" else None,
+        flow_ref=resolved_flow_ref if block_status == "placed" else None,
         block_ref=block_ref,
         status=block_status,
         source_span_ids=span_ids,
@@ -139,10 +139,10 @@ def _resolve_block(
     flow_ref: str,
     span_ids: list[str],
     worker_block_plan: WorkerBlockPlanIR,
-) -> tuple[str, str | None, str | None]:
+) -> tuple[str, str | None, str | None, str | None]:
     blocks = worker_block_plan.worker_blocks.get(owner_id)
     if blocks is None:
-        return "unresolved", None, "worker_blocks_not_found"
+        return "unresolved", None, None, "worker_blocks_not_found"
     candidates = _blocks_for_flow(blocks, flow_ref)
     matching = {
         block.block_id
@@ -150,10 +150,21 @@ def _resolve_block(
         if set(span_ids).intersection(block.spans)
     }
     if len(matching) == 1:
-        return "placed", next(iter(matching)), None
+        return "placed", flow_ref, next(iter(matching)), None
     if not matching:
-        return "unresolved", None, "block_not_resolved"
-    return "ambiguous", None, "multiple_block_candidates"
+        all_matching = _matching_blocks_by_flow(blocks, span_ids)
+        if len(all_matching) == 1:
+            resolved_flow_ref, block_ref = all_matching[0]
+            return (
+                "placed",
+                resolved_flow_ref,
+                block_ref,
+                "block_resolved_from_validated_control_region",
+            )
+        if len(all_matching) > 1:
+            return "ambiguous", None, None, "multiple_block_candidates"
+        return "unresolved", None, None, "block_not_resolved"
+    return "ambiguous", None, None, "multiple_block_candidates"
 
 
 def _blocks_for_flow(blocks: BlockStructureIR, flow_ref: str) -> list[BlockIR]:
@@ -164,3 +175,23 @@ def _blocks_for_flow(blocks: BlockStructureIR, flow_ref: str) -> list[BlockIR]:
     if flow_ref in blocks.exception_flow_blocks:
         return list(blocks.exception_flow_blocks[flow_ref])
     return []
+
+
+def _matching_blocks_by_flow(
+    blocks: BlockStructureIR,
+    span_ids: list[str],
+) -> list[tuple[str, str]]:
+    span_set = set(span_ids)
+    matches: list[tuple[str, str]] = []
+    for block in blocks.main_flow_blocks:
+        if span_set.intersection(block.spans):
+            matches.append(("main", block.block_id))
+    for flow_ref, flow_blocks in blocks.alternative_flow_blocks.items():
+        for block in flow_blocks:
+            if span_set.intersection(block.spans):
+                matches.append((flow_ref, block.block_id))
+    for flow_ref, flow_blocks in blocks.exception_flow_blocks.items():
+        for block in flow_blocks:
+            if span_set.intersection(block.spans):
+                matches.append((flow_ref, block.block_id))
+    return matches

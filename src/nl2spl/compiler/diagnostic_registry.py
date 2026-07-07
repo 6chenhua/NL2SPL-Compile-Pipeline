@@ -79,6 +79,26 @@ class DiagnosticRegistry:
         ))
 
         registry.register(DiagnosticSpec(
+            kind="required_output_deferred",
+            default_severity="warning",
+            blocks_completion=True,
+            description=(
+                "A required output may be supplied by a deferred API response, "
+                "but the API return contract is not yet known."
+            ),
+            allowed_targets=["variable", "output"],
+        ))
+
+        registry.register(DiagnosticSpec(
+            kind="required_output_missing_source_backed_producer",
+            default_severity="warning",
+            blocks_completion=True,
+            description="A required output has no source-backed producer relation.",
+            allowed_targets=["variable", "output"],
+            enabled=False,
+        ))
+
+        registry.register(DiagnosticSpec(
             kind="type_or_contract_ambiguity",
             default_severity="warning",
             blocks_completion=True,

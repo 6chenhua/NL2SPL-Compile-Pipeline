@@ -41,6 +41,10 @@ class SpanIR:
     section_context: str | None = None
     is_placeholder: bool = False
 
+    guard_text_exact: str | None = None
+    action_text_exact: str | None = None
+    segmentation_kind: str | None = None
+
     def __post_init__(self) -> None:
         """Validate span_id format.
 
@@ -69,4 +73,10 @@ class SpanIR:
             data["section_context"] = self.section_context
         if self.is_placeholder:
             data["is_placeholder"] = True
+        if self.guard_text_exact is not None:
+            data["guard_text_exact"] = self.guard_text_exact
+        if self.action_text_exact is not None:
+            data["action_text_exact"] = self.action_text_exact
+        if self.segmentation_kind is not None:
+            data["segmentation_kind"] = self.segmentation_kind
         return data

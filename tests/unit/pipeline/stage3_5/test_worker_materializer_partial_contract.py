@@ -93,6 +93,7 @@ class TestMaterializerPreservesPartialWorker:
             decisions=[decision],
             hard_fact_inputs=[_field("request")],
             hard_fact_outputs=[_field("result", "output")],
+            behavior_span_ids={"s10", "s11"},
         )
 
         # The worker should EXIST in the plan
@@ -122,6 +123,7 @@ class TestMaterializerPreservesPartialWorker:
             decisions=[decision],
             hard_fact_inputs=[_field("request")],
             hard_fact_outputs=[_field("result", "output")],
+            behavior_span_ids={"s10", "s11"},
         )
 
         child_workers = [w for w in worker_plan.workers if w.kind == "child"]
@@ -142,6 +144,7 @@ class TestMaterializerPreservesPartialWorker:
             decisions=[decision],
             hard_fact_inputs=[_field("request")],
             hard_fact_outputs=[_field("result", "output")],
+            behavior_span_ids={"s10", "s11"},
         )
 
         # The decision in the plan should NOT be keep_in_main_worker

@@ -101,7 +101,11 @@ class WorkerAssembler(
         # 4. Build alternative flows
         alternative_flows = []
         for alt_flow in flow.alternative_flows:
-            alt_blocks = blocks.alternative_flow_blocks.get(alt_flow.flow_id, [])
+            alt_blocks = self._alternative_blocks_for_flow(
+                blocks,
+                alt_flow.flow_id,
+                alt_flow.spans,
+            )
             alternative_flows.append(
                 AlternativeFlowRef(
                     flow_id=alt_flow.flow_id,
@@ -272,11 +276,13 @@ class WorkerAssembler(
         alternative_flows: list[AlternativeFlowRef] = []
         if main_flow_structure:
             for alt_flow in main_flow_structure.alternative_flows:
-                alt_blocks = (
-                    main_block_structure.alternative_flow_blocks.get(alt_flow.flow_id, [])
-                    if main_block_structure
-                    else []
+                alt_blocks = self._alternative_blocks_for_flow(
+                    main_block_structure,
+                    alt_flow.flow_id,
+                    alt_flow.spans,
                 )
+                if not alt_blocks:
+                    continue
                 alternative_flows.append(
                     AlternativeFlowRef(
                         flow_id=alt_flow.flow_id,

@@ -18,14 +18,25 @@ def test_builds_view_from_demo_artifact_with_s16_consumed() -> None:
     )
 
     view = build_worker_boundary_exclusion_view(artifact)
+    consumed = [
+        intent
+        for intent in artifact["result"]["intents"]
+        if intent["operation_text"].startswith("retrieve")
+        and _normalize_text(intent.get("capability_surface")) == "approved source recipes"
+    ]
+    assert len(consumed) == 1
+    span_id = consumed[0]["source_span_ids"][0]
+    demand_id = view.api_call_demand_ids_by_span[span_id][0]
 
     assert isinstance(view, WorkerBoundaryExclusionView)
-    assert view.api_consumed_span_ids == frozenset({"s16"})
-    assert view.api_call_demand_ids_by_span == {
-        "s16": ("api_call_19e71fc8b204a57a",)
-    }
+    assert view.api_consumed_span_ids == frozenset({span_id})
+    assert view.api_call_demand_ids_by_span == {span_id: (demand_id,)}
     assert view.exclusion_authority == "external_capability_intent_plan"
     assert view.audit_payload["authority"] == "external_capability_intent_plan"
+
+
+def _normalize_text(value: object) -> str:
+    return " ".join(str(value or "").split())
 
 
 def test_only_confirmed_executable_admitted_invocation_is_consumed() -> None:

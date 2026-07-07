@@ -151,10 +151,10 @@ class ChildWorkerBuilderMixin:
         alternative_flows: list[AlternativeFlowRef] = []
         if flow:
             for alt_flow in flow.alternative_flows:
-                alt_blocks = (
-                    blocks.alternative_flow_blocks.get(alt_flow.flow_id, [])
-                    if blocks
-                    else []
+                alt_blocks = self._alternative_blocks_for_flow(
+                    blocks,
+                    alt_flow.flow_id,
+                    alt_flow.spans,
                 )
                 alternative_flows.append(
                     AlternativeFlowRef(

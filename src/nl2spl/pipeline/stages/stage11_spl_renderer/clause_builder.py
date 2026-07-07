@@ -25,9 +25,7 @@ class ClauseBuilderMixin:
 
     def _description_with_refs(self, text: str, inputs: list[str]) -> str:
         """Append variable references to a command description."""
-        description = self._strip_terminal_punctuation(
-            self._clean_text(text) or "Perform the step"
-        )
+        description = self._strip_terminal_punctuation(self._clean_text(text) or "Perform the step")
         refs = self._refs(inputs)
         missing_refs = [ref for ref in refs if ref not in description]
         if missing_refs:
@@ -43,19 +41,21 @@ class ClauseBuilderMixin:
 
     def _result_clause(self, keyword: str, outputs: list[str]) -> str:
         """Render declared outputs as a command result clause."""
-        if not outputs:
+        non_empty = [output for output in outputs if output]
+        if not non_empty:
             return ""
 
-        results: list[str] = []
-        for output in outputs:
-            if not output:
-                continue
-            results.append(self._result_item(output))
-            self._produced_variables.add(output)
+        if len(non_empty) > 1:
+            raise ValueError(
+                "Renderer invariant violated: renderable command has "
+                f"{len(non_empty)} outputs ({non_empty!r}). Composite lowering "
+                "must have run in Stage 9.5."
+            )
 
-        if not results:
-            return ""
-        return f" {keyword} {', '.join(results)} SET"
+        output = non_empty[0]
+        result = self._result_item(output)
+        self._produced_variables.add(output)
+        return f" {keyword} {result} SET"
 
     def _result_item(self, output: str) -> str:
         """Render one output binding in a result list."""

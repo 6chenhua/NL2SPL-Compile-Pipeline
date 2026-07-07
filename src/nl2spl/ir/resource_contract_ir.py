@@ -59,7 +59,8 @@ class ResourceContractDemandIR:
         """
         if self.requiredness == "unspecified" and self.required is not None:
             object.__setattr__(
-                self, "requiredness",
+                self,
+                "requiredness",
                 "required" if self.required else "optional",
             )
 
@@ -154,7 +155,8 @@ class ResourceContractFieldIR:
         """Hydrate requiredness from legacy bool required when not explicitly set."""
         if self.requiredness == "unspecified" and self.required is not None:
             object.__setattr__(
-                self, "requiredness",
+                self,
+                "requiredness",
                 "required" if self.required else "optional",
             )
 

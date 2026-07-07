@@ -113,6 +113,7 @@ class HelpersMixin:
     def _compact_step_id(self, step_id: str) -> str:
         """Return st_12 as st12 for reconciling LLM target variants."""
         import re
+
         return re.sub(r"^st_", "st", step_id)
 
     def _next_synthetic_step_id(self, used_ids: set[str]) -> str:
@@ -133,4 +134,5 @@ class HelpersMixin:
     def _safe_name(self, name: str) -> str:
         """Convert a variable name into a safe identifier fragment."""
         import re
+
         return re.sub(r"[^a-zA-Z0-9_]", "_", name)

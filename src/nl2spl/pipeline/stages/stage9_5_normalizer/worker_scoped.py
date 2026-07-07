@@ -12,6 +12,12 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerStepPlanIR,
 )
+from nl2spl.pipeline.stages.stage9_5_normalizer.composite_output_applier import (
+    CompositeOutputPlanApplier,
+)
+from nl2spl.pipeline.stages.stage9_5_normalizer.composite_output_planner import (
+    CompositeOutputPlanner,
+)
 
 
 class WorkerScopedMixin:
@@ -51,39 +57,67 @@ class WorkerScopedMixin:
         errors.extend(span_errors)
 
         # 2. 验证 handoff completeness
-        handoff_errors, handoff_warnings = self._validate_handoffs(
-            worker_step_plan, worker_plan
-        )
+        handoff_errors, handoff_warnings = self._validate_handoffs(worker_step_plan, worker_plan)
         errors.extend(handoff_errors)
         warnings.extend(handoff_warnings)
 
         # 3. 验证 output binding
-        output_errors = self._validate_output_binding(
-            worker_step_plan, worker_plan, symbol_table
-        )
+        output_errors = self._validate_output_binding(worker_step_plan, worker_plan, symbol_table)
         errors.extend(output_errors)
 
         # 4. 分离 invoke 和 api_call handoff 校验
         handoff_type_errors = self._validate_handoff_types(worker_plan)
         errors.extend(handoff_type_errors)
 
-        # 5. Multi-output commands render directly. Keep only the narrow
-        # cleanup that removes same-step output inputs when the value was not
-        # produced earlier and is not a worker input.
+        # 5. Stage 9.5 is the only composite-output lowering commit point.
+        composite_plans = list(worker_step_plan.composite_output_plans)
+        planner = CompositeOutputPlanner()
+        applier = CompositeOutputPlanApplier()
+
         for worker_id, steps in worker_step_plan.worker_steps.items():
             errors.extend(self._validate_command_shapes(worker_id, steps))
-            warnings.extend(
-                self._remove_unproduced_self_output_inputs(
-                    steps, worker_id, worker_plan
-                )
+
+            # 1. Build plans (Planner)
+            planning_result = planner.build_plans(
+                steps=steps,
+                symbol_table=symbol_table,
+                relation_plan=worker_step_plan.step_variable_relation_plan,
+                worker_id=worker_id,
+                worker_plan=worker_plan,
             )
 
+            for diag in planning_result.diagnostics:
+                if diag.severity == "error":
+                    errors.append(diag)
+                else:
+                    warnings.append(
+                        diag.message
+                    )  # warnings list in normalize_worker_scoped is list[str]
+
+            # 2. Apply plans (Applier)
+            current_relation_plan = worker_step_plan.step_variable_relation_plan
+            for plan in planning_result.plans:
+                composite_plans.append(plan)
+                apply_result = applier.apply(
+                    plan=plan,
+                    steps=steps,
+                    resources=resources,
+                    symbol_table=symbol_table,
+                    worker_plan=worker_plan,
+                    relation_plan=current_relation_plan,
+                )
+                current_relation_plan = apply_result.relation_plan
+                warnings.append(
+                    f"Aggregated multi-output step {plan.step_id} into "
+                    f"{plan.composite_variable_name} without unpack steps."
+                )
+
+            worker_step_plan.step_variable_relation_plan = current_relation_plan
+
+        worker_step_plan.composite_output_plans = tuple(composite_plans)
+
         # 6. Validate producer/consumer reachability after normalization.
-        warnings.extend(
-            self._validate_reachability(
-                worker_step_plan, worker_plan, symbol_table
-            )
-        )
+        warnings.extend(self._validate_reachability(worker_step_plan, worker_plan, symbol_table))
 
         # 7. Required output producer diagnostics are emitted by
         # post-normalize IRS after Stage 10 assembly.
@@ -150,6 +184,11 @@ class WorkerScopedMixin:
                 # 其他 steps 只能引用 owned spans（D5: error）
                 for span_id in step.source_span_ids:
                     if span_id not in owned:
+                        metadata = step.metadata or {}
+                        if metadata.get("origin") == "residual_generated" and metadata.get(
+                            "api_call_demand_id"
+                        ):
+                            continue
                         errors.append(
                             f"Worker {worker_id} step {step.step_id} "
                             f"references span {span_id} not in owned_span_ids"
@@ -168,8 +207,7 @@ class WorkerScopedMixin:
             for span_id in step.source_span_ids:
                 if span_id in child_spans:
                     errors.append(
-                        f"Main worker step {step.step_id} "
-                        f"references child-owned span {span_id}"
+                        f"Main worker step {step.step_id} references child-owned span {span_id}"
                     )
 
         return errors
@@ -210,15 +248,11 @@ class WorkerScopedMixin:
                 continue
 
             if not matching_steps:
-                errors.append(
-                    f"Handoff {handoff.handoff_id} has no corresponding step"
-                )
+                errors.append(f"Handoff {handoff.handoff_id} has no corresponding step")
                 continue
 
             if len(matching_steps) > 1:
-                errors.append(
-                    f"Handoff {handoff.handoff_id} has multiple corresponding steps"
-                )
+                errors.append(f"Handoff {handoff.handoff_id} has multiple corresponding steps")
                 continue
 
             step_worker_id, step = matching_steps[0]
@@ -229,9 +263,7 @@ class WorkerScopedMixin:
                 )
 
             expected_inputs = [binding.parent_variable for binding in handoff.input_bindings]
-            expected_outputs = [
-                binding.parent_variable for binding in handoff.output_bindings
-            ]
+            expected_outputs = [binding.parent_variable for binding in handoff.output_bindings]
             if list(step.inputs) != expected_inputs:
                 errors.append(
                     f"Handoff {handoff.handoff_id} input mismatch: "
@@ -272,18 +304,14 @@ class WorkerScopedMixin:
                 handoff.input_bindings,
                 getattr(handoff, "input_binding_status", "unknown"),
             ):
-                warnings.append(
-                    f"Handoff {handoff.handoff_id} has no input_bindings"
-                )
+                warnings.append(f"Handoff {handoff.handoff_id} has no input_bindings")
 
             # 检查 output_bindings 完整性
             if not binding_side_satisfied(
                 handoff.output_bindings,
                 getattr(handoff, "output_binding_status", "unknown"),
             ):
-                warnings.append(
-                    f"Handoff {handoff.handoff_id} has no output_bindings"
-                )
+                warnings.append(f"Handoff {handoff.handoff_id} has no output_bindings")
 
         return errors, warnings
 
@@ -338,8 +366,7 @@ class WorkerScopedMixin:
                 for output in step.outputs:
                     if output in producers and output not in step.inputs:
                         warnings.append(
-                            f"Worker {worker_id}: variable '{output}' "
-                            f"produced by multiple steps"
+                            f"Worker {worker_id}: variable '{output}' produced by multiple steps"
                         )
                     producers[output] = step.step_id
 
@@ -350,15 +377,18 @@ class WorkerScopedMixin:
 
             # 检查每个 consumer 的 input 是否有 producer
             for input_var in consumers:
-                if input_var not in producers:
+                top_input_var = input_var.split(".", 1)[0]
+                if input_var not in producers and top_input_var not in producers:
                     # 可能是 worker input，检查 contract
                     worker = next(
-                        (w for w in worker_plan.workers if w.worker_id == worker_id),
-                        None
+                        (w for w in worker_plan.workers if w.worker_id == worker_id), None
                     )
                     if worker:
                         contract_inputs = {f.name for f in worker.input_contract}
-                        if input_var not in contract_inputs:
+                        if (
+                            input_var not in contract_inputs
+                            and top_input_var not in contract_inputs
+                        ):
                             warnings.append(
                                 f"Worker {worker_id}: variable '{input_var}' "
                                 f"consumed but not produced or declared as input"
@@ -377,14 +407,10 @@ class WorkerScopedMixin:
             if handoff.mode == "invoke":
                 # INVOKE_WORKER 必须有 to_worker
                 if not handoff.to_worker:
-                    errors.append(
-                        f"INVOKE handoff {handoff.handoff_id} "
-                        f"missing to_worker"
-                    )
+                    errors.append(f"INVOKE handoff {handoff.handoff_id} missing to_worker")
                 # 检查 to_worker 存在
                 to_worker = next(
-                    (w for w in worker_plan.workers if w.worker_id == handoff.to_worker),
-                    None
+                    (w for w in worker_plan.workers if w.worker_id == handoff.to_worker), None
                 )
                 if not to_worker:
                     errors.append(
@@ -395,9 +421,6 @@ class WorkerScopedMixin:
             elif handoff.mode == "api_call":
                 # CALL_API 必须有 api_ref
                 if not handoff.api_ref:
-                    errors.append(
-                        f"API_CALL handoff {handoff.handoff_id} "
-                        f"missing api_ref"
-                    )
+                    errors.append(f"API_CALL handoff {handoff.handoff_id} missing api_ref")
 
         return errors

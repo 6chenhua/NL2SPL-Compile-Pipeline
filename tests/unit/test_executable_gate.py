@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from nl2spl.ir.diagnostics import StepRenderInfo
+from unittest.mock import MagicMock
+
+from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan, OutputIntent
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import StepVariableRelation, StepVariableRelationPlan
 from nl2spl.ir.worker_ir import (
     ChildWorkerIR,
     ExceptionFlowRef,
     FlowRef,
-    WorkerInput,
-    WorkerOutput,
     WorkerIR,
 )
 from nl2spl.ir.worker_plan_ir import (
@@ -40,8 +41,11 @@ class TestOriginClassification:
     def test_compiler_unpack_is_compiler_synthetic(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_unpack", "Extract field", [],
-            "GENERAL_COMMAND", metadata={"origin": "compiler_unpack"},
+            "st_unpack",
+            "Extract field",
+            [],
+            "GENERAL_COMMAND",
+            metadata={"origin": "compiler_unpack"},
         )
         assert gate.classify_origin(step) == "compiler_synthetic"
 
@@ -71,8 +75,11 @@ class TestRenderability:
     def test_compiler_unpack_is_renderable(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st_unpack", "Extract", [],
-            "GENERAL_COMMAND", metadata={"origin": "compiler_unpack"},
+            "st_unpack",
+            "Extract",
+            [],
+            "GENERAL_COMMAND",
+            metadata={"origin": "compiler_unpack"},
         )
         ok, _ = gate.is_renderable(step, "compiler_synthetic", {}, set(), {})
         assert ok is True
@@ -100,14 +107,22 @@ class TestRenderability:
     def test_handoff_invoke_target_mismatch_not_renderable(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="OtherWorker",
-            inputs=["req"], outputs=["out"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="OtherWorker",
+            inputs=["req"],
+            outputs=["out"],
         )
         h = self._invoke_handoff()  # to_worker = "w_child"
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},  # maps to "Child", not "OtherWorker"
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},  # maps to "Child", not "OtherWorker"
         )
         assert ok is False
         assert "does not match handoff to_worker target" in (reason or "")
@@ -115,14 +130,22 @@ class TestRenderability:
     def test_handoff_to_worker_unknown_is_blocked(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["out"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["out"],
         )
         h = self._invoke_handoff(to_worker="ghost_worker")
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is False
         assert "not found in worker plan" in (reason or "")
@@ -130,14 +153,22 @@ class TestRenderability:
     def test_handoff_to_worker_empty_is_blocked(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["out"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["out"],
         )
         h = self._invoke_handoff(to_worker=None)
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is False
         assert "no to_worker" in (reason or "")
@@ -145,14 +176,22 @@ class TestRenderability:
     def test_handoff_invoke_without_io_bindings_not_renderable(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["wrong_output"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["wrong_output"],
         )
         h = self._invoke_handoff()
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is False
         assert "do not match handoff bindings" in (reason or "")
@@ -160,14 +199,22 @@ class TestRenderability:
     def test_handoff_invoke_with_valid_contract_is_renderable(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["out"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["out"],
         )
         h = self._invoke_handoff()
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is True
         assert reason is None
@@ -205,12 +252,20 @@ class TestRenderability:
     def test_handoff_mode_mismatch_blocks_rendering(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Call API", [], "CALL_API",
-            handoff_id="h1", integration_ref="SearchAPI",
+            "st1",
+            "Call API",
+            [],
+            "CALL_API",
+            handoff_id="h1",
+            integration_ref="SearchAPI",
         )
         h = self._invoke_handoff(mode="invoke")  # step is CALL_API but handoff is invoke
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h}, set(), {},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            set(),
+            {},
         )
         assert ok is False
         assert "mode" in (reason or "")
@@ -218,42 +273,58 @@ class TestRenderability:
     def test_handoff_structured_outputs_match_rejects_missing_type_name(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["result_structured"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["result_structured"],
             metadata={
                 "structured_aggregation": {
                     "result_name": "result_structured",
                     "original_outputs": ["out"],
                     # type_name is missing
                 }
-            }
+            },
         )
         h = self._invoke_handoff()
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is False
 
     def test_handoff_structured_outputs_match_rejects_mismatched_result_name(self) -> None:
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke", [], "INVOKE_WORKER",
-            handoff_id="h1", integration_ref="Child",
-            inputs=["req"], outputs=["wrong_result_name"],
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["wrong_result_name"],
             metadata={
                 "structured_aggregation": {
                     "result_name": "result_structured",
                     "type_name": "result_structured_type",
                     "original_outputs": ["out"],
                 }
-            }
+            },
         )
         h = self._invoke_handoff()
         ok, reason = gate.is_renderable(
-            step, "handoff_generated", {"h1": h},
-            {"Child"}, {"w_child": "Child"},
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
         )
         assert ok is False
 
@@ -266,7 +337,10 @@ class TestGateFiltering:
             main_worker_id="w_main",
             workers=[
                 WorkerSpecIR(
-                    "w_main", "MainWorker", "main", "Main",
+                    "w_main",
+                    "MainWorker",
+                    "main",
+                    "Main",
                     owned_span_ids=["s1"],
                     input_contract=[
                         ContractFieldIR("req", "text", True, "Request", "input"),
@@ -319,16 +393,41 @@ class TestGateFiltering:
 
     def test_compiler_unpack_passes_through(self) -> None:
         gate = ExecutableElementGate()
+        from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan, OutputIntent
+
+        gate.composite_output_plans = (
+            CompositeOutputPlan(
+                plan_id="cop_st1",
+                worker_id="MainWorker",
+                step_id="st1",
+                command_type="GENERAL_COMMAND",
+                original_output_intents=(
+                    OutputIntent(variable_name="field1", data_type="text", source_span_ids=("s1",)),
+                ),
+                composite_variable_name="result_structured",
+                composite_type_name="result_type",
+                field_mappings=(),
+                declaration_rewrites=(),
+                reference_rewrites=(),
+                worker_output_rewrite=None,
+                projection_relations=(),
+                naming_authority="CompositeNamePolicy",
+                source_span_ids=("s1",),
+            ),
+        )
         worker = WorkerIR(
             worker_name="MainWorker",
             description="Test",
             main_flow=FlowRef(),
             steps=[
                 StepIR(
-                    "st1", "Do work", ["s1"], "GENERAL_COMMAND",
+                    "st1",
+                    "Do work",
+                    ["s1"],
+                    "GENERAL_COMMAND",
                     outputs=["result_structured"],
                     metadata={
-                        "structured_aggregation": {
+                        "composite_output_debug": {
                             "result_name": "result_structured",
                             "original_outputs": ["field1"],
                             "type_name": "result_type",
@@ -336,7 +435,9 @@ class TestGateFiltering:
                     },
                 ),
                 StepIR(
-                    "st_unpack", "Extract field", [],
+                    "st_unpack",
+                    "Extract field",
+                    [],
                     "GENERAL_COMMAND",
                     inputs=["result_structured"],
                     outputs=["field1"],
@@ -363,8 +464,11 @@ class TestGateFiltering:
             steps=[
                 StepIR("st1", "Assumed step", [], "GENERAL_COMMAND"),  # not renderable
                 StepIR(
-                    "st_unpack", "Extract field", [],
-                    "GENERAL_COMMAND", metadata={
+                    "st_unpack",
+                    "Extract field",
+                    [],
+                    "GENERAL_COMMAND",
+                    metadata={
                         "origin": "compiler_unpack",
                         "structured_source_step_id": "st1",
                         "structured_result": "result_structured",
@@ -376,13 +480,13 @@ class TestGateFiltering:
 
         filtered, infos, diags = gate.apply(worker)
         assert len(filtered.steps) == 0
-        
+
         blocked_infos = [i for i in infos if not i.renderable]
         assert len(blocked_infos) == 2
-        
+
         unpack_info = next(i for i in blocked_infos if i.step_id == "st_unpack")
         assert "source step is not renderable" in (unpack_info.render_block_reason or "")
-        
+
         # Check diagnostic
         unpack_diag = next(d for d in diags if d.diagnostic_id == "unpack_blocked_st_unpack")
         assert unpack_diag.severity == "warning"
@@ -438,8 +542,8 @@ class TestGateFiltering:
         # Both renderable and blocked child steps appear in infos
         renderable_ids = {i.step_id for i in infos if i.renderable}
         blocked_ids = {i.step_id for i in infos if not i.renderable}
-        assert "st_ok" in renderable_ids, f"renderable child step missing from infos"
-        assert "st_bad" in blocked_ids, f"blocked child step missing from infos"
+        assert "st_ok" in renderable_ids, "renderable child step missing from infos"
+        assert "st_bad" in blocked_ids, "blocked child step missing from infos"
         # Filtered worker still has only the real step
         child = filtered.child_workers[0]
         assert len(child.steps) == 1
@@ -463,7 +567,10 @@ class TestGateFiltering:
             steps=[
                 StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
                 StepIR(
-                    "st_fail", "Handle failures", [], "GENERAL_COMMAND",
+                    "st_fail",
+                    "Handle failures",
+                    [],
+                    "GENERAL_COMMAND",
                     flow_ref="exc_1",
                 ),
             ],
@@ -575,8 +682,7 @@ class TestGateFiltering:
         gate_mh = [d for d in diags if d.kind == "missing_handler"]
         child_mh = [d for d in gate_mh if "exc_child" in (d.target_ref or "")]
         assert len(child_mh) == 0, (
-            f"Child pseudo-handler should NOT cause gate mh, "
-            f"got {[d.target_ref for d in child_mh]}"
+            f"Child pseudo-handler should NOT cause gate mh, got {[d.target_ref for d in child_mh]}"
         )
 
     def test_child_worker_real_handler_filtered_gate_reports_mh(self) -> None:
@@ -633,7 +739,10 @@ class TestGateFiltering:
             steps=[
                 StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
                 StepIR(
-                    "st_delegate", "Delegate work", [], "INVOKE_WORKER",
+                    "st_delegate",
+                    "Delegate work",
+                    [],
+                    "INVOKE_WORKER",
                 ),
             ],
         )
@@ -647,11 +756,10 @@ class TestGateFiltering:
 
         # It is in render_info as non-renderable
         blocked = [i for i in infos if not i.renderable]
-        assert any(
-            i.step_id == "st_delegate"
-            and i.origin == "assumed"
-            for i in blocked
-        ), f"Expected st_delegate blocked as assumed, got {[(i.step_id, i.origin) for i in blocked]}"
+        assert any(i.step_id == "st_delegate" and i.origin == "assumed" for i in blocked), (
+            "Expected st_delegate blocked as assumed, got "
+            f"{[(i.step_id, i.origin) for i in blocked]}"
+        )
 
         # Gate no longer emits assumed_command_not_renderable;
         # that is post-normalize IRS responsibility.
@@ -662,13 +770,17 @@ class TestGateFiltering:
 # Phase 3: classification priority fix
 # ---------------------------------------------------------------------------
 
+
 class TestClassifyOriginPriority:
     def test_handoff_before_source_spans(self) -> None:
         """A step with BOTH source_spans and handoff_id -> handoff_generated.
         The handoff must be validated, not silently bypassed."""
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Invoke child worker", ["s1"], "INVOKE_WORKER",
+            "st1",
+            "Invoke child worker",
+            ["s1"],
+            "INVOKE_WORKER",
             handoff_id="h1",
         )
         assert gate.classify_origin(step) == "handoff_generated"
@@ -687,6 +799,7 @@ class TestClassifyOriginPriority:
 # ---------------------------------------------------------------------------
 # Phase 3: command-type guards on source_backed steps
 # ---------------------------------------------------------------------------
+
 
 class TestCommandTypeGuards:
     """Source-backed steps get extra validation for specific command types."""
@@ -714,7 +827,10 @@ class TestCommandTypeGuards:
         """CALL_API with integration_ref still needs declared API binding metadata."""
         gate = ExecutableElementGate()
         step = StepIR(
-            "st1", "Call search API", ["s1"], "CALL_API",
+            "st1",
+            "Call search API",
+            ["s1"],
+            "CALL_API",
             integration_ref="SearchAPI",
         )
         ok, reason = gate.is_renderable(step, "source_backed", {}, set(), {})
@@ -740,6 +856,7 @@ class TestCommandTypeGuards:
 # Phase 3: full gate.apply() integration with new guards
 # ---------------------------------------------------------------------------
 
+
 class TestGateApplyWithGuards:
     def test_source_backed_invoke_without_handoff_blocked_in_apply(self) -> None:
         """Full apply() integration: source-backed INVOKE_WORKER without
@@ -758,10 +875,10 @@ class TestGateApplyWithGuards:
         assert len(filtered.steps) == 1
         assert filtered.steps[0].step_id == "st1"
         blocked = [i for i in infos if not i.renderable]
-        assert any(
-            i.step_id == "st_invoke" and i.origin == "source_backed"
-            for i in blocked
-        ), f"st_invoke should be source_backed but blocked, got {[(i.step_id, i.origin, i.renderable) for i in blocked]}"
+        assert any(i.step_id == "st_invoke" and i.origin == "source_backed" for i in blocked), (
+            "st_invoke should be source_backed but blocked, got "
+            f"{[(i.step_id, i.origin, i.renderable) for i in blocked]}"
+        )
         # Step is filtered and in render_info; diagnostics come from post-normalize IRS.
 
     def test_source_backed_call_api_without_ref_blocked_in_apply(self) -> None:
@@ -791,7 +908,10 @@ class TestGateApplyWithGuards:
             main_flow=FlowRef(),
             steps=[
                 StepIR(
-                    "st_api", "Call search", ["s_api"], "CALL_API",
+                    "st_api",
+                    "Call search",
+                    ["s_api"],
+                    "CALL_API",
                     integration_ref="SearchAPI",
                 ),
             ],
@@ -799,9 +919,7 @@ class TestGateApplyWithGuards:
         filtered, infos, diags = gate.apply(worker)
         assert len(filtered.steps) == 0
         assert infos[0].renderable is False
-        assert "declared API binding metadata" in (
-            infos[0].render_block_reason or ""
-        )
+        assert "declared API binding metadata" in (infos[0].render_block_reason or "")
         assert len(diags) == 0
 
     def test_source_backed_request_input_passes(self) -> None:
@@ -876,7 +994,7 @@ class TestR7GateBoundary:
         assert len(acr) == 0
 
     def test_gate_does_not_emit_type_or_contract_ambiguity(self) -> None:
-        """Gate filters INVOKE_WORKER without target but does NOT emit type_or_contract_ambiguity."""
+        """Gate filters INVOKE_WORKER without target without type_or_contract_ambiguity."""
         gate = ExecutableElementGate()
         worker = WorkerIR(
             worker_name="Main",
@@ -885,8 +1003,12 @@ class TestR7GateBoundary:
             steps=[
                 StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
                 StepIR(
-                    "st_invoke", "Invoke worker", [], "INVOKE_WORKER",
-                    integration_ref=None, handoff_id=None,
+                    "st_invoke",
+                    "Invoke worker",
+                    [],
+                    "INVOKE_WORKER",
+                    integration_ref=None,
+                    handoff_id=None,
                 ),
             ],
         )
@@ -921,7 +1043,10 @@ class TestR7GateBoundary:
             steps=[
                 StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
                 StepIR(
-                    "st_handler", "Handle failures", [], "GENERAL_COMMAND",
+                    "st_handler",
+                    "Handle failures",
+                    [],
+                    "GENERAL_COMMAND",
                     flow_ref="exc_filtered",
                 ),
                 # No step for exc_never → handler never existed
@@ -950,69 +1075,108 @@ class TestGateUserConfirmedRepair:
 
     def test_classify_origin_ucr(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st1", "User step", [], "GENERAL_COMMAND",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st1", "User step", [], "GENERAL_COMMAND", metadata={"origin": "user_confirmed_repair"}
+        )
         origin = gate.classify_origin(step)
         assert origin == "user_confirmed_repair"
 
     def test_ucr_origin_renders_like_source_backed(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st1", "Do work", [], "GENERAL_COMMAND",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st1", "Do work", [], "GENERAL_COMMAND", metadata={"origin": "user_confirmed_repair"}
+        )
         origin = gate.classify_origin(step)
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         assert result is True
 
     def test_ucr_request_input_with_outputs_renderable(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st_input", "Ask user", [], "REQUEST_INPUT",
-                      outputs=["answer"],
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_input",
+            "Ask user",
+            [],
+            "REQUEST_INPUT",
+            outputs=["answer"],
+            metadata={"origin": "user_confirmed_repair"},
+        )
         origin = gate.classify_origin(step)
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         assert result is True
 
     def test_ucr_call_api_without_integration_ref_blocked(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st_api", "Call API", [], "CALL_API",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_api", "Call API", [], "CALL_API", metadata={"origin": "user_confirmed_repair"}
+        )
         origin = gate.classify_origin(step)
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         assert result is False
 
     def test_ucr_call_api_with_integration_ref_requires_binding(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st_api", "Call API", [], "CALL_API",
-                      integration_ref="SomeAPI",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_api",
+            "Call API",
+            [],
+            "CALL_API",
+            integration_ref="SomeAPI",
+            metadata={"origin": "user_confirmed_repair"},
+        )
         origin = gate.classify_origin(step)
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         assert result is False
 
     def test_ucr_invoke_worker_without_handoff_blocked(self) -> None:
         gate = ExecutableElementGate()
-        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_invoke", "Invoke", [], "INVOKE_WORKER", metadata={"origin": "user_confirmed_repair"}
+        )
         origin = gate.classify_origin(step)
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         assert result is False
 
     def test_ucr_invoke_worker_with_handoff_handoff_first(self) -> None:
-        """When step has both handoff_id and UCR, classify_origin returns handoff_generated first."""
+        """Step with handoff_id and UCR classifies as handoff_generated first."""
         gate = ExecutableElementGate()
-        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
-                      handoff_id="h1",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_invoke",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            metadata={"origin": "user_confirmed_repair"},
+        )
         origin = gate.classify_origin(step)
         # handoff_id check takes priority over user_confirmed_repair — by design
         assert origin == "handoff_generated"
@@ -1021,12 +1185,17 @@ class TestGateUserConfirmedRepair:
         """UCR INVOKE_WORKER without handoff_id maps to user_confirmed_repair
         but _source_backed_renderable blocks it (no handoff_id)."""
         gate = ExecutableElementGate()
-        step = StepIR("st_invoke", "Invoke", [], "INVOKE_WORKER",
-                      metadata={"origin": "user_confirmed_repair"})
+        step = StepIR(
+            "st_invoke", "Invoke", [], "INVOKE_WORKER", metadata={"origin": "user_confirmed_repair"}
+        )
         origin = gate.classify_origin(step)
         assert origin == "user_confirmed_repair"
         result, _block_reason = gate.is_renderable(
-            step, origin, self._EMPTY_INDEX, self._EMPTY_SET, self._EMPTY_DICT,
+            step,
+            origin,
+            self._EMPTY_INDEX,
+            self._EMPTY_SET,
+            self._EMPTY_DICT,
         )
         # UCR goes through _source_backed_renderable which blocks INVOKE_WORKER without handoff
         assert result is False
@@ -1040,8 +1209,13 @@ class TestGateUserConfirmedRepair:
             main_flow=FlowRef(),
             steps=[
                 StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND"),
-                StepIR("st2", "User confirmed", [], "GENERAL_COMMAND",
-                       metadata={"origin": "user_confirmed_repair"}),
+                StepIR(
+                    "st2",
+                    "User confirmed",
+                    [],
+                    "GENERAL_COMMAND",
+                    metadata={"origin": "user_confirmed_repair"},
+                ),
                 StepIR("st3", "", [], "GENERAL_COMMAND"),  # assumed → filtered
             ],
         )
@@ -1051,3 +1225,122 @@ class TestGateUserConfirmedRepair:
         assert "st2" in step_ids  # UCR kept
         assert "st3" not in step_ids  # assumed filtered
 
+    def test_gate_remedy_authority_handling(self) -> None:
+        """Verify new ExecutableElementGate correctness authority rules."""
+        # Test case A: Handoff match succeeds using composite_output_plans without debug metadata
+        gate_a = ExecutableElementGate()
+        gate_a.composite_output_plans = (
+            CompositeOutputPlan(
+                plan_id="cop_st1",
+                worker_id="Child",
+                step_id="st1",
+                command_type="INVOKE_WORKER",
+                original_output_intents=(
+                    OutputIntent(variable_name="out", data_type="text", source_span_ids=()),
+                ),
+                composite_variable_name="result_structured",
+                composite_type_name="result_structured_type",
+                field_mappings=(),
+                declaration_rewrites=(),
+                reference_rewrites=(),
+                worker_output_rewrite=None,
+                projection_relations=(),
+                naming_authority="CompositeNamePolicy",
+                source_span_ids=(),
+            ),
+        )
+        step = StepIR(
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["result_structured"],
+            metadata={},  # NO structured_aggregation or composite_output_debug
+        )
+        h = MagicMock()
+        h.to_worker = "w_child"
+        h.mode = "invoke"
+        h.input_bindings = [InputBindingIR("req", "req", True)]
+        h.output_bindings = [OutputBindingIR("out", "out", True, "set")]
+        ok, reason = gate_a.is_renderable(
+            step,
+            "handoff_generated",
+            {"h1": h},
+            {"Child"},
+            {"w_child": "Child"},
+        )
+        assert ok is True
+
+        # Test case B: Unpack succeeds using step_variable_relation_plan without metadata
+        gate_b = ExecutableElementGate()
+        gate_b.step_variable_relation_plan = StepVariableRelationPlan(
+            relations=(
+                StepVariableRelation(
+                    step_id="st1",
+                    variable_name="field1",
+                    relation="produces",
+                    source_span_ids=(),
+                    evidence_kind="source_text",
+                ),
+            )
+        )
+        worker = WorkerIR(
+            worker_name="MainWorker",
+            description="Test",
+            main_flow=FlowRef(),
+            steps=[
+                StepIR("st1", "Do work", ["s1"], "GENERAL_COMMAND", outputs=["result_structured"]),
+                StepIR(
+                    "st_unpack",
+                    "Extract field",
+                    [],
+                    "GENERAL_COMMAND",
+                    inputs=["result_structured"],
+                    outputs=["field1"],
+                    metadata={
+                        "origin": "compiler_unpack",
+                        "structured_source_step_id": "st1",
+                        "structured_result": "result_structured",
+                        "unpacked_output": "field1",
+                    },
+                ),
+            ],
+        )
+        filtered, _, _ = gate_b.apply(worker)
+        assert len(filtered.steps) == 2
+
+        # Test case C: composite_output_debug exists but plans are missing/empty
+        gate_c = ExecutableElementGate()
+        step_c = StepIR(
+            "st1",
+            "Invoke",
+            [],
+            "INVOKE_WORKER",
+            handoff_id="h1",
+            integration_ref="Child",
+            inputs=["req"],
+            outputs=["result_structured"],
+            metadata={
+                "composite_output_debug": {
+                    "result_name": "result_structured",
+                    "original_outputs": ["out"],
+                    "type_name": "result_structured_type",
+                }
+            },
+        )
+        h_c = MagicMock()
+        h_c.to_worker = "w_child"
+        h_c.mode = "invoke"
+        h_c.input_bindings = [InputBindingIR("req", "req", True)]
+        h_c.output_bindings = [OutputBindingIR("out", "out", True, "set")]
+        ok_c, _ = gate_c.is_renderable(
+            step_c,
+            "handoff_generated",
+            {"h1": h_c},
+            {"Child"},
+            {"w_child": "Child"},
+        )
+        assert ok_c is False

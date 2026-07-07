@@ -55,6 +55,40 @@ class BlockUtilsMixin:
             return []
         return blocks.get_all_blocks()
 
+    def _alternative_blocks_for_flow(
+        self,
+        blocks: BlockStructureIR | None,
+        flow_id: str,
+        flow_spans: list[str],
+    ) -> list[BlockIR]:
+        """Resolve alternative-flow blocks from validated block ownership.
+
+        Stage 5 control-region blocks may be keyed by validated region id rather
+        than the Stage 4 flow id. In that case, span ownership is the authority:
+        the block is accepted only when it owns a span in the alternative flow.
+        """
+        if blocks is None:
+            return []
+
+        exact_blocks = blocks.alternative_flow_blocks.get(flow_id, [])
+        if exact_blocks:
+            return exact_blocks
+
+        span_set = set(flow_spans)
+        if not span_set:
+            return []
+
+        matched: list[BlockIR] = []
+        seen: set[str] = set()
+        for candidate_blocks in blocks.alternative_flow_blocks.values():
+            for block in candidate_blocks:
+                if block.block_id in seen:
+                    continue
+                if any(span_id in span_set for span_id in block.spans):
+                    matched.append(block)
+                    seen.add(block.block_id)
+        return matched
+
     def _fallback_block_for_steps(
         self,
         block_id: str,

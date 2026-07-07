@@ -194,7 +194,11 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
             "_run_stage6_worker_scoped",
             return_value=(worker_scoped_resources, symbols, []),
         ) as stage6_ws,
-        patch.object(orchestrator, "_run_stage7_worker_scoped", return_value=(MagicMock(), symbols, [])),
+        patch.object(
+            orchestrator,
+            "_run_stage7_worker_scoped",
+            return_value=(MagicMock(), symbols, []),
+        ),
         patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
         patch.object(orchestrator, "_run_stage9", return_value=[]),
         patch.object(
@@ -215,7 +219,9 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
         result = orchestrator.run("test")
 
     stage4.assert_called_once_with(span_list, route_ir, plan)
-    stage5.assert_called_once_with(span_list, route_ir, flow_plan)
+    stage5.assert_called_once()
+    assert stage5.call_args.args[:3] == (span_list, route_ir, flow_plan)
+    assert stage5.call_args.args[3] is None
     assert stage6_ws.call_args.args[0] == span_list
     assert stage6_ws.call_args.args[1] == route_ir
     assert stage6_ws.call_args.args[2] is flow_plan
@@ -227,7 +233,12 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
     # T3: Worker-aware 路径不再产生 adapter intermediate records
     # (stage4_flow/stage5_blocks 保留空结构用于 Stage 9 接口兼容)
     assert result.intermediate_results["stage6_worker_scoped_resources"] is worker_scoped_resources
-    assert result.intermediate_results["stage6_resources"] is worker_scoped_resources.global_resources
+    assert (
+        result.intermediate_results["stage6_resources"]
+        is worker_scoped_resources.global_resources
+    )
+
+
 def test_orchestrator_stage_helpers_call_worker_aware_assembler_inputs(
     pipeline_config: PipelineConfig,
 ) -> None:
@@ -362,7 +373,9 @@ def test_worker_aware_stage45_context_feeds_downstream_workerplan_path(
         result = orchestrator.run("test")
 
     stage4.assert_called_once_with(span_list, route_ir, plan)
-    stage5.assert_called_once_with(span_list, route_ir, flow_plan)
+    stage5.assert_called_once()
+    assert stage5.call_args.args[:3] == (span_list, route_ir, flow_plan)
+    assert stage5.call_args.args[3] is None
     worker = result.intermediate_results["stage10_worker"]
     steps = stage11.call_args.args[4]
 

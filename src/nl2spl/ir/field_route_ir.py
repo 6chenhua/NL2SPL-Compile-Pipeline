@@ -174,9 +174,7 @@ class FieldRouteIR:
         """
         if self.annotations:
             exec_set = {
-                a.span_id
-                for a in self.annotations
-                if a.executable and a.field == "behavior"
+                a.span_id for a in self.annotations if a.executable and a.field == "behavior"
             }
             result: list[str] = []
             seen: set[str] = set()
@@ -202,15 +200,9 @@ class FieldRouteIR:
         excluded from the non-executable set even if a stale non-executable
         annotation also exists (executable wins).
         """
-        exec_set = {
-            a.span_id
-            for a in self.annotations
-            if a.executable and a.field == "behavior"
-        }
+        exec_set = {a.span_id for a in self.annotations if a.executable and a.field == "behavior"}
         non_exec_set = {
-            a.span_id
-            for a in self.annotations
-            if not a.executable and a.field == "behavior"
+            a.span_id for a in self.annotations if not a.executable and a.field == "behavior"
         } - exec_set
         result: list[str] = []
         seen: set[str] = set()
@@ -224,14 +216,10 @@ class FieldRouteIR:
                 seen.add(a.span_id)
         return result
 
-    def get_construct_slot_candidates(
-        self, construct: str, slot: str
-    ) -> list[RouteAnnotation]:
+    def get_construct_slot_candidates(self, construct: str, slot: str) -> list[RouteAnnotation]:
         """Return annotations targeting the given construct + slot."""
         return [
-            a
-            for a in self.annotations
-            if a.construct_target == construct and a.slot_target == slot
+            a for a in self.annotations if a.construct_target == construct and a.slot_target == slot
         ]
 
     def get_annotations_by_role(self, role: str) -> list[RouteAnnotation]:

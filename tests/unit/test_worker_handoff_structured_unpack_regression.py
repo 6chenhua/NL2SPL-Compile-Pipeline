@@ -1,28 +1,32 @@
 """Regression test for worker handoff structured unpack orphan issue."""
 
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
 from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.worker_ir import WorkerIR, ChildWorkerIR, FlowRef, WorkerOutput, WorkerInput
+from nl2spl.ir.step_variable_relation_ir import (
+    StepVariableRelation,
+    StepVariableRelationPlan,
+)
+from nl2spl.ir.symbol_table import SymbolTable
+from nl2spl.ir.worker_ir import ChildWorkerIR, FlowRef, WorkerInput, WorkerIR, WorkerOutput
 from nl2spl.ir.worker_plan_ir import (
+    InputBindingIR,
+    OutputBindingIR,
+    WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
-    WorkerHandoffIR,
-    OutputBindingIR,
-    InputBindingIR,
 )
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
-from nl2spl.ir.symbol_table import SymbolTable
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
 from nl2spl.pipeline.stages.stage9_5_normalizer.normalization import NormalizationMixin
 
 
 class _TestNormalizer(NormalizationMixin):
     """Test normalizer with access to normalization methods."""
-    
+
     def __init__(self):
         self.construct_findings = {}
         self._pruned_variable_names = set()
         self._synthetic_step_counter = 0
-    
+
     def _next_synthetic_step_id(self, used_ids: set[str]) -> str:
         """Generate unique synthetic step ID."""
         while True:
@@ -31,7 +35,7 @@ class _TestNormalizer(NormalizationMixin):
             if step_id not in used_ids:
                 used_ids.add(step_id)
                 return step_id
-    
+
     def _safe_name(self, name: str) -> str:
         """Convert name to safe identifier."""
         return name.replace("-", "_").replace(" ", "_")
@@ -42,19 +46,19 @@ def test_internal_comms_2_regression() -> None:
     Regression test for the issue where a multi-output handoff step generated
     default compiler_unpack steps instead of preserving one structured result.
     """
-    
+
     # 1. Setup Symbol Table and Resources
     symbols = SymbolTable()
     resources = ResourceRegistryIR()
-    
+
     inputs = ["user_request", "context"]
     outputs = [
         "draft_communication_artifact",
         "source_evidence_set",
         "assumptions_log",
-        "completion_status"
+        "completion_status",
     ]
-    
+
     for inp in inputs:
         symbols.declare(
             name=inp,
@@ -71,7 +75,7 @@ def test_internal_comms_2_regression() -> None:
                 source="input",
             )
         )
-    
+
     for out in outputs:
         symbols.declare(
             name=out,
@@ -88,10 +92,10 @@ def test_internal_comms_2_regression() -> None:
                 source="output",
             )
         )
-        
+
     # 2. Setup WorkerPlanIR and initial StepIR
     handoff_id = "handoff_generate_draft_communication"
-    
+
     handoff = WorkerHandoffIR(
         handoff_id=handoff_id,
         from_worker="worker_main",
@@ -118,27 +122,27 @@ def test_internal_comms_2_regression() -> None:
             for o in outputs
         ],
     )
-    
+
     main_worker_spec = WorkerSpecIR(
         worker_id="worker_main",
         worker_name="MainWorker",
         kind="main",
         purpose="Main worker",
     )
-    
+
     child_worker_spec = WorkerSpecIR(
         worker_id="generate_draft_communication",
         worker_name="Worker_generate_draft_communication",
         kind="child",
         purpose="Draft communication",
     )
-    
+
     worker_plan = WorkerPlanIR(
         main_worker_id="worker_main",
         workers=[main_worker_spec, child_worker_spec],
         handoffs=[handoff],
     )
-    
+
     # Simulate the handoff step in Stage 7 before normalizer
     producer_step = StepIR(
         step_id="st_invoke",
@@ -152,7 +156,7 @@ def test_internal_comms_2_regression() -> None:
         block_ref="blk1",
         flow_ref="main",
     )
-    
+
     child_worker = ChildWorkerIR(
         worker_name="Worker_generate_draft_communication",
         description="Draft communication",
@@ -160,7 +164,7 @@ def test_internal_comms_2_regression() -> None:
         inputs=[WorkerInput(name=inp, required=True) for inp in inputs],
         outputs=[WorkerOutput(name=o, required=True) for o in outputs],
     )
-    
+
     main_worker = WorkerIR(
         worker_name="MainWorker",
         description="Main worker",
@@ -171,43 +175,46 @@ def test_internal_comms_2_regression() -> None:
     # 3. Run Normalizer
     normalizer = _TestNormalizer()
     steps = list(main_worker.steps)
-    warnings = normalizer._normalize_multi_output_steps(
+    normalizer._normalize_multi_output_steps(
         resources, symbols, steps, worker_id="worker_main", worker_plan=worker_plan
     )
     main_worker.steps = steps
-    
+
     # The normalizer should convert the producer step to a single structured
     # output without adding default compiler_unpack steps.
     assert len(main_worker.steps) == 1, f"Expected 1 step, got {len(main_worker.steps)}"
     structured_result = main_worker.steps[0].outputs[0]
-    assert "structured" in structured_result
-    
-    # Verify metadata was added
-    assert "structured_aggregation" in main_worker.steps[0].metadata
-    aggregation = main_worker.steps[0].metadata["structured_aggregation"]
+    assert structured_result == "_".join(outputs)
+
+    # Verify debug metadata was added. Correctness authority lives in
+    # CompositeOutputPlan, not this metadata dict.
+    assert "composite_output_debug" in main_worker.steps[0].metadata
+    aggregation = main_worker.steps[0].metadata["composite_output_debug"]
     assert aggregation["result_name"] == structured_result
     assert aggregation["original_outputs"] == outputs
     assert "type_name" in aggregation
-    
+
     # 4. Run ExecutableElementGate
     gate = ExecutableElementGate()
+    gate.composite_output_plans = normalizer._last_composite_output_plans
     filtered_main_worker, infos, diags = gate.apply(main_worker, worker_plan)
-    
+
     # The gate should allow the structured producer step.
     # No blocked steps
     blocked_infos = [i for i in infos if not i.renderable]
-    assert len(blocked_infos) == 0, f"Steps blocked: {[i.render_block_reason for i in blocked_infos]}"
-    
+    assert len(blocked_infos) == 0, (
+        f"Steps blocked: {[i.render_block_reason for i in blocked_infos]}"
+    )
+
     assert len(filtered_main_worker.steps) == 1
-    
+
     # 5. Verify the order and validity of the final sequence
     # Producer must be first
     assert filtered_main_worker.steps[0].command_type == "INVOKE_WORKER"
     assert filtered_main_worker.steps[0].step_id == "st_invoke"
     assert filtered_main_worker.steps[0].outputs == [structured_result]
     assert not any(
-        step.metadata.get("origin") == "compiler_unpack"
-        for step in filtered_main_worker.steps
+        step.metadata.get("origin") == "compiler_unpack" for step in filtered_main_worker.steps
     )
 
 
@@ -218,7 +225,7 @@ def test_unpack_strong_binding_validation() -> None:
     inputs/outputs.
     """
     gate = ExecutableElementGate()
-    
+
     # Case 1: Unpack with wrong structured_result (not in producer outputs)
     worker1 = WorkerIR(
         worker_name="MainWorker",
@@ -226,7 +233,10 @@ def test_unpack_strong_binding_validation() -> None:
         main_flow=FlowRef(),
         steps=[
             StepIR(
-                "st_producer", "Produce", ["s1"], "GENERAL_COMMAND",
+                "st_producer",
+                "Produce",
+                ["s1"],
+                "GENERAL_COMMAND",
                 outputs=["result_structured"],
                 metadata={
                     "structured_aggregation": {
@@ -237,7 +247,9 @@ def test_unpack_strong_binding_validation() -> None:
                 },
             ),
             StepIR(
-                "st_unpack", "Extract field", [],
+                "st_unpack",
+                "Extract field",
+                [],
                 "GENERAL_COMMAND",
                 inputs=["wrong_result"],  # Wrong input
                 outputs=["field1"],
@@ -250,12 +262,12 @@ def test_unpack_strong_binding_validation() -> None:
             ),
         ],
     )
-    
+
     filtered1, infos1, diags1 = gate.apply(worker1)
     blocked1 = [i for i in infos1 if not i.renderable and i.step_id == "st_unpack"]
     assert len(blocked1) == 1
     assert "not in producer outputs" in blocked1[0].render_block_reason
-    
+
     # Case 2: Unpack with mismatched inputs
     worker2 = WorkerIR(
         worker_name="MainWorker",
@@ -263,7 +275,10 @@ def test_unpack_strong_binding_validation() -> None:
         main_flow=FlowRef(),
         steps=[
             StepIR(
-                "st_producer", "Produce", ["s1"], "GENERAL_COMMAND",
+                "st_producer",
+                "Produce",
+                ["s1"],
+                "GENERAL_COMMAND",
                 outputs=["result_structured"],
                 metadata={
                     "structured_aggregation": {
@@ -274,7 +289,9 @@ def test_unpack_strong_binding_validation() -> None:
                 },
             ),
             StepIR(
-                "st_unpack", "Extract field", [],
+                "st_unpack",
+                "Extract field",
+                [],
                 "GENERAL_COMMAND",
                 inputs=["result_structured", "extra_input"],  # Wrong number of inputs
                 outputs=["field1"],
@@ -287,12 +304,12 @@ def test_unpack_strong_binding_validation() -> None:
             ),
         ],
     )
-    
+
     filtered2, infos2, diags2 = gate.apply(worker2)
     blocked2 = [i for i in infos2 if not i.renderable and i.step_id == "st_unpack"]
     assert len(blocked2) == 1
     assert "do not match structured_result" in blocked2[0].render_block_reason
-    
+
     # Case 3: Unpack with output not in original_outputs
     worker3 = WorkerIR(
         worker_name="MainWorker",
@@ -300,7 +317,10 @@ def test_unpack_strong_binding_validation() -> None:
         main_flow=FlowRef(),
         steps=[
             StepIR(
-                "st_producer", "Produce", ["s1"], "GENERAL_COMMAND",
+                "st_producer",
+                "Produce",
+                ["s1"],
+                "GENERAL_COMMAND",
                 outputs=["result_structured"],
                 metadata={
                     "structured_aggregation": {
@@ -311,7 +331,9 @@ def test_unpack_strong_binding_validation() -> None:
                 },
             ),
             StepIR(
-                "st_unpack", "Extract field", [],
+                "st_unpack",
+                "Extract field",
+                [],
                 "GENERAL_COMMAND",
                 inputs=["result_structured"],
                 outputs=["field3"],  # Not in original_outputs
@@ -324,20 +346,35 @@ def test_unpack_strong_binding_validation() -> None:
             ),
         ],
     )
-    
+
     filtered3, infos3, diags3 = gate.apply(worker3)
     blocked3 = [i for i in infos3 if not i.renderable and i.step_id == "st_unpack"]
     assert len(blocked3) == 1
-    assert "not in producer original_outputs" in blocked3[0].render_block_reason
-    
+    assert "not produced by producer" in blocked3[0].render_block_reason
+    assert "composite plans or relation plan" in blocked3[0].render_block_reason
+
     # Case 4: Valid unpack passes all checks
+    relation_plan = StepVariableRelationPlan(
+        relations=(
+            StepVariableRelation(
+                step_id="st_producer",
+                variable_name="field1",
+                relation="produces",
+                source_span_ids=("s1",),
+                evidence_kind="source_text",
+            ),
+        )
+    )
     worker4 = WorkerIR(
         worker_name="MainWorker",
         description="Test",
         main_flow=FlowRef(),
         steps=[
             StepIR(
-                "st_producer", "Produce", ["s1"], "GENERAL_COMMAND",
+                "st_producer",
+                "Produce",
+                ["s1"],
+                "GENERAL_COMMAND",
                 outputs=["result_structured"],
                 metadata={
                     "structured_aggregation": {
@@ -348,7 +385,9 @@ def test_unpack_strong_binding_validation() -> None:
                 },
             ),
             StepIR(
-                "st_unpack", "Extract field", [],
+                "st_unpack",
+                "Extract field",
+                [],
                 "GENERAL_COMMAND",
                 inputs=["result_structured"],
                 outputs=["field1"],
@@ -361,8 +400,11 @@ def test_unpack_strong_binding_validation() -> None:
             ),
         ],
     )
-    
+
+    gate.step_variable_relation_plan = relation_plan
     filtered4, infos4, diags4 = gate.apply(worker4)
     blocked4 = [i for i in infos4 if not i.renderable]
-    assert len(blocked4) == 0, f"Unexpected blocked steps: {[i.render_block_reason for i in blocked4]}"
+    assert len(blocked4) == 0, (
+        f"Unexpected blocked steps: {[i.render_block_reason for i in blocked4]}"
+    )
     assert len(filtered4.steps) == 2

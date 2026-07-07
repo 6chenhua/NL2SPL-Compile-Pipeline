@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from nl2spl.ir.block_structure_ir import BlockStructureIR
+from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import StepVariableRelationPlan
 
 ContractSideStatus = Literal[
     "unknown",
@@ -359,6 +361,8 @@ class WorkerStepPlanIR:
     main_worker_id: str
     worker_steps: dict[str, list[StepIR]] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    step_variable_relation_plan: StepVariableRelationPlan | None = None
+    composite_output_plans: tuple[CompositeOutputPlan, ...] = ()
 
     @property
     def main_worker_steps(self) -> list[StepIR]:

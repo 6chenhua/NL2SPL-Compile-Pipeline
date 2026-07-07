@@ -16,6 +16,8 @@ Design constraints:
 
 from __future__ import annotations
 
+from typing import Any
+
 from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.graph import ConstructGraph
@@ -170,10 +172,12 @@ class IRSSubsystem:
         symbol_table: SymbolTable | None = None,
         resources: ResourceRegistryIR | None = None,
         *,
+        worker_steps: Any = None,
         worker_scoped_resources: WorkerScopedResourceIR | None = None,
         resource_contract_plan: Any = None,
         demand_view: Any = None,
         renderable_resource_registry_view: Any = None,
+        required_output_fulfillment: Any = None,
     ) -> IRSStageResult:
         """Run post-normalize IRS and return reports plus diagnostics."""
         if not self._config.enabled or not self._config.post_normalize_enabled:
@@ -183,6 +187,7 @@ class IRSSubsystem:
             stage_name="post_normalize",
             normalized_ir=worker,
             worker_plan=worker_plan,
+            worker_steps=worker_steps,
             symbol_table=symbol_table,
             resources=resources,
             metadata={
@@ -190,6 +195,7 @@ class IRSSubsystem:
                 "resource_contract_plan": resource_contract_plan,
                 "demand_view": demand_view,
                 "renderable_resource_registry_view": renderable_resource_registry_view,
+                "required_output_fulfillment": required_output_fulfillment,
             },
         )
 

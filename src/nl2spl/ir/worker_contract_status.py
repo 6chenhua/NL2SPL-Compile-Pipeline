@@ -12,7 +12,8 @@ from nl2spl.ir.worker_plan_ir import BindingSideStatus, ContractSideStatus
 
 
 def contract_side_satisfied(
-    fields: list, status: ContractSideStatus,
+    fields: list,
+    status: ContractSideStatus,
 ) -> bool:
     """Return True when the contract side can be considered satisfied.
 
@@ -24,7 +25,8 @@ def contract_side_satisfied(
 
 
 def binding_side_satisfied(
-    bindings: list, status: BindingSideStatus,
+    bindings: list,
+    status: BindingSideStatus,
 ) -> bool:
     """Return True when the binding side can be considered satisfied.
 
@@ -61,6 +63,7 @@ def derive_contract_status(
         if isinstance(source, str) and source.strip():
             return "known_empty"
         import warnings as _warnings
+
         _warnings.warn(
             "derive_contract_status: declared_status='known_empty' but "
             "source is missing or empty; requires auditable source. "
@@ -71,6 +74,7 @@ def derive_contract_status(
 
     if declared_status is not None and declared_status != "known_empty":
         import warnings as _warnings
+
         _warnings.warn(
             f"derive_contract_status: declared_status={declared_status!r} "
             f"but fields are empty; only 'known_empty' is accepted as an "

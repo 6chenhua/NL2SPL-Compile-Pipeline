@@ -73,7 +73,6 @@ _CONSUMER_FILES_WITH_REQUIRED_ACCESS = [
     "pipeline/stages/stage10_worker_assembler/assembler.py",
     "pipeline/stages/stage10_worker_assembler/child_worker_builder.py",
     "pipeline/stages/stage10_worker_assembler/step_resolver.py",
-    "pipeline/stages/stage9_5_normalizer/normalization.py",
     "pipeline/stages/stage9_5_normalizer/validation.py",
     "pipeline/stages/stage11_spl_renderer/renderer.py",
     "compiler/irs/checkers/post_normalize.py",
@@ -247,7 +246,6 @@ def test_resource_contract_demand_ir_importers() -> None:
 _CONTRACT_FIELD_IR_SITES = [
     "pipeline/stages/stage3_5_worker_boundary_planner/executor.py",
     "pipeline/stages/stage6_resource_extractor/worker_scoped.py",
-    "pipeline/stages/stage9_5_normalizer/normalization.py",
 ]
 
 
@@ -278,8 +276,8 @@ def test_total_required_reference_count_in_consumer_files() -> None:
         fpath = SRC_ROOT / rel_path
         content = fpath.read_text(encoding="utf-8")
         total += content.count(".required")
-    # B5r3: total .required = 82 (+1 legacy compat in post_normalize).
-    assert total == 82, (
+    # B5r3: total .required = 78 (+1 legacy compat in post_normalize).
+    assert total == 78, (
         f"Total .required references across {len(_CONSUMER_FILES_WITH_REQUIRED_ACCESS)} "
         f"consumer files: {total}. If this increased, expand the audit. "
         f"If it decreased, B1 has already removed some — update this assertion."

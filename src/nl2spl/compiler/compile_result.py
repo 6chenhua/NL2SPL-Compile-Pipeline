@@ -11,11 +11,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from nl2spl.compiler.final_ir_package import FinalIRPackage
     from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
+    from nl2spl.rendering.model import RenderedDocument
 
 DiagnosticKind = Literal[
     "missing_handler",
     "missing_output_producer",
+    "required_output_deferred",
     "type_or_contract_ambiguity",
     "assumed_command_not_renderable",
     "unmapped_behavior_span",
@@ -64,10 +67,11 @@ class CompileAssumption:
 
 @dataclass
 class CompileResult:
-    """Full compiler output — SPL text plus structured metadata.
+    """Full compiler output - structured IR package (canonical) plus rendered text.
 
-    This is the stable public result type.  Internal PipelineResult mirrors
-    these fields so existing callers are not broken during the transition.
+    This is the stable public result type. The final_ir_package is the canonical,
+    authoritative output of the compiler, while spl_text and rendered_artifacts are
+    compatibility/display artifacts.
     """
 
     spl_text: str
@@ -79,3 +83,5 @@ class CompileResult:
     validation_errors: list[str] = field(default_factory=list)
     validation_warnings: list[str] = field(default_factory=list)
     readable_report: str = ""
+    final_ir_package: FinalIRPackage | None = None
+    rendered_artifacts: tuple[RenderedDocument, ...] = ()

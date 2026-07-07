@@ -31,41 +31,25 @@ class BlockRendererMixin:
                 lines.append(f"{indent_str}[END_SEQUENTIAL_BLOCK]")
             elif block.block_type == "IF":
                 condition = self._render_condition(block.condition_text or "condition")
-                if (
+                if outer_condition_text and self._condition_key(condition) == self._condition_key(
                     outer_condition_text
-                    and self._condition_key(condition)
-                    == self._condition_key(outer_condition_text)
                 ):
                     lines.append(f"{indent_str}[SEQUENTIAL_BLOCK]")
-                    lines.extend(
-                        self._render_step_lines(block_steps, indent + 4, condition)
-                    )
+                    lines.extend(self._render_step_lines(block_steps, indent + 4, condition))
                     lines.append(f"{indent_str}[END_SEQUENTIAL_BLOCK]")
                     continue
-                lines.append(
-                    f"{indent_str}{self._next_decision()} [IF {condition}]"
-                )
-                lines.extend(
-                    self._render_step_lines(block_steps, indent + 4, condition)
-                )
+                lines.append(f"{indent_str}{self._next_decision()} [IF {condition}]")
+                lines.extend(self._render_step_lines(block_steps, indent + 4, condition))
                 lines.append(f"{indent_str}[END_IF]")
             elif block.block_type == "FOR":
                 condition = self._render_condition(block.condition_text or "items")
-                lines.append(
-                    f"{indent_str}{self._next_decision()} [FOR {condition}]"
-                )
-                lines.extend(
-                    self._render_step_lines(block_steps, indent + 4, condition)
-                )
+                lines.append(f"{indent_str}{self._next_decision()} [FOR {condition}]")
+                lines.extend(self._render_step_lines(block_steps, indent + 4, condition))
                 lines.append(f"{indent_str}[END_FOR]")
             elif block.block_type == "WHILE":
                 condition = self._render_condition(block.condition_text or "condition")
-                lines.append(
-                    f"{indent_str}{self._next_decision()} [WHILE {condition}]"
-                )
-                lines.extend(
-                    self._render_step_lines(block_steps, indent + 4, condition)
-                )
+                lines.append(f"{indent_str}{self._next_decision()} [WHILE {condition}]")
+                lines.extend(self._render_step_lines(block_steps, indent + 4, condition))
                 lines.append(f"{indent_str}[END_WHILE]")
 
         return lines
@@ -78,10 +62,7 @@ class BlockRendererMixin:
     ) -> list[str]:
         """Render command lines at the requested indentation."""
         indent_str = " " * indent
-        return [
-            f"{indent_str}{self._render_step(step, condition_text)}"
-            for step in steps
-        ]
+        return [f"{indent_str}{self._render_step(step, condition_text)}" for step in steps]
 
     def _steps_for_block(self, block: BlockIR, steps: list[StepIR]) -> list[StepIR]:
         """Return steps that belong to a block, preserving block span order."""
@@ -93,18 +74,14 @@ class BlockRendererMixin:
                 if step.block_ref != block.block_id:
                     continue
                 matching_positions = [
-                    span_order[span_id]
-                    for span_id in step.source_span_ids
-                    if span_id in span_order
+                    span_order[span_id] for span_id in step.source_span_ids if span_id in span_order
                 ]
                 position = min(matching_positions) if matching_positions else len(span_order)
                 selected.append((position, step_index, step))
                 continue
 
             matching_positions = [
-                span_order[span_id]
-                for span_id in step.source_span_ids
-                if span_id in span_order
+                span_order[span_id] for span_id in step.source_span_ids if span_id in span_order
             ]
             if matching_positions:
                 selected.append((min(matching_positions), step_index, step))
@@ -125,9 +102,7 @@ class BlockRendererMixin:
 
         if step.command_type == "CALL_API":
             if not step.integration_ref:
-                raise ValueError(
-                    f"CALL_API step {step.step_id} has no integration_ref"
-                )
+                raise ValueError(f"CALL_API step {step.step_id} has no integration_ref")
             api_name = step.integration_ref
             return (
                 f"{command_index} [CALL {api_name}"

@@ -1,4 +1,4 @@
-﻿"""Pipeline orchestrator."""
+"""Pipeline orchestrator."""
 
 from __future__ import annotations
 
@@ -31,11 +31,14 @@ from nl2spl.compiler.diagnostic_consolidator import (
     DiagnosticConsolidationInput,
     DiagnosticConsolidator,
 )
+from nl2spl.compiler.final_ir_package import FinalIRPackage
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.factory import build_irs_subsystem
 from nl2spl.compiler.irs.result_store import IRSResultStore
 from nl2spl.compiler.irs.subsystem import IRSSubsystem
+from nl2spl.compiler.producer_index import ProducerIndex
 from nl2spl.config import PipelineConfig
+from nl2spl.ir.action_placement_ir import ExecutableActionPlacementPlan
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.constraint_ir import ConstraintIR
@@ -55,6 +58,7 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import RequiredOutputFulfillmentState
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import (
@@ -64,9 +68,12 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerStepPlanIR,
 )
 from nl2spl.llm.client import LLMClient
+from nl2spl.pipeline import intermediate_keys as ik
+from nl2spl.pipeline.action_placement import build_executable_action_placement_plan
 from nl2spl.pipeline.capability_semantic_extractor import (
     ExternalCapabilitySemanticExtractor,
 )
+from nl2spl.pipeline.control_region_plan import build_control_region_plan
 from nl2spl.pipeline.executable_gate import ExecutableElementGate
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
@@ -93,6 +100,7 @@ from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtract
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.worker_plan_validator import WorkerPlanValidator
+from nl2spl.rendering.model import RenderedDocument
 from nl2spl.utils.logger import setup_logger
 from nl2spl.utils.persistence import save_final_spl, save_intermediate_result
 
@@ -128,6 +136,8 @@ class PipelineResult:
     readable_report: str = ""
     intermediate_results: dict[str, Any] = field(default_factory=dict)
     final_spl_path: Path | None = None
+    final_ir_package: FinalIRPackage | None = None
+    rendered_artifacts: tuple[RenderedDocument, ...] = ()
 
     # Snapshot persistence (S4)
     spl_editing_snapshot_path: Path | None = None
@@ -325,6 +335,16 @@ class PipelineOrchestrator:
         # Non-behavior spans remain global/hint context and must not be
         # forced into a worker ownership set.
         behavior_span_ids = set(resolved_routes.behavior)
+        behavior_span_ids.update(
+            span.span_id
+            for span in resolved_spans
+            if span.source_section_id == "sec_reusable_process"
+            and span.segmentation_kind in {
+                "atomic_action_candidate",
+                "guarded_action",
+                "continuation_repaired",
+            }
+        )
         assigned_ids: set[str] = set()
         for w in worker_plan.workers:
             assigned_ids.update(w.owned_span_ids)
@@ -355,6 +375,23 @@ class PipelineOrchestrator:
         intermediate["stage3_5_worker_plan"] = worker_plan
         intermediate["stage3_6_worker_plan_validation"] = worker_validation
 
+        executable_action_plan = build_executable_action_placement_plan(
+            resolved_spans,
+            resolved_routes,
+            worker_plan,
+            construct_plan,
+        )
+        intermediate[ik.EXECUTABLE_ACTION_PLACEMENT_PLAN] = executable_action_plan
+        intermediate[ik.EXECUTABLE_ACTION_CANDIDATES] = (
+            executable_action_plan.candidates
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.EXECUTABLE_ACTION_PLACEMENT_PLAN,
+                executable_action_plan.to_payload(),
+                self.config.run_dir,
+            )
+
         # Stage 3.5 IRS: construct satisfaction for worker/delegation
         if self.config.irs.stage_local_enabled:
             irs_ctx_35 = IRSCheckContext(
@@ -381,8 +418,25 @@ class PipelineOrchestrator:
         if not isinstance(flow_output, WorkerFlowPlanIR):
             raise TypeError("Worker-aware Stage 4 must return WorkerFlowPlanIR")
         worker_flow_plan = flow_output
+        _attach_action_plan_spans_to_worker_flows(
+            worker_flow_plan,
+            executable_action_plan,
+        )
         worker_stage_warnings.extend(worker_flow_plan.warnings)
         intermediate["stage4_worker_flows"] = worker_flow_plan
+        control_region_plan = build_control_region_plan(
+            resolved_spans,
+            worker_plan,
+            worker_flow_plan,
+            executable_action_plan,
+        )
+        intermediate[ik.CONTROL_REGION_PLAN] = control_region_plan
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.CONTROL_REGION_PLAN,
+                control_region_plan.to_payload(),
+                self.config.run_dir,
+            )
         # Stage 9 compatibility placeholder; worker-aware path uses worker flows.
         flow_structure = FlowStructureIR()
         intermediate["stage4_flow"] = flow_structure
@@ -407,12 +461,15 @@ class PipelineOrchestrator:
                 resolved_routes,
                 worker_flow_plan,
                 active_construct_plan,
+                control_region_plan,
             )
         else:
             block_output = self._run_stage5(
                 resolved_spans,
                 resolved_routes,
                 worker_flow_plan,
+                None,
+                control_region_plan,
             )
         if not isinstance(block_output, WorkerBlockPlanIR):
             raise TypeError("Worker-aware Stage 5 must return WorkerBlockPlanIR")
@@ -429,10 +486,16 @@ class PipelineOrchestrator:
             worker_flow_plan,
             worker_block_plan,
         )
-        intermediate["api_call_placements"] = api_call_placements
-        intermediate["api_call_placement_payload"] = [
+        intermediate[ik.API_CALL_PLACEMENTS] = api_call_placements
+        intermediate[ik.API_CALL_PLACEMENT_PAYLOAD] = [
             placement.to_payload() for placement in api_call_placements
         ]
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.API_CALL_PLACEMENTS,
+                {"placements": intermediate[ik.API_CALL_PLACEMENT_PAYLOAD]},
+                self.config.run_dir,
+            )
 
         # Stage 6: Resource Extraction
         self.logger.info("Stage 6: Resource Extraction")
@@ -523,6 +586,16 @@ class PipelineOrchestrator:
         worker_stage_warnings.extend(worker_step_plan.warnings)
         intermediate["stage7_worker_step_plan"] = worker_step_plan
         intermediate["stage7_steps"] = steps
+        if worker_step_plan.step_variable_relation_plan is not None:
+            intermediate[ik.STEP_VARIABLE_RELATION_PLAN] = (
+                worker_step_plan.step_variable_relation_plan
+            )
+            if self.config.save_intermediate:
+                save_intermediate_result(
+                    ik.STEP_VARIABLE_RELATION_PLAN,
+                    worker_step_plan.step_variable_relation_plan.to_payload(),
+                    self.config.run_dir,
+                )
 
         # Stage 7 IRS: construct satisfaction for steps
         if self.config.irs.stage_local_enabled:
@@ -596,6 +669,7 @@ class PipelineOrchestrator:
         api_decl_result = irs_subsystem.run_post_normalize_result(
             worker=None,
             worker_plan=worker_plan,
+            worker_steps=worker_step_plan,
             symbol_table=symbol_table,
             resources=resources,
             worker_scoped_resources=intermediate.get(
@@ -613,6 +687,27 @@ class PipelineOrchestrator:
         intermediate["renderable_resource_registry_payload"] = (
             renderable_resources.to_payload()
         )
+        required_output_fulfillment = _build_required_output_fulfillment(
+            worker_step_plan,
+            worker_plan,
+            symbol_table,
+            renderable_resources,
+            intermediate.get("stage6_worker_scoped_resources"),
+        )
+        intermediate[ik.REQUIRED_OUTPUT_FULFILLMENT] = required_output_fulfillment
+        intermediate[f"{ik.REQUIRED_OUTPUT_FULFILLMENT}_payload"] = [
+            item.to_payload() for item in required_output_fulfillment
+        ]
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.REQUIRED_OUTPUT_FULFILLMENT,
+                {
+                    "states": intermediate[
+                        f"{ik.REQUIRED_OUTPUT_FULFILLMENT}_payload"
+                    ]
+                },
+                self.config.run_dir,
+            )
 
         # Post-normalize IRS check: final authority for construct-level
         # diagnostics from normalized, assembled IR.
@@ -620,6 +715,7 @@ class PipelineOrchestrator:
         post_norm_result = irs_subsystem.run_post_normalize_result(
             worker=worker,
             worker_plan=worker_plan,
+            worker_steps=worker_step_plan,
             symbol_table=symbol_table,
             resources=renderable_resources,
             worker_scoped_resources=intermediate.get(
@@ -627,6 +723,7 @@ class PipelineOrchestrator:
             ),
             demand_view=demand_view,
             renderable_resource_registry_view=renderable_resources,
+            required_output_fulfillment=required_output_fulfillment,
         )
         post_norm_diags = list(post_norm_result.diagnostics)
         irs_store.put_post_normalize_diagnostics(post_norm_diags)
@@ -647,9 +744,15 @@ class PipelineOrchestrator:
 
         # Executable element gate 鈥?filter non-source-backed steps before
         # rendering so only verifiable commands reach Stage 11.
+        worker_step_plan = intermediate.get("stage7_worker_step_plan")
+        cop = worker_step_plan.composite_output_plans if worker_step_plan else ()
+        svr = worker_step_plan.step_variable_relation_plan if worker_step_plan else None
+
         self.logger.info("Executable element gate")
         gate = ExecutableElementGate()
         gate.renderable_resource_registry_view = renderable_resources
+        gate.composite_output_plans = cop
+        gate.step_variable_relation_plan = svr
         worker, render_info, gate_diags = gate.apply(worker, worker_plan)
         intermediate["render_info"] = render_info
         # Mark steps as scoped so the renderer uses the filtered worker.steps
@@ -875,6 +978,45 @@ class PipelineOrchestrator:
                 explanation_status = "schedule_failed"
                 explanation_error = str(exc)
 
+        from nl2spl.compiler.final_ir_package import compute_package_hash
+        package_hash = compute_package_hash(
+            root_worker=worker,
+            profile=profile,
+            resources=renderable_resources,
+            symbol_table=symbol_table,
+            constraints=tuple(constraints),
+            diagnostics=tuple(all_diagnostics),
+            traces=tuple(traces),
+            assumptions=tuple(assumptions),
+            verification_metadata={"completeness": completeness},
+        )
+        final_pkg = FinalIRPackage(
+            package_id=self.config.run_name or "default_package",
+            artifact_snapshot_id=snapshot_path.name if snapshot_path else None,
+            overlay_version=0,
+            package_hash=package_hash,
+            root_worker=worker,
+            profile=profile,
+            resources=renderable_resources,
+            symbol_table=symbol_table,
+            constraints=tuple(constraints),
+            diagnostics=tuple(all_diagnostics),
+            traces=tuple(traces),
+            assumptions=tuple(assumptions),
+            verification_metadata={"completeness": completeness},
+            legacy_unscoped_steps=tuple(steps),
+        )
+        from nl2spl.rendering.spl.stage11_compat import render_full_spl_from_legacy_inputs
+        rendered_doc = render_full_spl_from_legacy_inputs(
+            worker=worker,
+            profile=profile,
+            resources=renderable_resources,
+            symbol_table=symbol_table,
+            steps=steps,
+            constraints=constraints,
+        )
+        rendered_artifacts = (rendered_doc,)
+
         return PipelineResult(
             spl_text=spl_text,
             validation_errors=errors,
@@ -892,6 +1034,8 @@ class PipelineOrchestrator:
             spl_editing_snapshot_error=snapshot_error,
             spl_editing_explanation_status=explanation_status,
             spl_editing_explanation_error=explanation_error,
+            final_ir_package=final_pkg,
+            rendered_artifacts=rendered_artifacts,
         )
 
     # ------------------------------------------------------------------
@@ -1106,9 +1250,14 @@ class PipelineOrchestrator:
         routes: FieldRouteIR,
         flow_structure: FlowStructureIR | WorkerFlowPlanIR,
         construct_plan: ConstructPlan | None = None,
+        control_region_plan: Any | None = None,
     ) -> BlockStructureIR | WorkerBlockPlanIR:
         """Stage 5: Block Assembly."""
         stage = BlockAssembler(self.config, self.client)
+        if control_region_plan is not None:
+            return stage.execute((
+                spans, routes, flow_structure, construct_plan, control_region_plan,
+            ))
         if construct_plan is not None:
             return stage.execute((spans, routes, flow_structure, construct_plan))
         return stage.execute((spans, routes, flow_structure))
@@ -1465,3 +1614,97 @@ class PipelineOrchestrator:
         """Stage 11: SPL Rendering."""
         renderer = SPLRenderer()
         return renderer.render(worker, profile, resources, symbols, steps, constraints)
+
+
+def _attach_action_plan_spans_to_worker_flows(
+    worker_flow_plan: WorkerFlowPlanIR,
+    action_plan: ExecutableActionPlacementPlan,
+) -> None:
+    """Attach accepted action spans omitted by legacy Stage 4 flow output.
+
+    Stage 4 flow classification remains evidence/debug input. The frozen
+    action placement plan is the authority for executable action ownership, so
+    accepted action spans must be visible to Stage 5 block materialization.
+    """
+
+    placement_by_candidate = {
+        placement.candidate_id: placement
+        for placement in action_plan.placements
+        if placement.status == "placed" and placement.worker_id
+    }
+    for candidate in action_plan.candidates:
+        if candidate.status != "accepted":
+            continue
+        placement = placement_by_candidate.get(candidate.candidate_id)
+        if placement is None or placement.worker_id is None:
+            continue
+        flow = worker_flow_plan.worker_flows.get(placement.worker_id)
+        if flow is None:
+            continue
+        existing = flow.get_all_flow_spans()
+        missing = [
+            span_id
+            for span_id in candidate.source_span_ids
+            if span_id not in existing
+        ]
+        if missing:
+            flow.main_flow_spans.extend(missing)
+
+
+def _build_required_output_fulfillment(
+    worker_step_plan: WorkerStepPlanIR,
+    worker_plan: WorkerPlanIR,
+    symbol_table: SymbolTable,
+    resources: ResourceRegistryIR,
+    worker_scoped_resources: object | None,
+) -> list[RequiredOutputFulfillmentState]:
+    output_names = _required_output_names(symbol_table, worker_scoped_resources)
+    if not output_names:
+        return []
+    bindings = _resource_contract_bindings(worker_scoped_resources)
+    index = ProducerIndex(
+        steps=worker_step_plan.get_all_steps(),
+        handoffs=worker_plan.handoffs,
+        declared_apis={api.api_name for api in resources.apis},
+        extra_api_names={
+            handoff.api_ref
+            for handoff in worker_plan.handoffs
+            if handoff.api_ref
+        },
+        api_handoff_refs={
+            handoff.handoff_id: handoff.api_ref
+            for handoff in worker_plan.handoffs
+            if handoff.api_ref
+        },
+        known_child_worker_ids={
+            worker.worker_id
+            for worker in worker_plan.workers
+            if worker.boundary_kind not in {"main_worker", "not_a_worker"}
+        },
+        resource_contract_bindings=bindings,
+        step_variable_relation_plan=worker_step_plan.step_variable_relation_plan,
+        composite_output_plans=worker_step_plan.composite_output_plans,
+    )
+    return [index.fulfillment_for(name) for name in output_names]
+
+
+def _required_output_names(
+    symbol_table: SymbolTable,
+    worker_scoped_resources: object | None,
+) -> list[str]:
+    names: set[str] = {
+        variable.name
+        for variable in symbol_table.get_all_declared_variables().values()
+        if variable.source == "output"
+    }
+    for binding in _resource_contract_bindings(worker_scoped_resources):
+        if getattr(binding, "direction", None) == "output":
+            names.add(binding.resource_name)
+    return sorted(names)
+
+
+def _resource_contract_bindings(worker_scoped_resources: object | None) -> list[object]:
+    bindings = getattr(worker_scoped_resources, "resource_contract_bindings", None)
+    if bindings is None:
+        return []
+    return list(bindings)

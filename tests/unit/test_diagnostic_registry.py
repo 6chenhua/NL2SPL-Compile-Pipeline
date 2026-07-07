@@ -45,6 +45,7 @@ class TestDefaultRegistry:
     @pytest.mark.parametrize("kind", [
         "missing_handler",
         "missing_output_producer",
+        "required_output_deferred",
         "type_or_contract_ambiguity",
         "assumed_command_not_renderable",
         "unmapped_behavior_span",
@@ -108,13 +109,13 @@ class TestDefaultRegistry:
         kinds = self.registry.list_kinds()
         assert "missing_handler" in kinds
         assert "redundant_requirement" in kinds  # reserved but still listed
-        assert len(kinds) == 15  # 10 enabled + 4 reserved (B5: +3 resource contract)
+        assert len(kinds) == 17  # enabled + reserved, including R8 output states
 
     def test_list_kinds_enabled_only(self):
         kinds = self.registry.list_kinds(enabled_only=True)
         assert "missing_handler" in kinds
         assert "redundant_requirement" not in kinds
-        assert len(kinds) == 11  # B5: +3 resource contract demand diagnostics
+        assert len(kinds) == 12  # B5 + R8 required output deferred
 
     # -- validation ----------------------------------------------------------
 
@@ -156,3 +157,12 @@ def test_deferred_api_contract_validation_contract() -> None:
     structural = registry.get("type_or_contract_ambiguity")
     assert structural.default_severity == "warning"
     assert structural.blocks_completion is True
+
+
+def test_required_output_deferred_contract() -> None:
+    registry = DiagnosticRegistry.default()
+    spec = registry.get("required_output_deferred")
+    assert spec.enabled is True
+    assert spec.default_severity == "warning"
+    assert spec.blocks_completion is True
+    assert spec.allowed_targets == ["variable", "output"]

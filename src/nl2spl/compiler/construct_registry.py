@@ -659,8 +659,8 @@ class SPLConstructRegistry:
                     required_for_complete=False,
                     evidence_kinds=["result", "output", "derived_variable"],
                     notes=(
-                        "May be satisfied by one or more StepIR.outputs rendered "
-                        "as a COMMAND_RESULTS list."
+                        "May be satisfied by a single StepIR.outputs rendered "
+                        "as a single structured COMMAND_RESULT."
                     ),
                 ),
             ],
@@ -698,8 +698,8 @@ class SPLConstructRegistry:
                     evidence_kinds=["input_variable", "confirmation_variable"],
                     missing_diagnostic="type_or_contract_ambiguity",
                     notes=(
-                        "May target one or more StepIR.outputs rendered as a "
-                        "VALUE COMMAND_RESULTS list."
+                        "May target a single StepIR.outputs rendered as a "
+                        "single structured VALUE COMMAND_RESULT."
                     ),
                     repair_affordances=(
                         RepairAffordanceSpec(
@@ -838,8 +838,8 @@ class SPLConstructRegistry:
                     required_for_complete=False,
                     evidence_kinds=["response", "output_variable"],
                     notes=(
-                        "May be satisfied by one or more StepIR.outputs rendered "
-                        "as a RESPONSE COMMAND_RESULTS list."
+                        "May be satisfied by a single StepIR.outputs rendered "
+                        "as a single structured RESPONSE COMMAND_RESULT."
                     ),
                 ),
                 SlotSpec(

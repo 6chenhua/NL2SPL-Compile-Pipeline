@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from nl2spl.compiler.producer_index import ProducerIndex, ProducerRef, _step_is_renderable
+from nl2spl.ir.composite_output_plan_ir import CompositeOutputPlan, OutputIntent
 from nl2spl.ir.resource_registry_ir import APISpec, ResourceRegistryIR
-from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import (
+    StepVariableRelation,
+    StepVariableRelationPlan,
+)
 from nl2spl.ir.worker_plan_ir import (
     InputBindingIR,
     OutputBindingIR,
     WorkerHandoffIR,
 )
-
+from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,6 +61,20 @@ def _api_call_handoff(
         condition_text=None,
         ordering="after",
         output_bindings=[OutputBindingIR("api_out", output_var, True, "set")],
+    )
+
+
+def _relation_plan(step_id: str, output: str) -> StepVariableRelationPlan:
+    return StepVariableRelationPlan(
+        relations=(
+            StepVariableRelation(
+                step_id=step_id,
+                variable_name=output,
+                relation="produces",
+                source_span_ids=(),
+                evidence_kind="api_contract",
+            ),
+        )
     )
 
 
@@ -207,7 +225,7 @@ class TestP1HandoffStepOutputMismatch:
         # produces "final_report" → still produced via the binding
         assert index.is_produced("final_report")
 
-    def test_structured_handoff_result_is_produced_when_metadata_matches(self) -> None:
+    def test_structured_handoff_debug_metadata_does_not_create_producer(self) -> None:
         h = WorkerHandoffIR(
             "h1",
             "w_main",
@@ -243,6 +261,62 @@ class TestP1HandoffStepOutputMismatch:
             steps=steps,
             handoffs=[h],
             known_child_worker_ids={"w_child"},
+        )
+
+        assert not index.is_produced("h1_response_structured")
+
+    def test_structured_handoff_result_is_produced_from_composite_output_plan(
+        self,
+    ) -> None:
+        h = WorkerHandoffIR(
+            "h1",
+            "w_main",
+            "w_child",
+            None,
+            "invoke",
+            None,
+            "after",
+            input_bindings=[InputBindingIR("req", "child_in", True)],
+            output_bindings=[
+                OutputBindingIR("child_one", "out_one", True, "set"),
+                OutputBindingIR("child_two", "out_two", True, "set"),
+            ],
+        )
+        steps = [
+            StepIR(
+                "st1",
+                "Invoke",
+                [],
+                "INVOKE_WORKER",
+                handoff_id="h1",
+                outputs=["h1_response_structured"],
+                metadata={},
+            )
+        ]
+        plan = CompositeOutputPlan(
+            plan_id="cop_st1",
+            worker_id="MainWorker",
+            step_id="st1",
+            command_type="INVOKE_WORKER",
+            original_output_intents=(
+                OutputIntent("out_one", "text", ()),
+                OutputIntent("out_two", "text", ()),
+            ),
+            composite_variable_name="h1_response_structured",
+            composite_type_name="H1ResponseStructured",
+            field_mappings=(),
+            declaration_rewrites=(),
+            reference_rewrites=(),
+            worker_output_rewrite=None,
+            projection_relations=(),
+            naming_authority="CompositeNamePolicy",
+            source_span_ids=(),
+        )
+        index = ProducerIndex(
+            steps=steps,
+            handoffs=[h],
+            known_child_worker_ids={"w_child"},
+            composite_output_plans=(plan,),
         )
 
         assert index.is_produced("h1_response_structured")
@@ -337,6 +411,7 @@ class TestP1CallApiHandoffFallback:
         index = ProducerIndex(
             steps=steps, handoffs=[h],
             api_handoff_refs={"h1": "SearchAPI"},
+            step_variable_relation_plan=_relation_plan("st_api", "results"),
         )
         assert index.is_produced("results")
 
@@ -382,7 +457,11 @@ class TestP1CallApiHandoffFallback:
             StepIR("st_api", "Call", ["s1"], "CALL_API",
                    integration_ref="SearchAPI", outputs=["results"])
         ]
-        index = ProducerIndex(steps=steps, declared_apis={"SearchAPI"})
+        index = ProducerIndex(
+            steps=steps,
+            declared_apis={"SearchAPI"},
+            step_variable_relation_plan=_relation_plan("st_api", "results"),
+        )
         assert index.is_produced("results")
 
 
@@ -422,7 +501,11 @@ class TestCallApiProducers:
             StepIR("st_api", "Call", ["s_api"], "CALL_API",
                    integration_ref="SearchAPI", outputs=["results"])
         ]
-        index = ProducerIndex(steps=steps, declared_apis={"SearchAPI"})
+        index = ProducerIndex(
+            steps=steps,
+            declared_apis={"SearchAPI"},
+            step_variable_relation_plan=_relation_plan("st_api", "results"),
+        )
         assert index.is_produced("results")
 
     def test_no_integration_ref_not_producer(self) -> None:
@@ -459,7 +542,11 @@ class TestCallApiProducers:
                 handoff_id="h_extra",
             )
         ]
-        index = ProducerIndex(steps=steps, handoffs=[handoff])
+        index = ProducerIndex(
+            steps=steps,
+            handoffs=[handoff],
+            step_variable_relation_plan=_relation_plan("st_api", "d"),
+        )
         assert index.is_produced("d")
 
     def test_call_api_no_double_record(self) -> None:
@@ -468,7 +555,11 @@ class TestCallApiProducers:
             StepIR("st_api", "Call", ["s_api"], "CALL_API",
                    integration_ref="SearchAPI", outputs=["r"])
         ]
-        index = ProducerIndex(steps=steps, declared_apis={"SearchAPI"})
+        index = ProducerIndex(
+            steps=steps,
+            declared_apis={"SearchAPI"},
+            step_variable_relation_plan=_relation_plan("st_api", "r"),
+        )
         refs = index.get_producers("r")
         assert len(refs) == 1
         assert refs[0].producer_kind == "api"

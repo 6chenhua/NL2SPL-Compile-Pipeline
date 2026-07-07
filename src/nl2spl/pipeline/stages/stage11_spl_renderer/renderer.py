@@ -112,12 +112,25 @@ class SPLRenderer(
         if constraints:
             parts.append("[DEFINE_CONSTRAINTS:]")
             for constraint in constraints:
-                parts.append(
-                    f"    {self._constraint_aspect(constraint.kind)}: {constraint.text}"
-                )
+                parts.append(f"    {self._constraint_aspect(constraint.kind)}: {constraint.text}")
             parts.append("[END_CONSTRAINTS]")
 
-        # 6. DEFINE_VARIABLES
+        # 6. DEFINE_TYPES
+        if resources.types:
+            parts.append("[DEFINE_TYPES:]")
+            for type_spec in resources.types:
+                definition = type_spec.definition or type_spec.type_kind
+                if isinstance(definition, dict):
+                    fields = [f"{k}: {v}" for k, v in definition.items()]
+                    definition_str = "{ " + ", ".join(fields) + " }"
+                else:
+                    definition_str = str(definition)
+                parts.append(
+                    f"    {type_spec.type_name} = {self._format_data_type(definition_str)}"
+                )
+            parts.append("[END_TYPES]")
+
+        # 7. DEFINE_VARIABLES
         variable_declarations = self._variable_declarations(resources, symbol_table)
         if variable_declarations:
             parts.append("[DEFINE_VARIABLES:]")
@@ -128,7 +141,7 @@ class SPLRenderer(
                 )
             parts.append("[END_VARIABLES]")
 
-        # 7. DEFINE_FILES
+        # 8. DEFINE_FILES
         if resources.files:
             parts.append("[DEFINE_FILES:]")
             for file_spec in resources.files:
@@ -141,16 +154,6 @@ class SPLRenderer(
                     f"{self._format_data_type(file_spec.data_type)}"
                 )
             parts.append("[END_FILES]")
-
-        # 8. DEFINE_TYPES
-        if resources.types:
-            parts.append("[DEFINE_TYPES:]")
-            for type_spec in resources.types:
-                definition = type_spec.definition or type_spec.type_kind
-                parts.append(
-                    f"    {type_spec.type_name} = {self._format_data_type(definition)}"
-                )
-            parts.append("[END_TYPES]")
 
         # 9. DEFINE_APIS
         if resources.apis:

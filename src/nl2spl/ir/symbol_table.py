@@ -175,21 +175,21 @@ class SymbolTable:
                 )
             for step_id in var.consumer_steps:
                 if step_id not in known_step_ids:
-                    errors.append(
-                        f"Variable {name} references unknown consumer step: {step_id}"
-                    )
+                    errors.append(f"Variable {name} references unknown consumer step: {step_id}")
             seen.add(name)
         for key, var in self._variables.items():
             if key[2] in seen:
                 continue
             if var.producer_step and var.producer_step not in known_step_ids:
                 errors.append(
-                    f"Variable {key[2]} (scope: {key[0]}) references unknown producer step: {var.producer_step}"
+                    f"Variable {key[2]} (scope: {key[0]}) references "
+                    f"unknown producer step: {var.producer_step}"
                 )
             for step_id in var.consumer_steps:
                 if step_id not in known_step_ids:
                     errors.append(
-                        f"Variable {key[2]} (scope: {key[0]}) references unknown consumer step: {step_id}"
+                        f"Variable {key[2]} (scope: {key[0]}) references "
+                        f"unknown consumer step: {step_id}"
                     )
         return errors
 

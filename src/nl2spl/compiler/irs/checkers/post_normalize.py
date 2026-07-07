@@ -19,14 +19,12 @@ from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.compiler.producer_index import ProducerIndex
 from nl2spl.ir.resource_contract_ir import (
     ResourceContractBindingIR,
-    ResourceContractDemandIR,
     ResourceContractPlanIR,
 )
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, WorkerScopedResourceIR
 from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.worker_ir import ChildWorkerIR, WorkerIR
+from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
-
 
 _STEP_CONSTRUCT_TYPES = {
     "GENERAL_COMMAND",
@@ -78,7 +76,12 @@ class PostNormalizeIRSCheckerV6:
                 materialized=True,
                 source_demanded=True,
                 primary_parent_id=f"worker:{main_worker_id}" if main_worker_id else None,
-                construct_path=("worker", main_worker_id or "main", "exception_flows", exc_flow.flow_id),
+                construct_path=(
+                    "worker",
+                    main_worker_id or "main",
+                    "exception_flows",
+                    exc_flow.flow_id,
+                ),
                 source_span_ids=list(exc_flow.spans),
                 metadata={
                     "kind": "exception_flow",
@@ -129,7 +132,12 @@ class PostNormalizeIRSCheckerV6:
                         materialized=True,
                         source_demanded=True,
                         primary_parent_id=f"worker:{spec.worker_id}",
-                        construct_path=("worker_plan", spec.worker_id, "output_contract", field.name),
+                        construct_path=(
+                            "worker_plan",
+                            spec.worker_id,
+                            "output_contract",
+                            field.name,
+                        ),
                         metadata={
                             "kind": "required_output",
                             "worker_spec": spec,
@@ -326,6 +334,8 @@ class PostNormalizeIRSCheckerV6:
                 api_handoff_refs=api_handoff_refs,
                 known_child_worker_ids=own_child_ids,
                 resource_contract_bindings=self._get_bindings(context),
+                step_variable_relation_plan=self._relation_plan(context),
+                composite_output_plans=self._composite_output_plans(context),
             )
         else:
             index = ProducerIndex(
@@ -336,6 +346,8 @@ class PostNormalizeIRSCheckerV6:
                 api_handoff_refs=api_handoff_refs,
                 known_child_worker_ids=child_ids,
                 resource_contract_bindings=self._get_bindings(context),
+                step_variable_relation_plan=self._relation_plan(context),
+                composite_output_plans=self._composite_output_plans(context),
             )
 
         name_slot = SlotSatisfaction(
@@ -344,7 +356,28 @@ class PostNormalizeIRSCheckerV6:
             relation="direct",
         )
         producer_spec = irs.get_slot("producer")
-        if index.is_produced(output_name):
+        fulfillment = self._fulfillment_for(context, output_name)
+        if fulfillment is not None and fulfillment.status == "produced":
+            producer = SlotSatisfaction(slot_name="producer", status="satisfied")
+            completeness = "complete"
+        elif fulfillment is not None and fulfillment.status == "deferred":
+            producer = SlotSatisfaction(
+                slot_name="producer",
+                status="missing",
+                diagnostic_kind="required_output_deferred",
+                diagnostic_required_for="complete",
+                diagnostic_blocks_rendering=False,
+                explanation=(
+                    f"Required output '{output_name}' ({output_desc}) is deferred "
+                    "behind an API response whose return contract is not yet known."
+                ),
+                suggested_resolution=(
+                    "Declare the API return contract or add a source-backed "
+                    f"producer step for '{output_name}'."
+                ),
+            )
+            completeness = "partial"
+        elif fulfillment is None and index.is_produced(output_name):
             producer = SlotSatisfaction(slot_name="producer", status="satisfied")
             completeness = "complete"
         else:
@@ -401,7 +434,6 @@ class PostNormalizeIRSCheckerV6:
         demand_id = str(self._demand_attr(demand, "demand_id", ""))
         direction = str(self._demand_attr(demand, "direction", "output"))
         requiredness = str(self._demand_attr(demand, "requiredness", "unspecified"))
-        demand_required = self._demand_attr(demand, "required", None)
         evidence_text = str(self._demand_attr(demand, "evidence_text", ""))
         source_span_ids = list(self._demand_attr(demand, "source_span_ids", []))
         matching_bindings: list[ResourceContractBindingIR] = instance.metadata[
@@ -497,6 +529,8 @@ class PostNormalizeIRSCheckerV6:
                 api_handoff_refs=self._build_api_handoff_refs(worker_plan),
                 known_child_worker_ids=self._child_worker_ids(worker_plan),
                 resource_contract_bindings=self._get_bindings(context),
+                step_variable_relation_plan=self._relation_plan(context),
+                composite_output_plans=self._composite_output_plans(context),
             )
             produced_bindings = [
                 binding for binding in matching_bindings
@@ -506,24 +540,49 @@ class PostNormalizeIRSCheckerV6:
                 )
             ]
             if not produced_bindings:
+                deferred_bindings = [
+                    binding for binding in matching_bindings
+                    if (
+                        (state := self._fulfillment_for(context, binding.resource_name))
+                        is not None
+                        and state.status == "deferred"
+                    )
+                ]
                 producer = SlotSatisfaction(
                     slot_name="producer",
                     status="missing",
                     diagnostic_kind=(
-                        producer_spec.missing_diagnostic
-                        if producer_spec else "missing_output_producer"
+                        "required_output_deferred"
+                        if deferred_bindings
+                        else (
+                            producer_spec.missing_diagnostic
+                            if producer_spec else "missing_output_producer"
+                        )
                     ),
                     diagnostic_required_for=demand_id,
                     diagnostic_blocks_rendering=False,
                     explanation=(
-                        f"Resource contract output '{demand_id}' "
-                        f"(requiredness={requiredness}) has materialized "
-                        f"resource(s) {', '.join(b.resource_name for b in matching_bindings)} "
-                        "but no renderable producer."
+                        (
+                            f"Resource contract output '{demand_id}' is deferred "
+                            "behind an API response whose return contract is not "
+                            "yet known."
+                        )
+                        if deferred_bindings
+                        else (
+                            f"Resource contract output '{demand_id}' "
+                            f"(requiredness={requiredness}) has materialized "
+                            f"resource(s) {', '.join(b.resource_name for b in matching_bindings)} "
+                            "but no renderable producer."
+                        )
                     ),
                     suggested_resolution=(
-                        "Add a source-backed step or handoff that produces the "
-                        "materialized resource name with the same resource kind."
+                        "Declare the API return contract or add a source-backed "
+                        "producer for the deferred resource."
+                        if deferred_bindings
+                        else (
+                            "Add a source-backed step or handoff that produces the "
+                            "materialized resource name with the same resource kind."
+                        )
                     ),
                 )
         elif direction == "output" and requiredness == "unspecified" and matching_bindings:
@@ -536,6 +595,8 @@ class PostNormalizeIRSCheckerV6:
                 api_handoff_refs=self._build_api_handoff_refs(worker_plan),
                 known_child_worker_ids=self._child_worker_ids(worker_plan),
                 resource_contract_bindings=self._get_bindings(context),
+                step_variable_relation_plan=self._relation_plan(context),
+                composite_output_plans=self._composite_output_plans(context),
             )
             produced_bindings = [
                 binding for binding in matching_bindings
@@ -589,6 +650,24 @@ class PostNormalizeIRSCheckerV6:
         if isinstance(ws_resources, WorkerScopedResourceIR):
             return list(ws_resources.resource_contract_bindings)
         return []
+
+    @staticmethod
+    def _relation_plan(context: IRSCheckContext) -> object | None:
+        return getattr(context.worker_steps, "step_variable_relation_plan", None)
+
+    @staticmethod
+    def _composite_output_plans(context: IRSCheckContext) -> tuple[object, ...]:
+        return tuple(getattr(context.worker_steps, "composite_output_plans", ()) or ())
+
+    @staticmethod
+    def _fulfillment_for(
+        context: IRSCheckContext,
+        output_name: str,
+    ) -> object | None:
+        for state in context.metadata.get("required_output_fulfillment") or ():
+            if getattr(state, "output_name", None) == output_name:
+                return state
+        return None
 
     @staticmethod
     def _binding_exists_in_registry(
