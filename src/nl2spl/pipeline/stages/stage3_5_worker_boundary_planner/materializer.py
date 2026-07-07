@@ -100,7 +100,7 @@ class WorkerPlanMaterializer:
             self._materialize_accepted(
                 decisions, candidates_by_id, hard_inputs, hard_outputs,
                 span_order, main_worker, all_demand_ids,
-                api_consumed_span_ids or set(),
+                api_consumed_span_ids or set(), behavior_all,
             )
         )
         warnings.extend(decision_warnings)
@@ -148,7 +148,11 @@ class WorkerPlanMaterializer:
 
         all_workers = [main_worker] + child_workers
         if behavior_all:
-            self._assign_ownership(all_workers, behavior_all)
+            self._assign_ownership(
+                all_workers,
+                behavior_all,
+                excluded_span_ids=set(api_consumed_span_ids or set()),
+            )
 
         rejected += [d for d in materialized_decisions if d.decision != "extract_child_worker"]
 
@@ -190,6 +194,7 @@ class WorkerPlanMaterializer:
         main_worker: WorkerSpecIR,
         all_demand_ids: set[str] | None = None,
         api_consumed_span_ids: set[str] | None = None,
+        behavior_span_ids: set[str] | None = None,
     ) -> tuple[
         list[WorkerSpecIR],
         list[WorkerHandoffIR],
@@ -227,6 +232,30 @@ class WorkerPlanMaterializer:
                     "Accepted decision references an unknown candidate.",
                 )
                 materialized_decisions.append(rejected_decision)
+                continue
+
+            known_behavior_spans = (
+                set(span_order)
+                if span_order
+                else set(behavior_span_ids or set())
+            )
+            unknown_candidate_spans = sorted(
+                set(candidate.source_span_ids) - known_behavior_spans,
+                key=_span_sort_key,
+            )
+            if unknown_candidate_spans:
+                warnings.append(
+                    f"Candidate {candidate.candidate_id} accepted but references "
+                    f"unknown behavior spans {unknown_candidate_spans}; not "
+                    "materializing as child worker."
+                )
+                rejected_decision = self._reject_decision(
+                    decision,
+                    "insufficient_semantic_boundary",
+                    "Accepted candidate references unknown behavior spans.",
+                )
+                materialized_decisions.append(rejected_decision)
+                rejected.append(rejected_decision)
                 continue
 
             api_overlap = sorted(set(candidate.source_span_ids) & api_consumed)
@@ -687,12 +716,14 @@ class WorkerPlanMaterializer:
     def _assign_ownership(
         workers: list[WorkerSpecIR],
         behavior_span_ids: set[str],
+        *,
+        excluded_span_ids: set[str] | None = None,
     ) -> None:
         assigned: set[str] = set()
         for w in workers:
             if w.kind != "main":
                 assigned.update(w.owned_span_ids)
-        unassigned = behavior_span_ids - assigned
+        unassigned = behavior_span_ids - assigned - set(excluded_span_ids or set())
         if unassigned:
             main_worker = next((w for w in workers if w.kind == "main"), None)
             if main_worker:

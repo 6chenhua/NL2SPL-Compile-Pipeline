@@ -94,8 +94,8 @@ class ExecutorMixin:
     ) -> WorkerPlanIR:
         """Run Stage 3.5a/3.5b/3.5c as separate compiler sub-stages."""
         hard_inputs, hard_outputs = self._hard_fact_contracts(canonical_input)
-        behavior_span_ids = set(routes.behavior)
         known_span_ids = {span.span_id for span in spans}
+        behavior_span_ids = set(routes.behavior) & known_span_ids
 
         try:
             exclusion_view = build_worker_boundary_exclusion_view(
@@ -395,6 +395,12 @@ class ExecutorMixin:
         auto_rejected: list[WorkerBoundaryDecisionIR] = []
         for candidate in candidates:
             blocking = set(candidate.risks) & self._BLOCKING_RISKS
+            if (
+                not blocking
+                and "explicit_delegation" not in set(candidate.signals)
+                and set(candidate.risks) & self._PROMOTION_INCOMPLETENESS_RISKS
+            ):
+                blocking = set(candidate.risks) & self._PROMOTION_INCOMPLETENESS_RISKS
             if blocking:
                 risk = next(iter(blocking))
                 self.logger.info(
