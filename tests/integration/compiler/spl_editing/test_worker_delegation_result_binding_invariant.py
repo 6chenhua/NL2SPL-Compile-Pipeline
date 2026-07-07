@@ -85,6 +85,7 @@ def _directive():
     return SimpleNamespace(
         directive_id="directive_1",
         delegated_responsibility="Gather approved source evidence",
+        child_business_logic="Gather approved source evidence",
         selected_input_refs=(
             _SelectedInput(_Ref("variable:worker_main:user_request", "user_request")),
         ),

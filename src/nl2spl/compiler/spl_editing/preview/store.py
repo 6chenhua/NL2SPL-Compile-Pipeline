@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import copy
 import time
-from typing import Any, Dict
+from typing import Any
 
 from nl2spl.compiler.spl_editing.preview.model import PreviewMaterializationResult
 
 
 class PreviewStoreError(ValueError):
     """Exception raised by PreviewStore for validation or lookup failures."""
+
     pass
 
 
@@ -23,7 +24,7 @@ class PreviewStore:
     """
 
     def __init__(self) -> None:
-        self._store: Dict[str, Dict[str, Any]] = {}
+        self._store: dict[str, dict[str, Any]] = {}
 
     def put(
         self,
@@ -91,12 +92,13 @@ class PreviewStore:
             )
         if record["base_snapshot_id"] != base_snapshot_id:
             raise PreviewStoreError(
-                f"Snapshot mismatch: preview has '{record['base_snapshot_id']}', got '{base_snapshot_id}'"
+                f"Snapshot mismatch: preview has '{record['base_snapshot_id']}', "
+                f"got '{base_snapshot_id}'"
             )
 
         return True
 
-    def _get_record(self, preview_id: str) -> Dict[str, Any]:
+    def _get_record(self, preview_id: str) -> dict[str, Any]:
         if preview_id not in self._store:
             raise PreviewStoreError(f"Preview '{preview_id}' not found.")
 

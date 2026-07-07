@@ -52,9 +52,7 @@ class PreviewApplyExpectedState:
         typed_plan_hashes = tuple(self.slice_typed_plan_hashes)
         for ref in typed_plan_hashes:
             if not isinstance(ref, StageSliceTypedPlanRef):
-                raise TypeError(
-                    "slice_typed_plan_hashes must contain StageSliceTypedPlanRef"
-                )
+                raise TypeError("slice_typed_plan_hashes must contain StageSliceTypedPlanRef")
         object.__setattr__(self, "slice_typed_plan_hashes", typed_plan_hashes)
 
         construct_hashes = tuple(self.preview_construct_hashes)
@@ -120,8 +118,6 @@ def validate_preview_not_stale(
     }
     for field_name, (actual, expected_value) in comparisons.items():
         if actual != expected_value:
-            raise PreviewStaleError(
-                f"Preview '{preview_id}' is stale: {field_name} mismatch."
-            )
+            raise PreviewStaleError(f"Preview '{preview_id}' is stale: {field_name} mismatch.")
 
     return preview

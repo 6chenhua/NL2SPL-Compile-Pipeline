@@ -177,6 +177,7 @@ class WorkerDelegationDirectiveDraft:
     contract_version: str
     base_revision: str
     delegated_responsibility: DelegatedResponsibilityDraft | None
+    child_business_logic: str | None
     selected_input_ref_ids: tuple[str, ...]
     input_empty_semantics: str | None
     returned_results: tuple[NewOutputDeclarationDraft, ...]
@@ -200,6 +201,7 @@ class NormalizedWorkerDelegationDirective:
     target_ref: str
     base_revision: str
     delegated_responsibility: str
+    child_business_logic: str
     selected_input_refs: tuple[ResolvedSelectableRef, ...]
     admitted_outputs: tuple[AdmittedOutputDeclaration, ...]
     invocation_timing: InvocationTimingDraft

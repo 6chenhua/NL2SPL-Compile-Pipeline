@@ -38,6 +38,9 @@ def test_no_r12_placeholders_in_src() -> None:
         "src/nl2spl/compiler/spl_editing/preview",
         "src/nl2spl/compiler/spl_editing/closure",
         "src/nl2spl/compiler/spl_editing/stage_slices",
+        "src/nl2spl/rendering",
+        "src/nl2spl/compiler/spl_editing/materialization",
+        "src/nl2spl/compiler/spl_editing/cli.py",
     }
 
     for py_file in src_dir.glob("**/*.py"):

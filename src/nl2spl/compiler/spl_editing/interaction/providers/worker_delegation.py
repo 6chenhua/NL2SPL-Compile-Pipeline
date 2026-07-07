@@ -20,20 +20,20 @@ class WorkerDelegationInteractionProvider:
         return self._define_child(spec, issue, option, subject, refset, snapshot)
 
     def _define_child(self, spec, issue, option, subject, refset, snapshot):
-        ref_options = tuple(
-            RepairInputOptionView(ref.ref_id, ref.display_label, ref.ref_id)
-            for ref in (refset.refs if refset is not None else ())
-            if ref.ref_role == "selectable_input"
+        ref_options = _ref_options(
+            refset,
+            role="selectable_input",
+            allowed_kinds={"variable", "worker_input", "step_output"},
         )
         placement_options = tuple(
             RepairInputOptionView(ref.ref_id, ref.display_label, ref.ref_id)
             for ref in (refset.refs if refset is not None else ())
             if ref.ref_role == "placement_anchor"
         )
-        result_target_options = tuple(
-            RepairInputOptionView(ref.ref_id, ref.display_label, ref.ref_id)
-            for ref in (refset.refs if refset is not None else ())
-            if ref.ref_role == "binding_target"
+        result_target_options = _ref_options(
+            refset,
+            role="binding_target",
+            allowed_kinds={"variable", "worker_input", "step_output"},
         )
         output_schema = RepairInputSchemaView(
             schema_id="worker_delegation.new_child_output.v1",
@@ -181,3 +181,22 @@ class WorkerDelegationInteractionProvider:
             input_readiness="input_required",
             fields=fields,
         )
+
+
+def _ref_options(
+    refset,
+    *,
+    role: str,
+    allowed_kinds: set[str],
+) -> tuple[RepairInputOptionView, ...]:
+    seen: set[str] = set()
+    options: list[RepairInputOptionView] = []
+    for ref in (refset.refs if refset is not None else ()):
+        if ref.ref_role != role or ref.ref_kind not in allowed_kinds:
+            continue
+        key = ref.canonical_name
+        if key in seen:
+            continue
+        seen.add(key)
+        options.append(RepairInputOptionView(ref.ref_id, ref.display_label, ref.ref_id))
+    return tuple(options)

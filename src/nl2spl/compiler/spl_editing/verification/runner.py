@@ -1,4 +1,4 @@
-﻿"""Verification runner --orchestrates Lane A/B replay and diagnostics diff.
+"""Verification runner --orchestrates Lane A/B replay and diagnostics diff.
 
 Does NOT contain patch-specific success rules --those live in
 per-patch verifiers inside their patch directories.
@@ -28,6 +28,7 @@ from nl2spl.compiler.spl_editing.verification.materialization_authority_verifier
 from nl2spl.compiler.spl_editing.verification.selected_ref_verifier import (
     SelectedRefVerifier,
 )
+from nl2spl.ir.diagnostics import CompileDiagnostic
 
 _VALID_LANES = frozenset({"A", "B"})
 
@@ -85,10 +86,22 @@ class VerificationRunner:
         """
         lane = self._select_lane(patch.verification_lane)
 
+        try:
+            base_artifacts = lane.replay(base_snapshot)
+            base_replayed_diagnostics = base_artifacts.consolidated_diagnostics
+        except PatchValidationError:
+            # The pre-repair snapshot can be intentionally incomplete for the
+            # selected lane.  Verification still needs the stored diagnostic
+            # baseline so the patch can prove it resolves its target.  Patched
+            # replay remains fail-closed.
+            base_replayed_diagnostics = ()
         patched_artifacts = lane.replay(patched_snapshot)
 
         diff_result = self._diff.compare(
-            before=base_snapshot.compile_diagnostics,
+            before=_merge_diagnostics(
+                base_snapshot.compile_diagnostics,
+                base_replayed_diagnostics,
+            ),
             after=patched_artifacts.consolidated_diagnostics,
         )
 
@@ -158,3 +171,21 @@ class VerificationRunner:
                 f"Unknown verification lane '{lane_name}'. Must be one of {sorted(_VALID_LANES)}."
             )
         return self._lane_a if lane_name == "A" else self._lane_b
+
+
+def _merge_diagnostics(
+    stored: tuple[CompileDiagnostic, ...],
+    replayed: tuple[CompileDiagnostic, ...],
+) -> tuple[CompileDiagnostic, ...]:
+    """Merge stored and replayed baseline diagnostics by stable diagnostic id.
+
+    Stored snapshots may include selected stage-local diagnostics that are not
+    emitted by a replay lane, while replay lanes can expose deterministic
+    post-normalize diagnostics that were absent from older persisted snapshots.
+    Verification diffs should compare the patched replay against this full
+    before-state baseline.
+    """
+    merged: dict[str, CompileDiagnostic] = {}
+    for diagnostic in (*stored, *replayed):
+        merged.setdefault(diagnostic.diagnostic_id, diagnostic)
+    return tuple(merged.values())

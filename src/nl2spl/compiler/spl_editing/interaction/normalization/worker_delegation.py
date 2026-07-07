@@ -35,10 +35,12 @@ def normalize_worker_delegation_directive(
         parent_ref = _resolved(refset.get_ref(item.parent_ref_id)) if item.parent_ref_id else None
         usage_seeds.append((admitted, parent_ref, item.create_parent_local_temporary))
     responsibility = draft.delegated_responsibility.text
+    business_logic = draft.child_business_logic or responsibility
     payload = {
         "draft": draft.draft_id,
         "target": target_ref,
         "responsibility": responsibility,
+        "business_logic": business_logic,
         "refs": [item.ref.ref_id for item in selected],
         "outputs": [item.output_id for item in admitted_outputs],
         "timing": timing.placement_mode,
@@ -75,6 +77,7 @@ def normalize_worker_delegation_directive(
         target_ref=target_ref,
         base_revision=draft.base_revision,
         delegated_responsibility=responsibility,
+        child_business_logic=business_logic,
         selected_input_refs=selected,
         admitted_outputs=admitted_outputs,
         invocation_timing=timing,

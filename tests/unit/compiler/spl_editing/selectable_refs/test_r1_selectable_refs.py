@@ -239,6 +239,9 @@ def test_resource_variable_file_and_api_same_name_do_not_collide() -> None:
     assert file_ref is not None
     assert api_ref is not None
     assert len({variable_ref.ref_id, file_ref.ref_id, api_ref.ref_id}) == 3
+    assert variable_ref.ref_role == "selectable_input"
+    assert file_ref.ref_role == "selectable_input"
+    assert api_ref.ref_role == "api_resource"
 
 
 def test_same_ref_in_same_snapshot_is_stable() -> None:

@@ -109,6 +109,26 @@ class _StubLane(LaneAReplayAdapter):
         )
 
 
+class _ReplayOnlyBaselineLane(LaneAReplayAdapter):
+    def replay(self, snapshot):
+        if snapshot.overlay_version == 0:
+            return VerificationArtifacts(
+                consolidated_diagnostics=(_diag("replayed_blocker"),),
+                rendered_spl=snapshot.final_spl or "",
+            )
+        return VerificationArtifacts(
+            consolidated_diagnostics=(_diag("replayed_blocker"),),
+            rendered_spl=snapshot.final_spl or "",
+        )
+
+
+class _FailingBaseReplayLane(LaneAReplayAdapter):
+    def replay(self, snapshot):
+        if snapshot.overlay_version == 0:
+            raise PatchValidationError("base is intentionally incomplete")
+        return VerificationArtifacts(consolidated_diagnostics=())
+
+
 class TestB4VerificationRunner:
     """B4: VerificationRunner orchestrates lane + diff + verifier."""
 
@@ -140,6 +160,25 @@ class TestB4VerificationRunner:
 
     def test_lane_a_success(self) -> None:
         runner = self._runner()
+        diag = _diag("diag_target")
+        base = ArtifactSnapshot("snap_1", "run_1", 0, compile_diagnostics=(diag,))
+        patched = ArtifactSnapshot("snap_1", "run_1", 1, compile_diagnostics=())
+        result = runner.verify(self._patch(), base, patched)
+        assert result.accepted is True
+        assert result.resolved_diagnostic_ids == ("diag_target",)
+
+    def test_replayed_baseline_diagnostics_do_not_become_new_blocking(self) -> None:
+        runner = VerificationRunner(lane_a=_ReplayOnlyBaselineLane())
+        diag = _diag("diag_target")
+        base = ArtifactSnapshot("snap_1", "run_1", 0, compile_diagnostics=(diag,))
+        patched = ArtifactSnapshot("snap_1", "run_1", 1, compile_diagnostics=())
+        result = runner.verify(self._patch(), base, patched)
+        assert result.accepted is True
+        assert result.resolved_diagnostic_ids == ("diag_target",)
+        assert result.new_blocking_diagnostic_ids == ()
+
+    def test_base_replay_failure_falls_back_to_stored_diagnostics(self) -> None:
+        runner = VerificationRunner(lane_a=_FailingBaseReplayLane())
         diag = _diag("diag_target")
         base = ArtifactSnapshot("snap_1", "run_1", 0, compile_diagnostics=(diag,))
         patched = ArtifactSnapshot("snap_1", "run_1", 1, compile_diagnostics=())
@@ -183,7 +222,7 @@ class TestB4VerificationRunner:
         base = ArtifactSnapshot("snap_1", "run_1", 0)
         patched = ArtifactSnapshot("snap_1", "run_1", 1)
         runner.verify(self._patch(), base, patched)
-        assert called == ["A"], "Injected lane adapter must be called"
+        assert called == ["A", "A"], "Injected lane adapter must replay before/after"
 
     def test_unknown_lane_raises_typed_error(self) -> None:
         """B4: Unknown lane 'C' raises PatchValidationError, not fallback to A."""

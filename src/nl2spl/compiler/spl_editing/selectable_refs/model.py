@@ -46,6 +46,7 @@ class SelectableRef:
         "target_worker",
         "target_exception_flow",
         "source_evidence",
+        "api_resource",
     ]
     canonical_name: str
     display_label: str

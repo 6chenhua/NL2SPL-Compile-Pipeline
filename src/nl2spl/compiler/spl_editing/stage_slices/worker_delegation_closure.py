@@ -740,9 +740,27 @@ def _declare_if_missing(symbols, worker_id, block_id, field, *, declared: bool) 
     key = ("worker", worker_id, field.name)
     existing = symbols._variables.get(key)
     if existing is not None:
-        if existing.data_type != field.data_type or existing.declared != declared:
+        if declared and not existing.declared:
+            existing.data_type = field.data_type
+            existing.declared = True
+            return [f"symbol:worker:{worker_id}:{field.name}"]
+        if _canonical_type(existing.data_type) != _canonical_type(field.data_type):
+            if existing.source == "user_confirmed_repair":
+                existing.data_type = field.data_type
+                existing.description = field.description
+                existing.block_ref = block_id
+                return [f"symbol:worker:{worker_id}:{field.name}"]
             raise StageSliceValidationError(
-                f"Existing worker-local symbol '{field.name}' conflicts with the plan."
+                f"Existing worker-local symbol '{field.name}' conflicts with the plan "
+                f"({existing.data_type!r} vs {field.data_type!r})."
+            )
+        if existing.declared != declared:
+            if declared and not existing.declared:
+                existing.declared = True
+                return [f"symbol:worker:{worker_id}:{field.name}"]
+            raise StageSliceValidationError(
+                f"Existing worker-local symbol '{field.name}' conflicts with the plan "
+                f"(declared={existing.declared!r} vs {declared!r})."
             )
         return []
     symbols.declare_scoped(
@@ -756,6 +774,10 @@ def _declare_if_missing(symbols, worker_id, block_id, field, *, declared: bool) 
     )
     symbols._variables[key].declared = declared
     return [f"symbol:worker:{worker_id}:{field.name}"]
+
+
+def _canonical_type(data_type: str) -> str:
+    return "".join(data_type.split()).lower()
 
 
 def build_worker_delegation_stage_slice_registry() -> StageSliceRegistry:

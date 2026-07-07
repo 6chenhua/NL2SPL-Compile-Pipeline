@@ -72,8 +72,8 @@ class LaneAReplayAdapter(LaneReplayAdapter):
         from nl2spl.compiler.irs.factory import build_irs_subsystem
         from nl2spl.compiler.irs.policy import IRSRuntimeConfig
         from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
-        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
         from nl2spl.pipeline.executable_gate import ExecutableElementGate
+        from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
         from nl2spl.pipeline.stages.stage10_worker_assembler.assembler import (
             WorkerAssembler,
         )
@@ -92,8 +92,25 @@ class LaneAReplayAdapter(LaneReplayAdapter):
             worker_block_plan=snapshot.worker_block_plan,
         )
 
+        api_decl_result = build_irs_subsystem(
+            IRSRuntimeConfig(enabled=True)
+        ).run_post_normalize_result(
+            worker=None,
+            worker_plan=snapshot.worker_plan,
+            worker_steps=snapshot.worker_step_plan,
+            symbol_table=snapshot.symbol_table,
+            resources=snapshot.resources,
+            worker_scoped_resources=snapshot.worker_scoped_resources,
+        )
+        renderable_resources = ResourceDeclarationGate().apply(
+            snapshot.resources,
+            api_decl_result.reports,
+            authority="post_normalize_irs",
+        )
+
         # 2. Gate
         gate = ExecutableElementGate()
+        gate.renderable_resource_registry_view = renderable_resources
         gated, render_info_list, gate_diags = gate.apply(
             pre_gate,
             snapshot.worker_plan,
@@ -102,15 +119,25 @@ class LaneAReplayAdapter(LaneReplayAdapter):
         gate_diagnostics = tuple(gate_diags)
 
         # 3. Post-normalize IRS
-        irs = build_irs_subsystem(IRSRuntimeConfig(enabled=True))
-        post_diags = irs.run_post_normalize(
-            gated,
+        required_output_fulfillment = _build_required_output_fulfillment(
+            worker_steps=snapshot.worker_step_plan,
             worker_plan=snapshot.worker_plan,
             symbol_table=snapshot.symbol_table,
-            resources=snapshot.resources,
+            resources=renderable_resources,
             worker_scoped_resources=snapshot.worker_scoped_resources,
         )
-        post_diagnostics = tuple(post_diags)
+        irs = build_irs_subsystem(IRSRuntimeConfig(enabled=True))
+        post_result = irs.run_post_normalize_result(
+            worker=gated,
+            worker_plan=snapshot.worker_plan,
+            worker_steps=snapshot.worker_step_plan,
+            symbol_table=snapshot.symbol_table,
+            resources=renderable_resources,
+            worker_scoped_resources=snapshot.worker_scoped_resources,
+            renderable_resource_registry_view=renderable_resources,
+            required_output_fulfillment=required_output_fulfillment,
+        )
+        post_diagnostics = tuple(post_result.diagnostics)
 
         # 4. Consolidate
         consolidator = DiagnosticConsolidator()
@@ -128,16 +155,13 @@ class LaneAReplayAdapter(LaneReplayAdapter):
             profile = AgentProfileIR(
                 persona=PersonaIR(role="Assistant", aspects=[]),
             )
-        resources = snapshot.resources
-        if resources is None:
-            resources = ResourceRegistryIR()
         symbol_table = snapshot.symbol_table
 
         renderer = SPLRenderer()
         spl_text, _errors, _warnings = renderer.render(
             gated,
             profile,
-            resources,
+            renderable_resources,
             symbol_table,
             list(gated.steps),
             list(snapshot.constraints),
@@ -197,8 +221,8 @@ class LaneBReplayAdapter(LaneReplayAdapter):
         from nl2spl.compiler.irs.factory import build_irs_subsystem
         from nl2spl.compiler.irs.policy import IRSRuntimeConfig
         from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
-        from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
         from nl2spl.pipeline.executable_gate import ExecutableElementGate
+        from nl2spl.pipeline.resource_declaration_gate import ResourceDeclarationGate
         from nl2spl.pipeline.stages.stage9_5_normalizer.normalizer import (
             IRNormalizer,
         )
@@ -241,8 +265,25 @@ class LaneBReplayAdapter(LaneReplayAdapter):
             worker_block_plan=nf_block,
         )
 
+        api_decl_result = build_irs_subsystem(
+            IRSRuntimeConfig(enabled=True)
+        ).run_post_normalize_result(
+            worker=None,
+            worker_plan=snapshot.worker_plan,
+            worker_steps=nf_step,
+            symbol_table=nf_symbols,
+            resources=snapshot.resources,
+            worker_scoped_resources=snapshot.worker_scoped_resources,
+        )
+        renderable_resources = ResourceDeclarationGate().apply(
+            snapshot.resources,
+            api_decl_result.reports,
+            authority="post_normalize_irs",
+        )
+
         # 3. Gate
         gate = ExecutableElementGate()
+        gate.renderable_resource_registry_view = renderable_resources
         gated, render_info_list, gate_diags = gate.apply(
             pre_gate,
             snapshot.worker_plan,
@@ -251,15 +292,25 @@ class LaneBReplayAdapter(LaneReplayAdapter):
         gate_diagnostics = tuple(gate_diags)
 
         # 4. Post-normalize IRS
-        irs = build_irs_subsystem(IRSRuntimeConfig(enabled=True))
-        post_diags = irs.run_post_normalize(
-            gated,
+        required_output_fulfillment = _build_required_output_fulfillment(
+            worker_steps=nf_step,
             worker_plan=snapshot.worker_plan,
             symbol_table=nf_symbols,
-            resources=snapshot.resources,
+            resources=renderable_resources,
             worker_scoped_resources=snapshot.worker_scoped_resources,
         )
-        post_diagnostics = tuple(post_diags)
+        irs = build_irs_subsystem(IRSRuntimeConfig(enabled=True))
+        post_result = irs.run_post_normalize_result(
+            worker=gated,
+            worker_plan=snapshot.worker_plan,
+            worker_steps=nf_step,
+            symbol_table=nf_symbols,
+            resources=renderable_resources,
+            worker_scoped_resources=snapshot.worker_scoped_resources,
+            renderable_resource_registry_view=renderable_resources,
+            required_output_fulfillment=required_output_fulfillment,
+        )
+        post_diagnostics = tuple(post_result.diagnostics)
 
         # 5. Consolidate
         consolidator = DiagnosticConsolidator()
@@ -277,15 +328,11 @@ class LaneBReplayAdapter(LaneReplayAdapter):
             profile = AgentProfileIR(
                 persona=PersonaIR(role="Assistant", aspects=[]),
             )
-        resources = snapshot.resources
-        if resources is None:
-            resources = ResourceRegistryIR()
-
         renderer = SPLRenderer()
         spl_text, _r_errs, _r_warns = renderer.render(
             gated,
             profile,
-            resources,
+            renderable_resources,
             nf_symbols,
             list(gated.steps),
             list(snapshot.constraints),
@@ -300,3 +347,71 @@ class LaneBReplayAdapter(LaneReplayAdapter):
             consolidated_diagnostics=consolidated_diagnostics,
             rendered_spl=spl_text,
         )
+
+
+def _build_required_output_fulfillment(
+    *,
+    worker_steps: Any,
+    worker_plan: Any,
+    symbol_table: Any,
+    resources: Any,
+    worker_scoped_resources: Any,
+) -> list[Any]:
+    """Mirror the pipeline required-output fulfillment context for replay lanes."""
+    from nl2spl.compiler.producer_index import ProducerIndex
+
+    output_names = _required_output_names(symbol_table, worker_scoped_resources)
+    if not output_names:
+        return []
+    bindings = _resource_contract_bindings(worker_scoped_resources)
+    handoffs = list(getattr(worker_plan, "handoffs", ()) or ())
+    workers = list(getattr(worker_plan, "workers", ()) or ())
+    apis = list(getattr(resources, "apis", ()) or ())
+    index = ProducerIndex(
+        steps=list(worker_steps.get_all_steps()),
+        handoffs=handoffs,
+        declared_apis={api.api_name for api in apis},
+        extra_api_names={
+            handoff.api_ref for handoff in handoffs if getattr(handoff, "api_ref", None)
+        },
+        api_handoff_refs={
+            handoff.handoff_id: handoff.api_ref
+            for handoff in handoffs
+            if getattr(handoff, "api_ref", None)
+        },
+        known_child_worker_ids={
+            worker.worker_id
+            for worker in workers
+            if getattr(worker, "boundary_kind", None) not in {"main_worker", "not_a_worker"}
+        },
+        resource_contract_bindings=bindings,
+        step_variable_relation_plan=getattr(
+            worker_steps,
+            "step_variable_relation_plan",
+            None,
+        ),
+        composite_output_plans=getattr(worker_steps, "composite_output_plans", ()),
+    )
+    return index.fulfillment_for_many(output_names)
+
+
+def _required_output_names(
+    symbol_table: Any,
+    worker_scoped_resources: Any,
+) -> list[str]:
+    names = {
+        variable.name
+        for variable in symbol_table.get_all_declared_variables().values()
+        if variable.source == "output"
+    }
+    for binding in _resource_contract_bindings(worker_scoped_resources):
+        if getattr(binding, "direction", None) == "output":
+            names.add(binding.resource_name)
+    return sorted(names)
+
+
+def _resource_contract_bindings(worker_scoped_resources: Any) -> list[Any]:
+    bindings = getattr(worker_scoped_resources, "resource_contract_bindings", None)
+    if bindings is None:
+        return []
+    return list(bindings)

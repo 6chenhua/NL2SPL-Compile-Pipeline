@@ -129,10 +129,14 @@ def test_expected_correct_deferred_validation_issue_detail_presentation(
     run_id = service.register_snapshot_file(path)
     presentation = SPLEditingPresentationService(service)
 
-    # irs_b1a69d1cc286 is a deferred validation issue in the snapshot
-    detail = presentation.get_issue_detail_presentation(run_id, "irs_b1a69d1cc286")
+    issue = next(
+        item
+        for item in service.list_issue_inventory(run_id).deferred
+        if item.irs_ref.construct_type == "API_DECLARATION"
+    )
+    detail = presentation.get_issue_detail_presentation(run_id, issue.issue_id)
     assert detail is not None
-    assert detail.issue_id == "irs_b1a69d1cc286"
+    assert detail.issue_id == issue.issue_id
     assert detail.presentation_quality is not None
 
     # Verify that available repairs has only review-only / no patch types
@@ -143,12 +147,14 @@ def test_expected_correct_deferred_validation_issue_detail_presentation(
     # Verify that we cannot generate suggestions for non-editable issues
     msg = "Cannot generate suggestions for non-editable issue"
     with pytest.raises(SPLEditingError, match=msg):
-        presentation.generate_suggestions_for_option(run_id, "irs_b1a69d1cc286", 0)
+        presentation.generate_suggestions_for_option(run_id, issue.issue_id, 0)
 
 
 def test_expected_correct_explanation_cache_handles_deferred_validation_issues(
     tmp_path: Path,
 ) -> None:
+    from nl2spl.compiler.spl_editing.cli import _build_default_service
+
     path = _copy_snapshot(tmp_path)
     llm = _LLM()
     llm.release.set()
@@ -158,6 +164,12 @@ def test_expected_correct_explanation_cache_handles_deferred_validation_issues(
     result = future.result(timeout=10)
     assert result.status == "ready"
     cache = read_explanation_cache(path)
-    assert "irs_b1a69d1cc286" in cache["items"]
-
-
+    service = _build_default_service(suggestion_llm=_LLM())
+    run_id = service.register_snapshot_file(path)
+    deferred_api_issue_ids = {
+        issue.issue_id
+        for issue in service.list_issue_inventory(run_id).deferred
+        if issue.irs_ref.construct_type == "API_DECLARATION"
+    }
+    assert deferred_api_issue_ids
+    assert deferred_api_issue_ids.issubset(cache["items"].keys())

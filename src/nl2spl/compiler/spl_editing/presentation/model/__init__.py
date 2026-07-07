@@ -7,6 +7,10 @@ from nl2spl.compiler.spl_editing.presentation.model.advanced import (
 from nl2spl.compiler.spl_editing.presentation.model.confirmation import (
     ApplyConfirmationView,
 )
+from nl2spl.compiler.spl_editing.presentation.model.drafting import (
+    RepairDraftCreationView,
+    RepairDraftingCapabilityView,
+)
 from nl2spl.compiler.spl_editing.presentation.model.issue import (
     IssueCardView,
     IssueCategorySummary,
@@ -38,6 +42,8 @@ __all__ = [
     "IssueSectionView",
     "IssueSubjectView",
     "RepairOptionView",
+    "RepairDraftCreationView",
+    "RepairDraftingCapabilityView",
     "RunAdvancedDetails",
     "RunPresentationView",
     "SuggestionPresentationView",

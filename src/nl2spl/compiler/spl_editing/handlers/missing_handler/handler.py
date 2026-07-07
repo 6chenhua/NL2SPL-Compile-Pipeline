@@ -250,7 +250,10 @@ class MissingHandlerRepairHandler(IssueRepairHandler):
                 payload=intent,
                 verification_lane=entry.default_verification_lane,
             ),
-            spl_preview=f"[GENERAL_COMMAND] {handler_goal.strip()}",
+            spl_preview=(
+                "StepIR(command_type=GENERAL_COMMAND, "
+                f"text={handler_goal.strip()!r})"
+            ),
         )
 
     @staticmethod

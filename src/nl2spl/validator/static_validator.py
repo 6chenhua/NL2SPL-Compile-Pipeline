@@ -5,6 +5,22 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from nl2spl.validator.qualified_ref_parser import (
+    parse_qualified_ref,
+    parse_ref_name,
+    unwrap_ref_tag,
+)
+from nl2spl.validator.type_field_validator import (
+    DIAGNOSTIC_UNDECLARED_TOP_TIER_VARIABLE,
+    DIAGNOSTIC_UNKNOWN_FIELD_IN_STRUCTURED_TYPE,
+    extract_type_field_context,
+    validate_qualified_ref_field,
+)
+
+DIAGNOSTIC_MULTI_COMMAND_RESULT = "multi_command_result"
+DIAGNOSTIC_INVALID_FIELD_ASSIGNMENT_TARGET = "invalid_field_assignment_target"
+DIAGNOSTIC_INVALID_REF_IDENTIFIER = "invalid_ref_identifier"
+
 
 @dataclass
 class ValidationError:
@@ -21,6 +37,7 @@ class ValidationError:
     column: int
     message: str
     severity: str = "error"
+    diagnostic_code: str | None = None
 
 
 @dataclass
@@ -135,20 +152,7 @@ class StaticValidator:
                             )
                         )
 
-            # Check for REF tags
-            ref_tags = re.findall(r"<REF>([^<]+)</REF>", stripped)
-            for ref in ref_tags:
-                # REF tags should contain valid identifiers
-                ref = ref.strip()
-                if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", ref):
-                    errors.append(
-                        ValidationError(
-                            line=i,
-                            column=0,
-                            message=f"Invalid REF tag identifier: {ref}",
-                            severity="warning",
-                        )
-                    )
+            errors.extend(self._validate_ref_tags(stripped, i))
 
             # Check for required sections
             if i == 0 and not stripped.startswith("[DEFINE_AGENT:"):
@@ -194,6 +198,9 @@ class StaticValidator:
                 )
 
         errors.extend(self._validate_required_role(lines))
+        errors.extend(self._validate_result_clauses(lines))
+        errors.extend(self._validate_field_assignment_targets(lines))
+        errors.extend(self._validate_variable_references(spl_text, lines))
 
         # is_valid is True only if there are no errors (warnings are OK)
         is_valid = not any(e.severity == "error" for e in errors)
@@ -311,27 +318,100 @@ class StaticValidator:
         """
         errors = []
 
-        # Extract variable declarations
-        var_declarations = re.findall(r'"([^"]+)"\s+(\w+):', spl_text)
-        declared_vars = {var for _, var in var_declarations}
-        inline_result_vars = self._inline_result_declarations(spl_text)
-        declared_vars.update(inline_result_vars)
+        type_context = extract_type_field_context(spl_text)
 
-        # Extract variable references
-        var_references = re.findall(r"<REF>(\w+)</REF>", spl_text)
+        # Extract all REF matches in spl_text
+        var_references: list[tuple[str, tuple[str, ...], int, int]] = []
+        for line_idx, line in enumerate(spl_text.split("\n")):
+            for match in re.finditer(r"<REF>\s*\*?([^<]+?)\s*</REF>", line):
+                ref_text = match.group(1).strip()
+                parsed = parse_qualified_ref(ref_text)
+                if parsed:
+                    var_references.append((parsed[0], parsed[1], line_idx, match.start()))
+                else:
+                    simple_name = parse_ref_name(ref_text)
+                    if simple_name:
+                        var_references.append((simple_name[0], (), line_idx, match.start()))
 
-        # Check for undeclared variables
-        for ref in var_references:
-            if ref not in declared_vars:
-                errors.append(f"Undeclared variable referenced: {ref}")
+        # Check for undeclared variables/fields using validate_qualified_ref_field
+        for top_name, field_path, line, col in var_references:
+            if field_path:
+                field_errors = validate_qualified_ref_field(
+                    top_name=top_name,
+                    field_path=field_path,
+                    context=type_context,
+                    line=line,
+                    column=col,
+                )
+                for fe in field_errors:
+                    if fe.diagnostic_code == DIAGNOSTIC_UNDECLARED_TOP_TIER_VARIABLE:
+                        errors.append(f"Undeclared variable referenced: {top_name}")
+                    elif fe.diagnostic_code == DIAGNOSTIC_UNKNOWN_FIELD_IN_STRUCTURED_TYPE:
+                        errors.append(
+                            f"Unknown field referenced: {top_name}.{'.'.join(field_path)}"
+                        )
+            else:
+                if top_name not in type_context.variable_types:
+                    errors.append(f"Undeclared variable referenced: {top_name}")
 
         # Check for unused variables
-        used_vars = set(var_references)
+        # We can extract all declared variable names from variable_types
+        # and inline declarations
+        used_vars = {top_name for top_name, _, _, _ in var_references}
+
+        # Get variable declarations for unused check (to preserve exact name list from spl_text)
+        var_declarations = re.findall(r'"([^"]+)"\s+(\w+):', spl_text)
+        # also inline result vars
+        inline_result_vars = self._inline_result_declarations(spl_text)
         used_vars.update(inline_result_vars)
         for _, var in var_declarations:
             if var not in used_vars:
                 errors.append(f"Unused variable declared: {var}")
 
+        return errors
+
+    def _validate_variable_references(
+        self,
+        spl_text: str,
+        lines: list[str],
+    ) -> list[ValidationError]:
+        """Validate variable references against declarations and types."""
+        errors: list[ValidationError] = []
+        if "[DEFINE_VARIABLES:]" not in spl_text:
+            return errors
+
+        type_context = extract_type_field_context(spl_text)
+
+        for line_idx, line in enumerate(lines):
+            stripped = line.strip()
+            for match in re.finditer(r"<REF>\s*\*?([^<]+?)\s*</REF>", stripped):
+                ref_text = match.group(1).strip()
+                parsed = parse_qualified_ref(ref_text)
+                if parsed:
+                    top_name, field_path = parsed
+                    errors.extend(
+                        validate_qualified_ref_field(
+                            top_name=top_name,
+                            field_path=field_path,
+                            context=type_context,
+                            line=line_idx,
+                            column=match.start(),
+                        )
+                    )
+                else:
+                    simple_name = parse_ref_name(ref_text)
+                    if simple_name:
+                        top_name = simple_name[0]
+                        if top_name not in type_context.variable_types:
+                            errors.append(
+                                ValidationError(
+                                    line=line_idx,
+                                    column=match.start(),
+                                    message=f"Undeclared variable referenced: {top_name}",
+                                    severity="error",
+                                    diagnostic_code=DIAGNOSTIC_UNDECLARED_TOP_TIER_VARIABLE,
+                                )
+                            )
         return errors
 
     def _inline_result_declarations(self, spl_text: str) -> set[str]:
@@ -349,6 +429,97 @@ class StaticValidator:
                 if name_match:
                     declared.add(name_match.group(1))
         return declared
+
+    def _structured_type_definitions(self, spl_text: str) -> dict[str, set[str]]:
+        """Parse simple DEFINE_TYPES structured declarations."""
+        definitions: dict[str, set[str]] = {}
+        for match in re.finditer(
+            r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\{\s*(.*?)\s*\}\s*$",
+            spl_text,
+            flags=re.MULTILINE,
+        ):
+            type_name = match.group(1)
+            fields: set[str] = set()
+            for item in self._split_result_items(match.group(2)):
+                field_match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*:", item)
+                if field_match:
+                    fields.add(field_match.group(1))
+            definitions[type_name] = fields
+        return definitions
+
+    def _validate_ref_tags(
+        self,
+        stripped_line: str,
+        line_idx: int,
+    ) -> list[ValidationError]:
+        """Validate REF tags, including qualified read references."""
+        errors: list[ValidationError] = []
+        for match in re.finditer(r"<REF>\s*\*?([^<]+?)\s*</REF>", stripped_line):
+            ref_text = match.group(1).strip()
+            if parse_ref_name(ref_text) is None:
+                errors.append(
+                    ValidationError(
+                        line=line_idx,
+                        column=match.start(),
+                        message=f"Invalid REF tag identifier: {ref_text}",
+                        severity="warning",
+                        diagnostic_code=DIAGNOSTIC_INVALID_REF_IDENTIFIER,
+                    )
+                )
+        return errors
+
+    def _validate_result_clauses(
+        self,
+        lines: list[str],
+    ) -> list[ValidationError]:
+        """Reject top-level comma-separated COMMAND_RESULT lists."""
+        errors: list[ValidationError] = []
+        pattern = re.compile(r"\b(RESULT|RESPONSE|VALUE)\s+(.+?)\s+(?:SET|APPEND)(?=\])")
+        for line_idx, line in enumerate(lines):
+            for match in pattern.finditer(line):
+                items = self._split_result_items(match.group(2))
+                if len(items) > 1:
+                    errors.append(
+                        ValidationError(
+                            line=line_idx,
+                            column=match.start(2),
+                            message=(
+                                "Multi COMMAND_RESULT is not allowed: use one "
+                                "structured composite variable"
+                            ),
+                            severity="error",
+                            diagnostic_code=DIAGNOSTIC_MULTI_COMMAND_RESULT,
+                        )
+                    )
+        return errors
+
+    def _validate_field_assignment_targets(
+        self,
+        lines: list[str],
+    ) -> list[ValidationError]:
+        """Reject qualified references as SET/APPEND targets in MVP."""
+        errors: list[ValidationError] = []
+        pattern = re.compile(r"\b(RESULT|RESPONSE|VALUE)\s+(.+?)\s+(?:SET|APPEND)(?=\])")
+        for line_idx, line in enumerate(lines):
+            for match in pattern.finditer(line):
+                for item in self._split_result_items(match.group(2)):
+                    unwrapped = unwrap_ref_tag(item)
+                    if unwrapped is None:
+                        continue
+                    inner, _is_value_ref = unwrapped
+                    if parse_qualified_ref(inner) is not None:
+                        errors.append(
+                            ValidationError(
+                                line=line_idx,
+                                column=match.start(2),
+                                message=(
+                                    "Qualified reference cannot be used as SET/APPEND target in MVP"
+                                ),
+                                severity="error",
+                                diagnostic_code=(DIAGNOSTIC_INVALID_FIELD_ASSIGNMENT_TARGET),
+                            )
+                        )
+        return errors
 
     @staticmethod
     def _split_result_items(text: str) -> list[str]:

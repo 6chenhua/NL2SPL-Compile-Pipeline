@@ -42,8 +42,10 @@ def test_preview_suggestion_does_not_mutate_snapshot_or_overlay() -> None:
 
     assert preview.preview_id.startswith("prev_")
     assert preview.base_snapshot_id == session.artifact_snapshot_id
-    assert "[EXCEPTION_FLOW]" in preview.rendered_preview
-    assert "[SEQUENTIAL_BLOCK]" in preview.rendered_preview
+    assert "Will ensure BLOCK for role handler_block" in preview.rendered_preview
+    assert "Will materialize COMMAND for role handler_action" in preview.rendered_preview
+    assert "COMMAND-X" not in preview.rendered_preview
+    assert "USING " not in preview.rendered_preview
     assert "Patch adapter" not in preview.rendered_preview
     assert "Target:" not in preview.rendered_preview
     assert "stage5." not in preview.rendered_preview

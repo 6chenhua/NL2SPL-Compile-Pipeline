@@ -50,6 +50,20 @@ def _runtime():
     return editing, presentation, run_id, issue, snapshot, revision
 
 
+def _assert_typed_preview_boundary(handle, expected_roles: set[str]) -> None:
+    typed_artifact = handle.preview.typed_artifact
+    assert typed_artifact is not None
+    roles = {node.role for node in typed_artifact.construct_nodes}
+    assert expected_roles.issubset(roles)
+    rendered = handle.preview.rendered_preview
+    assert "COMMAND-X" not in rendered
+    assert "USING " not in rendered
+    assert "ChildWorker_" not in rendered
+    assert "WorkerIR(" not in rendered
+    assert "ParentWorkerIR(" not in rendered
+    assert "StepIR(" not in rendered
+
+
 def test_keep_main_flow_typed_preview_apply_lane_b() -> None:
     editing, presentation, run_id, issue, snapshot, revision = _runtime()
     request = SubmitRepairDirectiveDraftRequest(
@@ -67,7 +81,7 @@ def test_keep_main_flow_typed_preview_apply_lane_b() -> None:
     submitted = presentation.submit_repair_directive_draft(request)
     assert submitted.input_readiness == "input_complete"
     handle = presentation.preview_repair_directive(submitted.normalized_directive_id)
-    assert "[MAIN_FLOW]" in handle.preview.rendered_preview
+    _assert_typed_preview_boundary(handle, {"main_flow_placement", "main_flow_command"})
     session, verification = presentation.apply_repair_preview(
         submitted.normalized_directive_id, handle.preview.preview_id
     )
@@ -231,6 +245,8 @@ def test_define_child_worker_complete_closure_lane_b() -> None:
         contract_version="1",
         revision_token=revision,
         field_values={
+            "child_task": "Gather approved source evidence",
+            "child_business_logic": "Gather approved source evidence and return delegated evidence",
             "delegated_responsibility": "Gather approved source evidence",
             "invocation_timing": "append",
             "result_usage": (
@@ -253,7 +269,15 @@ def test_define_child_worker_complete_closure_lane_b() -> None:
     submitted = presentation.submit_repair_directive_draft(request)
     assert submitted.input_readiness == "input_complete"
     handle = presentation.preview_repair_directive(submitted.normalized_directive_id)
-    assert "[WORKER: ChildWorker_" in handle.preview.rendered_preview
+    _assert_typed_preview_boundary(
+        handle,
+        {
+            "child_worker",
+            "child_command",
+            "worker_handoff",
+            "parent_invoke",
+        },
+    )
     directive = presentation._directives.get(submitted.normalized_directive_id)
     target = presentation._directive_context[directive.directive_id][2]
     bundle = build_worker_delegation_typed_plans(snapshot, target, directive)
@@ -400,6 +424,8 @@ def test_define_child_accepts_existing_parent_binding_target() -> None:
         "1",
         revision,
         {
+            "child_task": "Normalize source evidence",
+            "child_business_logic": "Normalize source evidence and return normalized evidence",
             "delegated_responsibility": "Normalize source evidence",
             "invocation_timing": "append",
             "result_usage": (
@@ -451,6 +477,8 @@ def test_define_child_accepts_typed_before_placement_anchor() -> None:
         "1",
         revision,
         {
+            "child_task": "Gather evidence before drafting",
+            "child_business_logic": "Gather evidence before drafting and return early evidence",
             "delegated_responsibility": "Gather evidence before drafting",
             "invocation_timing": "before",
             "result_usage": (
@@ -523,6 +551,8 @@ def test_define_child_verifier_rejects_marker_and_closure_negative_matrix() -> N
         "1",
         revision,
         {
+            "child_task": "Verify closure consistency",
+            "child_business_logic": "Verify closure consistency and return verified result",
             "delegated_responsibility": "Verify closure consistency",
             "invocation_timing": "append",
             "result_usage": (
@@ -624,6 +654,8 @@ def test_define_child_rejects_side_effect_only_and_conflicting_instruction() -> 
         "1",
         revision,
         {
+            "child_task": "Perform a side effect",
+            "child_business_logic": "Perform a side effect without returning a result",
             "delegated_responsibility": "Perform a side effect",
             "input_empty_semantics": "explicit_none",
             "invocation_timing": "append",
@@ -676,6 +708,8 @@ def test_parent_required_output_is_not_a_valid_result_binding_target() -> None:
         "1",
         revision,
         {
+            "child_task": "Build a report",
+            "child_business_logic": "Build a report and return the generated report",
             "delegated_responsibility": "Build a report",
             "input_empty_semantics": "explicit_none",
             "invocation_timing": "append",

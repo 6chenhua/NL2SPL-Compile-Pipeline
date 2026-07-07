@@ -206,8 +206,10 @@ class MissingOutputProducerHandler(IssueRepairHandler):
         if intent in previous_payloads:
             return []
 
+        preview_text = intent.repair_goal or intent.intent_summary or "Produce output."
         preview = (
-            f"[GENERAL_COMMAND] {intent.repair_goal or intent.intent_summary or 'Produce output.'}"
+            "StepIR(command_type=GENERAL_COMMAND, "
+            f"text={preview_text!r}, outputs=({self._output_name_from_target(issue)!r},))"
         )
         suggestion = RepairSuggestion(
             suggestion_id=f"{issue.issue_id}_sug_{len(previous_payloads):02d}",

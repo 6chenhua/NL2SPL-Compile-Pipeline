@@ -177,7 +177,6 @@ def _build_default_service(suggestion_llm=None) -> SPLEditingService:
         ),
     )
 
-
     from nl2spl.compiler.spl_editing.patches.convert_delegation_to_main_flow_step.applier import (
         ConvertDelegationToMainFlowStepApplier,
     )
@@ -316,7 +315,6 @@ def _build_generic_prompt_renderer():
     return PromptRenderer(section_renderer_registry=None)
 
 
-
 def _load_snapshot(run_dir: str) -> ArtifactSnapshot:
     """Load a structured ArtifactSnapshot from *run_dir*.
 
@@ -420,7 +418,23 @@ def _run_demo_for_run(
     confirmation = presentation.present_apply_confirmation(applied_suggestion)
     _print_confirmation(confirmation)
     print("\nPreview:")
-    for line in preview.rendered_preview.splitlines():
+    from nl2spl.rendering import SPLRenderContext, render_repair_preview_spl
+
+    snapshot = svc._get_snapshot(run_id)
+    context = SPLRenderContext(
+        symbol_table=snapshot.symbol_table,
+        resources=snapshot.resources,
+        profile=snapshot.agent_profile,
+    )
+    if preview.typed_artifact is not None:
+        rendered = render_repair_preview_spl(preview.typed_artifact, context)
+        preview_text = rendered.text
+    else:
+        raise ValueError(
+            "Preview failed: typed_artifact is missing from preview suggestion result."
+        )
+
+    for line in preview_text.splitlines():
         print(f"  {line}")
     confirm = input("Confirm apply? [y/N] ").strip().lower()
     if confirm != "y":
@@ -549,7 +563,6 @@ def _choose_fix_option(available_repairs: Iterable[object]) -> object | None:
         print(f"Invalid choice: {raw}")
 
 
-
 def _collect_user_repair_instruction() -> str | None:
     print("\nOptional repair instruction")
     print("  Press Enter to let SPL Editing choose the simplest valid repair.")
@@ -558,6 +571,7 @@ def _collect_user_repair_instruction() -> str | None:
     except EOFError:
         return None
     return raw or None
+
 
 def _print_suggestions(suggestions: Iterable[object]) -> None:
     print("\nRepair suggestion" if len(suggestions) == 1 else "\nRepair suggestions")

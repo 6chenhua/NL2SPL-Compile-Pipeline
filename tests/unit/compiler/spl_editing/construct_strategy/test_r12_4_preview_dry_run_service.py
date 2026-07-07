@@ -237,8 +237,10 @@ def test_preview_dry_run_happy_path(preview_service, strategy_registry, store) -
     # 1. Output Validation
     assert res is not None
     assert res.base_snapshot_id == "snap_1"
-    assert "[EXCEPTION_FLOW]" in res.rendered_preview
-    assert "test handler goal" in res.rendered_preview
+    assert "Will ensure BLOCK for role handler_block" in res.rendered_preview
+    assert "Will materialize COMMAND for role handler_action" in res.rendered_preview
+    assert "COMMAND-X" not in res.rendered_preview
+    assert "USING " not in res.rendered_preview
     assert "Patch adapter" not in res.rendered_preview
     assert "stage5." not in res.rendered_preview
     assert "stage7." not in res.rendered_preview

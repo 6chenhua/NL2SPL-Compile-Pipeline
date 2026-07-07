@@ -5,7 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nl2spl.compiler.spl_editing.preview.model import StageSliceTypedPlanRef
 
 from nl2spl.compiler.spl_editing.closure.model import ConstructClosurePlan
 from nl2spl.compiler.spl_editing.intent.model import ConstructRepairIntent
@@ -53,15 +56,14 @@ def compute_selected_refset_hash(refset: Any) -> str:
         return compute_sha256(d)
     if isinstance(refset, (list, tuple)):
         sorted_refs = sorted(
-            refset,
-            key=lambda x: getattr(x, "ref_id", "") if hasattr(x, "ref_id") else str(x)
+            refset, key=lambda x: getattr(x, "ref_id", "") if hasattr(x, "ref_id") else str(x)
         )
         return compute_sha256(sorted_refs)
     return compute_sha256(refset)
 
 
 def compute_slice_typed_plan_hashes_hash(
-    refs: tuple[StageSliceTypedPlanRef, ...] | list[StageSliceTypedPlanRef] | dict[str, str]
+    refs: tuple[StageSliceTypedPlanRef, ...] | list[StageSliceTypedPlanRef] | dict[str, str],
 ) -> str:
     """Compute deterministic hash for slice typed plan hashes."""
     if isinstance(refs, (list, tuple)):

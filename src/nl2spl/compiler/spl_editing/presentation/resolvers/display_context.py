@@ -21,11 +21,11 @@ from nl2spl.compiler.spl_editing.presentation.contract.categories import (
 from nl2spl.compiler.spl_editing.presentation.contract.quality import (
     PresentationQuality,
 )
+from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectView
+from nl2spl.compiler.spl_editing.presentation.resolvers.issue_subject import issue_subject_for
 from nl2spl.compiler.spl_editing.presentation.resolvers.source_excerpt import (
     source_excerpt_for_issue,
 )
-from nl2spl.compiler.spl_editing.presentation.model.subject import IssueSubjectView
-from nl2spl.compiler.spl_editing.presentation.resolvers.issue_subject import issue_subject_for
 
 _PROMOTION_SLOT_LABELS = {
     "promotion_input_contract": "input contract",

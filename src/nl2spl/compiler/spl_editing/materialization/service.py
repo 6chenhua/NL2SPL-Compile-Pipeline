@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nl2spl.compiler.spl_editing.stage_slices.result import StageSliceResult
 
 from nl2spl.compiler.spl_editing.core.model import RepairTarget
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
@@ -295,7 +298,7 @@ class RepairMaterializationService:
             dependency_validation_metadata=dict(val_res.validation_metadata),
         )
 
-    def dry_run_materialize(
+    def execute_dry_run_slices(
         self,
         intent: ConstructRepairIntent,
         target: RepairTarget,
@@ -303,9 +306,11 @@ class RepairMaterializationService:
         snapshot: ArtifactSnapshot,
         closure_plan: Any,
         directive: Any,
-    ) -> str:
-        """Execute the repair stage-slice chain in dry-run mode and render its result."""
+    ) -> tuple[StageSliceResult, ...]:
+        """Execute the repair stage-slice chain in dry-run mode and return results."""
         plan = self.registry.get(intent.materialization_plan_id)
+        if plan is None:
+            return ()
         id_allocator = IdAllocator.from_snapshot(
             snapshot,
             plan.dependency_closure.required_id_allocator_namespaces,
@@ -398,255 +403,19 @@ class RepairMaterializationService:
             "ConvertDelegationIntentToMainFlowStep",
             "ConvertDelegationIntentToRequestInput",
         }:
-            if hasattr(intent.payload, "option_id"):
-                if intent.payload.option_id != "keep_in_main_flow":
-                    raise DependencyClosureValidationError("Invalid main-flow directive option")
-                action_text = intent.payload.delegated_responsibility
-                return "\n".join(
-                    (
-                        "[MAIN_FLOW]",
-                        "  " + self._command_line("GENERAL_COMMAND", action_text),
-                        "[END_MAIN_FLOW]",
+            if not (
+                hasattr(intent.payload, "option_id")
+                and intent.payload.option_id == "keep_in_main_flow"
+            ):
+                stage7 = stage_slices.Stage7WorkerDelegationResolutionCommandRepairSlice()
+                results.append(
+                    stage7.execute(
+                        _input(
+                            stage7,
+                            "stage7.worker_step_plan",
+                            "worker_delegation.resolution_command.v1",
+                            ("CommandIntentPlan",),
+                        )
                     )
                 )
-            stage7 = stage_slices.Stage7WorkerDelegationResolutionCommandRepairSlice()
-            results.append(
-                stage7.execute(
-                    _input(
-                        stage7,
-                        "stage7.worker_step_plan",
-                        "worker_delegation.resolution_command.v1",
-                        ("CommandIntentPlan",),
-                    )
-                )
-            )
-        elif intent.patch_type == "DefineChildWorkerClosure":
-            directive_payload = intent.payload
-            if not hasattr(directive_payload, "admitted_outputs"):
-                raise DependencyClosureValidationError(
-                    "DefineChildWorkerClosure preview requires normalized directive"
-                )
-            return self._render_define_child_preview(
-                directive_payload, snapshot=snapshot, target=target
-            )
-        else:
-            raise DependencyClosureValidationError(
-                f"No dry-run stage-slice chain for patch type '{intent.patch_type}'."
-            )
-
-        return self._render_dry_run_preview(intent, target, tuple(results))
-
-    @staticmethod
-    def _render_define_child_preview(directive: Any, *, snapshot, target) -> str:
-        plans = import_module("nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans")
-
-        bundle = plans.build_worker_delegation_typed_plans(snapshot, target, directive)
-        inputs = bundle.child_command.input_names
-        outputs = bundle.child_command.output_names
-        invoke_outputs = bundle.parent_invoke.output_names
-        command = RepairMaterializationService._command_line(
-            "GENERAL_COMMAND",
-            directive.delegated_responsibility,
-            inputs=inputs,
-            outputs=outputs,
-        )
-        invoke = RepairMaterializationService._command_line(
-            "INVOKE_WORKER",
-            f"Invoke {bundle.child_boundary.worker_name}",
-            inputs=inputs,
-            outputs=invoke_outputs,
-            integration_ref=bundle.child_boundary.worker_name,
-        )
-        return "\n".join(
-            (
-                f"[WORKER: {bundle.child_boundary.worker_name}]",
-                f"  PURPOSE {bundle.child_boundary.purpose}",
-                "  [MAIN_FLOW]",
-                "    [SEQUENTIAL_BLOCK]",
-                f"      {command}",
-                "    [END_SEQUENTIAL_BLOCK]",
-                "  [END_MAIN_FLOW]",
-                "[END_WORKER]",
-                "[MAIN_FLOW]",
-                f"  {invoke}",
-                "[END_MAIN_FLOW]",
-            )
-        )
-
-    @staticmethod
-    def _render_dry_run_preview(
-        intent: ConstructRepairIntent,
-        target: RepairTarget,
-        stage_results: tuple[Any, ...],
-    ) -> str:
-        """Render the user-facing construct preview for confirmation.
-
-        Stage-slice traces contain backend audit details. The default preview is
-        deliberately limited to the result the user is being asked to confirm.
-        """
-        payload = intent.payload
-        if intent.patch_type == "AddExceptionHandlerStep":
-            command_text = RepairMaterializationService._first_payload_text(
-                payload, ("handler_goal",), default="Handle the exception"
-            )
-            command_family = RepairMaterializationService._last_command_family(
-                stage_results, default="GENERAL_COMMAND"
-            )
-            flow_label = RepairMaterializationService._exception_flow_label(target)
-            header = f"[EXCEPTION_FLOW: {flow_label}]" if flow_label else "[EXCEPTION_FLOW]"
-            command_line = RepairMaterializationService._command_line(command_family, command_text)
-            return "\n".join(
-                (
-                    header,
-                    "  [SEQUENTIAL_BLOCK]",
-                    f"    {command_line}",
-                    "  [END_SEQUENTIAL_BLOCK]",
-                    "[END_EXCEPTION_FLOW]",
-                )
-            )
-
-        if intent.patch_type == "InsertProducerStep":
-            command_text = RepairMaterializationService._first_payload_text(
-                payload, ("producer_goal",), default="Produce required output"
-            )
-            output_name = target.canonical_name or "required_output"
-            selected_inputs = RepairMaterializationService._selected_ref_names(stage_results)
-            return "\n".join(
-                (
-                    "[SEQUENTIAL_BLOCK]",
-                    "  "
-                    + RepairMaterializationService._command_line(
-                        "GENERAL_COMMAND",
-                        command_text,
-                        inputs=selected_inputs,
-                        outputs=(output_name,),
-                    ),
-                    "[END_SEQUENTIAL_BLOCK]",
-                )
-            )
-
-        if intent.patch_type == "CreateWorkerHandoffContract":
-            child_worker = (
-                getattr(payload, "child_worker_id", None) or target.canonical_name or "worker"
-            )
-            parent_inputs = tuple(
-                parent for parent, _child in getattr(payload, "input_bindings", ())
-            )
-            parent_outputs = tuple(
-                parent for _child, parent in getattr(payload, "output_bindings", ())
-            )
-            return "\n".join(
-                (
-                    "[MAIN_FLOW]",
-                    "  "
-                    + RepairMaterializationService._command_line(
-                        "INVOKE_WORKER",
-                        f"Invoke worker: {child_worker}",
-                        inputs=parent_inputs,
-                        outputs=parent_outputs,
-                        integration_ref=str(child_worker),
-                    ),
-                    "[END_MAIN_FLOW]",
-                )
-            )
-
-        if intent.patch_type == "ConvertDelegationIntentToMainFlowStep":
-            action_text = RepairMaterializationService._first_payload_text(
-                payload, ("action_text",), default="Complete delegated work in the main flow"
-            )
-            outputs = tuple(getattr(payload, "outputs", ()) or ())
-            return "\n".join(
-                (
-                    "[MAIN_FLOW]",
-                    "  "
-                    + RepairMaterializationService._command_line(
-                        "GENERAL_COMMAND", action_text, outputs=outputs
-                    ),
-                    "[END_MAIN_FLOW]",
-                )
-            )
-
-        if intent.patch_type == "ConvertDelegationIntentToRequestInput":
-            prompt_text = RepairMaterializationService._first_payload_text(
-                payload, ("prompt_text",), default="Ask the user for the missing information"
-            )
-            value_target = getattr(payload, "value_target", None) or "user_response"
-            return "\n".join(
-                (
-                    "[MAIN_FLOW]",
-                    "  "
-                    + RepairMaterializationService._command_line(
-                        "REQUEST_INPUT", prompt_text, outputs=(str(value_target),)
-                    ),
-                    "[END_MAIN_FLOW]",
-                )
-            )
-
-        return RepairMaterializationService._first_payload_text(
-            payload,
-            ("handler_goal", "producer_goal", "action_text", "prompt_text"),
-            default="Repair preview unavailable.",
-        )
-
-    @staticmethod
-    def _first_payload_text(payload: Any, field_names: tuple[str, ...], *, default: str) -> str:
-        for field_name in field_names:
-            value = getattr(payload, field_name, None)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return default
-
-    @staticmethod
-    def _last_command_family(stage_results: tuple[Any, ...], *, default: str) -> str:
-        for result in reversed(stage_results):
-            family = getattr(result, "trace", {}).get("command_family")
-            if isinstance(family, str) and family.strip():
-                return family.strip()
-        return default
-
-    @staticmethod
-    def _exception_flow_label(target: RepairTarget) -> str:
-        label = target.canonical_name or ""
-        normalized = label.casefold()
-        generated_prefixes = ("exc_", "exc-adapter", "exc_adapter", "exception_flow:")
-        if not label or normalized.startswith(generated_prefixes):
-            return ""
-        return label
-
-    @staticmethod
-    def _selected_ref_names(stage_results: tuple[Any, ...]) -> tuple[str, ...]:
-        for result in reversed(stage_results):
-            names = getattr(result, "trace", {}).get("selected_ref_canonical_names")
-            if isinstance(names, (list, tuple)):
-                return tuple(str(name) for name in names if str(name).strip())
-        return ()
-
-    @staticmethod
-    def _command_line(
-        command_family: str,
-        text: str,
-        *,
-        inputs: tuple[str, ...] = (),
-        outputs: tuple[str, ...] = (),
-        integration_ref: str | None = None,
-    ) -> str:
-        clean_text = " ".join(text.split())
-        if command_family == "REQUEST_INPUT":
-            output = outputs[0] if outputs else "user_response"
-            return f"COMMAND-X [INPUT DISPLAY {clean_text} VALUE {output}:text SET]"
-        if command_family == "DISPLAY_MESSAGE":
-            return f"COMMAND-X [DISPLAY {clean_text}]"
-        if command_family == "INVOKE_WORKER":
-            worker = integration_ref or clean_text
-            parts = [f"COMMAND-X [INVOKE_WORKER {worker}"]
-            if inputs:
-                parts.append("WITH " + ", ".join(inputs))
-            if outputs:
-                parts.append("RESULT " + ", ".join(outputs) + " SET")
-            return " ".join(parts) + "]"
-        parts = [f"COMMAND-X [COMMAND {clean_text}"]
-        if inputs:
-            parts.append("USING " + ", ".join(inputs))
-        if outputs:
-            parts.append("RESULT " + ", ".join(f"{name}:text" for name in outputs) + " SET")
-        return " ".join(parts) + "]"
+        return tuple(results)

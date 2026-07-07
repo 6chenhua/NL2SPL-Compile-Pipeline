@@ -49,12 +49,13 @@ def _append_resource_ref(
     source_artifact: str,
     source_artifact_ref: str,
     scope_path: tuple[str, ...],
+    ref_role: str = "selectable_input",
 ) -> None:
     refs.append(
         SelectableRef(
             ref_id=build_ref_id("resource", worker_id, source_artifact_ref, scope_path, name),
             ref_kind="resource",
-            ref_role="selectable_input",
+            ref_role=ref_role,
             canonical_name=name,
             display_label=name,
             worker_id=worker_id,
@@ -185,6 +186,8 @@ class SelectableRefSetBuilder:
             for worker in snapshot.worker_plan.workers:
                 if worker_id is None or worker.worker_id == worker_id:
                     for input_field in worker.input_contract:
+                        if not str(input_field.name).strip():
+                            continue
                         refs.append(
                             SelectableRef(
                                 ref_id=build_ref_id(
@@ -337,6 +340,7 @@ class SelectableRefSetBuilder:
                     source_artifact="worker_scoped_resources",
                     source_artifact_ref=source_ref,
                     scope_path=scope_path,
+                    ref_role="api_resource",
                 )
 
             for wid, registry in wsr.worker_resources.items():
@@ -374,6 +378,7 @@ class SelectableRefSetBuilder:
                             source_artifact="worker_scoped_resources",
                             source_artifact_ref=source_ref,
                             scope_path=scope_path,
+                            ref_role="api_resource",
                         )
 
         elif snapshot.resources is not None:
@@ -410,6 +415,7 @@ class SelectableRefSetBuilder:
                     source_artifact="resources",
                     source_artifact_ref=source_ref,
                     scope_path=scope_path,
+                    ref_role="api_resource",
                 )
 
         # 6. Harvest source spans as source_evidence role.

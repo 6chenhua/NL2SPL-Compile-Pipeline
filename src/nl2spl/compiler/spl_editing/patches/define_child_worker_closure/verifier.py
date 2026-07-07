@@ -72,9 +72,13 @@ class DefineChildWorkerClosureVerifier(PatchVerifier):
             failures.append("Child closure must contain exactly one command")
         else:
             command = child_steps[0]
+            child_business_logic = getattr(directive, "child_business_logic", None)
+            if not isinstance(child_business_logic, str) or not child_business_logic.strip():
+                failures.append("Child business logic is missing from the directive")
+                child_business_logic = None
             if (
                 command.command_type != "GENERAL_COMMAND"
-                or command.text != directive.delegated_responsibility
+                or command.text != child_business_logic
                 or tuple(command.inputs) != expected_inputs
                 or tuple(command.outputs) != expected_outputs
             ):
@@ -214,6 +218,16 @@ def _result_binding_failures(
         steps=snapshot.worker_step_plan.get_all_steps(),
         handoffs=list(snapshot.worker_plan.handoffs),
         known_child_worker_ids=child_ids,
+        step_variable_relation_plan=getattr(
+            snapshot.worker_step_plan,
+            "step_variable_relation_plan",
+            None,
+        ),
+        composite_output_plans=getattr(
+            snapshot.worker_step_plan,
+            "composite_output_plans",
+            (),
+        ),
     )
     for parent_output in expected_parent_outputs:
         producers = producer_index.get_producers(parent_output)

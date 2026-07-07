@@ -17,6 +17,13 @@ from nl2spl.compiler.spl_editing.intent.model import (
     InsertProducerStepIntentPayload,
 )
 from nl2spl.compiler.spl_editing.materialization.service import RepairMaterializationService
+from nl2spl.compiler.spl_editing.preview.artifact import (
+    PreviewArtifactChange,
+    PreviewConstructNode,
+    PreviewStageSliceResult,
+    TypedRepairPreviewArtifact,
+    compute_preview_hash,
+)
 from nl2spl.compiler.spl_editing.preview.errors import PreviewError
 from nl2spl.compiler.spl_editing.preview.hashes import (
     compute_closure_plan_hash,
@@ -34,10 +41,69 @@ from nl2spl.compiler.spl_editing.preview.store import PreviewStore
 from nl2spl.compiler.spl_editing.selectable_refs.model import SelectableRefSet
 from nl2spl.compiler.spl_editing.selectable_refs.resolver import resolve_ref_ids_to_result
 from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans import (
-    build_worker_delegation_typed_plans,
     typed_plan_hashes,
 )
 from nl2spl.compiler.spl_editing.strategy.model import RepairDirective, RepairStrategySpec
+from nl2spl.rendering.spl.construct_renderer import RenderableSPLConstructType
+
+
+def extract_preview_construct_ir(node: Any, updated_snapshot: Any, main_worker_ir: Any) -> Any:
+    # 1. StepIR
+    if node.construct_type == "STEP":
+        if updated_snapshot.worker_step_plan:
+            for step in updated_snapshot.worker_step_plan.get_all_steps():
+                if step.step_id == node.role:
+                    return step
+
+    # 2. BlockIR
+    elif node.construct_type == "BLOCK":
+        if updated_snapshot.worker_block_plan:
+            for w_blocks in updated_snapshot.worker_block_plan.worker_blocks.values():
+                for b in w_blocks.main_flow_blocks:
+                    if b.block_id == node.role:
+                        return b
+                for blocks_list in w_blocks.alternative_flow_blocks.values():
+                    for b in blocks_list:
+                        if b.block_id == node.role:
+                            return b
+                for blocks_list in w_blocks.exception_flow_blocks.values():
+                    for b in blocks_list:
+                        if b.block_id == node.role:
+                            return b
+
+    # 3. WorkerIR
+    elif node.construct_type == "WORKER":
+        if main_worker_ir:
+            if main_worker_ir.worker_name == node.role:
+                return main_worker_ir
+            for child in main_worker_ir.child_workers:
+                if child.worker_name == node.role:
+                    from nl2spl.ir.worker_ir import WorkerIR
+
+                    return WorkerIR(
+                        worker_name=child.worker_name,
+                        description=child.description,
+                        inputs=child.inputs,
+                        outputs=child.outputs,
+                        main_flow=child.main_flow,
+                        alternative_flows=child.alternative_flows,
+                        exception_flows=child.exception_flows,
+                        api_refs=child.api_refs,
+                        steps=child.steps,
+                        scoped_steps=True,
+                    )
+
+    # 4. ExceptionFlowRef
+    elif node.construct_type == "EXCEPTION_FLOW":
+        if main_worker_ir:
+            for exc in main_worker_ir.exception_flows:
+                if exc.flow_id == node.role:
+                    return exc
+            for child in main_worker_ir.child_workers:
+                for exc in child.exception_flows:
+                    if exc.flow_id == node.role:
+                        return exc
+    return None
 
 
 class PreviewDryRunService:
@@ -259,15 +325,7 @@ class PreviewDryRunService:
                 selected_ref_ids=directive.selected_ref_hints,
             )
             intent = candidate_intent
-        # 8. Invoke dry-run materialization
-        rendered = self.materialization_service.dry_run_materialize(
-            intent=intent,
-            target=target,
-            refset=refset,
-            snapshot=snapshot,
-            closure_plan=closure_plan,
-            directive=directive,
-        )
+        # 8. Dry-run materialization slices are executed during construct node building.
 
         # 9. Compute deterministic hashes
         intent_hash = compute_intent_hash(intent)
@@ -285,6 +343,10 @@ class PreviewDryRunService:
         if strategy.strategy_id == "worker_delegation.complete_closure.v2" and hasattr(
             normalized_payload, "directive_id"
         ):
+            from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans import (
+                build_worker_delegation_typed_plans,
+            )
+
             plan_bundle = build_worker_delegation_typed_plans(snapshot, target, normalized_payload)
             v2_plan_hash_pairs = typed_plan_hashes(plan_bundle)
             actual_hashes = dict(v2_plan_hash_pairs)
@@ -339,8 +401,276 @@ class PreviewDryRunService:
         )
         preview_id = f"prev_{compute_sha256(scope_str)}"
 
-        # 11. Construct PreviewMaterializationResult
         option_id = getattr(normalized_payload, "option_id", "")
+
+        # Generate the list of actual IR objects
+        from dataclasses import asdict, replace
+
+        from nl2spl.ir.block_structure_ir import BlockIR
+        from nl2spl.ir.step_ir import StepIR
+        from nl2spl.ir.worker_ir import (
+            ExceptionFlowRef,
+            FlowRef,
+            WorkerInput,
+            WorkerIR,
+            WorkerOutput,
+        )
+
+        preview_ir_by_role: dict[str, tuple[RenderableSPLConstructType, Any]] = {}
+
+        # Case 1: DefineChildWorkerClosure
+        if intent.patch_type == "DefineChildWorkerClosure":
+            from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans import (
+                build_worker_delegation_typed_plans,
+            )
+
+            directive_payload = intent.payload
+            if hasattr(directive_payload, "admitted_outputs"):
+                bundle = build_worker_delegation_typed_plans(snapshot, target, directive_payload)
+                # 1. Child worker IR
+                inputs = [
+                    WorkerInput(name=var.name, required=True)
+                    for var in bundle.child_boundary.input_contract
+                ]
+                outputs = [
+                    WorkerOutput(name=var.name, required=True)
+                    for var in bundle.child_boundary.output_contract
+                ]
+                admitted_output_names = [
+                    item.canonical_name for item in directive_payload.admitted_outputs
+                ]
+                renderable_output_names = admitted_output_names
+                if len(admitted_output_names) > 1:
+                    renderable_output_names = ["_".join(admitted_output_names)]
+                child_command = StepIR(
+                    step_id=bundle.child_command.command_id,
+                    text=directive_payload.child_business_logic,
+                    source_span_ids=[],
+                    command_type="GENERAL_COMMAND",
+                    inputs=[
+                        item.ref.canonical_name for item in directive_payload.selected_input_refs
+                    ],
+                    outputs=renderable_output_names,
+                    flow_ref="main",
+                    block_ref=bundle.child_block.block_id,
+                )
+                preview_ir_by_role["child_command"] = (
+                    RenderableSPLConstructType.STEP,
+                    child_command,
+                )
+                child_worker = WorkerIR(
+                    worker_name=bundle.child_boundary.worker_name,
+                    description=bundle.child_boundary.purpose,
+                    inputs=inputs,
+                    outputs=outputs,
+                    main_flow=FlowRef(
+                        blocks=[
+                            BlockIR(block_id=bundle.child_block.block_id, block_type="SEQUENTIAL")
+                        ]
+                    ),
+                    steps=[child_command],
+                    scoped_steps=True,
+                )
+                preview_ir_by_role["child_worker"] = (
+                    RenderableSPLConstructType.WORKER,
+                    child_worker,
+                )
+
+                # 2. Invoke step in parent worker
+                invoke_step = StepIR(
+                    step_id=bundle.parent_invoke.command_id,
+                    text=f"Invoke {bundle.child_boundary.worker_name}",
+                    source_span_ids=[],
+                    command_type="INVOKE_WORKER",
+                    inputs=[
+                        item.ref.canonical_name for item in directive_payload.selected_input_refs
+                    ],
+                    outputs=renderable_output_names,
+                    integration_ref=bundle.child_boundary.worker_name,
+                    flow_ref="main",
+                    block_ref=bundle.parent_invoke.parent_block_id,
+                    kind="invoke",
+                    handoff_id=bundle.parent_invoke.handoff_id,
+                )
+                preview_ir_by_role["parent_invoke"] = (
+                    RenderableSPLConstructType.STEP,
+                    invoke_step,
+                )
+
+        # Case 2: ConvertDelegationIntentToMainFlowStep (keep_in_main_flow)
+        elif (
+            intent.patch_type
+            in {
+                "ConvertDelegationIntentToMainFlowStep",
+                "ConvertDelegationIntentToRequestInput",
+            }
+            and hasattr(intent.payload, "option_id")
+            and intent.payload.option_id == "keep_in_main_flow"
+        ):
+            step = StepIR(
+                step_id="st_main",
+                text=intent.payload.delegated_responsibility,
+                source_span_ids=[],
+                command_type="GENERAL_COMMAND",
+            )
+            preview_ir_by_role["main_flow_command"] = (
+                RenderableSPLConstructType.STEP,
+                step,
+            )
+
+        # Case 3: Slices-based execution
+        else:
+            results = self.materialization_service.execute_dry_run_slices(
+                intent=intent,
+                target=target,
+                refset=refset,
+                snapshot=snapshot,
+                closure_plan=closure_plan,
+                directive=directive,
+            )
+            if results:
+                # Apply updates to snapshot copy
+                updated_snapshot = snapshot
+                for res in results:
+                    for field_name, update in res.artifact_updates.items():
+                        updated_snapshot = replace(updated_snapshot, **{field_name: update})
+
+                from nl2spl.pipeline.stages.stage10_worker_assembler.assembler import (
+                    WorkerAssembler,
+                )
+
+                assembler = WorkerAssembler()
+                try:
+                    main_worker_ir = assembler.assemble_from_worker_scoped(
+                        worker_step_plan=updated_snapshot.worker_step_plan,
+                        resources=updated_snapshot.resources,
+                        symbol_table=updated_snapshot.symbol_table,
+                        worker_plan=updated_snapshot.worker_plan,
+                        worker_flow_plan=updated_snapshot.worker_flow_plan,
+                        worker_block_plan=updated_snapshot.worker_block_plan,
+                    )
+                except Exception:
+                    main_worker_ir = None
+
+                # Extract preview objects for each closure node
+                for node in closure_plan.closure_nodes:
+                    ir_obj = extract_preview_construct_ir(node, updated_snapshot, main_worker_ir)
+                    if ir_obj is not None:
+                        if isinstance(ir_obj, StepIR):
+                            render_type = RenderableSPLConstructType.STEP
+                        elif isinstance(ir_obj, BlockIR):
+                            render_type = RenderableSPLConstructType.BLOCK
+                        elif isinstance(ir_obj, ExceptionFlowRef):
+                            render_type = RenderableSPLConstructType.EXCEPTION_FLOW
+                        elif isinstance(ir_obj, WorkerIR):
+                            render_type = RenderableSPLConstructType.WORKER
+                        else:
+                            continue
+                        preview_ir_by_role[node.role] = (render_type, ir_obj)
+
+        # Construct nodes
+        preview_nodes = []
+
+        for node in closure_plan.closure_nodes:
+            renderable = preview_ir_by_role.get(node.role)
+            if renderable is not None:
+                ctype, ir_obj = renderable
+                payload = asdict(ir_obj)
+                status = "dry_run_materialized"
+            else:
+                if strategy.strategy_id == "worker_delegation.complete_closure.v2":
+                    if node.role not in {"main_flow_placement", "worker_handoff"}:
+                        continue
+                    display = False
+                else:
+                    display = True
+                ctype = None
+                payload = {
+                    "action": node.action,
+                    "construct_type": node.construct_type,
+                    "stage_slice_id": node.stage_slice_id or "",
+                    "output_ref_role": node.output_ref_role or "",
+                    "display": display,
+                }
+                status = "planned"
+
+            preview_nodes.append(
+                PreviewConstructNode(
+                    node_id=f"node_{node.role}",
+                    node_kind="spl_construct" if renderable is not None else "structured_fallback",
+                    spl_construct_type=ctype,
+                    role=node.role,
+                    ir_payload=payload,
+                    materialization_status=status,
+                )
+            )
+
+        artifact_changes = []
+        for node in closure_plan.closure_nodes:
+            if node.action in {"materialize", "ensure"}:
+                artifact_changes.append(
+                    PreviewArtifactChange(
+                        change_id=f"change_{node.role}",
+                        artifact_type=node.construct_type,
+                        change_type="add" if node.action == "materialize" else "modify",
+                        target_path=f"worker:{node.role}",
+                        description=(
+                            f"Materialize or ensure {node.construct_type} for role {node.role}"
+                        ),
+                    )
+                )
+
+        slice_results = []
+        for slice_id in closure_plan.stage_slice_chain:
+            slice_results.append(
+                PreviewStageSliceResult(
+                    slice_id=slice_id,
+                    stage_name=slice_id.split(".")[0],
+                    status="success",
+                    diagnostic_count=0,
+                )
+            )
+
+        preview_hash = compute_preview_hash(
+            base_snapshot_id=snapshot.snapshot_id,
+            issue_id=issue.issue_id,
+            strategy_id=strategy.strategy_id,
+            option_id=option_id,
+            directive_hash=directive_hash,
+            closure_plan_hash=closure_plan_hash,
+            selected_refset_id=refset.set_id,
+            construct_nodes=tuple(preview_nodes),
+            artifact_changes=tuple(artifact_changes),
+            stage_slice_results=tuple(slice_results),
+        )
+
+        typed_artifact = TypedRepairPreviewArtifact(
+            preview_id=preview_id,
+            base_snapshot_id=snapshot.snapshot_id,
+            issue_id=issue.issue_id,
+            strategy_id=strategy.strategy_id,
+            option_id=option_id,
+            directive_hash=directive_hash,
+            closure_plan_hash=closure_plan_hash,
+            selected_refset_id=refset.set_id,
+            construct_nodes=tuple(preview_nodes),
+            artifact_changes=tuple(artifact_changes),
+            stage_slice_results=tuple(slice_results),
+            preview_hash=preview_hash,
+        )
+
+        # Render compatibility preview text via the rendering subsystem
+        from nl2spl.rendering import SPLRenderContext, render_repair_preview_spl
+
+        context = SPLRenderContext(
+            symbol_table=snapshot.symbol_table,
+            resources=snapshot.resources,
+            profile=snapshot.agent_profile,
+        )
+        rendered_res = render_repair_preview_spl(typed_artifact, context)
+        rendered = rendered_res.text
+
+        # 11. Construct PreviewMaterializationResult
         normalized_hash = (
             compute_sha256(normalized_payload)
             if hasattr(normalized_payload, "directive_id")
@@ -374,6 +704,7 @@ class PreviewDryRunService:
             ),
             normalized_directive_hash=normalized_hash,
             admitted_fact_hashes=admitted_hashes,
+            typed_artifact=typed_artifact,
         )
 
         # 12. Register with PreviewStore

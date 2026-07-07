@@ -20,7 +20,11 @@ def parse_worker_delegation_draft(
     request: SubmitRepairDirectiveDraftRequest,
 ) -> WorkerDelegationDirectiveDraft:
     values = request.field_values
-    responsibility = values.get("delegated_responsibility") or values.get("task_selection")
+    responsibility = (
+        values.get("child_task")
+        or values.get("delegated_responsibility")
+        or values.get("task_selection")
+    )
     responsibility_draft = (
         DelegatedResponsibilityDraft(str(responsibility).strip())
         if isinstance(responsibility, str) and responsibility.strip()
@@ -93,6 +97,12 @@ def parse_worker_delegation_draft(
         contract_version=request.contract_version,
         base_revision=request.revision_token,
         delegated_responsibility=responsibility_draft,
+        child_business_logic=(
+            str(values["child_business_logic"]).strip()
+            if isinstance(values.get("child_business_logic"), str)
+            and str(values["child_business_logic"]).strip()
+            else None
+        ),
         selected_input_ref_ids=tuple(request.selected_ref_ids.get("input_refs", ())),
         input_empty_semantics=(
             str(values["input_empty_semantics"])
@@ -117,6 +127,14 @@ def validate_worker_delegation_draft(
             )
         )
     if draft.option_id == "define_child_worker":
+        if not draft.child_business_logic:
+            errors.append(
+                _error(
+                    "required_field_missing",
+                    "child_business_logic",
+                    "Child worker business logic is required",
+                )
+            )
         if not draft.returned_results:
             errors.append(
                 _error(
@@ -233,6 +251,25 @@ def validate_worker_delegation_draft(
                 "Instruction attempts to override structured authority",
             )
         )
+    if draft.child_business_logic:
+        logic = draft.child_business_logic.strip()
+        if len(logic) < 8:
+            errors.append(
+                _error(
+                    "business_logic_too_short",
+                    "child_business_logic",
+                    "Business logic is too short to materialize safely",
+                )
+            )
+        forbidden_logic_tokens = ("candidate:", "source span", "diagnostic:", "stepir", "patch")
+        if any(token in logic.lower() for token in forbidden_logic_tokens):
+            errors.append(
+                _error(
+                    "business_logic_contains_internal_id",
+                    "child_business_logic",
+                    "Business logic must describe business behavior, not internal IDs",
+                )
+            )
     return tuple(errors)
 
 

@@ -15,6 +15,20 @@ from nl2spl.compiler.spl_editing.core.model import (
     VerificationResult,
 )
 from nl2spl.compiler.spl_editing.core.service import SPLEditingService
+from nl2spl.compiler.spl_editing.drafting.admission.bridge import (
+    DraftAdmissionBridge,
+    require_materialized_preview_acceptance,
+)
+from nl2spl.compiler.spl_editing.drafting.model import UserRepairInput
+from nl2spl.compiler.spl_editing.drafting.providers.worker_delegation import (
+    WorkerDelegationInferenceProvider,
+)
+from nl2spl.compiler.spl_editing.drafting.registry import (
+    RepairInferenceProviderRegistry,
+)
+from nl2spl.compiler.spl_editing.drafting.service import RepairDraftingService
+from nl2spl.compiler.spl_editing.drafting.staleness import DraftIdentity
+from nl2spl.compiler.spl_editing.drafting.store import RepairDraftStore
 from nl2spl.compiler.spl_editing.interaction.defaults import build_default_interaction_registry
 from nl2spl.compiler.spl_editing.interaction.model import (
     RepairDirectiveValidationResult,
@@ -45,6 +59,10 @@ from nl2spl.compiler.spl_editing.presentation.errors import (
 from nl2spl.compiler.spl_editing.presentation.model.confirmation import (
     ApplyConfirmationView,
 )
+from nl2spl.compiler.spl_editing.presentation.model.drafting import (
+    RepairDraftCreationView,
+    RepairDraftingCapabilityView,
+)
 from nl2spl.compiler.spl_editing.presentation.model.issue import (
     IssueDetailPresentationView,
 )
@@ -73,6 +91,14 @@ class SPLEditingPresentationService:
     def __init__(self, editing_service: SPLEditingService) -> None:
         self._editing = editing_service
         self._interaction_registry = build_default_interaction_registry()
+        self._drafting_registry = RepairInferenceProviderRegistry()
+        self._draft_store = RepairDraftStore()
+        self._drafting = RepairDraftingService(
+            registry=self._drafting_registry,
+            store=self._draft_store,
+        )
+        self._draft_admission = DraftAdmissionBridge()
+        self._drafting_registry.register(WorkerDelegationInferenceProvider())
         self._issue_builder = IssuePresentationBuilder(
             catalog=editing_service._catalog,
             runtime=editing_service._runtime,
@@ -82,6 +108,10 @@ class SPLEditingPresentationService:
         self._directives = NormalizedDirectiveStore()
         self._directive_context: dict[str, tuple[Any, ...]] = {}
         self._preview_handles: dict[str, WorkerDelegationPreviewHandle] = {}
+
+    @property
+    def drafting_registry(self) -> RepairInferenceProviderRegistry:
+        return self._drafting_registry
 
     def _option_runtime_complete(self, entry, option) -> bool:
         if not self._interaction_registry.has_complete(option.interaction_contract_id):
@@ -203,6 +233,208 @@ class SPLEditingPresentationService:
             refset=refset,
             snapshot=snapshot,
         )
+
+    def get_repair_drafting_capability(
+        self,
+        run_id: str,
+        issue_id: str,
+        option_id: str,
+        revision_token: str,
+    ) -> RepairDraftingCapabilityView:
+        try:
+            _issue, snapshot, entry, _view_option, _target, _context, _subject, _refset = (
+                self._worker_delegation_context(run_id, issue_id, option_id)
+            )
+        except (KeyError, ValueError) as exc:
+            return RepairDraftingCapabilityView(
+                issue_id=issue_id,
+                option_id=option_id,
+                revision_token=revision_token,
+                status="drafting_unavailable",
+                reasons=(str(exc),),
+            )
+        current_revision = revision_token_string(snapshot.revision_token)
+        if revision_token != current_revision:
+            return RepairDraftingCapabilityView(
+                issue_id=issue_id,
+                option_id=option_id,
+                revision_token=revision_token,
+                status="stale_revision",
+                reasons=("stale revision_token",),
+            )
+        option = self._strategy_option(entry, option_id)
+        patch_type = (
+            option.execution_patch_types[0] if len(option.execution_patch_types) == 1 else None
+        )
+        resolution = self._drafting_registry.resolve(
+            affordance_id=entry.affordance_id,
+            strategy_id=option.strategy_id,
+            option_id=option.option_id,
+            patch_type=patch_type,
+        )
+        return RepairDraftingCapabilityView(
+            issue_id=issue_id,
+            option_id=option_id,
+            revision_token=current_revision,
+            status=resolution.status,
+            reasons=resolution.reasons,
+        )
+
+    def create_repair_draft(
+        self,
+        *,
+        run_id: str,
+        issue_id: str,
+        option_id: str,
+        revision_token: str,
+        user_input: UserRepairInput,
+        session_id: str | None = None,
+    ) -> RepairDraftCreationView:
+        issue = self.issue_by_id(run_id, issue_id)
+        if not isinstance(issue, EditableIssue) or issue.repairability != "editable":
+            return RepairDraftCreationView(
+                issue_id=issue_id,
+                option_id=option_id,
+                revision_token=revision_token,
+                status="non_editable_issue",
+                reasons=(f"Cannot create draft for non-editable issue {issue_id}",),
+            )
+        try:
+            _issue, snapshot, entry, _view_option, target, context, subject, refset = (
+                self._worker_delegation_context(run_id, issue_id, option_id)
+            )
+        except (KeyError, ValueError) as exc:
+            return RepairDraftCreationView(
+                issue_id=issue_id,
+                option_id=option_id,
+                revision_token=revision_token,
+                status="drafting_unavailable",
+                reasons=(str(exc),),
+            )
+        current_revision = revision_token_string(snapshot.revision_token)
+        if revision_token != current_revision:
+            return RepairDraftCreationView(
+                issue_id=issue_id,
+                option_id=option_id,
+                revision_token=revision_token,
+                status="stale_revision",
+                reasons=("stale revision_token",),
+            )
+        option = self._strategy_option(entry, option_id)
+        draft_session_id = session_id or f"draft_session:{run_id}:{issue_id}:{option_id}"
+        result = self._drafting.create_draft(
+            session_id=draft_session_id,
+            issue=issue,
+            target=target,
+            catalog_entry=entry,
+            option=option,
+            snapshot=snapshot,
+            user_input=user_input,
+            repair_context=context,
+            refset=refset,
+            subject=subject,
+        )
+        return RepairDraftCreationView(
+            issue_id=issue_id,
+            option_id=option_id,
+            revision_token=current_revision,
+            status=result.status,
+            session_id=draft_session_id,
+            draft_id=result.stored_draft.draft_id if result.stored_draft else None,
+            draft=result.draft,
+            draft_preview=result.draft.draft_preview if result.draft else None,
+            reasons=result.reasons,
+        )
+
+    def accept_repair_draft(
+        self,
+        *,
+        run_id: str,
+        issue_id: str,
+        option_id: str,
+        session_id: str,
+        draft_id: str,
+        revision_token: str,
+        user_input: UserRepairInput,
+    ) -> RepairDirectiveValidationResult:
+        issue, snapshot, entry, _view_option, target, _context, _subject, refset = (
+            self._worker_delegation_context(run_id, issue_id, option_id)
+        )
+        option = self._strategy_option(entry, option_id)
+        current_revision = revision_token_string(snapshot.revision_token)
+        if revision_token != current_revision:
+            return RepairDirectiveValidationResult(
+                "input_invalid",
+                None,
+                (RepairInputValidationError("stale_revision", None, "stale revision_token"),),
+            )
+        stored = self._draft_store.get(
+            session_id=session_id,
+            artifact_snapshot_id=snapshot.snapshot_id,
+            overlay_version=snapshot.overlay_version,
+            draft_id=draft_id,
+        )
+        contract = self._interaction_registry.resolve(option.interaction_contract_id)[0]
+        admitted = self._draft_admission.admit_worker_delegation(
+            stored=stored,
+            user_input=user_input,
+            current=DraftIdentity(
+                session_id=session_id,
+                artifact_snapshot_id=snapshot.snapshot_id,
+                overlay_version=snapshot.overlay_version,
+                issue_id=issue_id,
+                option_id=option_id,
+            ),
+            option=option,
+            target=target,
+            snapshot=snapshot,
+            refset=refset,
+            provider_id=self._draft_provider_id(stored),
+            contract_id=contract.contract_id,
+            contract_version=contract.contract_version,
+            revision_token=revision_token,
+        )
+        if admitted.directive is not None and admitted.directive_id is not None:
+            self._directives.put(admitted.directive)
+            self._directive_context[admitted.directive_id] = (
+                run_id,
+                issue,
+                target,
+                entry,
+                refset,
+            )
+        return RepairDirectiveValidationResult(
+            admitted.input_readiness,
+            admitted.directive_id,
+            admitted.errors,
+        )
+
+    def create_materialized_preview_from_draft(
+        self,
+        directive_id: str,
+    ) -> WorkerDelegationPreviewHandle:
+        return self.preview_repair_directive(directive_id)
+
+    def accept_materialized_preview(
+        self,
+        *,
+        directive_id: str,
+        preview_id: str,
+        user_input: UserRepairInput,
+    ):
+        require_materialized_preview_acceptance(user_input)
+        return self.apply_repair_preview(directive_id, preview_id)
+
+    @staticmethod
+    def _strategy_option(entry, option_id: str):
+        return next(item for item in entry.strategy_options if item.option_id == option_id)
+
+    @staticmethod
+    def _draft_provider_id(stored) -> str:
+        for field in stored.draft.fields:
+            if field.value is not None:
+                return field.value.provider_id
+        return ""
 
     def submit_repair_directive_draft(
         self,
@@ -345,6 +577,7 @@ class SPLEditingPresentationService:
                     }
                     for item in directive.admitted_outputs
                 ],
+                "child_business_logic": directive.child_business_logic,
                 "delegated_responsibility": directive.delegated_responsibility,
                 "directive_id": directive.directive_id,
                 "option_id": directive.option_id,

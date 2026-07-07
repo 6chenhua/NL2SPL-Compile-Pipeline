@@ -3,29 +3,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from nl2spl.compiler.spl_editing.preview.artifact import TypedRepairPreviewArtifact
 
 
 def _to_tuple_of_strings(val: Any, field_name: str) -> tuple[str, ...]:
     if not isinstance(val, (list, tuple)):
-        raise TypeError(
-            f"Field '{field_name}' must be a sequence, got {type(val).__name__}"
-        )
+        raise TypeError(f"Field '{field_name}' must be a sequence, got {type(val).__name__}")
     res = []
     for item in val:
         if not isinstance(item, str):
-            raise TypeError(
-                f"Element in '{field_name}' must be str, got {type(item).__name__}"
-            )
+            raise TypeError(f"Element in '{field_name}' must be str, got {type(item).__name__}")
         res.append(item)
     return tuple(res)
 
 
 def _assert_non_empty_str(val: Any, field_name: str) -> None:
     if not isinstance(val, str):
-        raise TypeError(
-            f"Field '{field_name}' must be str, got {type(val).__name__}"
-        )
+        raise TypeError(f"Field '{field_name}' must be str, got {type(val).__name__}")
     if not val.strip():
         raise ValueError(f"Field '{field_name}' cannot be empty or blank")
 
@@ -55,12 +52,13 @@ class PreviewMaterializationResult:
     slice_typed_plan_hashes: tuple[StageSliceTypedPlanRef, ...]
     preview_construct_hashes: tuple[str, ...]
     llm_generation_config_hash: str
-    rendered_preview: str
+    rendered_preview: str = ""
     strategy_id: str = ""
     option_id: str = ""
     interaction_contract_hash: str = ""
     normalized_directive_hash: str = ""
     admitted_fact_hashes: tuple[str, ...] = ()
+    typed_artifact: TypedRepairPreviewArtifact | None = None
 
     def __post_init__(self) -> None:
         _assert_non_empty_str(self.preview_id, "preview_id")
@@ -69,18 +67,15 @@ class PreviewMaterializationResult:
         _assert_non_empty_str(self.directive_hash, "directive_hash")
         _assert_non_empty_str(self.closure_plan_hash, "closure_plan_hash")
         _assert_non_empty_str(self.selected_refset_id, "selected_refset_id")
-        _assert_non_empty_str(
-            self.llm_generation_config_hash, "llm_generation_config_hash"
-        )
-        _assert_non_empty_str(self.rendered_preview, "rendered_preview")
+        _assert_non_empty_str(self.llm_generation_config_hash, "llm_generation_config_hash")
+        if self.rendered_preview:
+            _assert_non_empty_str(self.rendered_preview, "rendered_preview")
 
         # Normalize tuples
         object.__setattr__(
             self,
             "preview_construct_hashes",
-            _to_tuple_of_strings(
-                self.preview_construct_hashes, "preview_construct_hashes"
-            ),
+            _to_tuple_of_strings(self.preview_construct_hashes, "preview_construct_hashes"),
         )
         object.__setattr__(
             self,
@@ -90,9 +85,7 @@ class PreviewMaterializationResult:
 
         # Validate and normalize slice_typed_plan_hashes
         if not isinstance(self.slice_typed_plan_hashes, (list, tuple)):
-            raise TypeError(
-                "slice_typed_plan_hashes must be a sequence of StageSliceTypedPlanRef"
-            )
+            raise TypeError("slice_typed_plan_hashes must be a sequence of StageSliceTypedPlanRef")
         refs = []
         for ref in self.slice_typed_plan_hashes:
             if not isinstance(ref, StageSliceTypedPlanRef):

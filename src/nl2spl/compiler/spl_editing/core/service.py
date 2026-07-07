@@ -917,6 +917,13 @@ class SPLEditingService:
             # 5. Execute materialization
             result = self._materialization.materialize(request)
 
+            # 5.5 SPL Editing fail-closed gate: multiple outputs not allowed.
+            if result.patched_snapshot.worker_step_plan:
+                for w_steps in result.patched_snapshot.worker_step_plan.worker_steps.values():
+                    for step in w_steps:
+                        if len(step.outputs) > 1:
+                            raise ValueError("SPL Editing fail-closed gate: multiple outputs not allowed.")
+
             # 6. Persistence with rollback
             run_id = result.patched_snapshot.compile_run_id
             sid = result.patched_snapshot.snapshot_id

@@ -393,11 +393,20 @@ class TypeOrContractAmbiguityHandler(IssueRepairHandler):
     @staticmethod
     def _preview_for(patch_type: str, payload: dict) -> str:
         if patch_type == "ConvertDelegationIntentToMainFlowStep":
-            return f"[GENERAL_COMMAND] {payload.get('action_text', '')}"
+            return (
+                "StepIR(command_type=GENERAL_COMMAND, "
+                f"text={payload.get('action_text', '')!r})"
+            )
         if patch_type == "ConvertDelegationIntentToRequestInput":
-            return f"[REQUEST_INPUT] {payload.get('prompt_text', '')}"
+            return (
+                "StepIR(command_type=REQUEST_INPUT, "
+                f"text={payload.get('prompt_text', '')!r})"
+            )
         if patch_type == "CreateWorkerHandoffContract":
-            return f"[INVOKE {payload.get('child_worker_id', '')}]"
+            return (
+                "StepIR(command_type=INVOKE_WORKER, "
+                f"target_worker={payload.get('child_worker_id', '')!r})"
+            )
         return ""
 
 

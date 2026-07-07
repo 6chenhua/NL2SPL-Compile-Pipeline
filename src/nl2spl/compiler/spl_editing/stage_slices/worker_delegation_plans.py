@@ -191,7 +191,7 @@ def build_worker_delegation_typed_plans(snapshot, target, directive):
     child_name = (
         existing[0].worker_name
         if existing
-        else _stable_id(snapshot, directive, "child_worker_name", "ChildWorker")
+        else _semantic_worker_name(snapshot, directive)
     )
     inputs = tuple(item.ref.canonical_name for item in directive.selected_input_refs)
     input_refs = tuple(item.ref.ref_id for item in directive.selected_input_refs)
@@ -254,7 +254,7 @@ def build_worker_delegation_typed_plans(snapshot, target, directive):
             "MVP existing child reuse requires exactly one child command"
         )
     if existing_commands and (
-        existing_commands[0].text != directive.delegated_responsibility
+        existing_commands[0].text != directive.child_business_logic
         or tuple(existing_commands[0].inputs) != inputs
         or tuple(existing_commands[0].outputs) != outputs
     ):
@@ -337,7 +337,7 @@ def build_worker_delegation_typed_plans(snapshot, target, directive):
         child_command=ChildWorkerCommandPlan(
             child_id,
             command_id,
-            directive.delegated_responsibility,
+            directive.child_business_logic,
             input_refs,
             inputs,
             output_ids,
@@ -400,6 +400,56 @@ def _stable_id(snapshot, directive, role: str, prefix: str) -> str:
         f"{snapshot.snapshot_id}|{directive.directive_id}|{role}|0".encode()
     ).hexdigest()[:10]
     return f"{prefix}_{digest}"
+
+
+def _stable_digest(snapshot, directive, role: str) -> str:
+    return hashlib.sha256(
+        f"{snapshot.snapshot_id}|{directive.directive_id}|{role}|0".encode()
+    ).hexdigest()[:10]
+
+
+def _semantic_worker_name(snapshot, directive) -> str:
+    """Build a user-facing worker name while keeping worker_id stable separately."""
+
+    base = _pascal_name(directive.delegated_responsibility) or _pascal_name(
+        directive.child_business_logic
+    )
+    if not base:
+        base = "DelegatedTask"
+    if not base.endswith("Worker"):
+        base = f"{base}Worker"
+    existing_names = {worker.worker_name for worker in snapshot.worker_plan.workers}
+    if base not in existing_names:
+        return base
+    return f"{base}_{_stable_digest(snapshot, directive, 'child_worker_name')[:4]}"
+
+
+def _pascal_name(text: str) -> str:
+    tokens = _alnum_tokens(text)
+    if not tokens:
+        return ""
+    words = []
+    for token in tokens[:8]:
+        lowered = token.lower()
+        words.append(lowered[:1].upper() + lowered[1:])
+    name = "".join(words)
+    if name and name[0].isdigit():
+        name = f"Task{name}"
+    return name
+
+
+def _alnum_tokens(text: str) -> list[str]:
+    tokens: list[str] = []
+    current: list[str] = []
+    for char in text:
+        if char.isascii() and char.isalnum():
+            current.append(char)
+        elif current:
+            tokens.append("".join(current))
+            current = []
+    if current:
+        tokens.append("".join(current))
+    return tokens
 
 
 def _placement_ref(directive) -> str | None:
