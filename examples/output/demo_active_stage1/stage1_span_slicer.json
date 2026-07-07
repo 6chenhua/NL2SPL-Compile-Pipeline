@@ -1,0 +1,1646 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-07-06T18:32:56.372288",
+  "metadata": {},
+  "result": {
+    "source_schema": "structural_nl",
+    "raw_text_length": 1724,
+    "spans_count": 35,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "Internal newsletters",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_internal_newsletters",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s2",
+        "text": "announcements",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_announcements",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s3",
+        "text": "update digests",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_update_digests",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s4",
+        "text": "executive briefs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_executive_briefs",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s5",
+        "text": "related internal-comms artifacts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_related_internal_comms_artifacts",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s6",
+        "text": "A user request",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_request",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s7",
+        "text": "optional known topics",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_known_topics",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s8",
+        "text": "optional timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_timeframe",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s9",
+        "text": "available connectors or source repositories",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_connectors_or_source_repositories",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s10",
+        "text": "optional format preferences",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_format_preferences",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s11",
+        "text": "A draft communication artifact",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_draft_communication_artifact",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s12",
+        "text": "a source/evidence set",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_source_evidence_set",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s13",
+        "text": "a short assumptions log for any unresolved items",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_assumptions_log",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s14",
+        "text": "a completion status",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_completion_status",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s15",
+        "text": "First determine what kind of communication is requested.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s16",
+        "text": "Then identify which required fields are still missing.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s17",
+        "text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s18",
+        "text": "If sources are needed and available retrieve them using approved source recipes.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+        "guard_text_exact": "sources are needed and available",
+        "action_text_exact": "retrieve them using approved source recipes",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s19",
+        "text": "Maintain provenance for externally sourced facts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s20",
+        "text": "When enough required information is available produce a draft.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+        "guard_text_exact": "enough required information is available",
+        "action_text_exact": "produce a draft",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s21",
+        "text": "If the user asks for revision revise while re checking constraints.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+        "guard_text_exact": "the user asks for revision",
+        "action_text_exact": "revise while re checking constraints",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s22",
+        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s23",
+        "text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+        "guard_text_exact": "the end",
+        "action_text_exact": "record a short assumptions log for any unresolved items and set a completion status for the run",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s24",
+        "text": "Do not invent links or unseen facts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_do_not_invent_links_or_unseen_facts",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s25",
+        "text": "Require evidence for sourced claims",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_require_evidence_for_sourced_claims",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s26",
+        "text": "Limit questions per turn",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_limit_questions_per_turn",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s27",
+        "text": "Prefer tool evidence over unnecessary user questioning",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s28",
+        "text": "Deny finalization if critical slots are missing or provenance fails",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails",
+        "guard_text_exact": "critical slots are missing or provenance fails",
+        "action_text_exact": "Deny finalization",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s29",
+        "text": "Missing timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_missing_timeframe",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s30",
+        "text": "conflicting instructions",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_conflicting_instructions",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s31",
+        "text": "insufficient source access",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_insufficient_source_access",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s32",
+        "text": "evidence shortage",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_evidence_shortage",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s33",
+        "text": "user refusal to answer",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_user_refusal_to_answer",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s34",
+        "text": "provenance failure",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_provenance_failure",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s35",
+        "text": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+        "guard_text_exact": "bounded and the returned evidence is normalized into approved evidence carriers",
+        "action_text_exact": "Optional delegated subtasks such as source gathering or template matching may be used",
+        "segmentation_kind": "guarded_action"
+      }
+    ],
+    "stage1_segmentation_records": [
+      {
+        "span_id": "s1",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Internal newsletters",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_newsletters"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 0,
+        "char_end": 20,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s2",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "announcements",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_announcements"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 21,
+        "char_end": 34,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s3",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "update digests",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_update_digests"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 35,
+        "char_end": 49,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s4",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "executive briefs",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_executive_briefs"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 50,
+        "char_end": 66,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s5",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "related internal-comms artifacts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_related_internal_comms_artifacts"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 67,
+        "char_end": 99,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s6",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A user request",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_request"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 0,
+        "char_end": 14,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s7",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional known topics",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_known_topics"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 15,
+        "char_end": 36,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s8",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_timeframe"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 37,
+        "char_end": 55,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s9",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "available connectors or source repositories",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_connectors_or_source_repositories"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 56,
+        "char_end": 99,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s10",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional format preferences",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_preferences"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 100,
+        "char_end": 127,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s11",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s12",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a source/evidence set",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_source_evidence_set"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 31,
+        "char_end": 52,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s13",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a short assumptions log for any unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_assumptions_log"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 53,
+        "char_end": 101,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s14",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a completion status",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 102,
+        "char_end": 121,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s15",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "First determine what kind of communication is requested.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 0,
+        "char_end": 56,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s16",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Then identify which required fields are still missing.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 57,
+        "char_end": 111,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s17",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 112,
+        "char_end": 183,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s18",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If sources are needed and available retrieve them using approved source recipes.",
+        "guard_text_exact": "sources are needed and available",
+        "action_text_exact": "retrieve them using approved source recipes",
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 184,
+        "char_end": 264,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s19",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Maintain provenance for externally sourced facts.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 265,
+        "char_end": 314,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s20",
+        "segmentation_kind": "guarded_action",
+        "span_text": "When enough required information is available produce a draft.",
+        "guard_text_exact": "enough required information is available",
+        "action_text_exact": "produce a draft",
+        "parent_packet_ids": [
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "p_list_item_produce_a_draft_if_the_user_asks_for_revision"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 315,
+        "char_end": 377,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s21",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user asks for revision revise while re checking constraints.",
+        "guard_text_exact": "the user asks for revision",
+        "action_text_exact": "revise while re checking constraints",
+        "parent_packet_ids": [
+          "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 378,
+        "char_end": 445,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s22",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 446,
+        "char_end": 577,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s23",
+        "segmentation_kind": "guarded_action",
+        "span_text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "guard_text_exact": "the end",
+        "action_text_exact": "record a short assumptions log for any unresolved items and set a completion status for the run",
+        "parent_packet_ids": [
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 578,
+        "char_end": 684,
+        "boundary_confidence": "medium",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s24",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not invent links or unseen facts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_do_not_invent_links_or_unseen_facts"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 0,
+        "char_end": 35,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s25",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Require evidence for sourced claims",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_require_evidence_for_sourced_claims"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 36,
+        "char_end": 71,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s26",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Limit questions per turn",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_limit_questions_per_turn"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 72,
+        "char_end": 96,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s27",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Prefer tool evidence over unnecessary user questioning",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 97,
+        "char_end": 151,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s28",
+        "segmentation_kind": "guarded_action",
+        "span_text": "Deny finalization if critical slots are missing or provenance fails",
+        "guard_text_exact": "critical slots are missing or provenance fails",
+        "action_text_exact": "Deny finalization",
+        "parent_packet_ids": [
+          "p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 152,
+        "char_end": 219,
+        "boundary_confidence": "medium",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s29",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Missing timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_missing_timeframe"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 0,
+        "char_end": 17,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s30",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "conflicting instructions",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_conflicting_instructions"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 18,
+        "char_end": 42,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s31",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "insufficient source access",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_insufficient_source_access"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 43,
+        "char_end": 69,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s32",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "evidence shortage",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_evidence_shortage"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 70,
+        "char_end": 87,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s33",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "user refusal to answer",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_refusal_to_answer"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 88,
+        "char_end": 110,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s34",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "provenance failure",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_provenance_failure"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 111,
+        "char_end": 129,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s35",
+        "segmentation_kind": "guarded_action",
+        "span_text": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers",
+        "guard_text_exact": "bounded and the returned evidence is normalized into approved evidence carriers",
+        "action_text_exact": "Optional delegated subtasks such as source gathering or template matching may be used",
+        "parent_packet_ids": [
+          "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 0,
+        "char_end": 168,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      }
+    ],
+    "span_segmentation_records": [
+      {
+        "span_id": "s1",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Internal newsletters",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_newsletters"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 0,
+        "char_end": 20,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s2",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "announcements",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_announcements"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 21,
+        "char_end": 34,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s3",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "update digests",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_update_digests"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 35,
+        "char_end": 49,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s4",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "executive briefs",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_executive_briefs"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 50,
+        "char_end": 66,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s5",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "related internal-comms artifacts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_related_internal_comms_artifacts"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 67,
+        "char_end": 99,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s6",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A user request",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_request"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 0,
+        "char_end": 14,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s7",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional known topics",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_known_topics"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 15,
+        "char_end": 36,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s8",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_timeframe"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 37,
+        "char_end": 55,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s9",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "available connectors or source repositories",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_connectors_or_source_repositories"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 56,
+        "char_end": 99,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s10",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "optional format preferences",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_preferences"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 100,
+        "char_end": 127,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s11",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s12",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a source/evidence set",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_source_evidence_set"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 31,
+        "char_end": 52,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s13",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a short assumptions log for any unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_assumptions_log"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 53,
+        "char_end": 101,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s14",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a completion status",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 102,
+        "char_end": 121,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s15",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "First determine what kind of communication is requested.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 0,
+        "char_end": 56,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s16",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Then identify which required fields are still missing.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 57,
+        "char_end": 111,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s17",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 112,
+        "char_end": 183,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s18",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If sources are needed and available retrieve them using approved source recipes.",
+        "guard_text_exact": "sources are needed and available",
+        "action_text_exact": "retrieve them using approved source recipes",
+        "parent_packet_ids": [
+          "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 184,
+        "char_end": 264,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s19",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Maintain provenance for externally sourced facts.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 265,
+        "char_end": 314,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s20",
+        "segmentation_kind": "guarded_action",
+        "span_text": "When enough required information is available produce a draft.",
+        "guard_text_exact": "enough required information is available",
+        "action_text_exact": "produce a draft",
+        "parent_packet_ids": [
+          "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "p_list_item_produce_a_draft_if_the_user_asks_for_revision"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 315,
+        "char_end": 377,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s21",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user asks for revision revise while re checking constraints.",
+        "guard_text_exact": "the user asks for revision",
+        "action_text_exact": "revise while re checking constraints",
+        "parent_packet_ids": [
+          "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 378,
+        "char_end": 445,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s22",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 446,
+        "char_end": 577,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s23",
+        "segmentation_kind": "guarded_action",
+        "span_text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "guard_text_exact": "the end",
+        "action_text_exact": "record a short assumptions log for any unresolved items and set a completion status for the run",
+        "parent_packet_ids": [
+          "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 578,
+        "char_end": 684,
+        "boundary_confidence": "medium",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s24",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not invent links or unseen facts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_do_not_invent_links_or_unseen_facts"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 0,
+        "char_end": 35,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s25",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Require evidence for sourced claims",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_require_evidence_for_sourced_claims"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 36,
+        "char_end": 71,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s26",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Limit questions per turn",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_limit_questions_per_turn"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 72,
+        "char_end": 96,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s27",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Prefer tool evidence over unnecessary user questioning",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 97,
+        "char_end": 151,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s28",
+        "segmentation_kind": "guarded_action",
+        "span_text": "Deny finalization if critical slots are missing or provenance fails",
+        "guard_text_exact": "critical slots are missing or provenance fails",
+        "action_text_exact": "Deny finalization",
+        "parent_packet_ids": [
+          "p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 152,
+        "char_end": 219,
+        "boundary_confidence": "medium",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s29",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Missing timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_missing_timeframe"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 0,
+        "char_end": 17,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s30",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "conflicting instructions",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_conflicting_instructions"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 18,
+        "char_end": 42,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s31",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "insufficient source access",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_insufficient_source_access"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 43,
+        "char_end": 69,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s32",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "evidence shortage",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_evidence_shortage"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 70,
+        "char_end": 87,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s33",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "user refusal to answer",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_refusal_to_answer"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 88,
+        "char_end": 110,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s34",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "provenance failure",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_provenance_failure"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 111,
+        "char_end": 129,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s35",
+        "segmentation_kind": "guarded_action",
+        "span_text": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers",
+        "guard_text_exact": "bounded and the returned evidence is normalized into approved evidence carriers",
+        "action_text_exact": "Optional delegated subtasks such as source gathering or template matching may be used",
+        "parent_packet_ids": [
+          "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 0,
+        "char_end": 168,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      }
+    ]
+  }
+}

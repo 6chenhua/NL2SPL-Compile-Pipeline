@@ -8,6 +8,8 @@ PROMPTS_DIR = Path(__file__).parent.parent.parent.parent / "prompts"
 STAGE_PROMPT_FILES = {
     "stage0_section_mapper": PROMPTS_DIR / "stage0_section_mapper.txt",
     "stage1": PROMPTS_DIR / "stage1_system.txt",
+    "stage1_source_constrained": PROMPTS_DIR / "stage1_source_constrained_segmentation_system.txt",
+    "stage1_source_constrained_user": PROMPTS_DIR / "stage1_source_constrained_segmentation_user_template.txt",
     "stage2": PROMPTS_DIR / "stage2_system.txt",
     "stage3": PROMPTS_DIR / "stage3_system.txt",
     "stage3_5": PROMPTS_DIR / "stage3_5_system.txt",

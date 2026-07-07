@@ -6,15 +6,34 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 
 from nl2spl.compiler.irs.policy import IRSRuntimeConfig
 
 
+@dataclass(frozen=True)
+class Stage1SegmentationConfig:
+    """Configuration options for Stage 1 Span Segmentation."""
+
+    mode: Literal[
+        "legacy_packet_passthrough",
+        "llm_source_constrained_shadow",
+        "llm_source_constrained",
+        "deterministic_fallback_only",
+    ] = "legacy_packet_passthrough"
+    max_retries: int = 2
+    require_full_coverage: bool = True
+    emit_sidecar: bool = True
+    require_validator_pass: bool = True
+    fail_closed_on_invalid_llm_output: bool = True
+
+
 @dataclass
 class LLMConfig:
+
+
     """LLM configuration."""
 
     model: str = "gpt-4o"
@@ -63,6 +82,9 @@ class PipelineConfig:
 
     # IRS (Information Requirements Specification) settings
     irs: IRSRuntimeConfig = field(default_factory=IRSRuntimeConfig)
+
+    # Stage 1 Span Segmentation settings
+    stage1: Stage1SegmentationConfig = field(default_factory=Stage1SegmentationConfig)
 
     # Snapshot persistence settings (S4)
     snapshot: Any = None  # SnapshotPersistenceConfig — lazy reference to avoid import

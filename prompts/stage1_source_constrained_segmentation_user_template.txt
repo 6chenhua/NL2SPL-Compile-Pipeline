@@ -1,0 +1,190 @@
+Here is the source text to segment. It is grouped by Section and represented as ordered packets with IDs.
+
+Section: {section_id}
+
+Packets:
+{packets}
+
+Allowed segmentation kinds:
+- atomic_text_unit
+- atomic_action_candidate
+- guarded_action
+- continuation_repaired
+- ambiguous_boundary
+
+### Few-Shot Examples
+
+Example 1: Packet-internal multiple sentences split
+Input Packets:
+[p_1] First check system status. Then query the database.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "First check system status.",
+      "segmentation_kind": "atomic_action_candidate",
+      "guard_text_exact": null,
+      "action_text_exact": null,
+      "source_packet_ids": ["p_1"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    },
+    {
+      "segment_text_exact": "Then query the database.",
+      "segmentation_kind": "atomic_action_candidate",
+      "guard_text_exact": null,
+      "action_text_exact": null,
+      "source_packet_ids": ["p_1"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 2: Packet-internal complete guarded_action
+Input Packets:
+[p_2] If the server response is slow, retry the request.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "If the server response is slow, retry the request.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "the server response is slow",
+      "action_text_exact": "retry the request",
+      "source_packet_ids": ["p_2"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 3: Cross-packet guarded_action repair
+Input Packets:
+[p_3a] When enough required information is available
+[p_3b] produce a draft.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "When enough required information is available produce a draft.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "enough required information is available",
+      "action_text_exact": "produce a draft",
+      "source_packet_ids": ["p_3a", "p_3b"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": true
+    }
+  ]
+}
+
+Example 4: Trailing guard without recoverable action -> ambiguous_boundary
+Input Packets:
+[p_4] Once the request has been submitted
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "Once the request has been submitted",
+      "segmentation_kind": "ambiguous_boundary",
+      "guard_text_exact": null,
+      "action_text_exact": null,
+      "source_packet_ids": ["p_4"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "medium",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 5: User-choice condition (NOT alternative_flow at Stage 1)
+Input Packets:
+[p_5] If the user asks for revision, revise the draft.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "If the user asks for revision, revise the draft.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "the user asks for revision",
+      "action_text_exact": "revise the draft",
+      "source_packet_ids": ["p_5"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 6: Failure/recovery condition (NOT exception_flow at Stage 1)
+Input Packets:
+[p_6] If evidence shortage occurs, abort the run.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "If evidence shortage occurs, abort the run.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "evidence shortage occurs",
+      "action_text_exact": "abort the run",
+      "source_packet_ids": ["p_6"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 7: Policy/constraint-like text (NOT constraint at Stage 1)
+Input Packets:
+[p_7] Do not invent links or unseen facts.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "Do not invent links or unseen facts.",
+      "segmentation_kind": "atomic_action_candidate",
+      "guard_text_exact": null,
+      "action_text_exact": null,
+      "source_packet_ids": ["p_7"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Example 8: Same-packet multiple independent guarded_action
+Input Packets:
+[p_8] If configuration is missing, load default. If database fails, raise exception.
+Output JSON:
+{
+  "segments": [
+    {
+      "segment_text_exact": "If configuration is missing, load default.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "configuration is missing",
+      "action_text_exact": "load default",
+      "source_packet_ids": ["p_8"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    },
+    {
+      "segment_text_exact": "If database fails, raise exception.",
+      "segmentation_kind": "guarded_action",
+      "guard_text_exact": "database fails",
+      "action_text_exact": "raise exception",
+      "source_packet_ids": ["p_8"],
+      "source_section_id": "sec_example",
+      "boundary_confidence": "high",
+      "continuation_repaired": false
+    }
+  ]
+}
+
+Now perform the segmentation task and output JSON only.
