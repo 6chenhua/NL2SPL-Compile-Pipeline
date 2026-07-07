@@ -1,6 +1,6 @@
 SPL_AGENT := "[DEFINE_AGENT:" AGENT_NAME ["\"" STATIC_DESCRIPTION "\""] "]" SPL_PROMPT "[END_AGENT]"
 
-SPL_PROMPT := PERSONA [AUDIENCE] [CONCEPTS] [CONSTRAINTS] [VARIABLES] [FILES] [APIS] {INSTRUCTION}
+SPL_PROMPT := PERSONA [AUDIENCE] [CONCEPTS] [CONSTRAINTS] [TYPES] [VARIABLES] [FILES] [APIS] {INSTRUCTION}
 
 """
 In SPL, PERSONA (AUDIENCE, GLOBAL_CONSTRAINTS, CONCEPTS) is conceptually the samee as a read-only const global variable with a structured data type whose key corresponds to each aspect one by one.
@@ -75,6 +75,7 @@ Data reference design
 -) Two ways of use variable value:
    - use by reference: <REF> NAME </REF>, VM need to prepend NAME = value before the INSTRUCTION prompt. If NAME refers to file or database, VM needs to load file content or select database and assign the value to a temporary variable NAME.
    - use by value: <REF> *NAME </REF>, i.e., VM retrieve Python variable value and inline variable value at the reference site (used for agent initialization and prompt preparation)
+-) NAME may be a SIMPLE_NAME or a QUALIFIED_NAME. Qualified references such as <REF>a_b.x</REF> and <REF>a_b.y</REF> address fields of a structured variable. The top-tier name must be declared, and each non-top-tier field name must exist in the referenced structured DATA_TYPE.
 """
 
 VARIABLES := "[DEFINE_VARIABLES:]" {VARIABLE_DECLARATION} "[END_VARIABLES]"
@@ -181,13 +182,13 @@ More SYSTEM_COMMAND for text, image, file, math, time operations.
 COMMAND := COMMAND_INDEX COMMAND_BODY
 COMMAND_INDEX := "COMMAND-" <number> """System maintained unique command index"""
 COMMAND_BODY := GENERAL_COMMAND | CALL_API | INVOKE_INSTRUCTION | REQUEST_INPUT | DISPLAY_MESSAGE
-GENERAL_COMMAND := "[COMMAND" ["CODE"] DESCRIPTION_WITH_REFERENCES ["STOP" DESCRIPTION_WITH_REFERENCES] ["RESULT" COMMAND_RESULTS ["SET" | "APPEND"]] "]" """SET is default operation"""
+GENERAL_COMMAND := "[COMMAND" ["CODE"] DESCRIPTION_WITH_REFERENCES ["STOP" DESCRIPTION_WITH_REFERENCES] ["RESULT" COMMAND_RESULT ["SET" | "APPEND"]] "]" """SET is default operation. A renderable command body has at most one COMMAND_RESULT."""
 DISPLAY_MESSAGE := "[DISPLAY" DESCRIPTION_WITH_REFERENCES "]"
-REQUEST_INPUT := "[INPUT" ["DISPLAY"] DESCRIPTION_WITH_REFERENCE "VALUE" COMMAND_RESULTS ["SET" | "APPEND"] "]" """With DISPLAY, DESCRIPTION_WITH_REFERENCE is regarded as display text. Otherwise, DESCRIPTION_WITH_REFERENCE is a prompt."""
-CALL_API := "[CALL" API_NAME {"," API_NAME} ["WITH" ARGUMENT_LIST {"," ARGUMENT_LIST}] ["RESPONSE" COMMAND_RESULTS ["SET" | "APPEND"]] "]"
-INVOKE_INSTRUCTION := "[INVOKE" INSTRUCTION_NAME {"," INSTRUCTION_NAME} ["WITH" ARGUMENT_LIST {"," ARGUMENT_LIST}] ["RESPONSE" COMMAND_RESULTS ["SET" | "APPEND"]] "]"
-COMMAND_RESULTS := COMMAND_RESULT {"," COMMAND_RESULT} """One trailing SET or APPEND applies uniformly to all results in the list."""
+REQUEST_INPUT := "[INPUT" ["DISPLAY"] DESCRIPTION_WITH_REFERENCES "VALUE" COMMAND_RESULT ["SET" | "APPEND"] "]" """With DISPLAY, DESCRIPTION_WITH_REFERENCES is regarded as display text. Otherwise, DESCRIPTION_WITH_REFERENCES is a prompt. A renderable input command has exactly one VALUE target."""
+CALL_API := "[CALL" API_NAME {"," API_NAME} ["WITH" ARGUMENT_LIST {"," ARGUMENT_LIST}] ["RESPONSE" COMMAND_RESULT ["SET" | "APPEND"]] "]" """A CALL_API invocation executes once. If the response must expose multiple fields, bind one structured COMMAND_RESULT and reference fields through qualified references."""
+INVOKE_INSTRUCTION := "[INVOKE" INSTRUCTION_NAME {"," INSTRUCTION_NAME} ["WITH" ARGUMENT_LIST {"," ARGUMENT_LIST}] ["RESPONSE" COMMAND_RESULT ["SET" | "APPEND"]] "]" """An INVOKE response binds at most one COMMAND_RESULT. Multi-field responses should use one structured result variable."""
 COMMAND_RESULT := VAR_NAME ":" DATA_TYPE | REFERENCE """VAR_NAME ":" DATA_TYPE essentially declares a temporary variable"""
+ARGUMENT_LIST := STRUCTURED_TEXT
 
 EXAMPLES := "[EXAMPLES]" { EXPECTED_WORKER_BEHAVIOR | DEFECT_WORKER_BEHAVIOR } "[END_EXAMPLES]"
 
