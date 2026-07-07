@@ -1,0 +1,7 @@
+{
+  "first_consumer_mode": "before",
+  "first_consumer_ref_id": "ref:placement:consumer",
+  "trace_source": "PlacementDraftingView.first_consumer",
+  "blocked_invalid_anchor": true,
+  "preview_hides_anchor_ref": true
+}

@@ -1,0 +1,471 @@
+{
+  "stage": "executable_action_placement_plan",
+  "timestamp": "2026-07-08T01:20:16.037156",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "action_s15",
+        "source_span_ids": [
+          "s15"
+        ],
+        "action_text": "First determine what kind of communication is requested.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s16",
+        "source_span_ids": [
+          "s16"
+        ],
+        "action_text": "Then identify which required fields are still missing.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s17",
+        "source_span_ids": [
+          "s17"
+        ],
+        "action_text": "Ask only the highest-value clarifying questions needed to move forward.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s18",
+        "source_span_ids": [
+          "s18"
+        ],
+        "action_text": "retrieve them using approved source recipes",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": "CALL_API",
+        "guard_text": "sources are needed and available"
+      },
+      {
+        "candidate_id": "action_s19",
+        "source_span_ids": [
+          "s19"
+        ],
+        "action_text": "Maintain provenance for externally sourced facts.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s20",
+        "source_span_ids": [
+          "s20"
+        ],
+        "action_text": "produce a draft",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "enough required information is available"
+      },
+      {
+        "candidate_id": "action_s21",
+        "source_span_ids": [
+          "s21"
+        ],
+        "action_text": "revise while re checking constraints",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "the user asks for revision"
+      },
+      {
+        "candidate_id": "action_s22",
+        "source_span_ids": [
+          "s22"
+        ],
+        "action_text": "Do not finalize",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms"
+      },
+      {
+        "candidate_id": "action_s23",
+        "source_span_ids": [
+          "s23"
+        ],
+        "action_text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s1",
+        "source_span_ids": [
+          "s1"
+        ],
+        "action_text": "Internal newsletters",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s2",
+        "source_span_ids": [
+          "s2"
+        ],
+        "action_text": "announcements",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s3",
+        "source_span_ids": [
+          "s3"
+        ],
+        "action_text": "update digests",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s4",
+        "source_span_ids": [
+          "s4"
+        ],
+        "action_text": "executive briefs",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s5",
+        "source_span_ids": [
+          "s5"
+        ],
+        "action_text": "related internal-comms artifacts",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s6",
+        "source_span_ids": [
+          "s6"
+        ],
+        "action_text": "A user request",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s7",
+        "source_span_ids": [
+          "s7"
+        ],
+        "action_text": "optional known topics",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s8",
+        "source_span_ids": [
+          "s8"
+        ],
+        "action_text": "optional timeframe",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s9",
+        "source_span_ids": [
+          "s9"
+        ],
+        "action_text": "available connectors or source repositories",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s10",
+        "source_span_ids": [
+          "s10"
+        ],
+        "action_text": "optional format preferences",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s11",
+        "source_span_ids": [
+          "s11"
+        ],
+        "action_text": "A draft communication artifact",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s12",
+        "source_span_ids": [
+          "s12"
+        ],
+        "action_text": "a source/evidence set",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s13",
+        "source_span_ids": [
+          "s13"
+        ],
+        "action_text": "a short assumptions log for any unresolved items",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s14",
+        "source_span_ids": [
+          "s14"
+        ],
+        "action_text": "a completion status",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s29",
+        "source_span_ids": [
+          "s29"
+        ],
+        "action_text": "Missing timeframe",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s30",
+        "source_span_ids": [
+          "s30"
+        ],
+        "action_text": "conflicting instructions",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s31",
+        "source_span_ids": [
+          "s31"
+        ],
+        "action_text": "insufficient source access",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s32",
+        "source_span_ids": [
+          "s32"
+        ],
+        "action_text": "evidence shortage",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s33",
+        "source_span_ids": [
+          "s33"
+        ],
+        "action_text": "user refusal to answer",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s34",
+        "source_span_ids": [
+          "s34"
+        ],
+        "action_text": "provenance failure",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      }
+    ],
+    "placements": [
+      {
+        "candidate_id": "action_s15",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s16",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s17",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s18",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s19",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s20",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s21",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s22",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s23",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      }
+    ],
+    "worker_actions": [
+      {
+        "worker_id": "worker_main",
+        "placement_span_ids": [
+          "s15",
+          "s16",
+          "s17",
+          "s18",
+          "s19",
+          "s20",
+          "s21",
+          "s22",
+          "s23"
+        ],
+        "generic_step_extraction_span_ids": [
+          "s15",
+          "s16",
+          "s17",
+          "s19",
+          "s20",
+          "s21",
+          "s22",
+          "s23"
+        ],
+        "materialization_exclusions": [
+          {
+            "span_id": "s18",
+            "excluded_from": "general_command_extraction",
+            "owning_authority": "api_call",
+            "authority_ref": "api_call_1aa878e481ade1e2",
+            "reason": "api_call_materializer_owns_command_type"
+          }
+        ]
+      }
+    ],
+    "diagnostics": [],
+    "audit": {
+      "total_candidates": 29,
+      "source": "stage1/routes/construct_plan"
+    }
+  }
+}

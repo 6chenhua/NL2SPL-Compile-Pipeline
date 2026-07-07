@@ -1,0 +1,6 @@
+{
+  "required_output_binding_parent_ref_id": "ref:binding:source_evidence",
+  "required_output_binding_temporary": false,
+  "parent_local_temporary_positive": true,
+  "required_output_without_binding_blocked": true
+}

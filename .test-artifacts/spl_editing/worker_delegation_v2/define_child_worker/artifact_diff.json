@@ -2,57 +2,47 @@
   "after": {
     "PromotionResolutionMarker": [
       {
-        "evidence_ref": "ev_packet_intent_directive_a1f6c91720161182c580",
-        "marker_id": "promotion_resolution:directive_a1f6c91720161182c580",
+        "evidence_ref": "ev_packet_intent_directive_03ed48adbf195a1442a2",
+        "marker_id": "promotion_resolution:directive_03ed48adbf195a1442a2",
         "materialized_construct_refs": [
-          "worker:worker_child_338cce28e8",
-          "flow:worker_child_338cce28e8:main",
-          "block:worker_child_338cce28e8:b_child_77edef9b18",
-          "step:worker_child_338cce28e8:st_child_8210406c69",
-          "handoff:handoff_24e0f83cfd",
-          "step:worker_main:st_invoke_dea2e7c1d1"
+          "worker:worker_child_e28a0c462e",
+          "flow:worker_child_e28a0c462e:main",
+          "block:worker_child_e28a0c462e:b_child_d23cae4313",
+          "step:worker_child_e28a0c462e:st_child_281223512d",
+          "handoff:handoff_f1dda243e2",
+          "step:worker_main:st_invoke_dc61d0ee55"
         ],
-        "normalized_directive_id": "directive_a1f6c91720161182c580",
-        "repair_patch_id": "patch_directive_a1f6c91720161182c580",
+        "normalized_directive_id": "directive_03ed48adbf195a1442a2",
+        "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
         "resolution_kind": "defined_child_worker",
-        "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s31",
-        "target_worker_promotion_id": "worker_promotion:del_s31",
+        "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s36",
+        "target_worker_promotion_id": "worker_promotion:del_s36",
         "user_confirmed": true
       }
     ],
     "SymbolTable_local_temporary_results": [
       {
-        "block_ref": "b_3",
+        "block_ref": "b_4_seq_2",
         "consumer_steps": [],
         "data_type": "text",
         "declared": false,
         "description": "Parent-local temporary handoff result",
         "flow_ref": "main",
-        "name": "tmp_delegated_evidence_c1dc0e22",
-        "producer_step": "st_invoke_dea2e7c1d1",
+        "name": "tmp_delegated_evidence_5ad1bb5e",
+        "producer_step": "st_invoke_dc61d0ee55",
         "scope_id": "worker_main",
         "scope_kind": "worker",
         "source": "user_confirmed_repair"
       }
     ],
     "WorkerBlockPlanIR": {
-      "clarify_needed_fields": [
+      "worker_child_e28a0c462e": [
         {
-          "block_id": "b_1",
+          "block_id": "b_child_d23cae4313",
           "block_type": "SEQUENTIAL",
           "condition_text": null,
           "spans": [
-            "s15"
-          ]
-        }
-      ],
-      "worker_child_338cce28e8": [
-        {
-          "block_id": "b_child_77edef9b18",
-          "block_type": "SEQUENTIAL",
-          "condition_text": null,
-          "spans": [
-            "s31"
+            "s36"
           ]
         }
       ],
@@ -62,89 +52,66 @@
           "block_type": "SEQUENTIAL",
           "condition_text": null,
           "spans": [
+            "s15",
             "s16"
           ]
         },
         {
-          "block_id": "b_2",
+          "block_id": "b_cr_local_if_s17",
           "block_type": "IF",
-          "condition_text": "the user asks for revision",
+          "condition_text": "required fields are still missing",
           "spans": [
             "s17"
           ]
         },
         {
-          "block_id": "b_3",
+          "block_id": "b_cr_local_if_s18",
+          "block_type": "IF",
+          "condition_text": "sources are needed and available",
+          "spans": [
+            "s18"
+          ]
+        },
+        {
+          "block_id": "b_4_seq_2_part_2",
           "block_type": "SEQUENTIAL",
           "condition_text": null,
           "spans": [
-            "s18",
             "s19"
+          ]
+        },
+        {
+          "block_id": "b_cr_local_if_s20",
+          "block_type": "IF",
+          "condition_text": "enough required information is available",
+          "spans": [
+            "s20"
+          ]
+        },
+        {
+          "block_id": "b_5",
+          "block_type": "IF",
+          "condition_text": "required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
+          "spans": [
+            "s22"
+          ]
+        },
+        {
+          "block_id": "b_4_seq_2",
+          "block_type": "SEQUENTIAL",
+          "condition_text": null,
+          "spans": [
+            "s24"
           ]
         }
       ]
     },
     "WorkerFlowPlanIR": [
-      "clarify_needed_fields",
-      "worker_child_338cce28e8",
+      "worker_child_e28a0c462e",
       "worker_main"
     ],
     "WorkerPlanIR": {
       "handoffs": [
-        {
-          "api_ref": null,
-          "condition_text": "Reduce ambiguity enough to continue the communication task without unnecessary questioning.",
-          "failure_policy": {
-            "description": "If Worker_clarify_needed_fields fails, propagate to parent.",
-            "policy_kind": "propagate_exception",
-            "source_span_ids": []
-          },
-          "from_worker": "worker_main",
-          "handoff_id": "handoff_clarify_needed_fields",
-          "input_binding_status": "known_present",
-          "input_binding_status_source": null,
-          "input_bindings": [
-            {
-              "child_input": "user_request",
-              "default_value": null,
-              "parent_variable": "user_request",
-              "required": true
-            },
-            {
-              "child_input": "required_fields",
-              "default_value": null,
-              "parent_variable": "required_fields",
-              "required": true
-            }
-          ],
-          "invoke_location_hint": {
-            "after_span_id": null,
-            "before_span_id": "s16",
-            "block_hint": "sequential",
-            "flow_id": null,
-            "flow_kind": "main"
-          },
-          "materialization_status": "complete",
-          "mode": "invoke",
-          "ordering": "after",
-          "output_binding_status": "known_present",
-          "output_binding_status_source": null,
-          "output_bindings": [
-            {
-              "child_output": "missing_required_fields",
-              "merge_strategy": "set",
-              "parent_variable": "missing_required_fields",
-              "required": true
-            },
-            {
-              "child_output": "clarifying_questions",
-              "merge_strategy": "set",
-              "parent_variable": "clarifying_questions",
-              "required": true
-            }
-          ],
-          "to_worker": "clarify_needed_fields"
-        },
         {
           "api_ref": null,
           "condition_text": null,
@@ -154,7 +121,7 @@
             "source_span_ids": []
           },
           "from_worker": "worker_main",
-          "handoff_id": "handoff_24e0f83cfd",
+          "handoff_id": "handoff_f1dda243e2",
           "input_binding_status": "known_present",
           "input_binding_status_source": "user_confirmed_repair",
           "input_bindings": [
@@ -166,7 +133,7 @@
             }
           ],
           "invoke_location_hint": {
-            "after_span_id": "s31",
+            "after_span_id": "s36",
             "before_span_id": null,
             "block_hint": "sequential",
             "flow_id": "main",
@@ -181,11 +148,11 @@
             {
               "child_output": "delegated_evidence",
               "merge_strategy": "set",
-              "parent_variable": "tmp_delegated_evidence_c1dc0e22",
+              "parent_variable": "tmp_delegated_evidence_5ad1bb5e",
               "required": true
             }
           ],
-          "to_worker": "worker_child_338cce28e8"
+          "to_worker": "worker_child_e28a0c462e"
         }
       ],
       "workers": [
@@ -198,77 +165,67 @@
             {
               "contract_demand_id": "rcd_input_s10",
               "data_type": "text",
-              "description": "Optional user preferences for output format.",
+              "description": "Optional preferences for output format.",
               "name": "format_preferences",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s10"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s6",
               "data_type": "text",
-              "description": "The user's request.",
+              "description": "The request provided by the user.",
               "name": "user_request",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s6"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s7",
               "data_type": "List[text]",
-              "description": "Optional topics already known to be relevant.",
+              "description": "Optional topics already known or in scope.",
               "name": "known_topics",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s7"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s8",
               "data_type": "text",
-              "description": "Optional time window or date range.",
+              "description": "Optional time range or deadline context.",
               "name": "timeframe",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s8"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s9",
               "data_type": "List[text]",
-              "description": "Available connectors or source repositories.",
-              "name": "connectors_or_source_repositories",
+              "description": "Available connectors or source repositories to use.",
+              "name": "available_connectors_or_source_repositories",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s9"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             }
           ],
           "input_contract_status": "unknown",
@@ -285,145 +242,55 @@
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s11"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_output_s12",
               "data_type": "List[text]",
-              "description": "Set of sources and evidence used.",
+              "description": "Set of sources or evidence used to support the draft.",
               "name": "source_evidence_set",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s12"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
-              "contract_demand_id": "rcd_output_s13",
-              "data_type": "text",
-              "description": "Short log of unresolved assumptions.",
-              "name": "assumptions_log",
+              "contract_demand_id": null,
+              "data_type": "AssumptionsLogCompletionStatus",
+              "description": "Structured result for st_9.",
+              "name": "assumptions_log_completion_status",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s13"
-              ]
-            },
-            {
-              "contract_demand_id": "rcd_output_s14",
-              "data_type": "text",
-              "description": "Run completion status.",
-              "name": "completion_status",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s14"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             }
           ],
           "output_contract_status": "unknown",
           "output_contract_status_source": null,
           "owned_span_ids": [
+            "s15",
             "s16",
             "s17",
+            "s20",
+            "s21",
+            "s23",
+            "s24",
             "s18",
-            "s19"
+            "s19",
+            "s22"
           ],
           "partial_reason": null,
           "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
           "reason": "",
           "worker_id": "worker_main",
           "worker_name": "MainWorker"
-        },
-        {
-          "boundary_kind": "bounded_subtask",
-          "constraints": [],
-          "decision_evidence": [],
-          "depends_on": [],
-          "input_contract": [
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The user request for the communication artifact",
-              "name": "user_request",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "input",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            },
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The set of required fields that must be present before proceeding",
-              "name": "required_fields",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "input",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            }
-          ],
-          "input_contract_status": "known_present",
-          "input_contract_status_source": null,
-          "kind": "child",
-          "output_contract": [
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The required fields still missing after inspection",
-              "name": "missing_required_fields",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            },
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The highest-value questions to ask the user",
-              "name": "clarifying_questions",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            }
-          ],
-          "output_contract_status": "known_present",
-          "output_contract_status_source": null,
-          "owned_span_ids": [
-            "s15"
-          ],
-          "partial_reason": null,
-          "purpose": "Reduce ambiguity enough to continue the communication task without unnecessary questioning.",
-          "reason": "",
-          "worker_id": "clarify_needed_fields",
-          "worker_name": "Worker_clarify_needed_fields"
         },
         {
           "boundary_kind": "child_worker",
@@ -443,7 +310,7 @@
               "source_packet_id": null,
               "source_section_id": null,
               "source_span_ids": [
-                "s31"
+                "s36"
               ]
             }
           ],
@@ -463,27 +330,27 @@
               "source_packet_id": null,
               "source_section_id": null,
               "source_span_ids": [
-                "s31"
+                "s36"
               ]
             }
           ],
           "output_contract_status": "known_present",
           "output_contract_status_source": "user_confirmed_repair",
           "owned_span_ids": [
-            "s31"
+            "s36"
           ],
           "partial_reason": null,
           "purpose": "Gather approved source evidence",
           "reason": "User-confirmed worker delegation repair",
-          "worker_id": "worker_child_338cce28e8",
-          "worker_name": "ChildWorker_560d7c6086"
+          "worker_id": "worker_child_e28a0c462e",
+          "worker_name": "GatherApprovedSourceEvidenceWorker"
         }
       ]
     },
     "WorkerStepPlanIR": {
-      "clarify_needed_fields": [
+      "worker_child_e28a0c462e": [
         {
-          "block_ref": "b_1",
+          "block_ref": "b_child_d23cae4313",
           "command_type": "GENERAL_COMMAND",
           "flow_ref": "main",
           "handoff_id": null,
@@ -492,10 +359,44 @@
           ],
           "integration_ref": null,
           "kind": "normal",
-          "metadata": {},
+          "metadata": {
+            "closure_role": "child_command",
+            "consumed_selected_ref_ids": "[\"worker_input:worker_main:worker_main::user_request\"]",
+            "evidence_packet_id": "ev_packet_intent_directive_03ed48adbf195a1442a2",
+            "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
+            "materialization_plan_id": "worker_delegation.complete_closure.v2",
+            "normalized_directive_id": "directive_03ed48adbf195a1442a2",
+            "origin": "user_confirmed_repair",
+            "related_diagnostic_id": "irs_f2892adc01f8",
+            "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+            "selected_ref_canonical_names": "[\"user_request\"]",
+            "target_worker_promotion_ref_id": "worker_promotion:del_s36",
+            "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+          },
           "outputs": [
+            "delegated_evidence"
+          ],
+          "source_span_ids": [
+            "s36"
+          ],
+          "step_id": "st_child_281223512d",
+          "text": "Gather approved source evidence using the selected user request input and return approved delegated evidence."
+        }
+      ],
+      "worker_main": [
+        {
+          "block_ref": "b_1",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [
+            "user_request",
             "known_topics"
           ],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
           "source_span_ids": [
             "s15"
           ],
@@ -509,274 +410,222 @@
           "handoff_id": null,
           "inputs": [
             "user_request",
-            "required_fields"
-          ],
-          "integration_ref": null,
-          "kind": "normal",
-          "metadata": {},
-          "outputs": [
-            "missing_required_fields"
-          ],
-          "source_span_ids": [
-            "s15"
-          ],
-          "step_id": "st_2",
-          "text": "Identify missing required fields."
-        },
-        {
-          "block_ref": "b_1",
-          "command_type": "REQUEST_INPUT",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "missing_required_fields"
-          ],
-          "integration_ref": null,
-          "kind": "user_input",
-          "metadata": {},
-          "outputs": [
-            "clarifying_questions"
-          ],
-          "source_span_ids": [
-            "s15"
-          ],
-          "step_id": "st_3",
-          "text": "Ask the highest-value clarifying questions."
-        }
-      ],
-      "worker_child_338cce28e8": [
-        {
-          "block_ref": "b_child_77edef9b18",
-          "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "user_request"
-          ],
-          "integration_ref": null,
-          "kind": "normal",
-          "metadata": {
-            "closure_role": "child_command",
-            "consumed_selected_ref_ids": "[\"worker_input:worker_main:worker_main::user_request\"]",
-            "evidence_packet_id": "ev_packet_intent_directive_a1f6c91720161182c580",
-            "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
-            "materialization_plan_id": "worker_delegation.complete_closure.v2",
-            "normalized_directive_id": "directive_a1f6c91720161182c580",
-            "origin": "user_confirmed_repair",
-            "related_diagnostic_id": "irs_16c0d5b20df4",
-            "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-            "selected_ref_canonical_names": "[\"user_request\"]",
-            "target_worker_promotion_ref_id": "worker_promotion:del_s31",
-            "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
-          },
-          "outputs": [
-            "delegated_evidence"
-          ],
-          "source_span_ids": [
-            "s31"
-          ],
-          "step_id": "st_child_8210406c69",
-          "text": "Gather approved source evidence"
-        }
-      ],
-      "worker_main": [
-        {
-          "block_ref": "b_1",
-          "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "connectors_or_source_repositories",
-            "known_topics",
+            "format_preferences",
             "timeframe"
           ],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
           "outputs": [
-            "source_evidence_set"
-          ],
-          "source_span_ids": [
-            "s16"
-          ],
-          "step_id": "st_1",
-          "text": "Retrieve sources using approved source recipes."
-        },
-        {
-          "block_ref": "b_1",
-          "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "source_evidence_set"
-          ],
-          "integration_ref": null,
-          "kind": "normal",
-          "metadata": {},
-          "outputs": [
-            "source_evidence_set"
+            "required_fields_missing"
           ],
           "source_span_ids": [
             "s16"
           ],
           "step_id": "st_2",
-          "text": "Maintain provenance for externally sourced facts."
+          "text": "Identify missing required fields."
         },
         {
-          "block_ref": "b_2",
-          "command_type": "GENERAL_COMMAND",
+          "block_ref": "b_cr_local_if_s17",
+          "command_type": "REQUEST_INPUT",
           "flow_ref": "main",
           "handoff_id": null,
-          "inputs": [
-            "user_request",
-            "format_preferences",
-            "source_evidence_set"
-          ],
+          "inputs": [],
           "integration_ref": null,
-          "kind": "normal",
+          "kind": "user_input",
           "metadata": {},
-          "outputs": [
-            "draft_communication_artifact"
-          ],
+          "outputs": [],
           "source_span_ids": [
             "s17"
           ],
           "step_id": "st_3",
-          "text": "Produce the draft communication artifact."
+          "text": "Ask the user clarifying questions."
         },
         {
-          "block_ref": "b_4",
+          "block_ref": "b_cr_local_if_s18",
           "command_type": "GENERAL_COMMAND",
-          "flow_ref": "alt_1",
+          "flow_ref": "alt_2",
           "handoff_id": null,
           "inputs": [
-            "draft_communication_artifact",
-            "source_evidence_set",
-            "user_request"
+            "available_connectors_or_source_repositories"
           ],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
-          "outputs": [
-            "draft_communication_artifact"
-          ],
+          "outputs": [],
           "source_span_ids": [
             "s18"
           ],
           "step_id": "st_4",
-          "text": "Revise the draft communication artifact while rechecking constraints."
+          "text": "Retrieve sources using approved source recipes."
         },
         {
-          "block_ref": "b_3",
+          "block_ref": "b_4_seq_2_part_2",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s19"
+          ],
+          "step_id": "st_5",
+          "text": "Maintain provenance for externally sourced facts."
+        },
+        {
+          "block_ref": "b_cr_local_if_s20",
           "command_type": "GENERAL_COMMAND",
           "flow_ref": "main",
           "handoff_id": null,
           "inputs": [
-            "draft_communication_artifact"
+            "user_request"
           ],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
           "outputs": [
-            "assumptions_log",
-            "completion_status"
+            "draft_communication_artifact"
           ],
           "source_span_ids": [
-            "s19"
+            "s20"
           ],
-          "step_id": "st_5",
-          "text": "Record the assumptions log and set the completion status."
+          "step_id": "st_6",
+          "text": "Produce the draft communication artifact."
         },
         {
-          "block_ref": "b_main_fallback",
-          "command_type": "INVOKE_WORKER",
-          "flow_ref": "main",
-          "handoff_id": "handoff_clarify_needed_fields",
-          "inputs": [
-            "user_request",
-            "required_fields"
-          ],
-          "integration_ref": "Worker_clarify_needed_fields",
-          "kind": "invoke",
+          "block_ref": "b_cr_top_alt_s21",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "alt_1",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
           "metadata": {},
-          "outputs": [
-            "missing_required_fields",
-            "clarifying_questions"
+          "outputs": [],
+          "source_span_ids": [
+            "s21"
           ],
-          "source_span_ids": [],
-          "step_id": "st_invoke_handoff_clarify_needed_fields",
-          "text": "Invoke worker: Worker_clarify_needed_fields"
+          "step_id": "st_7",
+          "text": "Revise the draft communication artifact."
         },
         {
-          "block_ref": "b_3",
+          "block_ref": "b_5",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s22"
+          ],
+          "step_id": "st_8",
+          "text": "Check whether required slots remain missing before finalizing."
+        },
+        {
+          "block_ref": "b_4_seq_2",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {
+            "origin": "source_backed",
+            "structured_aggregation": {
+              "original_outputs": [
+                "assumptions_log",
+                "completion_status"
+              ],
+              "result_name": "assumptions_log_completion_status",
+              "schema_version": "composite_output.v1",
+              "type_name": "AssumptionsLogCompletionStatus"
+            }
+          },
+          "outputs": [
+            "assumptions_log_completion_status"
+          ],
+          "source_span_ids": [
+            "s24"
+          ],
+          "step_id": "st_9",
+          "text": "Record the assumptions log and set completion status."
+        },
+        {
+          "block_ref": "b_cr_local_if_s18",
+          "command_type": "CALL_API",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": "ApprovedSourceRecipesAPI",
+          "kind": "tool",
+          "metadata": {
+            "action_id": "act_api_api_call_9db34e4cf3988ce9",
+            "api_binding_id": "api_binding:api_decl_9db34e4cf3988ce9",
+            "api_functions_status": "unknown_placeholder",
+            "api_id": "api:ApprovedSourceRecipesAPI",
+            "api_schema_status": "unknown_placeholder",
+            "argument_binding_source_span_ids": [
+              "s18"
+            ],
+            "argument_binding_status": "not_required",
+            "capability_intent_id": "cap_intent_6aa6600550db3f67",
+            "construct_demand_ids": [
+              "api_call_9db34e4cf3988ce9"
+            ],
+            "declaration_demand_id": "api_decl_9db34e4cf3988ce9",
+            "origin": "source_backed",
+            "owning_authority": "stage7.api_call_materializer",
+            "placement_ref": "api_call_placement:api_call_9db34e4cf3988ce9"
+          },
+          "outputs": [],
+          "source_span_ids": [
+            "s18"
+          ],
+          "step_id": "st_api_f2897b2872",
+          "text": "retrieve them"
+        },
+        {
+          "block_ref": "b_4_seq_2",
           "command_type": "INVOKE_WORKER",
           "flow_ref": "main",
-          "handoff_id": "handoff_24e0f83cfd",
+          "handoff_id": "handoff_f1dda243e2",
           "inputs": [
             "user_request"
           ],
-          "integration_ref": "ChildWorker_560d7c6086",
+          "integration_ref": "GatherApprovedSourceEvidenceWorker",
           "kind": "invoke",
           "metadata": {
             "closure_role": "parent_invoke",
             "consumed_selected_ref_ids": "[\"worker_input:worker_main:worker_main::user_request\"]",
-            "evidence_packet_id": "ev_packet_intent_directive_a1f6c91720161182c580",
+            "evidence_packet_id": "ev_packet_intent_directive_03ed48adbf195a1442a2",
             "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
             "materialization_plan_id": "worker_delegation.complete_closure.v2",
-            "normalized_directive_id": "directive_a1f6c91720161182c580",
+            "normalized_directive_id": "directive_03ed48adbf195a1442a2",
             "origin": "user_confirmed_repair",
-            "related_diagnostic_id": "irs_16c0d5b20df4",
-            "repair_patch_id": "patch_directive_a1f6c91720161182c580",
+            "related_diagnostic_id": "irs_f2892adc01f8",
+            "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
             "selected_ref_canonical_names": "[\"user_request\"]",
-            "target_worker_promotion_ref_id": "worker_promotion:del_s31",
-            "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+            "target_worker_promotion_ref_id": "worker_promotion:del_s36",
+            "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
           },
           "outputs": [
-            "tmp_delegated_evidence_c1dc0e22"
+            "tmp_delegated_evidence_5ad1bb5e"
           ],
           "source_span_ids": [],
-          "step_id": "st_invoke_dea2e7c1d1",
-          "text": "Invoke ChildWorker_560d7c6086"
+          "step_id": "st_invoke_dc61d0ee55",
+          "text": "Invoke GatherApprovedSourceEvidenceWorker"
         }
       ]
     },
     "handoff_invoke_bindings": [
       {
-        "handoff_id": "handoff_clarify_needed_fields",
-        "input_bindings": [
-          {
-            "child_input": "user_request",
-            "default_value": null,
-            "parent_variable": "user_request",
-            "required": true
-          },
-          {
-            "child_input": "required_fields",
-            "default_value": null,
-            "parent_variable": "required_fields",
-            "required": true
-          }
-        ],
-        "invoke_step_ids": [
-          "st_invoke_handoff_clarify_needed_fields"
-        ],
-        "output_bindings": [
-          {
-            "child_output": "missing_required_fields",
-            "merge_strategy": "set",
-            "parent_variable": "missing_required_fields",
-            "required": true
-          },
-          {
-            "child_output": "clarifying_questions",
-            "merge_strategy": "set",
-            "parent_variable": "clarifying_questions",
-            "required": true
-          }
-        ]
-      },
-      {
-        "handoff_id": "handoff_24e0f83cfd",
+        "handoff_id": "handoff_f1dda243e2",
         "input_bindings": [
           {
             "child_input": "user_request",
@@ -786,13 +635,13 @@
           }
         ],
         "invoke_step_ids": [
-          "st_invoke_dea2e7c1d1"
+          "st_invoke_dc61d0ee55"
         ],
         "output_bindings": [
           {
             "child_output": "delegated_evidence",
             "merge_strategy": "set",
-            "parent_variable": "tmp_delegated_evidence_c1dc0e22",
+            "parent_variable": "tmp_delegated_evidence_5ad1bb5e",
             "required": true
           }
         ]
@@ -803,105 +652,71 @@
     "PromotionResolutionMarker": [],
     "SymbolTable_local_temporary_results": [],
     "WorkerBlockPlanIR": {
-      "clarify_needed_fields": [
-        {
-          "block_id": "b_1",
-          "block_type": "SEQUENTIAL",
-          "condition_text": null,
-          "spans": [
-            "s15"
-          ]
-        }
-      ],
       "worker_main": [
         {
           "block_id": "b_1",
           "block_type": "SEQUENTIAL",
           "condition_text": null,
           "spans": [
+            "s15",
             "s16"
           ]
         },
         {
-          "block_id": "b_2",
+          "block_id": "b_cr_local_if_s17",
           "block_type": "IF",
-          "condition_text": "the user asks for revision",
+          "condition_text": "required fields are still missing",
           "spans": [
             "s17"
           ]
         },
         {
-          "block_id": "b_3",
+          "block_id": "b_cr_local_if_s18",
+          "block_type": "IF",
+          "condition_text": "sources are needed and available",
+          "spans": [
+            "s18"
+          ]
+        },
+        {
+          "block_id": "b_4_seq_2_part_2",
           "block_type": "SEQUENTIAL",
           "condition_text": null,
           "spans": [
-            "s18",
             "s19"
+          ]
+        },
+        {
+          "block_id": "b_cr_local_if_s20",
+          "block_type": "IF",
+          "condition_text": "enough required information is available",
+          "spans": [
+            "s20"
+          ]
+        },
+        {
+          "block_id": "b_5",
+          "block_type": "IF",
+          "condition_text": "required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
+          "spans": [
+            "s22"
+          ]
+        },
+        {
+          "block_id": "b_4_seq_2",
+          "block_type": "SEQUENTIAL",
+          "condition_text": null,
+          "spans": [
+            "s24"
           ]
         }
       ]
     },
     "WorkerFlowPlanIR": [
-      "clarify_needed_fields",
       "worker_main"
     ],
     "WorkerPlanIR": {
-      "handoffs": [
-        {
-          "api_ref": null,
-          "condition_text": "Reduce ambiguity enough to continue the communication task without unnecessary questioning.",
-          "failure_policy": {
-            "description": "If Worker_clarify_needed_fields fails, propagate to parent.",
-            "policy_kind": "propagate_exception",
-            "source_span_ids": []
-          },
-          "from_worker": "worker_main",
-          "handoff_id": "handoff_clarify_needed_fields",
-          "input_binding_status": "known_present",
-          "input_binding_status_source": null,
-          "input_bindings": [
-            {
-              "child_input": "user_request",
-              "default_value": null,
-              "parent_variable": "user_request",
-              "required": true
-            },
-            {
-              "child_input": "required_fields",
-              "default_value": null,
-              "parent_variable": "required_fields",
-              "required": true
-            }
-          ],
-          "invoke_location_hint": {
-            "after_span_id": null,
-            "before_span_id": "s16",
-            "block_hint": "sequential",
-            "flow_id": null,
-            "flow_kind": "main"
-          },
-          "materialization_status": "complete",
-          "mode": "invoke",
-          "ordering": "after",
-          "output_binding_status": "known_present",
-          "output_binding_status_source": null,
-          "output_bindings": [
-            {
-              "child_output": "missing_required_fields",
-              "merge_strategy": "set",
-              "parent_variable": "missing_required_fields",
-              "required": true
-            },
-            {
-              "child_output": "clarifying_questions",
-              "merge_strategy": "set",
-              "parent_variable": "clarifying_questions",
-              "required": true
-            }
-          ],
-          "to_worker": "clarify_needed_fields"
-        }
-      ],
+      "handoffs": [],
       "workers": [
         {
           "boundary_kind": "main_worker",
@@ -912,77 +727,67 @@
             {
               "contract_demand_id": "rcd_input_s10",
               "data_type": "text",
-              "description": "Optional user preferences for output format.",
+              "description": "Optional preferences for output format.",
               "name": "format_preferences",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s10"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s6",
               "data_type": "text",
-              "description": "The user's request.",
+              "description": "The request provided by the user.",
               "name": "user_request",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s6"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s7",
               "data_type": "List[text]",
-              "description": "Optional topics already known to be relevant.",
+              "description": "Optional topics already known or in scope.",
               "name": "known_topics",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s7"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s8",
               "data_type": "text",
-              "description": "Optional time window or date range.",
+              "description": "Optional time range or deadline context.",
               "name": "timeframe",
               "required": false,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s8"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_input_s9",
               "data_type": "List[text]",
-              "description": "Available connectors or source repositories.",
-              "name": "connectors_or_source_repositories",
+              "description": "Available connectors or source repositories to use.",
+              "name": "available_connectors_or_source_repositories",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "input",
               "source_packet_id": null,
-              "source_section_id": "sec_inputs_for_each_run",
-              "source_span_ids": [
-                "s9"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             }
           ],
           "input_contract_status": "unknown",
@@ -999,164 +804,73 @@
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s11"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
               "contract_demand_id": "rcd_output_s12",
               "data_type": "List[text]",
-              "description": "Set of sources and evidence used.",
+              "description": "Set of sources or evidence used to support the draft.",
               "name": "source_evidence_set",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s12"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             },
             {
-              "contract_demand_id": "rcd_output_s13",
-              "data_type": "text",
-              "description": "Short log of unresolved assumptions.",
-              "name": "assumptions_log",
+              "contract_demand_id": null,
+              "data_type": "AssumptionsLogCompletionStatus",
+              "description": "Structured result for st_9.",
+              "name": "assumptions_log_completion_status",
               "required": true,
               "requiredness": "unspecified",
               "resource_kind": null,
               "source": "output",
               "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s13"
-              ]
-            },
-            {
-              "contract_demand_id": "rcd_output_s14",
-              "data_type": "text",
-              "description": "Run completion status.",
-              "name": "completion_status",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": "sec_required_outputs",
-              "source_span_ids": [
-                "s14"
-              ]
+              "source_section_id": null,
+              "source_span_ids": []
             }
           ],
           "output_contract_status": "unknown",
           "output_contract_status_source": null,
           "owned_span_ids": [
+            "s15",
             "s16",
             "s17",
+            "s20",
+            "s21",
+            "s23",
+            "s24",
             "s18",
-            "s19"
+            "s19",
+            "s22"
           ],
           "partial_reason": null,
           "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
           "reason": "",
           "worker_id": "worker_main",
           "worker_name": "MainWorker"
-        },
-        {
-          "boundary_kind": "bounded_subtask",
-          "constraints": [],
-          "decision_evidence": [],
-          "depends_on": [],
-          "input_contract": [
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The user request for the communication artifact",
-              "name": "user_request",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "input",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            },
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The set of required fields that must be present before proceeding",
-              "name": "required_fields",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "input",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            }
-          ],
-          "input_contract_status": "known_present",
-          "input_contract_status_source": null,
-          "kind": "child",
-          "output_contract": [
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The required fields still missing after inspection",
-              "name": "missing_required_fields",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            },
-            {
-              "contract_demand_id": null,
-              "data_type": "text",
-              "description": "The highest-value questions to ask the user",
-              "name": "clarifying_questions",
-              "required": true,
-              "requiredness": "unspecified",
-              "resource_kind": null,
-              "source": "output",
-              "source_packet_id": null,
-              "source_section_id": null,
-              "source_span_ids": []
-            }
-          ],
-          "output_contract_status": "known_present",
-          "output_contract_status_source": null,
-          "owned_span_ids": [
-            "s15"
-          ],
-          "partial_reason": null,
-          "purpose": "Reduce ambiguity enough to continue the communication task without unnecessary questioning.",
-          "reason": "",
-          "worker_id": "clarify_needed_fields",
-          "worker_name": "Worker_clarify_needed_fields"
         }
       ]
     },
     "WorkerStepPlanIR": {
-      "clarify_needed_fields": [
+      "worker_main": [
         {
           "block_ref": "b_1",
           "command_type": "GENERAL_COMMAND",
           "flow_ref": "main",
           "handoff_id": null,
           "inputs": [
-            "user_request"
+            "user_request",
+            "known_topics"
           ],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
-          "outputs": [
-            "known_topics"
-          ],
+          "outputs": [],
           "source_span_ids": [
             "s15"
           ],
@@ -1170,114 +884,77 @@
           "handoff_id": null,
           "inputs": [
             "user_request",
-            "required_fields"
-          ],
-          "integration_ref": null,
-          "kind": "normal",
-          "metadata": {},
-          "outputs": [
-            "missing_required_fields"
-          ],
-          "source_span_ids": [
-            "s15"
-          ],
-          "step_id": "st_2",
-          "text": "Identify missing required fields."
-        },
-        {
-          "block_ref": "b_1",
-          "command_type": "REQUEST_INPUT",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "missing_required_fields"
-          ],
-          "integration_ref": null,
-          "kind": "user_input",
-          "metadata": {},
-          "outputs": [
-            "clarifying_questions"
-          ],
-          "source_span_ids": [
-            "s15"
-          ],
-          "step_id": "st_3",
-          "text": "Ask the highest-value clarifying questions."
-        }
-      ],
-      "worker_main": [
-        {
-          "block_ref": "b_1",
-          "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "connectors_or_source_repositories",
-            "known_topics",
+            "format_preferences",
             "timeframe"
           ],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
           "outputs": [
-            "source_evidence_set"
-          ],
-          "source_span_ids": [
-            "s16"
-          ],
-          "step_id": "st_1",
-          "text": "Retrieve sources using approved source recipes."
-        },
-        {
-          "block_ref": "b_1",
-          "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
-          "handoff_id": null,
-          "inputs": [
-            "source_evidence_set"
-          ],
-          "integration_ref": null,
-          "kind": "normal",
-          "metadata": {},
-          "outputs": [
-            "source_evidence_set"
+            "required_fields_missing"
           ],
           "source_span_ids": [
             "s16"
           ],
           "step_id": "st_2",
-          "text": "Maintain provenance for externally sourced facts."
+          "text": "Identify missing required fields."
         },
         {
-          "block_ref": "b_2",
-          "command_type": "GENERAL_COMMAND",
+          "block_ref": "b_cr_local_if_s17",
+          "command_type": "REQUEST_INPUT",
           "flow_ref": "main",
           "handoff_id": null,
-          "inputs": [
-            "user_request",
-            "format_preferences",
-            "source_evidence_set"
-          ],
+          "inputs": [],
           "integration_ref": null,
-          "kind": "normal",
+          "kind": "user_input",
           "metadata": {},
-          "outputs": [
-            "draft_communication_artifact"
-          ],
+          "outputs": [],
           "source_span_ids": [
             "s17"
           ],
           "step_id": "st_3",
-          "text": "Produce the draft communication artifact."
+          "text": "Ask the user clarifying questions."
         },
         {
-          "block_ref": "b_4",
+          "block_ref": "b_cr_local_if_s18",
           "command_type": "GENERAL_COMMAND",
-          "flow_ref": "alt_1",
+          "flow_ref": "alt_2",
           "handoff_id": null,
           "inputs": [
-            "draft_communication_artifact",
-            "source_evidence_set",
+            "available_connectors_or_source_repositories"
+          ],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s18"
+          ],
+          "step_id": "st_4",
+          "text": "Retrieve sources using approved source recipes."
+        },
+        {
+          "block_ref": "b_4_seq_2_part_2",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s19"
+          ],
+          "step_id": "st_5",
+          "text": "Maintain provenance for externally sourced facts."
+        },
+        {
+          "block_ref": "b_cr_local_if_s20",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [
             "user_request"
           ],
           "integration_ref": null,
@@ -1287,54 +964,74 @@
             "draft_communication_artifact"
           ],
           "source_span_ids": [
-            "s18"
+            "s20"
           ],
-          "step_id": "st_4",
-          "text": "Revise the draft communication artifact while rechecking constraints."
+          "step_id": "st_6",
+          "text": "Produce the draft communication artifact."
         },
         {
-          "block_ref": "b_3",
+          "block_ref": "b_cr_top_alt_s21",
           "command_type": "GENERAL_COMMAND",
-          "flow_ref": "main",
+          "flow_ref": "alt_1",
           "handoff_id": null,
-          "inputs": [
-            "draft_communication_artifact"
-          ],
+          "inputs": [],
           "integration_ref": null,
           "kind": "normal",
           "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s21"
+          ],
+          "step_id": "st_7",
+          "text": "Revise the draft communication artifact."
+        },
+        {
+          "block_ref": "b_5",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [],
+          "source_span_ids": [
+            "s22"
+          ],
+          "step_id": "st_8",
+          "text": "Check whether required slots remain missing before finalizing."
+        },
+        {
+          "block_ref": "b_4_seq_2",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {
+            "origin": "source_backed",
+            "structured_aggregation": {
+              "original_outputs": [
+                "assumptions_log",
+                "completion_status"
+              ],
+              "result_name": "assumptions_log_completion_status",
+              "schema_version": "composite_output.v1",
+              "type_name": "AssumptionsLogCompletionStatus"
+            }
+          },
           "outputs": [
-            "assumptions_log",
-            "completion_status"
+            "assumptions_log_completion_status"
           ],
           "source_span_ids": [
-            "s19"
+            "s24"
           ],
-          "step_id": "st_5",
-          "text": "Record the assumptions log and set the completion status."
+          "step_id": "st_9",
+          "text": "Record the assumptions log and set completion status."
         },
         {
-          "block_ref": "b_main_fallback",
-          "command_type": "INVOKE_WORKER",
-          "flow_ref": "main",
-          "handoff_id": "handoff_clarify_needed_fields",
-          "inputs": [
-            "user_request",
-            "required_fields"
-          ],
-          "integration_ref": "Worker_clarify_needed_fields",
-          "kind": "invoke",
-          "metadata": {},
-          "outputs": [
-            "missing_required_fields",
-            "clarifying_questions"
-          ],
-          "source_span_ids": [],
-          "step_id": "st_invoke_handoff_clarify_needed_fields",
-          "text": "Invoke worker: Worker_clarify_needed_fields"
-        },
-        {
-          "block_ref": "b_1",
+          "block_ref": "b_cr_local_if_s18",
           "command_type": "CALL_API",
           "flow_ref": "main",
           "handoff_id": null,
@@ -1342,65 +1039,34 @@
           "integration_ref": "ApprovedSourceRecipesAPI",
           "kind": "tool",
           "metadata": {
-            "api_binding_id": "api_binding:api_decl_19e71fc8b204a57a",
+            "action_id": "act_api_api_call_9db34e4cf3988ce9",
+            "api_binding_id": "api_binding:api_decl_9db34e4cf3988ce9",
+            "api_functions_status": "unknown_placeholder",
             "api_id": "api:ApprovedSourceRecipesAPI",
+            "api_schema_status": "unknown_placeholder",
             "argument_binding_source_span_ids": [
-              "s16"
+              "s18"
             ],
             "argument_binding_status": "not_required",
-            "capability_intent_id": "cap_intent_8326912547e62e9c",
+            "capability_intent_id": "cap_intent_6aa6600550db3f67",
             "construct_demand_ids": [
-              "api_call_19e71fc8b204a57a"
+              "api_call_9db34e4cf3988ce9"
             ],
-            "declaration_demand_id": "api_decl_19e71fc8b204a57a",
+            "declaration_demand_id": "api_decl_9db34e4cf3988ce9",
             "origin": "source_backed",
-            "placement_ref": "api_call_placement:api_call_19e71fc8b204a57a"
+            "owning_authority": "stage7.api_call_materializer",
+            "placement_ref": "api_call_placement:api_call_9db34e4cf3988ce9"
           },
           "outputs": [],
           "source_span_ids": [
-            "s16"
+            "s18"
           ],
-          "step_id": "st_api_b7a71aa435",
-          "text": "retrieve them using approved source recipes"
+          "step_id": "st_api_f2897b2872",
+          "text": "retrieve them"
         }
       ]
     },
-    "handoff_invoke_bindings": [
-      {
-        "handoff_id": "handoff_clarify_needed_fields",
-        "input_bindings": [
-          {
-            "child_input": "user_request",
-            "default_value": null,
-            "parent_variable": "user_request",
-            "required": true
-          },
-          {
-            "child_input": "required_fields",
-            "default_value": null,
-            "parent_variable": "required_fields",
-            "required": true
-          }
-        ],
-        "invoke_step_ids": [
-          "st_invoke_handoff_clarify_needed_fields"
-        ],
-        "output_bindings": [
-          {
-            "child_output": "missing_required_fields",
-            "merge_strategy": "set",
-            "parent_variable": "missing_required_fields",
-            "required": true
-          },
-          {
-            "child_output": "clarifying_questions",
-            "merge_strategy": "set",
-            "parent_variable": "clarifying_questions",
-            "required": true
-          }
-        ]
-      }
-    ]
+    "handoff_invoke_bindings": []
   },
   "changed_categories": [
     "WorkerPlanIR",

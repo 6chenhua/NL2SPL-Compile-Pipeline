@@ -1,56 +1,293 @@
 {
   "admitted_fact_hashes": [
-    "14253ca2634692efcfab3751f784380c0c172d888c98631846a8cb47e606368a"
+    "57c02b19e7b87bf20bb3c0952f96f6790040f647527c51e0be2512c17f2c737f"
   ],
-  "base_snapshot_id": "snap_fce858edb833",
-  "closure_plan_hash": "0600d5fae5cb583603225db953ea238611f5fd9a78fe273b33e571a9ebde7aed",
-  "directive_hash": "f6c6cb4ca91ef2b65d09e345ce3db3131f482bf672b8e6de3212b0fa8ea55f08",
-  "intent_hash": "54e10fa1f3a0f6e5d788a548ad30f47a2b69e0bf033d981c3f741c5a98234f4f",
+  "base_snapshot_id": "snap_b5960316d81c",
+  "closure_plan_hash": "e43404f496dcd64b8be5980b09cc04a46e3f9ea777c68d1d3574c8b8196abf02",
+  "directive_hash": "f4a9772a2e85d492ef4a35157cae85d3759a3530a1815c418a49403a99aa8d44",
+  "intent_hash": "c93fe1523acaa2241b56bf5a57f6f42a32608efba2b9eec96886c2d90375c629",
   "interaction_contract_hash": "596eed0c624eecd0c0258875c96ce341fb1d9ac07012dea356a99b699f6c3562",
   "llm_generation_config_hash": "15f732dfc3cfa61e67b56cd0f1635426e7dfc80cb205eff3ace4907f90300716",
-  "normalized_directive_hash": "94e8c0fd4e86e44039b5889ce167a285d792f0b0de8cf822b5b033f6b89c1f82",
+  "normalized_directive_hash": "549595db03e95f981dcfc983d1be1a5409bed80ffb478e5e8d51bcf8ff20f35a",
   "option_id": "define_child_worker",
   "preview_construct_hashes": [
-    "fa015e037a7dcf0617595f7444118bf723dda7ab73a067aa8621f3232d9c2f7e",
-    "60d21a25e883c7056ad17fb95815afa301d3ae4bebcb04f08b58faf6666106a7",
-    "8ddc9b130818d54c7dac43520f0d6df501ec6609b9a041b3dc68f3e742769899",
-    "b178b09c11bf37076116d33cb6ae74921bfe75a4ba8e853ad0d46d7ed905217e",
-    "63e832d9777bf54cad4f9a6662bb2011aa63abbcf608a6cf1f7520cbda50fdbd",
-    "ce538287feb12bfb61664a0c7ee7fc9c1715681948a74f78631bfdd22c7dd95f",
-    "15b30422b8ec9992ce27743fee5ce356a02b46924a446675e2ac7fc429934418"
+    "c5a921d186345735c5409fd1ee7d38c35e54ea8f4c7b13f4c3facf60131828aa",
+    "fe8c84d448dcda6730967f584a886b9cdc9bce6a90e2d948fec90f25c6496681",
+    "a18e2bf2a24b9efd4aa7a64f1a91239951cba63511b6a28403db4734c8606bc0",
+    "c55cd460daf4311c43a42872b6b780b0720ed8675b0c34fd60e950f9685706ce",
+    "b25f8df949ca9de9c4fbe9d07b714afb8d0980db841b21a0b20043aba3c63d6e",
+    "a9596e7ef52fbf5c58716e1bb15e5b1b1b2fafbd6a92a56ce7c342c8a80a7a9d",
+    "5dbcbf15a8ac557c5f7ce081e0af5a29a79c892e81b47c63ab7ff032fa2d35c3"
   ],
-  "preview_id": "prev_3de5d208e5e5e46632c9548a63c547f6f84d45c43bd71b1483ff24955ae09eae",
-  "rendered_preview": "[WORKER: ChildWorker_560d7c6086]\n  PURPOSE Gather approved source evidence\n  [MAIN_FLOW]\n    [SEQUENTIAL_BLOCK]\n      COMMAND-X [COMMAND Gather approved source evidence USING user_request RESULT delegated_evidence:text SET]\n    [END_SEQUENTIAL_BLOCK]\n  [END_MAIN_FLOW]\n[END_WORKER]\n[MAIN_FLOW]\n  COMMAND-X [INVOKE_WORKER ChildWorker_560d7c6086 WITH user_request RESULT tmp_delegated_evidence_c1dc0e22 SET]\n[END_MAIN_FLOW]",
-  "selected_refset_id": "set_irs_16c0d5b20df4_snap_fce858edb833_0",
+  "preview_id": "prev_84d7c6f0c58779066fef271309266478d1639b931aab3f1dc850ec497156df20",
+  "rendered_preview": "[DEFINE_WORKER: \"Gather approved source evidence\" GatherApprovedSourceEvidenceWorker]\n    [INPUTS]\n        REQUIRED <REF>user_request</REF>\n    [END_INPUTS]\n    [OUTPUTS]\n        REQUIRED <REF>delegated_evidence</REF>\n    [END_OUTPUTS]\n    [MAIN_FLOW]\n        [SEQUENTIAL_BLOCK]\n            COMMAND-1 [COMMAND Gather approved source evidence using the selected user request input and return approved delegated evidence based on <REF>user_request</REF> RESULT delegated_evidence: text SET]\n        [END_SEQUENTIAL_BLOCK]\n    [END_MAIN_FLOW]\n[END_WORKER]\nCOMMAND-1 [COMMAND Gather approved source evidence using the selected user request input and return approved delegated evidence based on <REF>user_request</REF> RESULT delegated_evidence: text SET]\nCOMMAND-1 [INVOKE GatherApprovedSourceEvidenceWorker WITH <REF>user_request</REF> RESPONSE delegated_evidence: text SET]",
+  "selected_refset_id": "set_irs_f2892adc01f8_snap_b5960316d81c_0",
   "slice_typed_plan_hashes": [
     {
       "slice_id": "stage3_5.define_child_worker.v1",
-      "typed_plan_hash": "85755b297bc3d580ce9abdc15c73a3b102d6ec7c3b186f44361a2c9c1e61a143"
+      "typed_plan_hash": "d542c4a170995640bbd6fe6efa8203d319bff85d52ac303646b7632246971b8a"
     },
     {
       "slice_id": "stage4.child_worker_flow.v1",
-      "typed_plan_hash": "33a20621426a6126616cbc1f9500b28d36a134caa0021c8fcd86f87ac4bd164c"
+      "typed_plan_hash": "1e9fc4483833b9fbdf62d8b9b002527116d6a3e80419726f623d6ce01b4180f2"
     },
     {
       "slice_id": "stage5.child_worker_block.v1",
-      "typed_plan_hash": "0987490699f3d3da5f17251ab6e3438efb56f11998aab83f1c1be66c86c5aabd"
+      "typed_plan_hash": "f3d203affd0323fcc48f144ca1cd09eebf858163207bc6ad9b62770adb176f7c"
     },
     {
       "slice_id": "stage7.child_worker_command.v1",
-      "typed_plan_hash": "f9ef53eba649ac670fbd49795bdbe31d8a0d360691a2e63708796f7703e7219e"
+      "typed_plan_hash": "d5c399a2170e3a8b69bac5183d2530d9f0af2d33714cd3c2cfdba41cfdc1a725"
     },
     {
       "slice_id": "stage3_5.worker_handoff_contract.v2",
-      "typed_plan_hash": "43bbd27e433b0a60657d08f6697b00b712b8cccb0e588d670e47bf83cc3538ea"
+      "typed_plan_hash": "ea10394ac2ec7ffe34cfae12eaeb9edcfa17dcec4627d03d4eca14cac98b77e7"
     },
     {
       "slice_id": "stage5.parent_invocation_placement.v1",
-      "typed_plan_hash": "6f8a645a4d8c3934e5d06cb8d5c62cb69b48e9ce5b5871b3e72c14a28db45e70"
+      "typed_plan_hash": "4dca6cabdfc17389a2c44e431cf8345e057d5eea83cce0c9cea9587990c92909"
     },
     {
       "slice_id": "stage7.worker_invoke.v2",
-      "typed_plan_hash": "6f8a645a4d8c3934e5d06cb8d5c62cb69b48e9ce5b5871b3e72c14a28db45e70"
+      "typed_plan_hash": "4dca6cabdfc17389a2c44e431cf8345e057d5eea83cce0c9cea9587990c92909"
     }
   ],
-  "strategy_id": "worker_delegation.complete_closure.v2"
+  "strategy_id": "worker_delegation.complete_closure.v2",
+  "typed_artifact": {
+    "artifact_changes": [
+      {
+        "artifact_type": "CHILD_WORKER",
+        "change_id": "change_child_worker",
+        "change_type": "modify",
+        "description": "Materialize or ensure CHILD_WORKER for role child_worker",
+        "target_path": "worker:child_worker"
+      },
+      {
+        "artifact_type": "FLOW",
+        "change_id": "change_child_flow",
+        "change_type": "modify",
+        "description": "Materialize or ensure FLOW for role child_flow",
+        "target_path": "worker:child_flow"
+      },
+      {
+        "artifact_type": "BLOCK",
+        "change_id": "change_child_block",
+        "change_type": "modify",
+        "description": "Materialize or ensure BLOCK for role child_block",
+        "target_path": "worker:child_block"
+      },
+      {
+        "artifact_type": "COMMAND",
+        "change_id": "change_child_command",
+        "change_type": "add",
+        "description": "Materialize or ensure COMMAND for role child_command",
+        "target_path": "worker:child_command"
+      },
+      {
+        "artifact_type": "WORKER_HANDOFF",
+        "change_id": "change_worker_handoff",
+        "change_type": "add",
+        "description": "Materialize or ensure WORKER_HANDOFF for role worker_handoff",
+        "target_path": "worker:worker_handoff"
+      },
+      {
+        "artifact_type": "BLOCK",
+        "change_id": "change_parent_placement",
+        "change_type": "modify",
+        "description": "Materialize or ensure BLOCK for role parent_placement",
+        "target_path": "worker:parent_placement"
+      },
+      {
+        "artifact_type": "INVOKE_WORKER",
+        "change_id": "change_parent_invoke",
+        "change_type": "add",
+        "description": "Materialize or ensure INVOKE_WORKER for role parent_invoke",
+        "target_path": "worker:parent_invoke"
+      }
+    ],
+    "base_snapshot_id": "snap_b5960316d81c",
+    "closure_plan_hash": "e43404f496dcd64b8be5980b09cc04a46e3f9ea777c68d1d3574c8b8196abf02",
+    "construct_nodes": [
+      {
+        "ir_payload": {
+          "alternative_flows": [],
+          "api_refs": [],
+          "child_worker_refs": [],
+          "child_workers": [],
+          "description": "Gather approved source evidence",
+          "exception_flows": [],
+          "inputs": [
+            {
+              "name": "user_request",
+              "required": true,
+              "requiredness": "unspecified"
+            }
+          ],
+          "main_flow": {
+            "blocks": [
+              {
+                "block_id": "b_child_d23cae4313",
+                "block_type": "SEQUENTIAL",
+                "condition_text": null,
+                "spans": []
+              }
+            ]
+          },
+          "outputs": [
+            {
+              "name": "delegated_evidence",
+              "required": true,
+              "requiredness": "unspecified"
+            }
+          ],
+          "scoped_steps": true,
+          "steps": [
+            {
+              "block_ref": "b_child_d23cae4313",
+              "command_type": "GENERAL_COMMAND",
+              "flow_ref": "main",
+              "handoff_id": null,
+              "inputs": [
+                "user_request"
+              ],
+              "integration_ref": null,
+              "kind": "normal",
+              "metadata": {},
+              "outputs": [
+                "delegated_evidence"
+              ],
+              "source_span_ids": [],
+              "step_id": "st_child_281223512d",
+              "text": "Gather approved source evidence using the selected user request input and return approved delegated evidence."
+            }
+          ],
+          "worker_name": "GatherApprovedSourceEvidenceWorker"
+        },
+        "materialization_status": "dry_run_materialized",
+        "node_id": "node_child_worker",
+        "node_kind": "spl_construct",
+        "role": "child_worker",
+        "source_refs": [],
+        "spl_construct_type": "WORKER"
+      },
+      {
+        "ir_payload": {
+          "block_ref": "b_child_d23cae4313",
+          "command_type": "GENERAL_COMMAND",
+          "flow_ref": "main",
+          "handoff_id": null,
+          "inputs": [
+            "user_request"
+          ],
+          "integration_ref": null,
+          "kind": "normal",
+          "metadata": {},
+          "outputs": [
+            "delegated_evidence"
+          ],
+          "source_span_ids": [],
+          "step_id": "st_child_281223512d",
+          "text": "Gather approved source evidence using the selected user request input and return approved delegated evidence."
+        },
+        "materialization_status": "dry_run_materialized",
+        "node_id": "node_child_command",
+        "node_kind": "spl_construct",
+        "role": "child_command",
+        "source_refs": [],
+        "spl_construct_type": "STEP"
+      },
+      {
+        "ir_payload": {
+          "action": "materialize",
+          "construct_type": "WORKER_HANDOFF",
+          "display": false,
+          "output_ref_role": "",
+          "stage_slice_id": "stage3_5.worker_handoff_contract.v2"
+        },
+        "materialization_status": "planned",
+        "node_id": "node_worker_handoff",
+        "node_kind": "structured_fallback",
+        "role": "worker_handoff",
+        "source_refs": [],
+        "spl_construct_type": null
+      },
+      {
+        "ir_payload": {
+          "block_ref": "b_4_seq_2",
+          "command_type": "INVOKE_WORKER",
+          "flow_ref": "main",
+          "handoff_id": "handoff_f1dda243e2",
+          "inputs": [
+            "user_request"
+          ],
+          "integration_ref": "GatherApprovedSourceEvidenceWorker",
+          "kind": "invoke",
+          "metadata": {},
+          "outputs": [
+            "delegated_evidence"
+          ],
+          "source_span_ids": [],
+          "step_id": "st_invoke_dc61d0ee55",
+          "text": "Invoke GatherApprovedSourceEvidenceWorker"
+        },
+        "materialization_status": "dry_run_materialized",
+        "node_id": "node_parent_invoke",
+        "node_kind": "spl_construct",
+        "role": "parent_invoke",
+        "source_refs": [],
+        "spl_construct_type": "STEP"
+      }
+    ],
+    "directive_hash": "f4a9772a2e85d492ef4a35157cae85d3759a3530a1815c418a49403a99aa8d44",
+    "issue_id": "irs_f2892adc01f8",
+    "option_id": "define_child_worker",
+    "preview_hash": "8bc988d7096575fd57a71c79fffd87684ad972cb9a562b93c65f1d167f9ceaf2",
+    "preview_id": "prev_84d7c6f0c58779066fef271309266478d1639b931aab3f1dc850ec497156df20",
+    "selected_refset_id": "set_irs_f2892adc01f8_snap_b5960316d81c_0",
+    "stage_slice_results": [
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage3_5.define_child_worker.v1",
+        "stage_name": "stage3_5",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage4.child_worker_flow.v1",
+        "stage_name": "stage4",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage5.child_worker_block.v1",
+        "stage_name": "stage5",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage7.child_worker_command.v1",
+        "stage_name": "stage7",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage3_5.worker_handoff_contract.v2",
+        "stage_name": "stage3_5",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage5.parent_invocation_placement.v1",
+        "stage_name": "stage5",
+        "status": "success"
+      },
+      {
+        "diagnostic_count": 0,
+        "slice_id": "stage7.worker_invoke.v2",
+        "stage_name": "stage7",
+        "status": "success"
+      }
+    ],
+    "strategy_id": "worker_delegation.complete_closure.v2"
+  }
 }

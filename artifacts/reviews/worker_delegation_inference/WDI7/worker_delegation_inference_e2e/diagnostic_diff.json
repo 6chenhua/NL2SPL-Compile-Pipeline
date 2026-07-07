@@ -1,0 +1,20 @@
+{
+  "before_count": 12,
+  "after_count": 8,
+  "resolved_diagnostic_ids": [
+    "irs_16c0d5b20df4",
+    "irs_6b43a592b006",
+    "irs_6c2ebb9b34e6",
+    "irs_d422db06a1ca"
+  ],
+  "new_diagnostic_ids": [],
+  "verification_resolved_diagnostic_ids": [
+    "irs_16c0d5b20df4",
+    "irs_6b43a592b006",
+    "irs_6c2ebb9b34e6",
+    "irs_d422db06a1ca"
+  ],
+  "verification_new_blocking_diagnostic_ids": [],
+  "accepted": true,
+  "lane": "B"
+}

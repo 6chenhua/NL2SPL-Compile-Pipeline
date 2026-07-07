@@ -1,0 +1,6 @@
+Create child worker
+Gather approved source evidence
+Use inputs: user_request
+Return: del s31
+Insert: append to main flow
+Bind result: parent-local temporary

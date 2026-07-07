@@ -1,89 +1,89 @@
 {
   "changed_artifact_evidence": [
     {
-      "artifact_ref": "worker:worker_child_338cce28e8",
+      "artifact_ref": "worker:worker_child_e28a0c462e",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "flow:worker_child_338cce28e8:main",
+      "artifact_ref": "flow:worker_child_e28a0c462e:main",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "block:worker_child_338cce28e8:b_child_77edef9b18",
+      "artifact_ref": "block:worker_child_e28a0c462e:b_child_d23cae4313",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "step:worker_child_338cce28e8:st_child_8210406c69",
+      "artifact_ref": "step:worker_child_e28a0c462e:st_child_281223512d",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "handoff:handoff_24e0f83cfd",
+      "artifact_ref": "handoff:handoff_f1dda243e2",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "step:worker_main:st_invoke_dea2e7c1d1",
+      "artifact_ref": "step:worker_main:st_invoke_dc61d0ee55",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "symbol:worker:worker_child_338cce28e8:user_request",
+      "artifact_ref": "symbol:worker:worker_child_e28a0c462e:user_request",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "symbol:worker:worker_child_338cce28e8:delegated_evidence",
+      "artifact_ref": "symbol:worker:worker_child_e28a0c462e:delegated_evidence",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     },
     {
-      "artifact_ref": "symbol:worker:worker_main:tmp_delegated_evidence_c1dc0e22",
+      "artifact_ref": "symbol:worker:worker_main:tmp_delegated_evidence_5ad1bb5e",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     }
   ],
   "evidence_packet_ids": [
-    "ev_packet_intent_directive_a1f6c91720161182c580"
+    "ev_packet_intent_directive_03ed48adbf195a1442a2"
   ],
   "resolution_markers": [
     {
-      "evidence_ref": "ev_packet_intent_directive_a1f6c91720161182c580",
-      "marker_id": "promotion_resolution:directive_a1f6c91720161182c580",
+      "evidence_ref": "ev_packet_intent_directive_03ed48adbf195a1442a2",
+      "marker_id": "promotion_resolution:directive_03ed48adbf195a1442a2",
       "materialized_construct_refs": [
-        "worker:worker_child_338cce28e8",
-        "flow:worker_child_338cce28e8:main",
-        "block:worker_child_338cce28e8:b_child_77edef9b18",
-        "step:worker_child_338cce28e8:st_child_8210406c69",
-        "handoff:handoff_24e0f83cfd",
-        "step:worker_main:st_invoke_dea2e7c1d1"
+        "worker:worker_child_e28a0c462e",
+        "flow:worker_child_e28a0c462e:main",
+        "block:worker_child_e28a0c462e:b_child_d23cae4313",
+        "step:worker_child_e28a0c462e:st_child_281223512d",
+        "handoff:handoff_f1dda243e2",
+        "step:worker_main:st_invoke_dc61d0ee55"
       ],
-      "normalized_directive_id": "directive_a1f6c91720161182c580",
-      "repair_patch_id": "patch_directive_a1f6c91720161182c580",
+      "normalized_directive_id": "directive_03ed48adbf195a1442a2",
+      "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
       "resolution_kind": "defined_child_worker",
-      "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s31",
-      "target_worker_promotion_id": "worker_promotion:del_s31",
+      "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s36",
+      "target_worker_promotion_id": "worker_promotion:del_s36",
       "user_confirmed": true
     }
   ],
@@ -92,35 +92,35 @@
       "metadata": {
         "closure_role": "parent_invoke",
         "consumed_selected_ref_ids": "[\"worker_input:worker_main:worker_main::user_request\"]",
-        "evidence_packet_id": "ev_packet_intent_directive_a1f6c91720161182c580",
+        "evidence_packet_id": "ev_packet_intent_directive_03ed48adbf195a1442a2",
         "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
         "materialization_plan_id": "worker_delegation.complete_closure.v2",
-        "normalized_directive_id": "directive_a1f6c91720161182c580",
+        "normalized_directive_id": "directive_03ed48adbf195a1442a2",
         "origin": "user_confirmed_repair",
-        "related_diagnostic_id": "irs_16c0d5b20df4",
-        "repair_patch_id": "patch_directive_a1f6c91720161182c580",
+        "related_diagnostic_id": "irs_f2892adc01f8",
+        "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
         "selected_ref_canonical_names": "[\"user_request\"]",
-        "target_worker_promotion_ref_id": "worker_promotion:del_s31",
-        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+        "target_worker_promotion_ref_id": "worker_promotion:del_s36",
+        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
       },
-      "step_id": "st_invoke_dea2e7c1d1"
+      "step_id": "st_invoke_dc61d0ee55"
     },
     {
       "metadata": {
         "closure_role": "child_command",
         "consumed_selected_ref_ids": "[\"worker_input:worker_main:worker_main::user_request\"]",
-        "evidence_packet_id": "ev_packet_intent_directive_a1f6c91720161182c580",
+        "evidence_packet_id": "ev_packet_intent_directive_03ed48adbf195a1442a2",
         "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
         "materialization_plan_id": "worker_delegation.complete_closure.v2",
-        "normalized_directive_id": "directive_a1f6c91720161182c580",
+        "normalized_directive_id": "directive_03ed48adbf195a1442a2",
         "origin": "user_confirmed_repair",
-        "related_diagnostic_id": "irs_16c0d5b20df4",
-        "repair_patch_id": "patch_directive_a1f6c91720161182c580",
+        "related_diagnostic_id": "irs_f2892adc01f8",
+        "repair_patch_id": "patch_directive_03ed48adbf195a1442a2",
         "selected_ref_canonical_names": "[\"user_request\"]",
-        "target_worker_promotion_ref_id": "worker_promotion:del_s31",
-        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_35d28a98b95a062d\"}],\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_a1f6c91720161182c580\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_35d28a98b95a062d\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_c1dc0e22\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+        "target_worker_promotion_ref_id": "worker_promotion:del_s36",
+        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[{\"data_type\":\"text\",\"name\":\"delegated_evidence\",\"output_id\":\"child_output_470f3893307eba11\"}],\"child_business_logic\":\"Gather approved source evidence using the selected user request input and return approved delegated evidence.\",\"delegated_responsibility\":\"Gather approved source evidence\",\"directive_id\":\"directive_03ed48adbf195a1442a2\",\"option_id\":\"define_child_worker\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[{\"output_id\":\"child_output_470f3893307eba11\",\"parent_ref_id\":null,\"parent_temporary_name\":\"tmp_delegated_evidence_5ad1bb5e\"}],\"selected_input_ref_ids\":[\"worker_input:worker_main:worker_main::user_request\"],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
       },
-      "step_id": "st_child_8210406c69"
+      "step_id": "st_child_281223512d"
     }
   ]
 }

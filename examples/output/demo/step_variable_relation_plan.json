@@ -1,0 +1,78 @@
+{
+  "stage": "step_variable_relation_plan",
+  "timestamp": "2026-07-08T01:20:36.711662",
+  "metadata": {},
+  "result": {
+    "relations": [
+      {
+        "step_id": "st_4",
+        "variable_name": "source_evidence_set",
+        "relation": "ambiguous",
+        "source_span_ids": [
+          "s19"
+        ],
+        "evidence_kind": "stage7_provenance_maintenance_no_output",
+        "reason": "provenance_maintenance_not_output_producer",
+        "evidence_source": "inferred_unconfirmed",
+        "evidence_text": null,
+        "confidence": "high"
+      },
+      {
+        "step_id": "st_5",
+        "variable_name": "draft_communication_artifact",
+        "relation": "produces",
+        "source_span_ids": [
+          "s20"
+        ],
+        "evidence_kind": "stage7_structured_output_source_match",
+        "reason": null,
+        "evidence_source": "source_text",
+        "evidence_text": "Produce the draft communication artifact.",
+        "confidence": "medium"
+      },
+      {
+        "step_id": "st_6",
+        "variable_name": "draft_communication_artifact",
+        "relation": "ambiguous",
+        "source_span_ids": [
+          "s21"
+        ],
+        "evidence_kind": "stage7_structured_output_without_source_match",
+        "reason": "output_name_or_description_not_mentioned",
+        "evidence_source": "inferred_unconfirmed",
+        "evidence_text": null,
+        "confidence": "low"
+      },
+      {
+        "step_id": "st_7",
+        "variable_name": "assumptions_log",
+        "relation": "produces",
+        "source_span_ids": [
+          "s23"
+        ],
+        "evidence_kind": "stage7_structured_output_source_match",
+        "reason": null,
+        "evidence_source": "source_text",
+        "evidence_text": "Record an assumptions log and set completion status.",
+        "confidence": "medium"
+      },
+      {
+        "step_id": "st_7",
+        "variable_name": "completion_status",
+        "relation": "produces",
+        "source_span_ids": [
+          "s23"
+        ],
+        "evidence_kind": "stage7_structured_output_source_match",
+        "reason": null,
+        "evidence_source": "source_text",
+        "evidence_text": "Record an assumptions log and set completion status.",
+        "confidence": "medium"
+      }
+    ],
+    "diagnostics": [
+      "step_variable_relation_ambiguous:st_4:source_evidence_set",
+      "step_variable_relation_ambiguous:st_6:draft_communication_artifact"
+    ]
+  }
+}

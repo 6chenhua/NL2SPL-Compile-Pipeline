@@ -1,0 +1,8 @@
+git diff --check -- src/nl2spl/pipeline/stages/stage7_step_extractor
+(No output: all changes are check-passed, and only expected files are modified/created)
+
+git status
+Modified/created files in Stage 7:
+	src/nl2spl/pipeline/stages/stage7_step_extractor/worker_scoped.py
+	tests/unit/pipeline/stage7/test_action_aware_unmapped_detection.py
+No other stage 7 production files modified.

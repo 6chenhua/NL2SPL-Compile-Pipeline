@@ -1,0 +1,5 @@
+Create child worker
+Gather approved source evidence
+Use inputs: ref:input:user_request
+Return: source_gathering
+Insert: append to main flow

@@ -1,28 +1,28 @@
 {
   "changed_artifact_evidence": [
     {
-      "artifact_ref": "step:worker_main:st_main_5f0eeafc12",
+      "artifact_ref": "step:worker_main:st_main_d00eff3b86",
       "evidence_kind": "user_confirmed_repair",
-      "related_diagnostic_id": "irs_16c0d5b20df4",
-      "repair_patch_id": "patch_directive_dcccaea2f420c331aab0",
-      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[],\"delegated_responsibility\":\"source gathering and template matching\",\"directive_id\":\"directive_dcccaea2f420c331aab0\",\"option_id\":\"keep_in_main_flow\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[],\"selected_input_ref_ids\":[],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+      "related_diagnostic_id": "irs_f2892adc01f8",
+      "repair_patch_id": "patch_directive_8ab39d53ac53931a90f5",
+      "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[],\"child_business_logic\":\"source gathering and template matching\",\"delegated_responsibility\":\"source gathering and template matching\",\"directive_id\":\"directive_8ab39d53ac53931a90f5\",\"option_id\":\"keep_in_main_flow\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[],\"selected_input_ref_ids\":[],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
     }
   ],
   "evidence_packet_ids": [
-    "ev_packet_intent_directive_dcccaea2f420c331aab0"
+    "ev_packet_intent_directive_8ab39d53ac53931a90f5"
   ],
   "resolution_markers": [
     {
-      "evidence_ref": "ev_packet_intent_directive_dcccaea2f420c331aab0",
-      "marker_id": "promotion_resolution:directive_dcccaea2f420c331aab0",
+      "evidence_ref": "ev_packet_intent_directive_8ab39d53ac53931a90f5",
+      "marker_id": "promotion_resolution:directive_8ab39d53ac53931a90f5",
       "materialized_construct_refs": [
-        "step:worker_main:st_main_5f0eeafc12"
+        "step:worker_main:st_main_d00eff3b86"
       ],
-      "normalized_directive_id": "directive_dcccaea2f420c331aab0",
-      "repair_patch_id": "patch_directive_dcccaea2f420c331aab0",
+      "normalized_directive_id": "directive_8ab39d53ac53931a90f5",
+      "repair_patch_id": "patch_directive_8ab39d53ac53931a90f5",
       "resolution_kind": "kept_in_main_flow",
-      "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s31",
-      "target_worker_promotion_id": "worker_promotion:del_s31",
+      "resolved_diagnostic_group_id": "worker_promotion_group:worker_promotion:del_s36",
+      "target_worker_promotion_id": "worker_promotion:del_s36",
       "user_confirmed": true
     }
   ],
@@ -31,19 +31,19 @@
       "metadata": {
         "closure_role": "main_flow_command",
         "consumed_selected_ref_ids": "[]",
-        "evidence_packet_id": "ev_packet_intent_directive_dcccaea2f420c331aab0",
+        "evidence_packet_id": "ev_packet_intent_directive_8ab39d53ac53931a90f5",
         "materialization_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
         "materialization_plan_id": "worker_delegation.complete_closure.v2",
-        "normalized_directive_id": "directive_dcccaea2f420c331aab0",
+        "normalized_directive_id": "directive_8ab39d53ac53931a90f5",
         "origin": "user_confirmed_repair",
-        "related_diagnostic_id": "irs_16c0d5b20df4",
-        "repair_patch_id": "patch_directive_dcccaea2f420c331aab0",
+        "related_diagnostic_id": "irs_f2892adc01f8",
+        "repair_patch_id": "patch_directive_8ab39d53ac53931a90f5",
         "resolution_kind": "kept_in_main_flow",
         "selected_ref_canonical_names": "[]",
-        "target_worker_promotion_ref_id": "worker_promotion:del_s31",
-        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[],\"delegated_responsibility\":\"source gathering and template matching\",\"directive_id\":\"directive_dcccaea2f420c331aab0\",\"option_id\":\"keep_in_main_flow\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[],\"selected_input_ref_ids\":[],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
+        "target_worker_promotion_ref_id": "worker_promotion:del_s36",
+        "user_text": "{\"additional_instruction\":null,\"admitted_outputs\":[],\"child_business_logic\":\"source gathering and template matching\",\"delegated_responsibility\":\"source gathering and template matching\",\"directive_id\":\"directive_8ab39d53ac53931a90f5\",\"option_id\":\"keep_in_main_flow\",\"placement_mode\":\"append\",\"placement_ref_id\":null,\"result_usage\":[],\"selected_input_ref_ids\":[],\"strategy_id\":\"worker_delegation.complete_closure.v2\"}"
       },
-      "step_id": "st_main_5f0eeafc12"
+      "step_id": "st_main_d00eff3b86"
     }
   ]
 }

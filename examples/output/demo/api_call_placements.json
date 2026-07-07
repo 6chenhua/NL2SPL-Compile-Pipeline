@@ -1,0 +1,21 @@
+{
+  "stage": "api_call_placements",
+  "timestamp": "2026-07-08T01:20:22.654009",
+  "metadata": {},
+  "result": {
+    "placements": [
+      {
+        "placement_ref": "api_call_placement:api_call_1aa878e481ade1e2",
+        "call_demand_id": "api_call_1aa878e481ade1e2",
+        "owner_worker_id": "worker_main",
+        "flow_ref": "main",
+        "block_ref": "b_cr_local_if_s18",
+        "status": "placed",
+        "source_span_ids": [
+          "s18"
+        ],
+        "reason": null
+      }
+    ]
+  }
+}

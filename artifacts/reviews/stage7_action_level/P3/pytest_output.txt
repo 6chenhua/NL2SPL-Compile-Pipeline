@@ -1,0 +1,8 @@
+63 passed, 10 skipped
+Test scope: tests/unit/pipeline/stage7 tests/integration/pipeline tests/unit/compiler/construct_plan tests/integration/test_multi_worker_pipeline.py
+
+Breakdown:
+- tests/unit/pipeline/stage7: 30 passed
+- tests/integration/pipeline: 2 passed (test_stage7_internal_comms_characterization_e2e, test_step_extractor_exposes_last_action_plan)
+- tests/unit/compiler/construct_plan: 6 passed (incl. new test_conditional_trigger_coverage_expansion_upstream)
+- tests/integration/test_multi_worker_pipeline.py: 17 passed, 10 skipped (pre-existing)

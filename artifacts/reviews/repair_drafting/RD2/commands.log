@@ -1,0 +1,6 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_draft_store.py tests/unit/compiler/spl_editing/drafting/test_draft_staleness.py -q
+git diff --check
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/test_draft_store.py tests/unit/compiler/spl_editing/drafting/test_draft_staleness.py
+rg -n "overlay_event|patched_snapshot|repair_evidence|snapshot metadata|StepIR|BlockIR|WorkerIR|WorkerHandoffIR" src/nl2spl/compiler/spl_editing/drafting
+git diff --check
+.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_draft_store.py tests/unit/compiler/spl_editing/drafting/test_draft_staleness.py -q

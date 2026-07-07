@@ -1,0 +1,7 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_model_contract.py tests/unit/compiler/spl_editing/drafting/test_value_serialization.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/test_model_contract.py tests/unit/compiler/spl_editing/drafting/test_value_serialization.py
+rg -n "confirmed|StepIR|BlockIR|WorkerIR|WorkerHandoffIR" src/nl2spl/compiler/spl_editing/drafting
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/test_model_contract.py tests/unit/compiler/spl_editing/drafting/test_value_serialization.py
+.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_model_contract.py tests/unit/compiler/spl_editing/drafting/test_value_serialization.py -q
+rg -n "confirmed|StepIR|BlockIR|WorkerIR|WorkerHandoffIR" src/nl2spl/compiler/spl_editing/drafting
+git diff --check

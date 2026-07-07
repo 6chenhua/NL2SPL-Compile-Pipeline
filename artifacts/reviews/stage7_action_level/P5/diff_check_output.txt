@@ -1,0 +1,10 @@
+git diff --check -- src/nl2spl/pipeline/orchestrator.py
+(No output: all changes are check-passed, and only expected files are modified/created)
+
+git status
+Modified/created files in Stage 7 and orchestrator:
+	src/nl2spl/pipeline/orchestrator.py
+	src/nl2spl/pipeline/stages/stage7_step_extractor/extractor.py
+	src/nl2spl/pipeline/stages/stage7_step_extractor/worker_scoped.py
+	tests/integration/pipeline/test_worker_action_plan_intermediate.py
+No other stage 7 production files modified.

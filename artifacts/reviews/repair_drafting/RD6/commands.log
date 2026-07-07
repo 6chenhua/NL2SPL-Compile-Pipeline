@@ -1,0 +1,4 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/presentation/test_drafting_presentation.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py src/nl2spl/compiler/spl_editing/presentation/model/drafting.py tests/unit/compiler/spl_editing/presentation/test_drafting_presentation.py
+rg -n "display index|option_index|display_id|generic.*LLM|patch_payload|MaterializationPlan|StepIR|BlockIR|WorkerIR|WorkerHandoffIR" src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py src/nl2spl/compiler/spl_editing/presentation/model/drafting.py
+git diff --check

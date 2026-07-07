@@ -1,0 +1,4 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/admission/test_admission_bridge.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/admission/test_admission_bridge.py
+rg -n "patch_payload|MaterializationPlan|StepIR|BlockIR|WorkerIR|WorkerHandoffIR|overlay_event|generic.*LLM" src/nl2spl/compiler/spl_editing/drafting
+git diff --check

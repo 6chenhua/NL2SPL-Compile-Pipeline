@@ -1,0 +1,2 @@
+.venv\Scripts\ruff check src/nl2spl/pipeline/stages/stage7_step_extractor tests/unit/pipeline/stage7 tests/integration/pipeline
+All checks passed!

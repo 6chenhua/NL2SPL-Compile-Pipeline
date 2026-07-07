@@ -1,0 +1,28 @@
+{
+  "phase": "RD4",
+  "status": "pass",
+  "artifacts": [
+    "review_report.md",
+    "manifest.json",
+    "pytest_output.txt",
+    "ruff_output.txt",
+    "diff_check_output.txt",
+    "antipattern_scan.txt",
+    "commands.log"
+  ],
+  "tests": [
+    "tests/unit/compiler/spl_editing/drafting/views/test_typed_views.py"
+  ],
+  "commands": {
+    "pytest": ".venv\\Scripts\\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/views/test_typed_views.py -q",
+    "ruff": ".venv\\Scripts\\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/views/test_typed_views.py",
+    "antipattern_scan": "rg -n \"diagnostic\\.message|rendered SPL|display text|call LLM|overlay_event|StepIR|BlockIR|WorkerIR|WorkerHandoffIR\" src/nl2spl/compiler/spl_editing/drafting",
+    "diff_check": "git diff --check"
+  },
+  "results": {
+    "pytest": "6 passed",
+    "ruff": "passed",
+    "antipattern_scan": "no matches",
+    "diff_check": "passed"
+  }
+}

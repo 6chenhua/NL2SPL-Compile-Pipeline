@@ -1,0 +1,8 @@
+git diff --check -- src/nl2spl/pipeline/stages/stage7_step_extractor
+(No output: no modified files under stage7_step_extractor)
+
+git status
+Only test files are untracked/new:
+	tests/integration/pipeline/test_stage7_action_level_internal_comms_characterization.py
+	tests/unit/pipeline/stage7/test_api_call_residual_action_characterization.py
+No stage 7 production files modified.

@@ -1,0 +1,12 @@
+﻿
+> examples\output\demo\final_spl.txt:51:        "Partial API declaration skeleton for ApprovedSourceRecipesAPI." Approv
+edSourceRecipesAPI <none>
+  examples\output\demo\final_spl.txt:52:        {}
+> examples\output\demo\final_spl.txt:75:                COMMAND-3 [CALL ApprovedSourceRecipesAPI RESPONSE source_eviden
+ce_set: List [text] SET]
+> examples\output\demo\final_spl.txt:76:                COMMAND-4 [COMMAND Maintain provenance for externally sourced f
+acts]
+  examples\output\demo\final_spl.txt:77:                COMMAND-5 [COMMAND When enough required information is availabl
+e]
+
+

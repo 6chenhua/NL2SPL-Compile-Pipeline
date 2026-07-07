@@ -1,0 +1,66 @@
+{
+  "phase": "P9_freeze",
+  "verdict": "pass",
+  "entries": [
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/diagnostic_summary.json",
+      "sha256": "3f881f3ecf33cc4d21e857fadf64eb218416bbe0ef9f6f929ab32f097fb89b72",
+      "bytes": 110
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/final_spl_stage7_evidence.txt",
+      "sha256": "593e900dbb51b5d0abf5cd9953591e2397682cebe591b71cb2a2d4d178b547bf",
+      "bytes": 609
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/git_diff_check_output.txt",
+      "sha256": "63507effc42c56a75974222f20cf092a8039b452ab494f58a70e2ca2bf068170",
+      "bytes": 17918
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/pytest_full_output.txt",
+      "sha256": "fa7bcb8549edb40158dd95ff0b24564e92afceac874766e485cd2fef333b2970",
+      "bytes": 12276
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/pytest_stage7_regression_output.txt",
+      "sha256": "28399462a6b4d2506971053fdfa106a02510dab59b9cf3460c7b79fe641abd19",
+      "bytes": 3076
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/review_report.md",
+      "sha256": "03bc603e665fa618acf4e85ff465aa1cfd7e6b45ecfbef86ec599327c6c12f2d",
+      "bytes": 1210
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/ruff_output.txt",
+      "sha256": "fa57fc062a49b928025998de1b4c9157093d098940f1b77a2917276deb3966b4",
+      "bytes": 1142
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/run_demo_list_only_output.txt",
+      "sha256": "477d631b2e0c1b8a9b9b408f77aa8e34edaaec17389845356036fb292f92f73a",
+      "bytes": 5834
+    },
+    {
+      "path": "artifacts/reviews/stage7_action_level/P9_freeze/run_demo_worker_delegation_e2e_output.txt",
+      "sha256": "eb1af3cbfcaa95f634bd95baa03a6fbdcacccf0c020b32bf2f51a26492589e6e",
+      "bytes": 566
+    },
+    {
+      "path": "docs/design/stage7_action_level_step_extraction_design_zh.md",
+      "sha256": "bc12cd41bc24e6f3ed088edc4d70907de2e9d53cb8e00058e680408121500467",
+      "bytes": 25489
+    },
+    {
+      "path": "docs/design/stage7_action_level_step_extraction_implementation_plan_zh.md",
+      "sha256": "41b93fe91df6c1a60245f7a8a4d7a48e820bb524f17aa865d06c5430d42bbc19",
+      "bytes": 34559
+    },
+    {
+      "path": "docs/design/stage7_action_level_step_extraction_pm_review_criteria_zh.md",
+      "sha256": "576791e3cc136245f8efbce604efa814cec5cfe570a5da821802da9a57c763cd",
+      "bytes": 24406
+    }
+  ]
+}

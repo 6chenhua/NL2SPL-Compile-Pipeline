@@ -1,0 +1,9 @@
+{
+  "rg_exit_code": 0,
+  "nonblank_lines": 140,
+  "provider_or_view_hits": [
+    "src/nl2spl/compiler/spl_editing/drafting\\providers\\worker_delegation.py:138:                    \"input_empty_semantics\",",
+    "src/nl2spl/compiler/spl_editing/drafting\\providers\\worker_delegation.py:146:                    \"input_empty_semantics\","
+  ],
+  "classification": "allowed hits are compatibility adapters, presentation audit labels, and negative/test assertions; no forbidden provider authority path is introduced"
+}

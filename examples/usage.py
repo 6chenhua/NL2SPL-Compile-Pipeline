@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from nl2spl.compiler.artifacts.snapshot.config import SnapshotPersistenceConfig
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
-from nl2spl.config import LLMConfig, load_config
+from nl2spl.config import LLMConfig, Stage1SegmentationConfig, load_config
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -33,6 +33,9 @@ def main() -> None:
         output_dir=Path(__file__).parent / "output",
         run_name="demo",
         snapshot=SnapshotPersistenceConfig(),
+        stage1=Stage1SegmentationConfig(
+            mode=os.getenv("NL2SPL_STAGE1_SEGMENTATION_MODE", "llm_source_constrained")
+        ),
     )
 
     # Create orchestrator
@@ -41,10 +44,18 @@ def main() -> None:
     # Run pipeline
     result = orchestrator.run(raw_text)
 
+    # Explicitly call the Rendering Subsystem to render the SPL text
+    from nl2spl.rendering import render_full_spl
+    if result.final_ir_package is not None:
+        rendered_doc = render_full_spl(result.final_ir_package)
+        spl_text = rendered_doc.text
+    else:
+        spl_text = result.spl_text
+
     # ── Print results ──────────────────────────────────────────────
     print("=" * 60)
     print(f"Completeness: {result.completeness}")
-    print(f"SPL length:   {len(result.spl_text)} chars")
+    print(f"SPL length:   {len(spl_text)} chars")
     print(f"Diagnostics:  {len(result.compile_diagnostics)}")
     print(f"Traces:       {len(result.traces)}")
     print(f"Assumptions:  {len(result.assumptions)}")
@@ -84,7 +95,7 @@ def main() -> None:
 
     # feedback_report.md
     feedback = render_feedback_report(
-        spl_text=result.spl_text,
+        spl_text=spl_text,
         completeness=result.completeness,
         diagnostics=result.compile_diagnostics,
         assumptions=result.assumptions,
@@ -99,6 +110,7 @@ def main() -> None:
 
     # SPL text
     spl_path = run_dir / "final_spl.txt"
+    spl_path.write_text(spl_text, encoding="utf-8")
     print(f"Final SPL saved:      {spl_path}")
 
     print(f"\nOpen {feedback_path} for the human-readable feedback report.")

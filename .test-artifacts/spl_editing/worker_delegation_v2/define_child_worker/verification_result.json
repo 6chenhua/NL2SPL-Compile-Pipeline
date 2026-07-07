@@ -1,15 +1,15 @@
 {
   "accepted": true,
-  "diagnostic_diff_summary": "4 resolved, 8 unchanged",
+  "diagnostic_diff_summary": "4 resolved, 10 unchanged",
   "failure_reasons": [],
   "lane": "B",
   "new_blocking_diagnostic_ids": [],
-  "patch_id": "patch_directive_a1f6c91720161182c580",
+  "patch_id": "patch_directive_03ed48adbf195a1442a2",
   "resolved_diagnostic_ids": [
-    "irs_16c0d5b20df4",
-    "irs_6b43a592b006",
-    "irs_6c2ebb9b34e6",
-    "irs_d422db06a1ca"
+    "irs_19ee50f15ae0",
+    "irs_45f5dbe407f2",
+    "irs_828acf24bc73",
+    "irs_f2892adc01f8"
   ],
   "session_id": ""
 }

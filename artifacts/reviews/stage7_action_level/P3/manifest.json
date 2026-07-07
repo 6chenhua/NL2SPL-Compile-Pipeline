@@ -1,0 +1,18 @@
+{
+  "phase": "P3-v2",
+  "timestamp": "2026-07-05T20:11:00Z",
+  "artifacts": {
+    "src/nl2spl/compiler/construct_plan/planner.py": "8714E1FC18AE3E5D6C0E2F7C250D29A5D129193C085B5D85C23BF2ACAC4BAD30",
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/api_call_materializer.py": "8DCA017993D44EE5F2BDAEB0F115B5BD712A234C291109ECF0B2CF007A4C8E75",
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/action_projection.py": "56C2EA95C1C3A8C8E99B74354FE122F306F4D3052FB81D13A817901062A2E824",
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/worker_scoped.py": "D3AED53C83C32D9EC3B457B33DAE2026DB6B23D0ACCB4F82EA6F65D01C98074A",
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/extractor.py": "C7CEA74900A17BC860DD5E01F78E6A7B76F18D281CC0AAC713AA61EDB0BECBF0",
+    "tests/unit/compiler/construct_plan/test_api_demands.py": "8BEC0BEFB994EB7A05539BE92FD0053ADAA42C0DB9397F87742A5E0CE63BD396",
+    "tests/unit/pipeline/stage7/test_action_projection_negative.py": "477D75333A8AFB02D5798A1AA739FA203CFEEBCE96B5C83839872FAFD8A41B1D",
+    "tests/unit/pipeline/stage7/test_api_call_materializer.py": "181045C127088D33C04B171CBF49A3883C6504CA886F0FE063ADE39154995DE5",
+    "tests/unit/pipeline/stage7/test_api_call_materializer_residual_fix.py": "DFD1BC74E5710F67747785576DDE52232064F8D92BDDA9FDB8215F9286AB28D4",
+    "tests/unit/pipeline/stage7/test_api_call_residual_action_characterization.py": "965C06F83EF2633893231D071E73545FB4D2BCA092B2922B81D107F16801CFD1",
+    "tests/integration/pipeline/test_stage7_action_level_internal_comms_characterization.py": "6017569C4FA4A6061A211AEA5975F712FDCA77111DB4E681C130453DF54B87F6",
+    "tests/integration/pipeline/test_worker_action_plan_intermediate.py": "E61A6D6A73E02A3D59296F8943044A71F36EAEDBBE9C1DD9EB5514A6B30A3E96"
+  }
+}

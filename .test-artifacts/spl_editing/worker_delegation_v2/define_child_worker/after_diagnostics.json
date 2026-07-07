@@ -2,7 +2,7 @@
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_eb6a6a2f0b5c",
+    "diagnostic_id": "irs_f90625832a65",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_00, slot=handler_action]",
     "metadata": {
@@ -25,7 +25,7 @@
       "required_for": "exc_adapter_00",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s26"
+        "s31"
       ],
       "suggested_question": null
     },
@@ -33,7 +33,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s26"
+      "s31"
     ],
     "suggested_resolution": "Add a handler step for 'conflicting instructions', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_00"
@@ -41,7 +41,7 @@
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_ea4aabf8f488",
+    "diagnostic_id": "irs_fa7497765f15",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]",
     "metadata": {
@@ -64,7 +64,7 @@
       "required_for": "exc_adapter_01",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s28"
+        "s33"
       ],
       "suggested_question": null
     },
@@ -72,15 +72,15 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s28"
+      "s33"
     ],
-    "suggested_resolution": "Add a handler step for 'evidence\nshortage', or mark this exception as acknowledged without handling.",
+    "suggested_resolution": "Add a handler step for 'evidence shortage', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_01"
   },
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_fd83d44e3194",
+    "diagnostic_id": "irs_d9c261028c38",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_02, slot=handler_action]",
     "metadata": {
@@ -103,7 +103,7 @@
       "required_for": "exc_adapter_02",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s27"
+        "s32"
       ],
       "suggested_question": null
     },
@@ -111,7 +111,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s27"
+      "s32"
     ],
     "suggested_resolution": "Add a handler step for 'insufficient source access', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_02"
@@ -119,7 +119,7 @@
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_82aa44be011f",
+    "diagnostic_id": "irs_7093beb4f671",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]",
     "metadata": {
@@ -142,7 +142,7 @@
       "required_for": "exc_adapter_03",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s25"
+        "s30"
       ],
       "suggested_question": null
     },
@@ -150,7 +150,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s25"
+      "s30"
     ],
     "suggested_resolution": "Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_03"
@@ -158,7 +158,7 @@
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_de963025d6c8",
+    "diagnostic_id": "irs_5ed84cc256bb",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]",
     "metadata": {
@@ -181,7 +181,7 @@
       "required_for": "exc_adapter_04",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s30"
+        "s35"
       ],
       "suggested_question": null
     },
@@ -189,7 +189,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s30"
+      "s35"
     ],
     "suggested_resolution": "Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_04"
@@ -197,7 +197,7 @@
   {
     "blocks_completion": true,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_b5c75258c745",
+    "diagnostic_id": "irs_a42595ead125",
     "kind": "missing_handler",
     "message": "Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]",
     "metadata": {
@@ -220,7 +220,7 @@
       "required_for": "exc_adapter_05",
       "slot_name": "handler_action",
       "source_span_ids": [
-        "s29"
+        "s34"
       ],
       "suggested_question": null
     },
@@ -228,15 +228,89 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s29"
+      "s34"
     ],
     "suggested_resolution": "Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.",
     "target_ref": "worker:worker_main.exception_flow:exc_adapter_05"
   },
   {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_76ff1b8cd4f1",
+    "kind": "required_output_deferred",
+    "message": "Required output 'source_evidence_set' (Set of sources or evidence used to support the draft.) is deferred behind an API response whose return contract is not yet known. [construct=worker:worker_main.output:source_evidence_set, slot=producer]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.output:source_evidence_set",
+        "construct_path": [
+          "worker_plan",
+          "worker_main",
+          "output_contract",
+          "source_evidence_set"
+        ],
+        "construct_type": "REQUIRED_OUTPUT",
+        "slot_name": "producer",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "Required output 'source_evidence_set' (Set of sources or evidence used to support the draft.) is deferred behind an API response whose return contract is not yet known.",
+      "required_for": "complete",
+      "slot_name": "producer",
+      "source_span_ids": [],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [],
+    "suggested_resolution": "Declare the API return contract or add a source-backed producer step for 'source_evidence_set'.",
+    "target_ref": "worker:worker_main.output:source_evidence_set"
+  },
+  {
+    "blocks_completion": true,
+    "blocks_rendering": false,
+    "diagnostic_id": "irs_43bfae5d542e",
+    "kind": "type_or_contract_ambiguity",
+    "message": "REQUEST_INPUT step has no value target (outputs). [construct=worker:worker_main.step:st_3, slot=value_target]",
+    "metadata": {
+      "authority": "post_normalize_irs",
+      "irs_ref": {
+        "construct_id": "worker:worker_main.step:st_3",
+        "construct_path": [
+          "worker",
+          "worker_main",
+          "steps",
+          "st_3"
+        ],
+        "construct_type": "REQUEST_INPUT",
+        "slot_name": "value_target",
+        "source_authority": "post_normalize_irs"
+      }
+    },
+    "missing_slot": {
+      "reason": "REQUEST_INPUT step has no value target (outputs).",
+      "required_for": "st_3",
+      "slot_name": "value_target",
+      "source_span_ids": [
+        "s17"
+      ],
+      "suggested_question": null
+    },
+    "severity": "warning",
+    "source_packet_id": null,
+    "source_section_id": null,
+    "source_span_ids": [
+      "s17"
+    ],
+    "suggested_resolution": null,
+    "target_ref": "worker:worker_main.step:st_3"
+  },
+  {
     "blocks_completion": false,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_995dca55be8f",
+    "diagnostic_id": "irs_4922b19aef41",
     "kind": "deferred_api_contract_validation",
     "message": "Schema placeholder is valid; downstream API validation is pending. [construct=api_declaration:api:ApprovedSourceRecipesAPI, slot=openapi_schema]",
     "metadata": {
@@ -268,7 +342,7 @@
       "required_for": "downstream_api_validation",
       "slot_name": "openapi_schema",
       "source_span_ids": [
-        "s16"
+        "s18"
       ],
       "suggested_question": null
     },
@@ -276,7 +350,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s16"
+      "s18"
     ],
     "suggested_resolution": "Provide an OpenAPI schema or explicitly confirm the schema is empty.",
     "target_ref": "api_declaration:api:ApprovedSourceRecipesAPI"
@@ -284,7 +358,7 @@
   {
     "blocks_completion": false,
     "blocks_rendering": false,
-    "diagnostic_id": "irs_b1a69d1cc286",
+    "diagnostic_id": "irs_70bf830821c3",
     "kind": "deferred_api_contract_validation",
     "message": "Functions placeholder is valid; downstream API validation is pending. [construct=api_declaration:api:ApprovedSourceRecipesAPI, slot=functions]",
     "metadata": {
@@ -316,7 +390,7 @@
       "required_for": "downstream_api_validation",
       "slot_name": "functions",
       "source_span_ids": [
-        "s16"
+        "s18"
       ],
       "suggested_question": null
     },
@@ -324,7 +398,7 @@
     "source_packet_id": null,
     "source_section_id": null,
     "source_span_ids": [
-      "s16"
+      "s18"
     ],
     "suggested_resolution": "Provide function declarations or explicitly confirm the API has no callable functions.",
     "target_ref": "api_declaration:api:ApprovedSourceRecipesAPI"

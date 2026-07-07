@@ -1,0 +1,3 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_rd0_baseline_characterization.py -q
+.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_rd0_baseline_characterization.py -q
+.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_rd0_baseline_characterization.py -q

@@ -1,0 +1,4 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/views/test_typed_views.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/views/test_typed_views.py
+rg -n "diagnostic\.message|rendered SPL|display text|call LLM|overlay_event|StepIR|BlockIR|WorkerIR|WorkerHandoffIR" src/nl2spl/compiler/spl_editing/drafting
+git diff --check

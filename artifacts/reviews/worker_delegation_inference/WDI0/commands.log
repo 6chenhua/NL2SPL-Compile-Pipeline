@@ -1,0 +1,3 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_inference_gap_lock.py -q
+.venv\Scripts\python.exe -m ruff check tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_inference_gap_lock.py
+git diff --check

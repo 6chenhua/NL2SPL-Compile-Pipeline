@@ -1,0 +1,13 @@
+{
+  "phase": "P2",
+  "timestamp": "2026-07-05T17:53:00Z",
+  "baselines": {
+    "stage7_action_level_step_extraction_design_zh.md": "BC12CD41BC24E6F3ED088EDC4D70907DE2E9D53CB8E00058E680408121500467",
+    "stage7_action_level_step_extraction_implementation_plan_zh.md": "41B93FE91DF6C1A60245F7A8A4D7A48E820BB524F17AA865D06C5430D42BBC19",
+    "stage7_action_level_step_extraction_pm_review_criteria_zh.md": "576791E3CC136245F8EFBCE604EFA814CEC5CFE570A5DA821802DA9A57C763CD"
+  },
+  "artifacts": {
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/action_projection.py": "75289F1506A79F2A3CDEB37FAE1115270777289B3A2910C3A451EF88B06915B1",
+    "tests/unit/pipeline/stage7/test_api_residual_action_projector.py": "265B4D3F3ED9C9ABB186166EFD823B83573A5C038842D4C837339C751F450309"
+  }
+}

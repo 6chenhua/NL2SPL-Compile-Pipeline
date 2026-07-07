@@ -1,0 +1,20 @@
+{
+  "required_fields": [
+    "responsibility",
+    "input_refs",
+    "output_draft",
+    "placement",
+    "result_binding"
+  ],
+  "missing_field_evidence": [],
+  "missing_trace_evidence": [],
+  "trace_coverage_missing": [],
+  "responsibility_confidence": "high",
+  "responsibility_field_evidence_refs": [
+    "user_input:free_text"
+  ],
+  "responsibility_trace_evidence_refs": [
+    "user_input:free_text"
+  ],
+  "responsibility_trace_source": "user_input.free_text"
+}

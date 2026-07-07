@@ -1,0 +1,5 @@
+Create child worker
+Gather approved source evidence
+Use inputs: worker_input:worker_main:worker_main::user_request
+Return: del_s31
+Insert: append to main flow

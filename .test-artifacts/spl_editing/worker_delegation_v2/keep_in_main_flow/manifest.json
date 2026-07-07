@@ -1,23 +1,23 @@
 {
   "base_overlay_version": 0,
-  "base_snapshot_id": "snap_fce858edb833",
+  "base_snapshot_id": "snap_b5960316d81c",
   "evidence_ids": [
-    "ev_packet_intent_directive_dcccaea2f420c331aab0"
+    "ev_packet_intent_directive_8ab39d53ac53931a90f5"
   ],
   "file_hashes": {
-    "after_diagnostics.json": "3fefc6c371a288211d7bfb9e51cd50d382658717154c82c4c8ba24ca7e3fd403",
-    "after_final.spl": "248de3fb90e8fdd817d9a7770340a627750047d6ddd4ccec85b4d035e16cb21e",
-    "artifact_diff.json": "771534e7b36722135fb14e9c4b17c97821f672e7de0730e2338d6f2269db69cb",
-    "before_diagnostics.json": "cc541a502aa26b8bbe3ab2456e9d75aa5e513b4ec6dd6c9352098a4dc6e4d3c6",
-    "before_final.spl": "a0a60f713d4fb094c027260b384b52239bc9f662d446dc9b11cceec4351a5840",
-    "evidence_provenance_summary.json": "2c372c1e6d4a63ddf3a02b46d5e08d768da10011b8cb624fbaf71c1ebe7a0d16",
-    "preview_summary.json": "e3f8e1dbd278fa3afb62ce9cc23b939d3be76f7556ebc32d02cfdd7473ed30f0",
-    "verification_result.json": "5bad8ecf58e7e1a6d7990da65b107a32544d789846f63d24dd2f645fe98baa8f"
+    "after_diagnostics.json": "a3c9626811d350947d01de5472709210640bef39d2929c2e8cae94d92ea5ac3b",
+    "after_final.spl": "c427117cfbad5a512016ffd086612b556e34df4954467fd75055aee7fb2ad664",
+    "artifact_diff.json": "3270c69fe82975fb316be87c694245f8bdea51ff0f6198a1fc7813b01fd467f7",
+    "before_diagnostics.json": "da989ee941a91fb1ca878a4504487be0d4dfa9417679aa1858c5289fcf09e5d1",
+    "before_final.spl": "6ea24198d8a1b6662fc583596666817f073fb122b6917e2a3c36a9b30298b4e4",
+    "evidence_provenance_summary.json": "cbd41e62c879f9d347df9533a3fdd272ae38097191cbb772056d221a81b92515",
+    "preview_summary.json": "232c23a91ae9435434a9505b0b5c365e10713143697d1135f2a41c132f9ecb58",
+    "verification_result.json": "c656d31fafb6f01ab9a649bbe5904dbd60a242f6265a336d300d91a8ba94aa02"
   },
-  "normalized_directive_id": "directive_dcccaea2f420c331aab0",
+  "normalized_directive_id": "directive_8ab39d53ac53931a90f5",
   "option_id": "keep_in_main_flow",
-  "patch_id": "patch_directive_dcccaea2f420c331aab0",
-  "preview_id": "prev_47100b45329b5af6fe7dccf5203b0164605ee6b5852e3722e8a6d2634421073c",
+  "patch_id": "patch_directive_8ab39d53ac53931a90f5",
+  "preview_id": "prev_c8d83095053a96737334194d2c18e62df60fb6ad856d6638264302f385d6d80c",
   "result_overlay_version": 1,
   "scenario_id": "keep_in_main_flow",
   "strategy_id": "worker_delegation.complete_closure.v2",

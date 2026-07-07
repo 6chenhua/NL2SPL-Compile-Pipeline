@@ -1,0 +1,7 @@
+Create child worker
+Gather approved source evidence
+Input variables: available_connectors_or_source_repositories
+Returned result: source evidence result
+Business logic: Gather approved source evidence using available_connectors_or_source_repositories; return source evidence result.
+Insert: append to main flow
+Result handling: make the result available in the main workflow

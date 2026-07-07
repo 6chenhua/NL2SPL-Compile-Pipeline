@@ -1,0 +1,140 @@
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:30:from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:32:from nl2spl.ir.step_ir import StepIR
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:161:        main_flow_blocks=[BlockIR("b_archive", "SEQUENTIAL", spans=[])]
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:164:        StepIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:173:        StepIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:236:            "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:328:    placement = next(field for field in interaction.fields if field.field_id == "placement_ref")
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:334:        if schema.schema_id == "worker_delegation.result_usage.v1"
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:385:        if schema.schema_id == "worker_delegation.result_usage.v1"
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:405:            "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:439:    placement_ref = next(
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:442:        if field.field_id == "placement_ref"
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:456:            "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:463:        {"input_refs": (input_ref,), "placement_ref": (placement_ref,)},
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:477:    assert directive.placement_ref.ref.ref_id == placement_ref
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:498:        **{**missing.__dict__, "revision_token": revision.rsplit(":", 1)[0] + ":99"}
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:528:            "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:596:    extra.step_id = "st_extra_child_command"
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:628:            "input_empty_semantics": "explicit_none",
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:680:            "input_empty_semantics": "explicit_none",
+tests/integration/compiler/spl_editing\test_worker_delegation_v2_e2e.py:682:            "result_usage": (
+tests/integration/compiler/spl_editing\test_s8_persisted_snapshot_e2e.py:23:from nl2spl.ir.step_ir import StepIR
+tests/integration/compiler/spl_editing\test_s8_persisted_snapshot_e2e.py:25:from nl2spl.ir.worker_ir import ExceptionFlowRef, WorkerIR
+tests/integration/compiler/spl_editing\test_s8_persisted_snapshot_e2e.py:207:                    StepIR(
+tests/integration/compiler/spl_editing\test_s8_persisted_snapshot_e2e.py:220:                    StepIR(
+tests/integration/compiler/spl_editing\test_s8_persisted_snapshot_e2e.py:308:        lambda s, *a, **k: WorkerIR("MainWorker", "Main worker"),
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:15:from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:18:from nl2spl.ir.step_ir import StepIR
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:26:    WorkerHandoffIR,
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:92:        result_usage=(
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:128:    handoff = WorkerHandoffIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:142:    child_step = StepIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:151:    invoke = StepIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:200:                    main_flow_blocks=[BlockIR("b_child", "SEQUENTIAL", spans=["s31"])]
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:317:            **directive.__dict__,
+tests/integration/compiler/spl_editing\test_worker_delegation_result_binding_invariant.py:318:            "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_inference_negative_matrix.py:117:        "result_usage": (
+tests/integration/compiler/spl_editing\test_worker_delegation_inference_negative_matrix.py:167:            {"input_refs": (valid_ref,), "placement_ref": ("step_1",)},
+tests/integration/compiler/spl_editing\test_b10_integration_anti_fabrication.py:110:        from nl2spl.ir.step_ir import StepIR
+tests/integration/compiler/spl_editing\test_b10_integration_anti_fabrication.py:114:        step = StepIR(
+tests/integration/compiler/spl_editing\test_b10_integration_anti_fabrication.py:190:        from nl2spl.ir.step_ir import StepIR
+tests/integration/compiler/spl_editing\test_b10_integration_anti_fabrication.py:238:                        StepIR(
+tests/integration/compiler/spl_editing\test_worker_delegation_drafting_e2e.py:121:    assert "placement_ref" not in user_supplied
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:14:from typing import Any
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:91:    llm_client: Any,
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:106:def read_explanation_cache(snapshot_path: Path) -> dict[str, Any] | None:
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:117:) -> dict[str, Any] | None:
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:127:def _issue_details(path: Path, llm: IssueExplanationLLM) -> tuple[Any, ...]:
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:148:    details: tuple[Any, ...],
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:177:def _write_cache(path: Path, cache: dict[str, Any]) -> None:
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:195:def _integrity(data: dict[str, Any]) -> dict[str, str]:
+src/nl2spl/compiler/spl_editing/presentation\explanation_cache.py:208:def _hash(value: dict[str, Any]) -> str:
+tests/unit/compiler/spl_editing/presentation\test_worker_delegation_draft_preview_ux.py:86:    assert "step_id" not in rendered
+tests/unit/compiler/spl_editing/presentation\test_worker_delegation_draft_preview_ux.py:87:    assert "block_id" not in rendered
+tests/unit/compiler/spl_editing/presentation\test_worker_delegation_draft_preview_ux.py:108:    assert "placement_ref" not in field_ids
+tests/unit/compiler/spl_editing/presentation\test_worker_delegation_draft_preview_ux.py:109:    assert "result_usage" not in field_ids
+src/nl2spl/compiler/spl_editing/presentation\resolvers\suggested_resolution.py:14:    related_diagnostics: tuple[object, ...] = (),
+src/nl2spl/compiler/spl_editing/presentation\resolvers\suggested_resolution.py:19:        value = getattr(diagnostic, "suggested_resolution", None)
+src/nl2spl/compiler/spl_editing/presentation\resolvers\source_excerpt.py:12:    related_diagnostics: tuple[object, ...] = (),
+src/nl2spl/compiler/spl_editing/presentation\resolvers\source_excerpt.py:18:        span_ids.extend(getattr(diagnostic, "source_span_ids", []) or [])
+src/nl2spl/compiler/spl_editing/presentation\resolvers\source_excerpt.py:36:        if getattr(span, "span_id", None) == span_id:
+src/nl2spl/compiler/spl_editing/presentation\resolvers\source_excerpt.py:37:            text = getattr(span, "text", None)
+src/nl2spl/compiler/spl_editing/presentation\ai_explainer.py:7:from typing import Any, Protocol
+src/nl2spl/compiler/spl_editing/presentation\ai_explainer.py:59:    def to_dict(self) -> dict[str, Any]:
+src/nl2spl/compiler/spl_editing/presentation\ai_explainer.py:84:def _facts(detail: IssueDetailPresentationView) -> dict[str, Any]:
+src/nl2spl/compiler/spl_editing/presentation\ai_explainer.py:115:    by_number: dict[int, dict[str, Any]] = {}
+src/nl2spl/compiler/spl_editing/presentation\ai_explainer.py:193:def _text(data: dict[str, Any], key: str) -> str:
+src/nl2spl/compiler/spl_editing/presentation\resolvers\issue_subject.py:27:    related_diagnostics: tuple[object, ...] = (),
+src/nl2spl/compiler/spl_editing/presentation\resolvers\issue_subject.py:47:        name = getattr(child, "worker_name", None) or child_id
+src/nl2spl/compiler/spl_editing/presentation\resolvers\issue_subject.py:48:        purpose = getattr(child, "purpose", None)
+src/nl2spl/compiler/spl_editing/presentation\resolvers\display_context.py:56:    related_diagnostics: tuple[object, ...] = (),
+src/nl2spl/compiler/spl_editing/presentation\resolvers\display_context.py:109:        or getattr(issue, "presentation_disposition", None) == "deferred_validation"
+src/nl2spl/compiler/spl_editing/presentation\resolvers\display_context.py:180:    related_diagnostics: tuple[object, ...],
+src/nl2spl/compiler/spl_editing/presentation\resolvers\display_context.py:185:        irs_ref = getattr(diagnostic, "metadata", {}).get("irs_ref", {})
+tests/unit/compiler/spl_editing/drafting\views\test_worker_delegation_typed_view_contract.py:156:    assert "getattr(" not in source
+tests/unit/compiler/spl_editing/drafting\views\test_worker_delegation_typed_view_contract.py:157:    assert "__dict__" not in source
+tests/unit/compiler/spl_editing/drafting\views\test_worker_delegation_typed_view_contract.py:158:    assert "vars(" not in source
+src/nl2spl/compiler/spl_editing/presentation\contract\invariants.py:15:        getattr(option, "availability", None) == RepairOptionAvailability.AVAILABLE
+src/nl2spl/compiler/spl_editing/presentation\templates\repair_option_copy.py:3:from typing import Any
+src/nl2spl/compiler/spl_editing/presentation\templates\repair_option_copy.py:69:def option_label_for_entry(entry: Any) -> str:
+src/nl2spl/compiler/spl_editing/presentation\templates\repair_option_copy.py:70:    strategy_id = getattr(entry, "repair_strategy_id", None)
+src/nl2spl/compiler/spl_editing/presentation\templates\repair_option_copy.py:72:        strategy_display_label = getattr(entry, "strategy_display_label", None)
+src/nl2spl/compiler/spl_editing/presentation\templates\repair_option_copy.py:76:    patch_types = getattr(entry, "supported_" + "patch_types", ())
+src/nl2spl/compiler/spl_editing/drafting\service.py:86:    patch_types = tuple(getattr(option, "execution_patch_types", ()) or ())
+src/nl2spl/compiler/spl_editing/presentation\resolvers\advanced_details.py:13:    related_diagnostics: tuple[object, ...] = (),
+src/nl2spl/compiler/spl_editing/presentation\resolvers\advanced_details.py:31:    related_diagnostics: tuple[object, ...],
+src/nl2spl/compiler/spl_editing/presentation\resolvers\advanced_details.py:35:        meta = getattr(diagnostic, "metadata", {})
+src/nl2spl/compiler/spl_editing/presentation\builders\confirmation_builder.py:10:from typing import Any
+src/nl2spl/compiler/spl_editing/presentation\builders\confirmation_builder.py:26:    confirmation_context: Any | None = None,
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:7:from typing import Any
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:50:def to_json_data(value: Any) -> Any:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:56:        data = {field.name: to_json_data(getattr(value, field.name)) for field in fields(value)}
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:85:def user_input_from_json_data(data: dict[str, Any]) -> UserRepairInput:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:105:def inferred_draft_from_json_data(data: dict[str, Any]) -> InferredRepairDraft:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:128:def stored_draft_from_json_data(data: dict[str, Any]) -> StoredRepairDraft:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:143:def _field_from_json(data: dict[str, Any]) -> FieldInference:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:154:def _question_from_json(data: dict[str, Any]) -> RepairClarificationQuestion:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:164:def _trace_from_json(data: dict[str, Any]) -> InferenceTraceRecord:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:175:def _alternative_from_json(data: dict[str, Any]) -> InferenceAlternative:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:183:def _value_from_json(data: dict[str, Any]) -> RepairFieldValue:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:193:def _tuple_if_list(value: Any) -> Any:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:199:def _loads(text: str) -> dict[str, Any]:
+src/nl2spl/compiler/spl_editing/drafting\serialization.py:208:def _require_mapping(data: Any) -> None:
+tests/unit/compiler/spl_editing/drafting\test_model_contract.py:68:    assert "patch_payload" not in names
+tests/unit/compiler/spl_editing/drafting\test_model_contract.py:95:        "patch_payload",
+tests/unit/compiler/spl_editing/drafting\test_rd0_baseline_characterization.py:52:        "placement_ref",
+tests/unit/compiler/spl_editing/drafting\test_rd0_baseline_characterization.py:54:        "result_usage",
+tests/unit/compiler/spl_editing/drafting\test_rd0_baseline_characterization.py:85:            "result_usage": (
+src/nl2spl/compiler/spl_editing/drafting\model.py:171:            _require_non_empty(getattr(self, name), name)
+src/nl2spl/compiler/spl_editing/drafting\model.py:218:            _require_non_empty(getattr(self, name), name)
+src/nl2spl/compiler/spl_editing/drafting\context.py:6:from typing import Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:11:    issue: Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:12:    target: Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:13:    catalog_entry: Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:14:    option: Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:15:    snapshot: Any
+src/nl2spl/compiler/spl_editing/drafting\context.py:16:    views: dict[str, Any] | None = None
+src/nl2spl/compiler/spl_editing/presentation\service.py:7:from typing import Any
+src/nl2spl/compiler/spl_editing/presentation\service.py:109:        self._directive_context: dict[str, tuple[Any, ...]] = {}
+src/nl2spl/compiler/spl_editing/presentation\service.py:127:                getattr(bundle, component, None) is None
+src/nl2spl/compiler/spl_editing/presentation\service.py:584:                "placement_ref_id": (
+src/nl2spl/compiler/spl_editing/presentation\service.py:585:                    directive.placement_ref.ref.ref_id
+src/nl2spl/compiler/spl_editing/presentation\service.py:586:                    if directive.placement_ref is not None
+src/nl2spl/compiler/spl_editing/presentation\service.py:589:                "result_usage": [
+src/nl2spl/compiler/spl_editing/presentation\service.py:597:                    for item in directive.result_usage
+src/nl2spl/compiler/spl_editing/presentation\service.py:713:        confirmation_context: Any | None = None,
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_input_ref_inference.py:166:    field = next(field for field in draft.fields if field.field_id == "input_empty_semantics")
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_input_ref_inference.py:168:        record for record in draft.trace if record.field_id == "input_empty_semantics"
+src/nl2spl/compiler/spl_editing/drafting\providers\worker_delegation.py:138:                    "input_empty_semantics",
+src/nl2spl/compiler/spl_editing/drafting\providers\worker_delegation.py:146:                    "input_empty_semantics",
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:120:        result_usage: list[dict[str, object]] = []
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:132:                field_values["input_empty_semantics"] = "explicit_none"
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:145:                    selected_ref_ids["placement_ref"] = (value.ref_id,)
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:147:                result_usage.append(
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:156:        if result_usage:
+src/nl2spl/compiler/spl_editing/drafting\admission\bridge.py:157:            field_values["result_usage"] = tuple(result_usage)
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_provider.py:142:def test_provider_does_not_construct_ir_or_patch_payload() -> None:
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_provider.py:149:    assert all("WorkerIR" not in type(field.value).__name__ for field in draft.fields)
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_placement_inference.py:164:def test_draft_preview_does_not_show_final_step_id() -> None:
+tests/unit/compiler/spl_editing/drafting\providers\test_worker_delegation_placement_inference.py:175:    assert "step_id" not in rendered

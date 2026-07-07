@@ -1,17 +1,84 @@
 {
   "stage": "external_capability_intent_resolver",
-  "timestamp": "2026-07-04T14:51:06.504983",
+  "timestamp": "2026-07-08T01:20:09.682342",
   "metadata": {},
   "result": {
-    "plan_id": "cap_plan_10a3d7d46ddfa319",
+    "plan_id": "cap_plan_786bb77fd3cee038",
     "intents": [
       {
-        "intent_id": "cap_intent_8326912547e62e9c",
+        "intent_id": "cap_intent_8f0e488cd55d1c3c",
         "source_candidate_ids": [
-          "cap_candidate_dc7d673c9bb2c9ce"
+          "cap_candidate_770f61869db5354a"
         ],
         "source_span_ids": [
-          "s16"
+          "s35"
+        ],
+        "operation_text": "source gathering or template matching may be used",
+        "capability_surface": null,
+        "capability_ref": null,
+        "boundary_status": "candidate_external",
+        "identity_status": "missing",
+        "invocation_status": "policy_only",
+        "capability_admission_status": "candidate_capability",
+        "invocation_admission_status": "no_invocation",
+        "evidence": [
+          {
+            "evidence_id": "cap_sem_ev_10030f26332c8122",
+            "source_span_id": "s35",
+            "claim": "boundary",
+            "surface_text": "bounded and the returned evidence is normalized into approved evidence carriers",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_282d41dd5cb1755f",
+            "source_span_id": "s35",
+            "claim": "operation",
+            "surface_text": "Optional delegated subtasks such as source gathering or template matching may be used",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_9d270997b874d628",
+            "source_span_id": "s35",
+            "claim": "invocation",
+            "surface_text": "source gathering or template matching may be used",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          }
+        ],
+        "input_refs": [],
+        "output_refs": [
+          "source_evidence_set"
+        ],
+        "binding_status": "fully_bound",
+        "unresolved_binding_claims": [],
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+        "metadata": {
+          "merged_candidate_count": 1,
+          "resolver_version": "ExternalCapabilityIntentResolverV1"
+        }
+      },
+      {
+        "intent_id": "cap_intent_f1cfcc5fcdf0455d",
+        "source_candidate_ids": [
+          "cap_candidate_1dc884212b82a9f1"
+        ],
+        "source_span_ids": [
+          "s18"
         ],
         "operation_text": "retrieve them using approved source recipes",
         "capability_surface": "approved source recipes",
@@ -23,60 +90,62 @@
         "invocation_admission_status": "confirmed_invocation",
         "evidence": [
           {
-            "evidence_id": "cap_sem_ev_2ea6d07c2a3f1f2e",
-            "source_span_id": "s16",
+            "evidence_id": "cap_sem_ev_48068ea58dd79617",
+            "source_span_id": "s18",
             "claim": "operation",
             "surface_text": "retrieve them using approved source recipes",
             "relation": "direct",
             "source_section_id": "sec_reusable_process",
-            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
             "metadata": {
-              "validated_anchor_relation": "normalized"
+              "validated_anchor_relation": "direct"
             }
           },
           {
-            "evidence_id": "cap_sem_ev_5aa56ac32357772f",
-            "source_span_id": "s16",
-            "claim": "invocation",
-            "surface_text": "retrieve them using approved source recipes",
-            "relation": "direct",
-            "source_section_id": "sec_reusable_process",
-            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
-            "metadata": {
-              "validated_anchor_relation": "normalized"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_baebe278b9b3e647",
-            "source_span_id": "s16",
-            "claim": "identity",
-            "surface_text": "approved source recipes",
-            "relation": "direct",
-            "source_section_id": "sec_reusable_process",
-            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
-            "metadata": {
-              "validated_anchor_relation": "normalized"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_cd803f308d158f96",
-            "source_span_id": "s16",
+            "evidence_id": "cap_sem_ev_5f53c880339284be",
+            "source_span_id": "s18",
             "claim": "boundary",
             "surface_text": "approved source recipes",
             "relation": "direct",
             "source_section_id": "sec_reusable_process",
-            "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+            "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
             "metadata": {
-              "validated_anchor_relation": "normalized"
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_69d92c23df145fa4",
+            "source_span_id": "s18",
+            "claim": "identity",
+            "surface_text": "approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_fb2125b456c6ada1",
+            "source_span_id": "s18",
+            "claim": "invocation",
+            "surface_text": "retrieve them using approved source recipes",
+            "relation": "direct",
+            "source_section_id": "sec_reusable_process",
+            "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+            "metadata": {
+              "validated_anchor_relation": "direct"
             }
           }
         ],
         "input_refs": [],
-        "output_refs": [],
-        "binding_status": "not_required",
+        "output_refs": [
+          "source_evidence_set"
+        ],
+        "binding_status": "fully_bound",
         "unresolved_binding_claims": [],
         "source_section_id": "sec_reusable_process",
-        "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
         "metadata": {
           "merged_candidate_count": 1,
           "resolver_version": "ExternalCapabilityIntentResolverV1"
@@ -88,31 +157,31 @@
         "source_span_id": "s1",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "domain_text"
       },
       {
         "source_span_id": "s2",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "domain_text"
       },
       {
         "source_span_id": "s3",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "domain_text"
       },
       {
         "source_span_id": "s4",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "domain_text"
       },
       {
         "source_span_id": "s5",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "domain_text"
       },
       {
         "source_span_id": "s6",
@@ -172,45 +241,45 @@
         "source_span_id": "s15",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_explicit_external_boundary"
+        "reason_code": "process_step_general"
       },
       {
         "source_span_id": "s16",
-        "status": "candidate_emitted",
-        "related_candidate_ids": [
-          "cap_candidate_dc7d673c9bb2c9ce"
-        ],
-        "reason_code": null
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_general"
       },
       {
         "source_span_id": "s17",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_explicit_external_boundary"
+        "reason_code": "process_step_general"
       },
       {
         "source_span_id": "s18",
-        "status": "insufficient_evidence",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_without_explicit_external_boundary"
+        "status": "candidate_emitted",
+        "related_candidate_ids": [
+          "cap_candidate_1dc884212b82a9f1"
+        ],
+        "reason_code": null
       },
       {
         "source_span_id": "s19",
         "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "process_step_without_explicit_external_boundary"
+        "reason_code": "extractor_disposition_missing"
       },
       {
         "source_span_id": "s20",
-        "status": "policy_only",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "constraint"
+        "reason_code": "guarded_action_general"
       },
       {
         "source_span_id": "s21",
-        "status": "policy_only",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "constraint"
+        "reason_code": "guarded_action_general"
       },
       {
         "source_span_id": "s22",
@@ -220,9 +289,9 @@
       },
       {
         "source_span_id": "s23",
-        "status": "policy_only",
+        "status": "insufficient_evidence",
         "related_candidate_ids": [],
-        "reason_code": "constraint"
+        "reason_code": "process_step_general"
       },
       {
         "source_span_id": "s24",
@@ -232,51 +301,111 @@
       },
       {
         "source_span_id": "s25",
-        "status": "insufficient_evidence",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s26",
-        "status": "insufficient_evidence",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s27",
-        "status": "insufficient_evidence",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s28",
-        "status": "insufficient_evidence",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "constraint"
       },
       {
         "source_span_id": "s29",
-        "status": "insufficient_evidence",
+        "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "failure_mode"
       },
       {
         "source_span_id": "s30",
-        "status": "insufficient_evidence",
+        "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "failure_mode_context"
+        "reason_code": "failure_mode"
       },
       {
         "source_span_id": "s31",
-        "status": "insufficient_evidence",
+        "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "extractor_disposition_missing"
+        "reason_code": "failure_mode"
+      },
+      {
+        "source_span_id": "s32",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode"
+      },
+      {
+        "source_span_id": "s33",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode"
+      },
+      {
+        "source_span_id": "s34",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode"
+      },
+      {
+        "source_span_id": "s35",
+        "status": "candidate_emitted",
+        "related_candidate_ids": [
+          "cap_candidate_770f61869db5354a"
+        ],
+        "reason_code": null
       }
     ],
     "candidate_resolution_map": {
-      "cap_candidate_dc7d673c9bb2c9ce": "cap_intent_8326912547e62e9c"
+      "cap_candidate_1dc884212b82a9f1": "cap_intent_f1cfcc5fcdf0455d",
+      "cap_candidate_770f61869db5354a": "cap_intent_8f0e488cd55d1c3c"
     },
-    "diagnostics": [],
+    "diagnostics": [
+      {
+        "diagnostic_id": "diag_cap_intent_8f0e488cd55d1c3c_candidate",
+        "kind": "external_capability_candidate_not_admitted",
+        "severity": "warning",
+        "message": "External capability evidence is incomplete or conflicting; no API demand was authorized.",
+        "target_ref": "capability_intent:cap_intent_8f0e488cd55d1c3c",
+        "source_span_ids": [
+          "s35"
+        ],
+        "metadata": {
+          "capability_admission_status": "candidate_capability",
+          "invocation_admission_status": "no_invocation"
+        },
+        "blocks_rendering": false,
+        "blocks_completion": false
+      },
+      {
+        "diagnostic_id": "diag_capability_candidate_invalid_b97b6930e8b0",
+        "kind": "capability_intent_candidate_invalid",
+        "severity": "warning",
+        "message": "External capability candidate was rejected: missing claim evidence: ['boundary', 'invocation']",
+        "target_ref": "capability_candidate_output:1",
+        "source_span_ids": [
+          "s19"
+        ],
+        "metadata": {
+          "candidate_index": 1,
+          "reason": "missing claim evidence: ['boundary', 'invocation']"
+        },
+        "blocks_rendering": false,
+        "blocks_completion": false
+      }
+    ],
     "metadata": {
       "authority": "external_capability_intent_plan",
       "binding_view_available": true,

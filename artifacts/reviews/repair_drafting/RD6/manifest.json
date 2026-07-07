@@ -1,0 +1,28 @@
+{
+  "phase": "RD6",
+  "status": "pass",
+  "artifacts": [
+    "review_report.md",
+    "manifest.json",
+    "pytest_output.txt",
+    "ruff_output.txt",
+    "diff_check_output.txt",
+    "antipattern_scan.txt",
+    "commands.log"
+  ],
+  "tests": [
+    "tests/unit/compiler/spl_editing/presentation/test_drafting_presentation.py"
+  ],
+  "commands": {
+    "pytest": ".venv\\Scripts\\python.exe -m pytest tests/unit/compiler/spl_editing/presentation/test_drafting_presentation.py -q",
+    "ruff": ".venv\\Scripts\\ruff check src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py src/nl2spl/compiler/spl_editing/presentation/model/drafting.py tests/unit/compiler/spl_editing/presentation/test_drafting_presentation.py",
+    "antipattern_scan": "rg -n \"display index|option_index|display_id|generic.*LLM|patch_payload|MaterializationPlan|StepIR|BlockIR|WorkerIR|WorkerHandoffIR\" src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py src/nl2spl/compiler/spl_editing/presentation/model/drafting.py",
+    "diff_check": "git diff --check"
+  },
+  "results": {
+    "pytest": "4 passed",
+    "ruff": "passed",
+    "antipattern_scan": "legacy presentation display_id/option_index matches only; draft API uses stable ids",
+    "diff_check": "passed"
+  }
+}

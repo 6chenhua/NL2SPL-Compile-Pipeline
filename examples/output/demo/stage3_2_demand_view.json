@@ -1,6 +1,6 @@
 {
   "stage": "stage3_2_demand_view",
-  "timestamp": "2026-07-04T14:51:06.498526",
+  "timestamp": "2026-07-08T01:20:09.679894",
   "metadata": {},
   "result": {
     "demands": [
@@ -85,7 +85,7 @@
         "direction": "input",
         "requiredness": "required",
         "required": true,
-        "evidence_text": "available connectors or\nsource repositories",
+        "evidence_text": "available connectors or source repositories",
         "source_span_ids": [
           "s9"
         ],
@@ -142,7 +142,7 @@
         "direction": "output",
         "requiredness": "required",
         "required": true,
-        "evidence_text": "a short assumptions log for any\nunresolved items",
+        "evidence_text": "a short assumptions log for any unresolved items",
         "source_span_ids": [
           "s13"
         ],

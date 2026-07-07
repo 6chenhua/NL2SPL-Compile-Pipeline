@@ -1,0 +1,2 @@
+.venv\Scripts\ruff check tests/unit/pipeline/stage7/test_api_call_residual_action_characterization.py tests/integration/pipeline/test_stage7_action_level_internal_comms_characterization.py
+All checks passed!

@@ -1,0 +1,38 @@
+{
+  "phase": "RD7",
+  "status": "pass",
+  "artifacts": [
+    "review_report.md",
+    "manifest.json",
+    "pytest_output.txt",
+    "ruff_output.txt",
+    "diff_check_output.txt",
+    "antipattern_scan.txt",
+    "commands.log",
+    "worker_delegation_draft_flow/user_input.json",
+    "worker_delegation_draft_flow/stored_draft.json",
+    "worker_delegation_draft_flow/inferred_draft.json",
+    "worker_delegation_draft_flow/draft_preview.txt",
+    "worker_delegation_draft_flow/materialized_preview.json",
+    "worker_delegation_draft_flow/verification_result.json",
+    "worker_delegation_draft_flow/rendered_spl_after.txt",
+    "worker_delegation_draft_flow/diagnostic_diff.json"
+  ],
+  "tests": [
+    "tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_provider.py",
+    "tests/integration/compiler/spl_editing/test_worker_delegation_drafting_e2e.py"
+  ],
+  "commands": {
+    "pytest": ".venv\\Scripts\\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_provider.py tests/integration/compiler/spl_editing/test_worker_delegation_drafting_e2e.py -q",
+    "ruff": ".venv\\Scripts\\ruff check src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_provider.py tests/integration/compiler/spl_editing/test_worker_delegation_drafting_e2e.py",
+    "antipattern_scan": "rg -n \"patch_payload|MaterializationPlan|StepIR|BlockIR|WorkerIR|WorkerHandoffIR|generic.*LLM|diagnostic\\.message\" src/nl2spl/compiler/spl_editing/drafting",
+    "diff_check": "git diff --check"
+  },
+  "results": {
+    "pytest": "6 passed",
+    "ruff": "passed",
+    "antipattern_scan": "no matches",
+    "diff_check": "passed",
+    "draft_first_e2e": "Lane B accepted"
+  }
+}

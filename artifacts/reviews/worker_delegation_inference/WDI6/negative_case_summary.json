@@ -1,0 +1,7 @@
+{
+  "prompt_sanitization_sample": "line one line two with a long tail line one line two with a long tail line...",
+  "prompt_has_newline": false,
+  "prompt_length": 77,
+  "draft_preview_contains_ref_prefix": false,
+  "draft_preview_contains_bind_result": true
+}

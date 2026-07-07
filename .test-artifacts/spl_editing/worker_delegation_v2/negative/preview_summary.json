@@ -7,6 +7,11 @@
     },
     {
       "code": "required_field_missing",
+      "field_id": "child_business_logic",
+      "message": "Child worker business logic is required"
+    },
+    {
+      "code": "required_field_missing",
       "field_id": "returned_results",
       "message": "At least one child result is required"
     },

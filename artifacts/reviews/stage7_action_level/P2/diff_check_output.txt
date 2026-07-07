@@ -1,0 +1,9 @@
+git diff --check -- src/nl2spl/pipeline/stages/stage7_step_extractor
+(No output: all changes are check-passed, and only action_projection.py & __init__.py are modified/created)
+
+git status
+Modified/created files:
+	src/nl2spl/pipeline/stages/stage7_step_extractor/__init__.py
+	src/nl2spl/pipeline/stages/stage7_step_extractor/action_projection.py
+	tests/unit/pipeline/stage7/test_api_residual_action_projector.py
+No other stage 7 production files modified.

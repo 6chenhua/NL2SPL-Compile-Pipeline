@@ -4,69 +4,69 @@
 
 - Completeness: `partial`
 - SPL draft generated: `yes`
-- Compile diagnostics: `25`
-- Assumptions / suggestions: `22`
-- Trace records: `52`
+- Compile diagnostics: `23`
+- Assumptions / suggestions: `16`
+- Trace records: `44`
 - Adapter warnings: `0`
 - Validation errors: `0`
-- Validation warnings: `19`
+- Validation warnings: `15`
 
 Result is partial because the following requirement gaps remain:
-- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_03`: Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
-- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_05`: Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
-- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_04`: Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
-- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_01`: Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
 - `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_00`: Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_00, slot=handler_action]
 - `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_02`: Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_02, slot=handler_action]
-- `type_or_contract_ambiguity` on `worker_promotion:del_s31`: WORKER_PROMOTION blocked by missing promotion slots.
-  - `promotion_input_contract`: Missing clear input contract
-  - `promotion_output_contract`: Missing clear output contract
-  - `promotion_invocation_point`: Missing accepted decision or matching handoff with invocation hint
-  - `promotion_result_handoff`: Missing matching handoff with output bindings
+- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_03`: Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
+- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_01`: Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
+- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_04`: Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
+- `missing_handler` on `worker:worker_main.exception_flow:exc_adapter_05`: Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
+- `required_output_deferred` on `resource_contract_demand:rcd_output_s12`: Resource contract output 'rcd_output_s12' is deferred behind an API response whose return contract is not yet known. [construct=resource_contract_demand:rcd_output_s12, slot=producer]
+- `missing_output_producer` on `resource_contract_demand:rcd_output_s14`: Resource contract output 'rcd_output_s14' (requiredness=required) has materialized resource(s) completion_status but no renderable producer. [construct=resource_contract_demand:rcd_output_s14, slot=producer]
+- `required_output_deferred` on `worker:worker_main.output:source_evidence_set`: Required output 'source_evidence_set' (Set of sources and evidence supporting the draft.) is deferred behind an API response whose return contract is not yet known. [construct=worker:worker_main.output:source_evidence_set, slot=producer]
+- `missing_output_producer` on `resource_contract_demand:rcd_output_s13`: Resource contract output 'rcd_output_s13' (requiredness=required) has materialized resource(s) assumptions_log but no renderable producer. [construct=resource_contract_demand:rcd_output_s13, slot=producer]
+- `type_or_contract_ambiguity` on `worker:worker_main.step:st_3`: REQUEST_INPUT step has no value target (outputs). [construct=worker:worker_main.step:st_3, slot=value_target]
+- `unmapped_behavior_span` on `worker:worker_main.span:s22`: Worker 'worker_main' behavior span 's22' (Do not finalize if required slots remain missing unless the draft is explicitly ) was not mapped to a step: Non-executable policy/constraint statement; it restricts finalization but does not specify an action to perform.
+- `resource_kind_mismatch` on `resource_contract_demand:rcd_output_s14`: Resource contract demand 'rcd_output_s14' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:completion_status [construct=resource_contract_demand:rcd_output_s14, slot=resource_registry]
+- `resource_kind_mismatch` on `resource_contract_demand:rcd_output_s13`: Resource contract demand 'rcd_output_s13' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:assumptions_log [construct=resource_contract_demand:rcd_output_s13, slot=resource_registry]
 
 ## 2. Materialized Source-Backed Structure
 
 ### Workers
-- `worker:MainWorker` (direct) -- spans=s15, s16, s17, s18, s19; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
+- `worker:MainWorker` (direct) -- spans=s15, s16, s17, s19, s20, s21, s23, s18, s22; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
 
 ### Flows
-- `flow:alt_1` (direct) -- spans=s18; section=sec_reusable_process; packet=p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end
-- `flow:exc_adapter_00` (direct) -- spans=s26; section=sec_failure_handling; packet=p_list_item_conflicting_instructions
-- `flow:exc_adapter_01` (direct) -- spans=s28; section=sec_failure_handling; packet=p_list_item_evidence_shortage
-- `flow:exc_adapter_02` (direct) -- spans=s27; section=sec_failure_handling; packet=p_list_item_insufficient_source_access
-- `flow:exc_adapter_03` (direct) -- spans=s25; section=sec_failure_handling; packet=p_list_item_missing_timeframe
-- `flow:exc_adapter_04` (direct) -- spans=s30; section=sec_failure_handling; packet=p_list_item_provenance_failure
-- `flow:exc_adapter_05` (direct) -- spans=s29; section=sec_failure_handling; packet=p_list_item_user_refusal_to_answer
-- `flow:main` (direct) -- spans=s15, s16, s17, s19; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
+- `flow:alt_1` (direct) -- spans=s21; section=sec_reusable_process; packet=p_list_item_produce_a_draft_if_the_user_asks_for_revision
+- `flow:exc_adapter_00` (direct) -- spans=s30; section=sec_failure_handling; packet=p_list_item_conflicting_instructions
+- `flow:exc_adapter_01` (direct) -- spans=s32; section=sec_failure_handling; packet=p_list_item_evidence_shortage
+- `flow:exc_adapter_02` (direct) -- spans=s31; section=sec_failure_handling; packet=p_list_item_insufficient_source_access
+- `flow:exc_adapter_03` (direct) -- spans=s29; section=sec_failure_handling; packet=p_list_item_missing_timeframe
+- `flow:exc_adapter_04` (direct) -- spans=s34; section=sec_failure_handling; packet=p_list_item_provenance_failure
+- `flow:exc_adapter_05` (direct) -- spans=s33; section=sec_failure_handling; packet=p_list_item_user_refusal_to_answer
+- `flow:main` (direct) -- spans=s15, s16, s17, s18, s19, s20, s22, s23; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
 
 ### Steps
 - `step:st_1` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
-- `step:st_2` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
-- `step:st_3` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
-- `step:st_4` (direct) -- spans=s16; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
-- `step:st_5` (direct) -- spans=s17; section=sec_reusable_process; packet=p_list_item_produce_a_draft_if_the_user_asks_for_revision
-- `step:st_6` (direct) -- spans=s18; section=sec_reusable_process; packet=p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end
-- `step:st_7` (direct) -- spans=s19; section=sec_reusable_process; packet=p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run
-- `step:st_api_b7a71aa435` (direct) -- spans=s16; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
+- `step:st_2` (direct) -- spans=s16; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
+- `step:st_3` (direct) -- spans=s17; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
+- `step:st_4` (direct) -- spans=s19; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
+- `step:st_5` (direct) -- spans=s20; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
+- `step:st_6` (direct) -- spans=s21; section=sec_reusable_process; packet=p_list_item_produce_a_draft_if_the_user_asks_for_revision
+- `step:st_7` (direct) -- spans=s23; section=sec_reusable_process; packet=p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end
+- `step:st_api_8564b1b8dc` (direct) -- spans=s18; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
 
 ### Variables
-- `variable:assumptions_log` (direct) -- spans=s19; section=sec_reusable_process; packet=p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run
-- `variable:completion_status` (direct) -- spans=s19; section=sec_reusable_process; packet=p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run
-- `variable:draft_communication_artifact` (direct) -- spans=s17; section=sec_reusable_process; packet=p_list_item_produce_a_draft_if_the_user_asks_for_revision
-- `variable:missing_required_fields` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
-- `variable:requested_communication_kind` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
-- `variable:source_evidence_set` (direct) -- spans=s16; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
-- `variable:user_confirmed` (direct) -- spans=s15; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
+- `variable:assumptions_log_completion_status` (direct) -- spans=s23; section=sec_reusable_process; packet=p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end
+- `variable:draft_communication_artifact` (direct) -- spans=s20; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
 
 ### Constraints
-- `constraint:c_1` (direct) -- spans=s20; section=sec_policies; packet=p_sentence_do_not_invent_links_or_unseen_facts
-- `constraint:c_2` (direct) -- spans=s21; section=sec_policies; packet=p_sentence_require_evidence_for_sourced_claims
-- `constraint:c_3` (direct) -- spans=s22; section=sec_policies; packet=p_sentence_limit_questions_per_turn
-- `constraint:c_4` (direct) -- spans=s23; section=sec_policies; packet=p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning
-- `constraint:c_5` (direct) -- spans=s24; section=sec_policies; packet=p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails
+- `constraint:c_1` (direct) -- spans=s22; section=sec_reusable_process; packet=p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end
+- `constraint:c_2` (direct) -- spans=s24; section=sec_policies; packet=p_sentence_do_not_invent_links_or_unseen_facts
+- `constraint:c_3` (direct) -- spans=s25; section=sec_policies; packet=p_sentence_require_evidence_for_sourced_claims
+- `constraint:c_4` (direct) -- spans=s26; section=sec_policies; packet=p_sentence_limit_questions_per_turn
+- `constraint:c_5` (direct) -- spans=s27; section=sec_policies; packet=p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning
+- `constraint:c_6` (direct) -- spans=s28; section=sec_policies; packet=p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails
+- `constraint:c_7` (direct) -- spans=s35; section=sec_delegation_policy; packet=p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers
 
 ### Other
-- `api:api:ApprovedSourceRecipesAPI` (direct) -- spans=s16; section=sec_reusable_process; packet=p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available
+- `api:api:ApprovedSourceRecipesAPI` (direct) -- spans=s18; section=sec_reusable_process; packet=p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available
 - `profile:concept_0` (normalized)
 - `profile:concept_1` (normalized)
 - `profile:concept_2` (normalized)
@@ -76,81 +76,36 @@ Result is partial because the following requirement gaps remain:
 - `profile:concept_6` (normalized)
 - `profile:concept_7` (normalized)
 - `profile:concept_8` (normalized)
+- `profile:concept_9` (normalized)
 - `profile:persona` (inferred)
 
 ## 3. Not Materialized / Kept Partial
 
-- `worker:worker_main.exception_flow:exc_adapter_03`: `missing_handler` -- Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
-  - Suggested resolution: Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.
-- `worker:worker_main.exception_flow:exc_adapter_05`: `missing_handler` -- Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
-  - Suggested resolution: Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.
-- `worker:worker_main.exception_flow:exc_adapter_04`: `missing_handler` -- Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
-  - Suggested resolution: Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.
-- `worker:worker_main.exception_flow:exc_adapter_01`: `missing_handler` -- Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
-  - Suggested resolution: Add a handler step for 'evidence
-shortage', or mark this exception as acknowledged without handling.
 - `worker:worker_main.exception_flow:exc_adapter_00`: `missing_handler` -- Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_00, slot=handler_action]
   - Suggested resolution: Add a handler step for 'conflicting instructions', or mark this exception as acknowledged without handling.
 - `worker:worker_main.exception_flow:exc_adapter_02`: `missing_handler` -- Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_02, slot=handler_action]
   - Suggested resolution: Add a handler step for 'insufficient source access', or mark this exception as acknowledged without handling.
-- `worker_promotion:del_s31`: `type_or_contract_ambiguity` -- WORKER_PROMOTION blocked by missing promotion slots.
-  - Source spans: `s31`
-  - `promotion_input_contract`: Missing clear input contract
-  - `promotion_output_contract`: Missing clear output contract
-  - `promotion_invocation_point`: Missing accepted decision or matching handoff with invocation hint
-  - `promotion_result_handoff`: Missing matching handoff with output bindings
+- `worker:worker_main.exception_flow:exc_adapter_03`: `missing_handler` -- Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
+  - Suggested resolution: Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.
+- `worker:worker_main.exception_flow:exc_adapter_01`: `missing_handler` -- Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
+  - Suggested resolution: Add a handler step for 'evidence shortage', or mark this exception as acknowledged without handling.
+- `worker:worker_main.exception_flow:exc_adapter_04`: `missing_handler` -- Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
+  - Suggested resolution: Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.
+- `worker:worker_main.exception_flow:exc_adapter_05`: `missing_handler` -- Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
+  - Suggested resolution: Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.
+- `resource_contract_demand:rcd_output_s14`: `missing_output_producer` -- Resource contract output 'rcd_output_s14' (requiredness=required) has materialized resource(s) completion_status but no renderable producer. [construct=resource_contract_demand:rcd_output_s14, slot=producer]
+  - Suggested resolution: Add a source-backed step or handoff that produces the materialized resource name with the same resource kind.
+- `resource_contract_demand:rcd_output_s13`: `missing_output_producer` -- Resource contract output 'rcd_output_s13' (requiredness=required) has materialized resource(s) assumptions_log but no renderable producer. [construct=resource_contract_demand:rcd_output_s13, slot=producer]
+  - Suggested resolution: Add a source-backed step or handoff that produces the materialized resource name with the same resource kind.
+- `worker:worker_main.step:st_3`: `type_or_contract_ambiguity` -- REQUEST_INPUT step has no value target (outputs). [construct=worker:worker_main.step:st_3, slot=value_target]
+- `worker:worker_main.span:s22`: `unmapped_behavior_span` -- Worker 'worker_main' behavior span 's22' (Do not finalize if required slots remain missing unless the draft is explicitly ) was not mapped to a step: Non-executable policy/constraint statement; it restricts finalization but does not specify an action to perform.
 
 ## 4. Diagnostics
 
-### irs_82aa44be011f: `missing_handler`
-- Severity: `warning`
-- Target: `worker:worker_main.exception_flow:exc_adapter_03`
-- Source spans: `s25`
-- Message: Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
-- Blocks rendering: `false`
-- Blocks completion: `true`
-- Suggested resolution: Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.
-- Missing slot: `handler_action`
-- Missing reason: Exception flow 'exc_adapter_03' has condition but no handler step.
-
-### irs_b5c75258c745: `missing_handler`
-- Severity: `warning`
-- Target: `worker:worker_main.exception_flow:exc_adapter_05`
-- Source spans: `s29`
-- Message: Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
-- Blocks rendering: `false`
-- Blocks completion: `true`
-- Suggested resolution: Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.
-- Missing slot: `handler_action`
-- Missing reason: Exception flow 'exc_adapter_05' has condition but no handler step.
-
-### irs_de963025d6c8: `missing_handler`
-- Severity: `warning`
-- Target: `worker:worker_main.exception_flow:exc_adapter_04`
-- Source spans: `s30`
-- Message: Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
-- Blocks rendering: `false`
-- Blocks completion: `true`
-- Suggested resolution: Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.
-- Missing slot: `handler_action`
-- Missing reason: Exception flow 'exc_adapter_04' has condition but no handler step.
-
-### irs_ea4aabf8f488: `missing_handler`
-- Severity: `warning`
-- Target: `worker:worker_main.exception_flow:exc_adapter_01`
-- Source spans: `s28`
-- Message: Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
-- Blocks rendering: `false`
-- Blocks completion: `true`
-- Suggested resolution: Add a handler step for 'evidence
-shortage', or mark this exception as acknowledged without handling.
-- Missing slot: `handler_action`
-- Missing reason: Exception flow 'exc_adapter_01' has condition but no handler step.
-
-### irs_eb6a6a2f0b5c: `missing_handler`
+### irs_10f7a121636a: `missing_handler`
 - Severity: `warning`
 - Target: `worker:worker_main.exception_flow:exc_adapter_00`
-- Source spans: `s26`
+- Source spans: `s30`
 - Message: Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_00, slot=handler_action]
 - Blocks rendering: `false`
 - Blocks completion: `true`
@@ -158,10 +113,10 @@ shortage', or mark this exception as acknowledged without handling.
 - Missing slot: `handler_action`
 - Missing reason: Exception flow 'exc_adapter_00' has condition but no handler step.
 
-### irs_fd83d44e3194: `missing_handler`
+### irs_1b3f3d9cba5a: `missing_handler`
 - Severity: `warning`
 - Target: `worker:worker_main.exception_flow:exc_adapter_02`
-- Source spans: `s27`
+- Source spans: `s31`
 - Message: Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_02, slot=handler_action]
 - Blocks rendering: `false`
 - Blocks completion: `true`
@@ -169,22 +124,102 @@ shortage', or mark this exception as acknowledged without handling.
 - Missing slot: `handler_action`
 - Missing reason: Exception flow 'exc_adapter_02' has condition but no handler step.
 
-### grouped:worker_promotion:del_s31: `type_or_contract_ambiguity`
+### irs_3adc6ceae481: `missing_handler`
 - Severity: `warning`
-- Target: `worker_promotion:del_s31`
-- Source spans: `s31`
-- Message: WORKER_PROMOTION blocked by missing promotion slots.
+- Target: `worker:worker_main.exception_flow:exc_adapter_03`
+- Source spans: `s29`
+- Message: Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_03, slot=handler_action]
 - Blocks rendering: `false`
 - Blocks completion: `true`
-- Missing slots:
-  - `promotion_input_contract`: Missing clear input contract
-    - Diagnostic: `irs_16c0d5b20df4`
-  - `promotion_output_contract`: Missing clear output contract
-    - Diagnostic: `irs_6b43a592b006`
-  - `promotion_invocation_point`: Missing accepted decision or matching handoff with invocation hint
-    - Diagnostic: `irs_6c2ebb9b34e6`
-  - `promotion_result_handoff`: Missing matching handoff with output bindings
-    - Diagnostic: `irs_d422db06a1ca`
+- Suggested resolution: Add a handler step for 'Missing timeframe', or mark this exception as acknowledged without handling.
+- Missing slot: `handler_action`
+- Missing reason: Exception flow 'exc_adapter_03' has condition but no handler step.
+
+### irs_7a31fdca542e: `missing_handler`
+- Severity: `warning`
+- Target: `worker:worker_main.exception_flow:exc_adapter_01`
+- Source spans: `s32`
+- Message: Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_01, slot=handler_action]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Add a handler step for 'evidence shortage', or mark this exception as acknowledged without handling.
+- Missing slot: `handler_action`
+- Missing reason: Exception flow 'exc_adapter_01' has condition but no handler step.
+
+### irs_e04bc1cd67b3: `missing_handler`
+- Severity: `warning`
+- Target: `worker:worker_main.exception_flow:exc_adapter_04`
+- Source spans: `s34`
+- Message: Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_04, slot=handler_action]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.
+- Missing slot: `handler_action`
+- Missing reason: Exception flow 'exc_adapter_04' has condition but no handler step.
+
+### irs_eadd3506d14d: `missing_handler`
+- Severity: `warning`
+- Target: `worker:worker_main.exception_flow:exc_adapter_05`
+- Source spans: `s33`
+- Message: Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adapter_05, slot=handler_action]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.
+- Missing slot: `handler_action`
+- Missing reason: Exception flow 'exc_adapter_05' has condition but no handler step.
+
+### irs_39b7f5d959d3: `required_output_deferred`
+- Severity: `warning`
+- Target: `resource_contract_demand:rcd_output_s12`
+- Source spans: `s12`
+- Message: Resource contract output 'rcd_output_s12' is deferred behind an API response whose return contract is not yet known. [construct=resource_contract_demand:rcd_output_s12, slot=producer]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Declare the API return contract or add a source-backed producer for the deferred resource.
+- Missing slot: `producer`
+- Missing reason: Resource contract output 'rcd_output_s12' is deferred behind an API response whose return contract is not yet known.
+
+### irs_59fb5ecfa9e9: `missing_output_producer`
+- Severity: `warning`
+- Target: `resource_contract_demand:rcd_output_s14`
+- Source spans: `s14`
+- Message: Resource contract output 'rcd_output_s14' (requiredness=required) has materialized resource(s) completion_status but no renderable producer. [construct=resource_contract_demand:rcd_output_s14, slot=producer]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Add a source-backed step or handoff that produces the materialized resource name with the same resource kind.
+- Missing slot: `producer`
+- Missing reason: Resource contract output 'rcd_output_s14' (requiredness=required) has materialized resource(s) completion_status but no renderable producer.
+
+### irs_76ff1b8cd4f1: `required_output_deferred`
+- Severity: `warning`
+- Target: `worker:worker_main.output:source_evidence_set`
+- Message: Required output 'source_evidence_set' (Set of sources and evidence supporting the draft.) is deferred behind an API response whose return contract is not yet known. [construct=worker:worker_main.output:source_evidence_set, slot=producer]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Declare the API return contract or add a source-backed producer step for 'source_evidence_set'.
+- Missing slot: `producer`
+- Missing reason: Required output 'source_evidence_set' (Set of sources and evidence supporting the draft.) is deferred behind an API response whose return contract is not yet known.
+
+### irs_b0d25f2c1af8: `missing_output_producer`
+- Severity: `warning`
+- Target: `resource_contract_demand:rcd_output_s13`
+- Source spans: `s13`
+- Message: Resource contract output 'rcd_output_s13' (requiredness=required) has materialized resource(s) assumptions_log but no renderable producer. [construct=resource_contract_demand:rcd_output_s13, slot=producer]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Add a source-backed step or handoff that produces the materialized resource name with the same resource kind.
+- Missing slot: `producer`
+- Missing reason: Resource contract output 'rcd_output_s13' (requiredness=required) has materialized resource(s) assumptions_log but no renderable producer.
+
+### irs_43bfae5d542e: `type_or_contract_ambiguity`
+- Severity: `warning`
+- Target: `worker:worker_main.step:st_3`
+- Source spans: `s17`
+- Message: REQUEST_INPUT step has no value target (outputs). [construct=worker:worker_main.step:st_3, slot=value_target]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Missing slot: `value_target`
+- Missing reason: REQUEST_INPUT step has no value target (outputs).
 
 ### grouped:api_declaration:api:ApprovedSourceRecipesAPI: `deferred_api_contract_validation`
 - Severity: `info`
@@ -194,9 +229,17 @@ shortage', or mark this exception as acknowledged without handling.
 - Blocks completion: `false`
 - Placeholder slots:
   - `functions`: Functions placeholder is valid; downstream API validation is pending.
-    - Diagnostic: `irs_b1a69d1cc286`
+    - Diagnostic: `irs_70bf830821c3`
   - `openapi_schema`: Schema placeholder is valid; downstream API validation is pending.
-    - Diagnostic: `irs_995dca55be8f`
+    - Diagnostic: `irs_4922b19aef41`
+
+### diag_s7_0000: `unmapped_behavior_span`
+- Severity: `warning`
+- Target: `worker:worker_main.span:s22`
+- Source spans: `s22`
+- Message: Worker 'worker_main' behavior span 's22' (Do not finalize if required slots remain missing unless the draft is explicitly ) was not mapped to a step: Non-executable policy/constraint statement; it restricts finalization but does not specify an action to perform.
+- Blocks rendering: `false`
+- Blocks completion: `true`
 
 ### diag_prov_0000: `missing_provenance`
 - Severity: `warning`
@@ -235,58 +278,38 @@ shortage', or mark this exception as acknowledged without handling.
 
 ### diag_prov_0005: `missing_provenance`
 - Severity: `warning`
-- Target: `variable:sources_needed`
-- Message: Variable 'sources_needed' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0006: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:sources_available`
-- Message: Variable 'sources_available' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0007: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:required_information_available`
-- Message: Variable 'required_information_available' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0008: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:revision_requested`
-- Message: Variable 'revision_requested' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0009: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:constraints_rechecked`
-- Message: Variable 'constraints_rechecked' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0010: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:required_slots_missing`
-- Message: Variable 'required_slots_missing' (boolean) has no source-backed producer and no contract section evidence.
-- Blocks rendering: `false`
-- Blocks completion: `false`
-
-### diag_prov_0011: `missing_provenance`
-- Severity: `warning`
-- Target: `variable:draft_explicitly_marked_as_assumption_bearing`
-- Message: Variable 'draft_explicitly_marked_as_assumption_bearing' (boolean) has no source-backed producer and no contract section evidence.
+- Target: `variable:source_evidence_set`
+- Message: Variable 'source_evidence_set' (List[text]) is a contract output with no source-backed producer or adapter evidence.
 - Blocks rendering: `false`
 - Blocks completion: `false`
 
 ### stage2_route_refinement_diagnostic_: `route_refinement_diagnostic`
 - Severity: `info`
-- Message: LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.
+- Message: LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.
 - Blocks rendering: `false`
 - Blocks completion: `false`
+
+### irs_33ac12d54292: `resource_kind_mismatch`
+- Severity: `warning`
+- Target: `resource_contract_demand:rcd_output_s14`
+- Source spans: `s14`
+- Message: Resource contract demand 'rcd_output_s14' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:completion_status [construct=resource_contract_demand:rcd_output_s14, slot=resource_registry]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Ensure Stage 6 materializes every resource_contracts binding into the matching registry collection (variables/files/apis/types).
+- Missing slot: `resource_registry`
+- Missing reason: Resource contract demand 'rcd_output_s14' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:completion_status
+
+### irs_a859fb4e95e1: `resource_kind_mismatch`
+- Severity: `warning`
+- Target: `resource_contract_demand:rcd_output_s13`
+- Source spans: `s13`
+- Message: Resource contract demand 'rcd_output_s13' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:assumptions_log [construct=resource_contract_demand:rcd_output_s13, slot=resource_registry]
+- Blocks rendering: `false`
+- Blocks completion: `true`
+- Suggested resolution: Ensure Stage 6 materializes every resource_contracts binding into the matching registry collection (variables/files/apis/types).
+- Missing slot: `resource_registry`
+- Missing reason: Resource contract demand 'rcd_output_s13' has binding(s) whose resource_kind/name do not match the materialized ResourceRegistryIR: variable:assumptions_log
 
 ## 5. Deferred Validation
 
@@ -299,142 +322,137 @@ shortage', or mark this exception as acknowledged without handling.
 - `ASM_0000` for `worker:worker_main.exception_flow:exc_adapter_00`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_00' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_00: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_eb6a6a2f0b5c`
+  - Related diagnostic: `irs_10f7a121636a`
 - `ASM_0001` for `worker:worker_main.exception_flow:exc_adapter_01`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_01' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_01: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_ea4aabf8f488`
+  - Related diagnostic: `irs_7a31fdca542e`
 - `ASM_0002` for `worker:worker_main.exception_flow:exc_adapter_02`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_02' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_02: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_fd83d44e3194`
+  - Related diagnostic: `irs_1b3f3d9cba5a`
 - `ASM_0003` for `worker:worker_main.exception_flow:exc_adapter_03`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_03' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_03: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_82aa44be011f`
+  - Related diagnostic: `irs_3adc6ceae481`
 - `ASM_0004` for `worker:worker_main.exception_flow:exc_adapter_04`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_04' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_04: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_de963025d6c8`
+  - Related diagnostic: `irs_e04bc1cd67b3`
 - `ASM_0005` for `worker:worker_main.exception_flow:exc_adapter_05`: Exception flow has no handler action. The compiler suggests specifying what should happen when this failure occurs.
   - Reason: Source describes a failure condition but does not specify how to handle it.  The exception flow is preserved in SPL, but no handler command was rendered. (Exception flow 'exc_adapter_05' has condition but no handler step. [construct=worker:worker_main.exception_flow:exc_adap)
   - Suggested resolution: Specify the handler action for worker:worker_main.exception_flow:exc_adapter_05: e.g. ask the user for missing information, block finalization, or continue with an explicit assumption.
-  - Related diagnostic: `irs_b5c75258c745`
-- `ASM_0006` for `variable:format_preferences`: Variable has no discoverable source provenance.
+  - Related diagnostic: `irs_eadd3506d14d`
+- `ASM_0006` for `resource_contract_demand:rcd_output_s13`: Required output has no source-backed producer. The compiler suggests adding a step that explicitly produces this output.
+  - Reason: The source requires this output but does not describe how it should be produced.  The output is kept in the OUTPUTS contract, but no producer step was rendered.
+  - Suggested resolution: Add a source-backed step that produces resource_contract_demand:rcd_output_s13. If the source does not specify how to produce it, mark it as optional or remove it from the required output contract.
+  - Related diagnostic: `irs_b0d25f2c1af8`
+- `ASM_0007` for `resource_contract_demand:rcd_output_s14`: Required output has no source-backed producer. The compiler suggests adding a step that explicitly produces this output.
+  - Reason: The source requires this output but does not describe how it should be produced.  The output is kept in the OUTPUTS contract, but no producer step was rendered.
+  - Suggested resolution: Add a source-backed step that produces resource_contract_demand:rcd_output_s14. If the source does not specify how to produce it, mark it as optional or remove it from the required output contract.
+  - Related diagnostic: `irs_59fb5ecfa9e9`
+- `ASM_0008` for `worker:worker_main.step:st_3`: Command has an ambiguous or incomplete contract. The compiler suggests providing the missing contract detail.
+  - Reason: A command references an API, worker, or input source that is not fully specified.  The compiler cannot materialize the command without this information.
+  - Suggested resolution: For worker:worker_main.step:st_3: provide the missing contract detail (API name, worker target, IO bindings, or source evidence).  See the related diagnostic for specifics.
+  - Related diagnostic: `irs_43bfae5d542e`
+- `ASM_0009` for `variable:format_preferences`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
   - Suggested resolution: For variable:format_preferences: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0000`
-- `ASM_0007` for `variable:user_request`: Variable has no discoverable source provenance.
+- `ASM_0010` for `variable:user_request`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
   - Suggested resolution: For variable:user_request: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0001`
-- `ASM_0008` for `variable:known_topics`: Variable has no discoverable source provenance.
+- `ASM_0011` for `variable:known_topics`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
   - Suggested resolution: For variable:known_topics: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0002`
-- `ASM_0009` for `variable:timeframe`: Variable has no discoverable source provenance.
+- `ASM_0012` for `variable:timeframe`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
   - Suggested resolution: For variable:timeframe: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0003`
-- `ASM_0010` for `variable:connectors_or_source_repositories`: Variable has no discoverable source provenance.
+- `ASM_0013` for `variable:connectors_or_source_repositories`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
   - Suggested resolution: For variable:connectors_or_source_repositories: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0004`
-- `ASM_0011` for `variable:sources_needed`: Variable has no discoverable source provenance.
+- `ASM_0014` for `variable:source_evidence_set`: Variable has no discoverable source provenance.
   - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:sources_needed: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
+  - Suggested resolution: For variable:source_evidence_set: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
   - Related diagnostic: `diag_prov_0005`
-- `ASM_0012` for `variable:sources_available`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:sources_available: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0006`
-- `ASM_0013` for `variable:required_information_available`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:required_information_available: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0007`
-- `ASM_0014` for `variable:revision_requested`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:revision_requested: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0008`
-- `ASM_0015` for `variable:constraints_rechecked`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:constraints_rechecked: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0009`
-- `ASM_0016` for `variable:required_slots_missing`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:required_slots_missing: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0010`
-- `ASM_0017` for `variable:draft_explicitly_marked_as_assumption_bearing`: Variable has no discoverable source provenance.
-  - Reason: The compiler could not trace this variable back to a source span, adapter hard fact, or producer step.  Its origin is assumed.
-  - Suggested resolution: For variable:draft_explicitly_marked_as_assumption_bearing: add source evidence (a span, adapter hint, or producer step) that justifies this variable's existence.
-  - Related diagnostic: `diag_prov_0011`
-- `ASM_0018, ASM_0019, ASM_0020, ASM_0021` for `worker_promotion:del_s31`: Worker promotion has an incomplete contract.
-  - Reason: The candidate is blocked by multiple missing promotion slots.
-  - Suggested resolution: Provide the missing input/output contracts, invocation point, and result handoff details listed in the related diagnostics.
-  - Related diagnostics: `irs_16c0d5b20df4, irs_6b43a592b006, irs_6c2ebb9b34e6, irs_d422db06a1ca`
+- `ASM_0015` for `worker:worker_main.span:s22`: A behavior span from the source was not mapped to any executable step.
+  - Reason: The source describes behavior that could not be translated into a concrete command.  This may be intentional (policy, non-executable description) or may indicate missing detail.
+  - Suggested resolution: For worker:worker_main.span:s22: either add a step implementing this behavior, or acknowledge it as non-executable context.
+  - Related diagnostic: `diag_s7_0000`
 
 ## 7. Provenance / TraceRecords
 
 - `api:api:ApprovedSourceRecipesAPI` -> `direct`
-  - Source: spans=`s16`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
+  - Source: spans=`s18`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
   - Explanation: API declaration 'ApprovedSourceRecipesAPI' materialized as grammar_minimal_partial.
 - `constraint:c_1` -> `direct`
-  - Source: spans=`s20`, section=`sec_policies`, packet=`p_sentence_do_not_invent_links_or_unseen_facts`
-  - Explanation: Constraint 'c_1' (prohibition): Do not invent links or unseen facts
+  - Source: spans=`s22`, section=`sec_reusable_process`, packet=`p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end`
+  - Explanation: Constraint 'c_1' (gate): Do not finalize if <REF>draft_communication_artifact</REF> still has required sl
 - `constraint:c_2` -> `direct`
-  - Source: spans=`s21`, section=`sec_policies`, packet=`p_sentence_require_evidence_for_sourced_claims`
-  - Explanation: Constraint 'c_2' (evidence): Require evidence for sourced claims
+  - Source: spans=`s24`, section=`sec_policies`, packet=`p_sentence_do_not_invent_links_or_unseen_facts`
+  - Explanation: Constraint 'c_2' (prohibition): Do not invent links or unseen facts.
 - `constraint:c_3` -> `direct`
-  - Source: spans=`s22`, section=`sec_policies`, packet=`p_sentence_limit_questions_per_turn`
-  - Explanation: Constraint 'c_3' (requirement): Limit questions per turn
+  - Source: spans=`s25`, section=`sec_policies`, packet=`p_sentence_require_evidence_for_sourced_claims`
+  - Explanation: Constraint 'c_3' (evidence): Require evidence for sourced claims.
 - `constraint:c_4` -> `direct`
-  - Source: spans=`s23`, section=`sec_policies`, packet=`p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning`
-  - Explanation: Constraint 'c_4' (requirement): Prefer tool evidence over unnecessary user questioning
+  - Source: spans=`s26`, section=`sec_policies`, packet=`p_sentence_limit_questions_per_turn`
+  - Explanation: Constraint 'c_4' (requirement): Limit questions per turn.
 - `constraint:c_5` -> `direct`
-  - Source: spans=`s24`, section=`sec_policies`, packet=`p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails`
-  - Explanation: Constraint 'c_5' (gate): Deny finalization if critical slots are missing or provenance fails
+  - Source: spans=`s27`, section=`sec_policies`, packet=`p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning`
+  - Explanation: Constraint 'c_5' (requirement): Prefer tool evidence over unnecessary user questioning.
+- `constraint:c_6` -> `direct`
+  - Source: spans=`s28`, section=`sec_policies`, packet=`p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails`
+  - Explanation: Constraint 'c_6' (gate): Deny finalization if critical slots are missing or provenance fails.
+- `constraint:c_7` -> `direct`
+  - Source: spans=`s35`, section=`sec_delegation_policy`, packet=`p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers`
+  - Explanation: Constraint 'c_7' (delegation_boundary): Optional delegated subtasks such as source gathering or template matching may be
 - `flow:alt_1` -> `direct`
-  - Source: spans=`s18`, section=`sec_reusable_process`, packet=`p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end`
+  - Source: spans=`s21`, section=`sec_reusable_process`, packet=`p_list_item_produce_a_draft_if_the_user_asks_for_revision`
   - Explanation: Alternative flow 'alt_1': the user asks for revision
 - `flow:exc_adapter_00` -> `direct`
-  - Source: spans=`s26`, section=`sec_failure_handling`, packet=`p_list_item_conflicting_instructions`
+  - Source: spans=`s30`, section=`sec_failure_handling`, packet=`p_list_item_conflicting_instructions`
   - Explanation: Exception flow 'exc_adapter_00': conflicting instructions
 - `flow:exc_adapter_01` -> `direct`
-  - Source: spans=`s28`, section=`sec_failure_handling`, packet=`p_list_item_evidence_shortage`
-  - Explanation: Exception flow 'exc_adapter_01': evidence
-shortage
+  - Source: spans=`s32`, section=`sec_failure_handling`, packet=`p_list_item_evidence_shortage`
+  - Explanation: Exception flow 'exc_adapter_01': evidence shortage
 - `flow:exc_adapter_02` -> `direct`
-  - Source: spans=`s27`, section=`sec_failure_handling`, packet=`p_list_item_insufficient_source_access`
+  - Source: spans=`s31`, section=`sec_failure_handling`, packet=`p_list_item_insufficient_source_access`
   - Explanation: Exception flow 'exc_adapter_02': insufficient source access
 - `flow:exc_adapter_03` -> `direct`
-  - Source: spans=`s25`, section=`sec_failure_handling`, packet=`p_list_item_missing_timeframe`
+  - Source: spans=`s29`, section=`sec_failure_handling`, packet=`p_list_item_missing_timeframe`
   - Explanation: Exception flow 'exc_adapter_03': Missing timeframe
 - `flow:exc_adapter_04` -> `direct`
-  - Source: spans=`s30`, section=`sec_failure_handling`, packet=`p_list_item_provenance_failure`
+  - Source: spans=`s34`, section=`sec_failure_handling`, packet=`p_list_item_provenance_failure`
   - Explanation: Exception flow 'exc_adapter_04': provenance failure
 - `flow:exc_adapter_05` -> `direct`
-  - Source: spans=`s29`, section=`sec_failure_handling`, packet=`p_list_item_user_refusal_to_answer`
+  - Source: spans=`s33`, section=`sec_failure_handling`, packet=`p_list_item_user_refusal_to_answer`
   - Explanation: Exception flow 'exc_adapter_05': user refusal to answer
 - `flow:main` -> `direct`
-  - Source: spans=`s15, s16, s17, s19`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
-  - Explanation: Main flow with 1 block(s).
+  - Source: spans=`s15, s16, s17, s18, s19, s20, s22, s23`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
+  - Explanation: Main flow with 7 block(s).
 - `profile:concept_0` -> `normalized`
-  - Explanation: Concept: Internal newsletters -- Internal company newsletter communications intended for employees or internal stakeholders.
+  - Explanation: Concept: Internal newsletters -- Newsletter-style communications intended for internal organizational audiences.
 - `profile:concept_1` -> `normalized`
-  - Explanation: Concept: Announcements -- Internal communications that notify the organization about updates, events, or decisions.
+  - Explanation: Concept: Announcements -- Short internal communications that notify people about updates, events, or decisions.
 - `profile:concept_2` -> `normalized`
-  - Explanation: Concept: Update digests -- Condensed summaries of recent updates gathered into a single communication.
+  - Explanation: Concept: Update digests -- Condensed summaries of recent updates collected into a brief format.
 - `profile:concept_3` -> `normalized`
-  - Explanation: Concept: Executive briefs -- Concise, high-level summaries prepared for executives.
+  - Explanation: Concept: Executive briefs -- Concise summaries prepared for executives, emphasizing key points and status.
 - `profile:concept_4` -> `normalized`
-  - Explanation: Concept: Internal-comms artifacts -- Materials produced as part of internal communications work, such as newsletters, announcements, or briefs.
+  - Explanation: Concept: Internal-comms artifacts -- Communication materials used in internal communications, such as newsletters, briefs, or announcements.
 - `profile:concept_5` -> `normalized`
-  - Explanation: Concept: Source/evidence set -- A collection of sources or supporting evidence used to justify the draft communication.
+  - Explanation: Concept: Provenance -- The traceable origin of facts or claims, used to verify where sourced information came from.
 - `profile:concept_6` -> `normalized`
-  - Explanation: Concept: Provenance -- Traceability showing where externally sourced facts came from.
+  - Explanation: Concept: Assumptions log -- A short record of unresolved items that required assumptions in the draft.
 - `profile:concept_7` -> `normalized`
-  - Explanation: Concept: Approved source recipes -- Authorized procedures or patterns for retrieving information from sources.
+  - Explanation: Concept: Completion status -- A status indicator showing whether the run or task is complete.
 - `profile:concept_8` -> `normalized`
+  - Explanation: Concept: Approved source recipes -- Authorized procedures or methods for retrieving information from sources.
+- `profile:concept_9` -> `normalized`
   - Explanation: Concept: Approved evidence carriers -- Accepted formats or containers for normalized evidence returned from delegated subtasks.
 - `profile:persona` -> `inferred`
   - Explanation: Persona: Internal communications specialist
@@ -442,103 +460,73 @@ shortage
   - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
   - Explanation: Step 'st_1' maps to source span(s).
 - `step:st_2` -> `direct`
-  - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
+  - Source: spans=`s16`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
   - Explanation: Step 'st_2' maps to source span(s).
 - `step:st_3` -> `direct`
-  - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
+  - Source: spans=`s17`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
   - Explanation: Step 'st_3' maps to source span(s).
 - `step:st_4` -> `direct`
-  - Source: spans=`s16`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
+  - Source: spans=`s19`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
   - Explanation: Step 'st_4' maps to source span(s).
 - `step:st_5` -> `direct`
-  - Source: spans=`s17`, section=`sec_reusable_process`, packet=`p_list_item_produce_a_draft_if_the_user_asks_for_revision`
+  - Source: spans=`s20`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
   - Explanation: Step 'st_5' maps to source span(s).
 - `step:st_6` -> `direct`
-  - Source: spans=`s18`, section=`sec_reusable_process`, packet=`p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end`
+  - Source: spans=`s21`, section=`sec_reusable_process`, packet=`p_list_item_produce_a_draft_if_the_user_asks_for_revision`
   - Explanation: Step 'st_6' maps to source span(s).
 - `step:st_7` -> `direct`
-  - Source: spans=`s19`, section=`sec_reusable_process`, packet=`p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run`
+  - Source: spans=`s23`, section=`sec_reusable_process`, packet=`p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end`
   - Explanation: Step 'st_7' maps to source span(s).
-- `step:st_api_b7a71aa435` -> `direct`
-  - Source: spans=`s16`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
-  - Explanation: Step 'st_api_b7a71aa435' maps to source span(s).
-- `variable:assumptions_log` -> `direct`
-  - Source: spans=`s19`, section=`sec_reusable_process`, packet=`p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run`
-  - Explanation: Variable 'assumptions_log' is produced by source-backed step 'st_7'.
-- `variable:completion_status` -> `direct`
-  - Source: spans=`s19`, section=`sec_reusable_process`, packet=`p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run`
-  - Explanation: Variable 'completion_status' is produced by source-backed step 'st_7'.
+- `step:st_api_8564b1b8dc` -> `direct`
+  - Source: spans=`s18`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
+  - Explanation: Step 'st_api_8564b1b8dc' maps to source span(s).
+- `variable:assumptions_log_completion_status` -> `direct`
+  - Source: spans=`s23`, section=`sec_reusable_process`, packet=`p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end`
+  - Explanation: Variable 'assumptions_log_completion_status' is produced by source-backed step 'st_7'.
 - `variable:connectors_or_source_repositories` -> `assumed` [needs confirmation]
   - Explanation: Variable 'connectors_or_source_repositories' is declared as worker input contract with no source evidence.
-- `variable:constraints_rechecked` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'constraints_rechecked' is a declared step variable with no discoverable source provenance.
 - `variable:draft_communication_artifact` -> `direct`
-  - Source: spans=`s17`, section=`sec_reusable_process`, packet=`p_list_item_produce_a_draft_if_the_user_asks_for_revision`
+  - Source: spans=`s20`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
   - Explanation: Variable 'draft_communication_artifact' is produced by source-backed step 'st_5'.
-- `variable:draft_explicitly_marked_as_assumption_bearing` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'draft_explicitly_marked_as_assumption_bearing' is a declared step variable with no discoverable source provenance.
 - `variable:format_preferences` -> `assumed` [needs confirmation]
   - Explanation: Variable 'format_preferences' is declared as worker input contract with no source evidence.
 - `variable:known_topics` -> `assumed` [needs confirmation]
   - Explanation: Variable 'known_topics' is declared as worker input contract with no source evidence.
-- `variable:missing_required_fields` -> `direct`
-  - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
-  - Explanation: Variable 'missing_required_fields' is produced by source-backed step 'st_2'.
-- `variable:requested_communication_kind` -> `direct`
-  - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
-  - Explanation: Variable 'requested_communication_kind' is produced by source-backed step 'st_1'.
-- `variable:required_information_available` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'required_information_available' is a declared step variable with no discoverable source provenance.
-- `variable:required_slots_missing` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'required_slots_missing' is a declared step variable with no discoverable source provenance.
-- `variable:revision_requested` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'revision_requested' is a declared step variable with no discoverable source provenance.
-- `variable:source_evidence_set` -> `direct`
-  - Source: spans=`s16`, section=`sec_reusable_process`, packet=`p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available`
-  - Explanation: Variable 'source_evidence_set' is produced by source-backed step 'st_4'.
-- `variable:sources_available` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'sources_available' is a declared step variable with no discoverable source provenance.
-- `variable:sources_needed` -> `assumed` [needs confirmation]
-  - Explanation: Variable 'sources_needed' is a declared step variable with no discoverable source provenance.
+- `variable:source_evidence_set` -> `assumed` [needs confirmation]
+  - Explanation: Variable 'source_evidence_set' is declared as worker output contract with no source evidence.
 - `variable:timeframe` -> `assumed` [needs confirmation]
   - Explanation: Variable 'timeframe' is declared as worker input contract with no source evidence.
-- `variable:user_confirmed` -> `direct`
-  - Source: spans=`s15`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
-  - Explanation: Variable 'user_confirmed' is produced by source-backed step 'st_3'.
 - `variable:user_request` -> `assumed` [needs confirmation]
   - Explanation: Variable 'user_request' is declared as worker input contract with no source evidence.
 - `worker:MainWorker` -> `direct`
-  - Source: spans=`s15, s16, s17, s18, s19`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
+  - Source: spans=`s15, s16, s17, s19, s20, s21, s23, s18, s22`, section=`sec_reusable_process`, packet=`p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available`
   - Explanation: Main worker 'MainWorker' assembled from flow and step IRs.
 
 ## 8. Anti-Fabrication Checks
 
 - `missing_handler`: Exception conditions without handler action stay as partial exception flows; no handler command is invented.
+- `missing_output_producer`: Required outputs without a source-backed producer stay in the contract; no synthetic producer command is invented.
 - `type_or_contract_ambiguity`: Unresolved worker/API contracts are reported as ambiguity; they are not downgraded to generic commands.
 - Rendered SPL contains no executable `[INVOKE ...]` command.
 
 ## 9. Adapter / Validation Notes
 
 Validation warnings:
-- ConstructPlan: condition span s26 for exc_demand_00 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s28 for exc_demand_01 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s27 for exc_demand_02 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s25 for exc_demand_03 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s30 for exc_demand_04 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s29 for exc_demand_05 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s26 for exc_demand_00 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s28 for exc_demand_01 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s27 for exc_demand_02 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s25 for exc_demand_03 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s30 for exc_demand_04 has unowned; attached to main worker worker_main.
-- ConstructPlan: condition span s29 for exc_demand_05 has unowned; attached to main worker worker_main.
-- Worker worker_main: variable 'sources_needed' consumed but not produced or declared as input
-- Worker worker_main: variable 'sources_available' consumed but not produced or declared as input
-- Worker worker_main: variable 'required_information_available' consumed but not produced or declared as input
-- Worker worker_main: variable 'revision_requested' consumed but not produced or declared as input
-- Worker worker_main: variable 'constraints_rechecked' consumed but not produced or declared as input
-- Unused variable declared: required_slots_missing
-- Unused variable declared: draft_explicitly_marked_as_assumption_bearing
+- ConstructPlan: condition span s30 for exc_demand_00 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s32 for exc_demand_01 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s31 for exc_demand_02 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s29 for exc_demand_03 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s34 for exc_demand_04 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s33 for exc_demand_05 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s30 for exc_demand_00 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s32 for exc_demand_01 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s31 for exc_demand_02 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s29 for exc_demand_03 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s34 for exc_demand_04 has unowned; attached to main worker worker_main.
+- ConstructPlan: condition span s33 for exc_demand_05 has unowned; attached to main worker worker_main.
+- Aggregated multi-output step st_7 into assumptions_log_completion_status without unpack steps.
+- Unused variable declared: assumptions_log
+- Unused variable declared: completion_status
 
 ## 10. SPL Draft
 
@@ -546,49 +534,46 @@ Validation warnings:
 [DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
     [DEFINE_PERSONA:]
         ROLE: Internal communications specialist
-        EvidenceDriven: Prioritizes evidence-backed claims and provenance for externally sourced facts.
-        ClarificationFocused: Asks only the highest-value clarifying questions needed to move forward.
-        ConstraintAware: Checks required fields, re-checks constraints during revision, and avoids finalizing when critical information is missing.
-        AssumptionDisciplined: Records unresolved items in a short assumptions log and distinguishes assumption-bearing drafts.
+        EvidenceDriven: Produces communication drafts using source evidence and maintains provenance for externally sourced facts.
+        ConservativeFinalization: Avoids finalizing when critical information is missing or provenance is not established.
+        ClarificationFocused: Asks only the highest-value clarifying questions needed to move forward and limits questions per turn.
+        ConstraintAware: Rechecks constraints during revision and does not invent links or unseen facts.
     [END_PERSONA]
     [DEFINE_CONCEPTS:]
-        Internalnewsletters: Internal company newsletter communications intended for employees or internal stakeholders.
-        Announcements: Internal communications that notify the organization about updates, events, or decisions.
-        Updatedigests: Condensed summaries of recent updates gathered into a single communication.
-        Executivebriefs: Concise, high-level summaries prepared for executives.
-        Internalcommsartifacts: Materials produced as part of internal communications work, such as newsletters, announcements, or briefs.
-        Sourceevidenceset: A collection of sources or supporting evidence used to justify the draft communication.
-        Provenance: Traceability showing where externally sourced facts came from.
-        Approvedsourcerecipes: Authorized procedures or patterns for retrieving information from sources.
+        Internalnewsletters: Newsletter-style communications intended for internal organizational audiences.
+        Announcements: Short internal communications that notify people about updates, events, or decisions.
+        Updatedigests: Condensed summaries of recent updates collected into a brief format.
+        Executivebriefs: Concise summaries prepared for executives, emphasizing key points and status.
+        Internalcommsartifacts: Communication materials used in internal communications, such as newsletters, briefs, or announcements.
+        Provenance: The traceable origin of facts or claims, used to verify where sourced information came from.
+        Assumptionslog: A short record of unresolved items that required assumptions in the draft.
+        Completionstatus: A status indicator showing whether the run or task is complete.
+        Approvedsourcerecipes: Authorized procedures or methods for retrieving information from sources.
         Approvedevidencecarriers: Accepted formats or containers for normalized evidence returned from delegated subtasks.
     [END_CONCEPTS]
     [DEFINE_CONSTRAINTS:]
-        Prohibition: Do not invent links or unseen facts
-        Evidence: Require evidence for sourced claims
-        Requirement: Limit questions per turn
-        Requirement: Prefer tool evidence over unnecessary user questioning
-        Gate: Deny finalization if critical slots are missing or provenance fails
+        Gate: Do not finalize if <REF>draft_communication_artifact</REF> still has required slots missing, unless the draft is explicitly marked as assumption-bearing and the user confirms.
+        Prohibition: Do not invent links or unseen facts.
+        Evidence: Require evidence for sourced claims.
+        Requirement: Limit questions per turn.
+        Requirement: Prefer tool evidence over unnecessary user questioning.
+        Gate: Deny finalization if critical slots are missing or provenance fails.
+        DelegationBoundary: Optional delegated subtasks such as source gathering or template matching may be used only if bounded and the returned evidence is normalized into approved evidence carriers.
     [END_CONSTRAINTS]
+    [DEFINE_TYPES:]
+        AssumptionsLogCompletionStatus = { assumptions_log: text, completion_status: text }
+    [END_TYPES]
     [DEFINE_VARIABLES:]
-        "Optional user preferences for output formatting." format_preferences: text
-        "The user's request that defines the task." user_request: text
+        "Optional user preferences for output format." format_preferences: text
+        "The user's request or prompt." user_request: text
         "Optional topics already known to be relevant." known_topics: List [text]
-        "Optional time window or date range relevant to the task." timeframe: text
-        "Available connectors or source repositories to retrieve evidence from." connectors_or_source_repositories: List [text]
-        "Draft communication output produced for the user." draft_communication_artifact: text
-        "Collected sources or evidence used to support the draft." source_evidence_set: List [text]
-        "Short log of unresolved items and assumptions made." assumptions_log: text
-        "Final run completion status." completion_status: text
-        "Identified kind of communication requested by the user." requested_communication_kind: text
-        "Required fields that are still missing before drafting." missing_required_fields: List [text]
-        "Whether external sources are needed to complete the task." sources_needed: boolean
-        "Whether needed sources are available through approved repositories." sources_available: boolean
-        "Whether enough required information is available to produce a draft." required_information_available: boolean
-        "Whether the user asked for a revision." revision_requested: boolean
-        "Whether constraints were rechecked during revision." constraints_rechecked: boolean
-        "Whether any required slots remain missing." required_slots_missing: boolean
-        "Whether the draft is explicitly marked as assumption-bearing." draft_explicitly_marked_as_assumption_bearing: boolean
-        "Whether the user confirmed proceeding despite missing required items." user_confirmed: boolean
+        "Optional time range or deadline context." timeframe: text
+        "Available connectors or source repositories." connectors_or_source_repositories: List [text]
+        "Draft communication artifact to be produced." draft_communication_artifact: text
+        "Set of sources and evidence supporting the draft." source_evidence_set: List [text]
+        "Structured result for step st_7." assumptions_log_completion_status: AssumptionsLogCompletionStatus
+        "Short log of assumptions for unresolved items." assumptions_log: text
+        "Run completion status." completion_status: text
     [END_VARIABLES]
     [DEFINE_APIS:]
         "Partial API declaration skeleton for ApprovedSourceRecipesAPI." ApprovedSourceRecipesAPI <none>
@@ -606,23 +591,32 @@ Validation warnings:
         [OUTPUTS]
             REQUIRED <REF>draft_communication_artifact</REF>
             REQUIRED <REF>source_evidence_set</REF>
-            REQUIRED <REF>assumptions_log</REF>
-            REQUIRED <REF>completion_status</REF>
+            REQUIRED <REF>assumptions_log_completion_status</REF>
         [END_OUTPUTS]
         [MAIN_FLOW]
             [SEQUENTIAL_BLOCK]
-                COMMAND-1 [COMMAND Determine the requested communication kind based on <REF>user_request</REF> RESULT requested_communication_kind: text SET]
-                COMMAND-2 [COMMAND Identify missing required fields based on <REF>user_request</REF> and <REF>requested_communication_kind</REF> RESULT missing_required_fields: List [text] SET]
-                COMMAND-3 [INPUT Ask the user clarifying questions based on <REF>missing_required_fields</REF> and <REF>user_request</REF> VALUE user_confirmed: boolean SET]
-                COMMAND-4 [COMMAND Retrieve sources using approved source recipes based on <REF>connectors_or_source_repositories</REF>, <REF>sources_needed</REF>, and <REF>sources_available</REF> RESULT source_evidence_set: List [text] SET]
-                COMMAND-5 [CALL ApprovedSourceRecipesAPI]
-                COMMAND-6 [COMMAND Produce the draft communication artifact based on <REF>user_request</REF>, <REF>source_evidence_set</REF>, <REF>required_information_available</REF>, and <REF>format_preferences</REF> RESULT draft_communication_artifact: text SET]
-                COMMAND-7 [COMMAND Record unresolved items in the assumptions log based on <REF>draft_communication_artifact</REF> RESULT assumptions_log: text, completion_status: text SET]
+                COMMAND-1 [COMMAND Determine the requested communication type based on <REF>user_request</REF>]
+                COMMAND-2 [COMMAND Identify missing required fields based on <REF>user_request</REF>, <REF>known_topics</REF>, and <REF>timeframe</REF>]
+            [END_SEQUENTIAL_BLOCK]
+            DECISION-1 [IF required fields are still missing]
+                COMMAND-3 [INPUT Ask the highest-value clarifying questions based on <REF>user_request</REF> VALUE user_input:text SET]
+            [END_IF]
+            DECISION-2 [IF sources are needed and available]
+                COMMAND-4 [CALL ApprovedSourceRecipesAPI]
+            [END_IF]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-5 [COMMAND Maintain provenance for externally sourced facts]
+            [END_SEQUENTIAL_BLOCK]
+            DECISION-3 [IF enough required information is available]
+                COMMAND-6 [COMMAND Produce the draft communication artifact based on <REF>user_request</REF>, <REF>format_preferences</REF>, <REF>known_topics</REF>, and <REF>timeframe</REF> RESULT draft_communication_artifact: text SET]
+            [END_IF]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-7 [COMMAND Record an assumptions log and set completion status RESULT assumptions_log_completion_status: AssumptionsLogCompletionStatus SET]
             [END_SEQUENTIAL_BLOCK]
         [END_MAIN_FLOW]
         [ALTERNATIVE_FLOW: the user asks for revision]
             [SEQUENTIAL_BLOCK]
-                COMMAND-8 [COMMAND Revise the draft communication artifact based on <REF>draft_communication_artifact</REF>, <REF>revision_requested</REF>, and <REF>constraints_rechecked</REF> RESULT <REF>draft_communication_artifact</REF> SET]
+                COMMAND-8 [COMMAND Revise the draft while rechecking constraints based on <REF>user_request</REF>, <REF>format_preferences</REF>, <REF>known_topics</REF>, and <REF>timeframe</REF>]
             [END_SEQUENTIAL_BLOCK]
         [END_ALTERNATIVE_FLOW]
         [EXCEPTION_FLOW: conflicting instructions]

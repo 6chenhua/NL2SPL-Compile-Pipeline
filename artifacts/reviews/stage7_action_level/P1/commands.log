@@ -1,0 +1,14 @@
+# Phase P1 Execution Commands Log
+
+1. Run stage 7 tests:
+.venv\Scripts\python.exe -m pytest tests/unit/pipeline/stage7 -q
+
+2. Run ruff linter check:
+.venv\Scripts\ruff check src/nl2spl/pipeline/stages/stage7_step_extractor/action_model.py tests/unit/pipeline/stage7/test_action_model_serialization.py
+
+3. Sort imports with ruff:
+.venv\Scripts\ruff check --fix src/nl2spl/pipeline/stages/stage7_step_extractor/action_model.py tests/unit/pipeline/stage7/test_action_model_serialization.py
+
+4. Run git status and diff checks:
+git status
+git diff --check -- src/nl2spl/pipeline/stages/stage7_step_extractor/action_model.py

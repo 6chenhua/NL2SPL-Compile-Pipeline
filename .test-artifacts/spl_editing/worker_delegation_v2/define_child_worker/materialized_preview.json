@@ -1,0 +1,4 @@
+{
+  "preview_id": "prev_988ea6cc5d85f3ec6c3bbf07614388a55e5323250bba320cebe6c66d431b22a9",
+  "rendered_preview": "[WORKER: GatherApprovedSourceEvidenceWorker]\n  PURPOSE Gather approved source evidence\n  [MAIN_FLOW]\n    [SEQUENTIAL_BLOCK]\n      COMMAND-X [COMMAND Gather approved source evidence using available_connectors_or_source_repositories; return source evidence result. USING available_connectors_or_source_repositories RESULT source_evidence_result:text SET]\n    [END_SEQUENTIAL_BLOCK]\n  [END_MAIN_FLOW]\n[END_WORKER]\n[MAIN_FLOW]\n  COMMAND-X [INVOKE_WORKER GatherApprovedSourceEvidenceWorker WITH available_connectors_or_source_repositories RESULT tmp_source_evidence_result_d1820cb0 SET]\n[END_MAIN_FLOW]"
+}

@@ -1,0 +1,10 @@
+{
+  "responsibility_field_evidence_refs": [
+    "user_input:free_text"
+  ],
+  "responsibility_trace_evidence_refs": [
+    "user_input:free_text"
+  ],
+  "api_owned_span_excluded": true,
+  "blocked_admission_test": "test_blocked_responsibility_cannot_enter_admission_directive"
+}

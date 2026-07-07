@@ -1,11 +1,11 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-07-04T14:51:13.660456",
+  "timestamp": "2026-07-08T01:20:16.032578",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_clarify_sources_and_missing_fields",
+        "candidate_id": "candidate_retrieve_sources_and_track_provenance",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "not_a_worker",
@@ -14,21 +14,48 @@
         "evidence": []
       },
       {
-        "candidate_id": "candidate_draft_and_revise_communication",
+        "candidate_id": "candidate_assess_request_and_missing_fields",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "insufficient_semantic_boundary",
-        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "rejection_reason": "no_clear_output_contract",
+        "reason": "Auto-rejected: blocking risk no_clear_output_contract",
         "evidence": []
       },
       {
-        "candidate_id": "candidate_finalize_run_status_and_assumptions",
+        "candidate_id": "candidate_clarify_missing_information",
+        "decision": "compile_as_constraint",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "policy_or_constraint",
+        "reason": "Auto-rejected: blocking risk policy_or_constraint",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_draft_communication",
         "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
         "boundary_kind": "bounded_subtask",
-        "rejection_reason": "failure_recovery_protocol",
-        "reason": "Auto-rejected: blocking risk failure_recovery_protocol",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_revise_draft_with_constraint_checking",
+        "decision": "compile_as_constraint",
+        "boundary_strength": "weak",
+        "boundary_kind": "complex_control_extraction",
+        "rejection_reason": "policy_or_constraint",
+        "reason": "Auto-rejected: blocking risk policy_or_constraint",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_record_assumptions_and_completion_status",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
         "evidence": []
       }
     ]

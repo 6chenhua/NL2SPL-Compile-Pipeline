@@ -1,0 +1,10 @@
+# Phase P0 Execution Commands Log
+
+1. Run unit and integration characterization tests:
+.venv\Scripts\python.exe -m pytest tests/unit/pipeline/stage7/test_api_call_residual_action_characterization.py tests/integration/pipeline/test_stage7_action_level_internal_comms_characterization.py -q
+
+2. Run ruff linter check:
+.venv\Scripts\ruff check tests/unit/pipeline/stage7/test_api_call_residual_action_characterization.py tests/integration/pipeline/test_stage7_action_level_internal_comms_characterization.py
+
+3. Run git status and diff checks:
+git status

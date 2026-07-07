@@ -1,0 +1,4 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_provider.py tests/integration/compiler/spl_editing/test_worker_delegation_drafting_e2e.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting src/nl2spl/compiler/spl_editing/presentation/service.py tests/unit/compiler/spl_editing/drafting/providers/test_worker_delegation_provider.py tests/integration/compiler/spl_editing/test_worker_delegation_drafting_e2e.py
+rg -n "patch_payload|MaterializationPlan|StepIR|BlockIR|WorkerIR|WorkerHandoffIR|generic.*LLM|diagnostic\.message" src/nl2spl/compiler/spl_editing/drafting
+git diff --check

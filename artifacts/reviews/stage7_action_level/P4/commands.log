@@ -1,0 +1,11 @@
+# Phase P4 Execution Commands Log
+
+1. Run stage 7 tests:
+.venv\Scripts\python.exe -m pytest tests/unit/pipeline/stage7 tests/integration/pipeline -q
+
+2. Run ruff linter check:
+.venv\Scripts\ruff check src/nl2spl/pipeline/stages/stage7_step_extractor tests/unit/pipeline/stage7 tests/integration/pipeline
+
+3. Run git status and diff checks:
+git status
+git diff --check -- src/nl2spl/pipeline/stages/stage7_step_extractor/worker_scoped.py

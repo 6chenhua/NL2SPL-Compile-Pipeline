@@ -1,0 +1,4 @@
+{
+  "preview_id": "prev_7bdf248c7bdee48f8e3f22cffe9f3a406068ac455e1dcc75af8c08436d34f105",
+  "rendered_preview": "[WORKER: ChildWorker_e91db8b38e]\n  PURPOSE Gather approved source evidence\n  [MAIN_FLOW]\n    [SEQUENTIAL_BLOCK]\n      COMMAND-X [COMMAND Gather approved source evidence USING user_request RESULT del_s31:text SET]\n    [END_SEQUENTIAL_BLOCK]\n  [END_MAIN_FLOW]\n[END_WORKER]\n[MAIN_FLOW]\n  COMMAND-X [INVOKE_WORKER ChildWorker_e91db8b38e WITH user_request RESULT assumptions_log SET]\n[END_MAIN_FLOW]"
+}

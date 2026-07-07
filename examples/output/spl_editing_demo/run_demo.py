@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 from collections.abc import Iterable
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -177,7 +178,23 @@ def main(argv: list[str] | None = None) -> None:
     confirmation = presentation.present_apply_confirmation(applied_suggestion)
     _print_confirmation(confirmation)
     print("\nPreview:")
-    for line in preview.rendered_preview.splitlines():
+    from nl2spl.rendering import SPLRenderContext, render_repair_preview_spl  # noqa: I001, PLC0415
+
+    snapshot = service._get_snapshot(run_id)
+    context = SPLRenderContext(
+        symbol_table=snapshot.symbol_table,
+        resources=snapshot.resources,
+        profile=snapshot.agent_profile,
+    )
+    if preview.typed_artifact is not None:
+        rendered = render_repair_preview_spl(preview.typed_artifact, context)
+        preview_text = rendered.text
+    else:
+        raise ValueError(
+            "Preview failed: typed_artifact is missing from preview suggestion result."
+        )
+
+    for line in preview_text.splitlines():
         print(f"  {line}")
     confirm = input("Confirm apply? [y/N] ").strip().lower()
     if confirm != "y":
@@ -396,8 +413,15 @@ def _collect_user_repair_instruction() -> str | None:
     return raw or None
 
 
+def _sanitize_prompt_text(text: str, *, width: int = 88) -> str:
+    clean = " ".join(str(text).split())
+    if len(clean) <= width:
+        return clean
+    return textwrap.shorten(clean, width=width, placeholder="...")
+
+
 def _run_typed_interaction_repair(*, service, presentation, run_id, issue_id, option) -> None:
-    """Render and submit a backend-owned interaction without issue-specific UI logic."""
+    """Render and submit a backend-owned interaction."""
     from nl2spl.compiler.spl_editing.interaction.model import (
         SubmitRepairDirectiveDraftRequest,
     )
@@ -405,9 +429,20 @@ def _run_typed_interaction_repair(*, service, presentation, run_id, issue_id, op
     snapshot = service._get_snapshot(run_id)
     revision = f"{snapshot.compile_run_id}:{snapshot.snapshot_id}:{snapshot.overlay_version}"
     interaction = presentation.get_repair_interaction(run_id, issue_id, option.option_id, revision)
-    field_values, selected_ref_ids, new_facts, additional_instruction = _collect_interaction_values(
-        interaction
-    )
+    if interaction.contract_id == "worker_delegation.define_child_worker.v1":
+        (
+            field_values,
+            selected_ref_ids,
+            new_facts,
+            additional_instruction,
+        ) = _collect_define_child_worker_values(interaction)
+    else:
+        (
+            field_values,
+            selected_ref_ids,
+            new_facts,
+            additional_instruction,
+        ) = _collect_interaction_values(interaction)
     request = SubmitRepairDirectiveDraftRequest(
         run_id=run_id,
         issue_id=issue_id,
@@ -429,7 +464,23 @@ def _run_typed_interaction_repair(*, service, presentation, run_id, issue_id, op
         return
     handle = presentation.preview_repair_directive(result.normalized_directive_id)
     print("\nPreview:")
-    for line in handle.preview.rendered_preview.splitlines():
+    from nl2spl.rendering import SPLRenderContext, render_repair_preview_spl  # noqa: I001, PLC0415
+
+    snapshot = service._get_snapshot(run_id)
+    context = SPLRenderContext(
+        symbol_table=snapshot.symbol_table,
+        resources=snapshot.resources,
+        profile=snapshot.agent_profile,
+    )
+    if handle.preview.typed_artifact is not None:
+        rendered = render_repair_preview_spl(handle.preview.typed_artifact, context)
+        preview_text = rendered.text
+    else:
+        raise ValueError(
+            "Preview failed: typed_artifact is missing from preview directive result."
+        )
+
+    for line in preview_text.splitlines():
         print(f"  {line}")
     if input("Confirm apply? [y/N] ").strip().lower() != "y":
         print("Cancelled. Snapshot was not changed.")
@@ -461,6 +512,129 @@ def _collect_interaction_values(interaction):
         elif value is not None:
             values[field.field_id] = value
     return values, refs, tuple(facts), additional_instruction
+
+
+def _collect_define_child_worker_values(interaction):
+    fields = {field.field_id: field for field in interaction.fields}
+
+    print("\nRequired information")
+    task = _prompt_required_text(
+        "Child worker task",
+        default=_field_default_text(
+            fields.get("child_task") or fields.get("delegated_responsibility")
+        ),
+    )
+    selected_inputs, input_empty_semantics = _prompt_child_worker_inputs(
+        fields.get("input_refs")
+    )
+    output_name = _prompt_required_text("Child worker output")
+    business_logic = _prompt_required_text("Child worker business logic")
+
+    output_local_id = _local_id_from_text(output_name)
+    field_values: dict[str, object] = {
+        "child_task": task,
+        "delegated_responsibility": task,
+        "child_business_logic": business_logic,
+        "invocation_timing": "append",
+        "result_usage": (
+            {
+                "output_local_id": output_local_id,
+                "create_parent_local_temporary": "yes",
+            },
+        ),
+    }
+    if input_empty_semantics:
+        field_values["input_empty_semantics"] = input_empty_semantics
+
+    selected_ref_ids = {"input_refs": selected_inputs} if selected_inputs else {}
+    new_facts = (
+        {
+            "local_id": output_local_id,
+            "display_name": output_name,
+            "semantic_description": f"Result returned by child worker: {output_name}",
+        },
+    )
+    return field_values, selected_ref_ids, new_facts, None
+
+
+def _field_default_text(field) -> str:
+    value = getattr(field, "value", None)
+    return str(value) if value is not None else ""
+
+
+def _prompt_required_text(label: str, *, default: str = "") -> str:
+    prompt = f"{label} *" + (f" [{_sanitize_prompt_text(default)}]" if default else "") + ": "
+    while True:
+        raw = input(prompt).strip()
+        value = raw or default
+        if value:
+            return value
+        print("  This field is required.")
+
+
+def _prompt_child_worker_inputs(field) -> tuple[tuple[str, ...], str | None]:
+    if field is None:
+        return (), "explicit_none"
+    options = tuple(
+        option
+        for option in getattr(field, "options", ())
+        if getattr(option, "value", None) != "explicit_none"
+    )
+    default = _default_ref_selection(field, options)
+    if not options:
+        print("Child worker inputs: no parent variables are available.")
+        return (), "explicit_none"
+
+    print("Child worker inputs")
+    print("  Press Enter to use the system default selection.")
+    for index, choice in enumerate(options, 1):
+        label = getattr(choice, "label", getattr(choice, "value", ""))
+        marker = " (default)" if getattr(choice, "value", None) in default else ""
+        print(f"  [{index}] {label}{marker}")
+    while True:
+        raw = input("Select input variable number(s), comma-separated: ").strip()
+        if not raw:
+            return default or (options[0].value,), None
+        try:
+            selected = tuple(options[int(item.strip()) - 1].value for item in raw.split(","))
+        except (IndexError, ValueError):
+            print(f"Invalid selection: {raw}")
+            continue
+        return selected, None
+
+
+def _default_ref_selection(field, options) -> tuple[str, ...]:
+    raw = getattr(field, "value", None)
+    if isinstance(raw, str):
+        raw_values = (raw,)
+    elif isinstance(raw, Iterable):
+        raw_values = tuple(str(item) for item in raw)
+    else:
+        raw_values = ()
+    option_values = {str(getattr(option, "value", "")) for option in options}
+    selected = tuple(value for value in raw_values if value in option_values)
+    if selected:
+        return selected
+    for option in options:
+        value = str(getattr(option, "value", ""))
+        label = str(getattr(option, "label", ""))
+        if value.endswith("user_request") or label == "user_request":
+            return (value,)
+    return ()
+
+
+def _local_id_from_text(text: str) -> str:
+    chars: list[str] = []
+    previous_was_sep = False
+    for char in text.casefold():
+        if char.isascii() and char.isalnum():
+            chars.append(char)
+            previous_was_sep = False
+        elif not previous_was_sep:
+            chars.append("_")
+            previous_was_sep = True
+    local_id = "".join(chars).strip("_")
+    return local_id or "child_output"
 
 
 def _collect_field_value(field, schemas):
@@ -555,6 +729,11 @@ def _execute_worker_scenario(snapshot_path: Path, option_id: str) -> dict[str, o
             if choice.label == "user_request"
         )
         field_values = {
+            "child_task": "Gather approved source evidence",
+            "child_business_logic": (
+                "Gather approved source evidence using the selected user request "
+                "input and return approved delegated evidence."
+            ),
             "delegated_responsibility": "Gather approved source evidence",
             "invocation_timing": "append",
             "result_usage": (
@@ -603,9 +782,9 @@ def _execute_worker_scenario(snapshot_path: Path, option_id: str) -> dict[str, o
     if verification.lane != "B" or not verification.accepted:
         raise RuntimeError(f"{option_id} verification failed: {verification.failure_reasons}")
     if option_id == "define_child_worker":
-        if "ChildWorker_" not in after_spl or "[INVOKE ChildWorker_" not in after_spl:
-            child_visible = "ChildWorker_" in after_spl
-            invoke_visible = "[INVOKE ChildWorker_" in after_spl
+        if "Gather approved source evidence" not in after_spl or "[INVOKE " not in after_spl:
+            child_visible = "Gather approved source evidence" in after_spl
+            invoke_visible = "[INVOKE " in after_spl
             raise RuntimeError(
                 "Define-child result is not visible in rendered SPL "
                 f"(child={child_visible}, invoke={invoke_visible}): " + after_spl[-2000:]

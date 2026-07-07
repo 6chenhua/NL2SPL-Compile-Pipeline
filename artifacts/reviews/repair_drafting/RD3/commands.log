@@ -1,0 +1,3 @@
+﻿.venv\Scripts\python.exe -m pytest tests/unit/compiler/spl_editing/drafting/test_provider_registry.py tests/unit/compiler/spl_editing/drafting/test_drafting_service.py -q
+.venv\Scripts\ruff check src/nl2spl/compiler/spl_editing/drafting tests/unit/compiler/spl_editing/drafting/test_provider_registry.py tests/unit/compiler/spl_editing/drafting/test_drafting_service.py
+git diff --check

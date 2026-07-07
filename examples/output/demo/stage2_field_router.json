@@ -1,18 +1,19 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-07-04T14:51:00.568246",
+  "timestamp": "2026-07-08T01:20:02.553235",
   "metadata": {},
   "result": {
     "routes": {
       "identity": [],
       "audience": [],
       "rules": [
-        "s20",
-        "s21",
         "s22",
-        "s23",
         "s24",
-        "s31"
+        "s25",
+        "s26",
+        "s27",
+        "s28",
+        "s35"
       ],
       "domain": [
         "s1",
@@ -27,7 +28,10 @@
         "s16",
         "s17",
         "s18",
-        "s19"
+        "s19",
+        "s20",
+        "s21",
+        "s23"
       ],
       "annotations": [
         {
@@ -279,7 +283,7 @@
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
@@ -294,7 +298,7 @@
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
@@ -309,7 +313,7 @@
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
@@ -324,7 +328,7 @@
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
@@ -335,6 +339,66 @@
         },
         {
           "span_id": "s20",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s21",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s22",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s23",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s24",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -349,7 +413,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s21",
+          "span_id": "s25",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -364,7 +428,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s22",
+          "span_id": "s26",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -379,7 +443,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s23",
+          "span_id": "s27",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -394,7 +458,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s24",
+          "span_id": "s28",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -409,7 +473,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s25",
+          "span_id": "s29",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -424,7 +488,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s26",
+          "span_id": "s30",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -439,7 +503,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s27",
+          "span_id": "s31",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -454,7 +518,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s28",
+          "span_id": "s32",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -469,7 +533,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s29",
+          "span_id": "s33",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -484,7 +548,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s30",
+          "span_id": "s34",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -499,22 +563,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s31",
-          "field": "behavior",
-          "semantic_role": "delegation_intent",
-          "route_family": "delegation_boundary",
-          "source_section_id": "sec_delegation_policy",
-          "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
-          "source_hint_ids": [],
-          "construct_target": "WORKER_HANDOFF",
-          "slot_target": "target",
-          "executable": false,
-          "primary": true,
-          "diagnostics": [],
-          "metadata": {}
-        },
-        {
-          "span_id": "s31",
+          "span_id": "s35",
           "field": "rules",
           "semantic_role": "delegation_boundary_constraint",
           "route_family": "delegation_boundary",
@@ -524,7 +573,7 @@
           "construct_target": "CONSTRAINT",
           "slot_target": "boundary",
           "executable": false,
-          "primary": false,
+          "primary": true,
           "diagnostics": [],
           "metadata": {}
         }
@@ -774,7 +823,7 @@
           "span_id": "s16",
           "suggested_field": "behavior",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "prior_kind": "route_prior",
           "confidence": "structural",
@@ -790,7 +839,7 @@
           "span_id": "s17",
           "suggested_field": "behavior",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "prior_kind": "route_prior",
           "confidence": "structural",
@@ -806,7 +855,7 @@
           "span_id": "s18",
           "suggested_field": "behavior",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
           "source_hint_ids": [],
           "prior_kind": "route_prior",
           "confidence": "structural",
@@ -822,7 +871,7 @@
           "span_id": "s19",
           "suggested_field": "behavior",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
           "source_hint_ids": [],
           "prior_kind": "route_prior",
           "confidence": "structural",
@@ -836,6 +885,70 @@
         },
         {
           "span_id": "s20",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s21",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s22",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s23",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s24",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_do_not_invent_links_or_unseen_facts",
@@ -851,7 +964,7 @@
           }
         },
         {
-          "span_id": "s21",
+          "span_id": "s25",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_require_evidence_for_sourced_claims",
@@ -867,7 +980,7 @@
           }
         },
         {
-          "span_id": "s22",
+          "span_id": "s26",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_limit_questions_per_turn",
@@ -883,7 +996,7 @@
           }
         },
         {
-          "span_id": "s23",
+          "span_id": "s27",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning",
@@ -899,7 +1012,7 @@
           }
         },
         {
-          "span_id": "s24",
+          "span_id": "s28",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails",
@@ -915,7 +1028,7 @@
           }
         },
         {
-          "span_id": "s25",
+          "span_id": "s29",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_missing_timeframe",
@@ -931,7 +1044,7 @@
           }
         },
         {
-          "span_id": "s26",
+          "span_id": "s30",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_conflicting_instructions",
@@ -947,7 +1060,7 @@
           }
         },
         {
-          "span_id": "s27",
+          "span_id": "s31",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_insufficient_source_access",
@@ -963,7 +1076,7 @@
           }
         },
         {
-          "span_id": "s28",
+          "span_id": "s32",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_evidence_shortage",
@@ -979,7 +1092,7 @@
           }
         },
         {
-          "span_id": "s29",
+          "span_id": "s33",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_user_refusal_to_answer",
@@ -995,7 +1108,7 @@
           }
         },
         {
-          "span_id": "s30",
+          "span_id": "s34",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_provenance_failure",
@@ -1011,7 +1124,7 @@
           }
         },
         {
-          "span_id": "s31",
+          "span_id": "s35",
           "suggested_field": "behavior",
           "source_section_id": "sec_delegation_policy",
           "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
@@ -1028,43 +1141,43 @@
         }
       ],
       "route_diagnostics": [
-        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route.",
-        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
+        "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
       ],
       "structured_route_diagnostics": [
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+          "message": "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+          "message": "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+          "message": "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family."
+          "message": "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route."
+          "message": "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
+          "message": "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
         }
       ]
     },
@@ -1074,12 +1187,12 @@
     "llm_refinement": {
       "used": true,
       "route_diagnostics": [
-        "LLM route diagnostic [prior_overridden] span='s1': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s2': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s3': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s4': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names a content type in the task family.",
-        "LLM route diagnostic [prior_overridden] span='s5': Structural prior suggested a domain route, but the span is better classified as profile_domain because it names related internal communications artifacts, not an executable route.",
-        "LLM route diagnostic [mixed_delegation_semantics] span='s31': Delegation permission and delegation boundary condition are mixed; emitted multi-label annotations."
+        "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
+        "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
       ],
       "split_recommendations": []
     }

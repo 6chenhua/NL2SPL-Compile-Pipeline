@@ -1,62 +1,88 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-07-04T14:51:38.809801",
+  "timestamp": "2026-07-08T01:20:45.107853",
   "metadata": {},
   "result": {
     "constraints": [
       {
         "constraint_id": "c_1",
-        "text": "Do not invent links or unseen facts",
-        "kind": "prohibition",
+        "text": "Do not finalize if <REF>draft_communication_artifact</REF> still has required slots missing, unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "kind": "gate",
         "targets": [
+          "step:st_6",
           "global"
-        ],
-        "source_span_ids": [
-          "s20"
-        ]
-      },
-      {
-        "constraint_id": "c_2",
-        "text": "Require evidence for sourced claims",
-        "kind": "evidence",
-        "targets": [
-          "global"
-        ],
-        "source_span_ids": [
-          "s21"
-        ]
-      },
-      {
-        "constraint_id": "c_3",
-        "text": "Limit questions per turn",
-        "kind": "requirement",
-        "targets": [
-          "step:st_3"
         ],
         "source_span_ids": [
           "s22"
         ]
       },
       {
-        "constraint_id": "c_4",
-        "text": "Prefer tool evidence over unnecessary user questioning",
-        "kind": "requirement",
-        "targets": [
-          "global"
-        ],
-        "source_span_ids": [
-          "s23"
-        ]
-      },
-      {
-        "constraint_id": "c_5",
-        "text": "Deny finalization if critical slots are missing or provenance fails",
-        "kind": "gate",
+        "constraint_id": "c_2",
+        "text": "Do not invent links or unseen facts.",
+        "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
           "s24"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Require evidence for sourced claims.",
+        "kind": "evidence",
+        "targets": [
+          "global",
+          "step:st_4"
+        ],
+        "source_span_ids": [
+          "s25"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Limit questions per turn.",
+        "kind": "requirement",
+        "targets": [
+          "step:st_3"
+        ],
+        "source_span_ids": [
+          "s26"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "Prefer tool evidence over unnecessary user questioning.",
+        "kind": "requirement",
+        "targets": [
+          "step:st_3"
+        ],
+        "source_span_ids": [
+          "s27"
+        ]
+      },
+      {
+        "constraint_id": "c_6",
+        "text": "Deny finalization if critical slots are missing or provenance fails.",
+        "kind": "gate",
+        "targets": [
+          "global",
+          "step:st_6"
+        ],
+        "source_span_ids": [
+          "s28"
+        ]
+      },
+      {
+        "constraint_id": "c_7",
+        "text": "Optional delegated subtasks such as source gathering or template matching may be used only if bounded and the returned evidence is normalized into approved evidence carriers.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global",
+          "step:st_api_8564b1b8dc"
+        ],
+        "source_span_ids": [
+          "s35"
         ]
       }
     ]

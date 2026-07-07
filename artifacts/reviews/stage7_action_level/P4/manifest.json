@@ -1,0 +1,13 @@
+{
+  "phase": "P4",
+  "timestamp": "2026-07-05T19:53:00Z",
+  "baselines": {
+    "stage7_action_level_step_extraction_design_zh.md": "BC12CD41BC24E6F3ED088EDC4D70907DE2E9D53CB8E00058E680408121500467",
+    "stage7_action_level_step_extraction_implementation_plan_zh.md": "41B93FE91DF6C1A60245F7A8A4D7A48E820BB524F17AA865D06C5430D42BBC19",
+    "stage7_action_level_step_extraction_pm_review_criteria_zh.md": "576791E3CC136245F8EFBCE604EFA814CEC5CFE570A5DA821802DA9A57C763CD"
+  },
+  "artifacts": {
+    "src/nl2spl/pipeline/stages/stage7_step_extractor/worker_scoped.py": "08EBD6B3A581D30B2823F5E061BC5543909D39E62B6128AEDEBE0EACF6BCC1A1",
+    "tests/unit/pipeline/stage7/test_action_aware_unmapped_detection.py": "B614360F0A9B3F614CF64DFD5D8D770F8F0A9D1477A3E50990EE63FD8ACDBC6D"
+  }
+}
