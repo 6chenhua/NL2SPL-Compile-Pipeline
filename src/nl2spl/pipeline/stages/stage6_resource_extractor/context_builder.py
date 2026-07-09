@@ -23,6 +23,10 @@ from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import WorkerSpecIR
 
 EXTRACTION_POLICY = """\
+- Only DECLARATION_EVIDENCE sections may introduce new variables.
+- READ_ONLY_CONTEXT may only refine descriptions of already-admitted variables.
+- Do not declare variables from guard clauses, branch conditions, rules,
+  constraints, profile text, or display text.
 - Do not redeclare authoritative contract variables with a different type.
 - Do not extract span_id, block_id, flow_id, worker_id, source_section_id,
   or source_packet_id as domain variables.
@@ -93,17 +97,35 @@ def build_resource_context(
         scope_id: Worker ID when scope_kind is "worker".
         demand_view: B4 DemandView (preferred over resource_contract_plan).
     """
-    sections: list[str] = [
-        "Extract resource declarations for this scope.",
-        "",
+    evidence_sections: list[str] = [
         _build_scope_section(worker_spec, scope_kind, scope_id),
         _build_contract_section(worker_spec, canonical_input),
         _build_demand_view_contract_section(demand_view)
         if demand_view is not None
         else _build_resource_contract_plan_section(resource_contract_plan),
+    ]
+    read_only_sections: list[str] = [
         _build_source_spans_section(spans, routes),
         _build_flow_summary_section(flow),
         _build_block_summary_section(blocks),
+    ]
+
+    sections: list[str] = [
+        "Extract resource declarations for this scope.",
+        "",
+        "## DECLARATION_EVIDENCE",
+        "Only the sections below may introduce new variables. Every variable "
+        "you declare must be traceable to an item in one of these sections.",
+        "",
+        *evidence_sections,
+        "",
+        "## READ_ONLY_CONTEXT",
+        "The sections below describe control flow, conditions, and structure. "
+        "They may reference already-declared variables, but they are NOT "
+        "sources for declaring new variables.",
+        "",
+        *read_only_sections,
+        "",
         _build_known_variables_section(symbol_table, scope_id),
         _build_extraction_policy_section(),
     ]

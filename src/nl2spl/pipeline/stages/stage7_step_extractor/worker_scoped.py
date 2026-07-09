@@ -475,21 +475,9 @@ Output JSON:"""
             non_exec_span_ids,  # D6: skip non-executable in unmapped check
         )
 
-        # 处理 new_variables — declare with worker scope
-        for new_var_data in result.get("new_variables", []):
-            try:
-                new_var_name = new_var_data["name"]
-                if symbol_table.lookup(new_var_name) is None:
-                    symbol_table.declare_scoped(
-                        name=new_var_name,
-                        data_type=new_var_data.get("data_type", "text"),
-                        source="step",
-                        description=new_var_data.get("description", ""),
-                        scope_kind="worker",
-                        scope_id=worker.worker_id,
-                    )
-            except (KeyError, TypeError) as e:
-                self.logger.warning("Skipping invalid new variable: %s", e)
+        # Raw LLM new_variables are not SymbolTable declaration authority.
+        # They remain observable in stage checkpoints, while typed relation
+        # plans / ProducerIndex own post-Stage7 output authority.
 
         # 更新 producers/consumers
         for step in steps:

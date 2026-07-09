@@ -29,20 +29,47 @@ files, APIs, and custom types mentioned in the text.
 **Important**: Do not default boolean for "status" variables. If a status
 can take more than two values (e.g. "completed", "pending", "failed"),
 type it as text or define an enum. Reserve boolean for true binary flags
-(e.g. "sources_needed", "provenance_status").
+(e.g. "has_errors", "is_complete").
+
+### Declaration Authority
+
+Declare variables **only** when the source text or typed context
+explicitly introduces data that meets one of these roles:
+
+- **run input**: Data the user, caller, or environment provides when the
+  process starts (e.g. "user request", "timeframe", "available sources").
+- **required deliverable**: A concrete output artifact or status the
+  process must produce (e.g. "draft", "evidence set", "completion status").
+- **explicit action output**: A result that an executable action or step
+  explicitly names as its product (e.g. "RESULT identified_topics").
+- **confirmed response target**: A value returned by an external API call,
+  sub-worker handoff, or REQUEST_INPUT whose existence is confirmed by the
+  typed context.
+
+Do **not** declare variables solely from:
+
+- guard clauses or branch conditions (e.g. "when the threshold is met",
+  "if the status indicates failure", "provided the check passes").
+- rules, constraints, or policy statements.
+- persona, profile, or role descriptions.
+- display text, stop reasons, or exception log messages.
+
+These texts describe **when** or **under what rule** an action happens —
+they do not introduce new data.  They may reference already-declared
+variables, but they are not themselves variable declarations.
 
 ### Completeness Check
 
 After listing variables, verify:
-- Every variable referenced as an input or output in the process
-  description has been declared.
-- Every condition variable (used in IF conditions) has been declared
-  as a step variable.
+- Every variable that the process explicitly names as an input, output,
+  or action result has been declared.
 - No variable appears in a step's inputs without having been either
   declared as source=input or produced as an output by a prior step.
   If a variable would be consumed but has no producer, either declare
   it as source=input (if user-provided) or explain in the description
   how it originates.
+- Guard clauses, branch conditions, rules, and display text are not
+  used as variable declaration sources.
 
 ## File Identification
 

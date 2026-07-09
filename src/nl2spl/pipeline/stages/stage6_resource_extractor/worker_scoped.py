@@ -40,11 +40,18 @@ from nl2spl.pipeline.stages.stage6_resource_extractor.api_contract_extraction im
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     build_resource_context,
 )
+from nl2spl.pipeline.stages.stage6_resource_extractor.declaration_authority import (
+    build_authority_registry_from_worker_spec,
+)
 from nl2spl.pipeline.stages.stage6_resource_extractor.description_cleaner import (
     clean_resource_description,
 )
 from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter import (
     is_allowed_resource_variable,
+)
+from nl2spl.pipeline.stages.stage6_resource_extractor.variable_declaration_policy import (
+    DeclarationEvidenceView,
+    Stage6VariableDeclarationPolicy,
 )
 
 
@@ -448,6 +455,32 @@ class WorkerScopedMixin:
             )
             merge_warnings.extend(contract_warnings)
 
+        # —— S6V4: Declaration authority gate (worker-scoped path) ——
+        # Worker-scoped extraction always has evidence: main worker gets
+        # canonical_input, child workers get flow/block structure.
+        # No legacy waiver — strict admission only.
+        policy_evidence = self._build_evidence_view(
+            canonical_input=canonical_input,
+            worker_spec=worker_spec,
+            flow=flow,
+            blocks=blocks,
+        )
+        authority_registry = (
+            build_authority_registry_from_worker_spec(worker_spec)
+            if worker_spec is not None
+            else None
+        )
+        policy = Stage6VariableDeclarationPolicy(policy_evidence, authority_registry)
+        policy_result = policy.evaluate(variables)
+        variables = list(policy_result.accepted)
+
+        if policy_result.rejected:
+            for audit in policy_result.rejected:
+                filter_warnings.append(
+                    f"S6V4: rejected variable '{audit.variable_name}' "
+                    f"({audit.rejection_reason}): {audit.reason}"
+                )
+
         resources = ResourceRegistryIR(
             variables=variables,
             files=files,
@@ -471,8 +504,10 @@ class WorkerScopedMixin:
             self.resource_filter_warnings.extend(filter_warnings)
 
         self.logger.info(
-            "Extracted %d variables, %d files, %d APIs, %d types for scope %s:%s",
+            "Extracted %d variables (%d rejected by policy), "
+            "%d files, %d APIs, %d types for scope %s:%s",
             len(variables),
+            len(policy_result.rejected),
             len(files),
             len(apis),
             len(types),
@@ -481,6 +516,70 @@ class WorkerScopedMixin:
         )
 
         return resources, symbol_table
+
+    @staticmethod
+    def _build_evidence_view(
+        canonical_input: CanonicalCompileInput | None = None,
+        worker_spec: WorkerSpecIR | None = None,
+        flow: FlowStructureIR | None = None,
+        blocks: BlockStructureIR | None = None,
+    ) -> DeclarationEvidenceView:
+        """Build a ``DeclarationEvidenceView`` from upstream artifacts.
+
+        Only adapter hard facts and resource contract demands confer
+        declaration authority.  Flow/block conditions are read-only.
+        """
+        declared_input_names: set[str] = set()
+        declared_output_names: set[str] = set()
+        read_only_terms: set[str] = set()
+
+        # Adapter hard facts → declaration evidence
+        if canonical_input is not None:
+            for fact in canonical_input.hard_facts.inputs:
+                declared_input_names.add(fact.name)
+            for fact in canonical_input.hard_facts.outputs:
+                declared_output_names.add(fact.name)
+
+        # Worker contract fields with evidence → declaration evidence
+        if worker_spec is not None:
+            for field in worker_spec.input_contract:
+                if field.contract_demand_id or field.source_span_ids:
+                    declared_input_names.add(field.name)
+            for field in worker_spec.output_contract:
+                if field.contract_demand_id or field.source_span_ids:
+                    declared_output_names.add(field.name)
+
+        # Flow conditions → read-only context
+        if flow is not None:
+            for alt in flow.alternative_flows:
+                if alt.condition_text:
+                    read_only_terms.update(
+                        alt.condition_text.lower().split()
+                    )
+            for exc in flow.exception_flows:
+                if exc.condition_text:
+                    read_only_terms.update(
+                        exc.condition_text.lower().split()
+                    )
+
+        # Block conditions → read-only context
+        if blocks is not None:
+            for blk_list in [
+                blocks.main_flow_blocks,
+                *blocks.alternative_flow_blocks.values(),
+                *blocks.exception_flow_blocks.values(),
+            ]:
+                for blk in blk_list:
+                    if blk.condition_text:
+                        read_only_terms.update(
+                            blk.condition_text.lower().split()
+                        )
+
+        return DeclarationEvidenceView(
+            declared_input_names=declared_input_names,
+            declared_output_names=declared_output_names,
+            read_only_context_terms=read_only_terms,
+        )
 
     def _merge_contract_variables(
         self,
@@ -494,11 +593,15 @@ class WorkerScopedMixin:
         - 类型冲突时以先到者为准，记录 warning
         """
         warnings: list[str] = []
+        # S6V4: only admit contract fields with declaration authority
+        authority_registry = build_authority_registry_from_worker_spec(worker_spec)
         # contract 变量先入 merged，占据 key
         contract_specs = [
             self._variable_from_contract(field)
             for field in worker_spec.input_contract + worker_spec.output_contract
-            if field.name and (field.resource_kind in (None, "variable"))
+            if field.name
+            and (field.resource_kind in (None, "variable"))
+            and authority_registry.is_admissible(field.name)
         ]
         merged: dict[str, VariableSpec] = {var.name: var for var in contract_specs}
         contract_names = set(merged)

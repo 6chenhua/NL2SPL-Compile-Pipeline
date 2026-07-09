@@ -31,6 +31,54 @@ from nl2spl.pipeline.stages.stage6_resource_extractor.description_cleaner import
 from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter import (
     is_allowed_resource_variable,
 )
+from nl2spl.pipeline.stages.stage6_resource_extractor.variable_declaration_policy import (
+    DeclarationEvidenceView,
+    Stage6VariableDeclarationPolicy,
+)
+
+
+def _build_legacy_evidence_view(
+    canonical_input: CanonicalCompileInput | None = None,
+    flow_structure: FlowStructureIR | None = None,
+    block_structure: BlockStructureIR | None = None,
+) -> DeclarationEvidenceView:
+    """Build a ``DeclarationEvidenceView`` from legacy-path upstream artifacts."""
+    declared_input_names: set[str] = set()
+    declared_output_names: set[str] = set()
+    read_only_terms: set[str] = set()
+
+    if canonical_input is not None:
+        for fact in canonical_input.hard_facts.inputs:
+            declared_input_names.add(fact.name)
+        for fact in canonical_input.hard_facts.outputs:
+            declared_output_names.add(fact.name)
+
+    if flow_structure is not None:
+        for alt in flow_structure.alternative_flows:
+            if alt.condition_text:
+                read_only_terms.update(alt.condition_text.lower().split())
+        for exc in flow_structure.exception_flows:
+            if exc.condition_text:
+                read_only_terms.update(exc.condition_text.lower().split())
+
+    if block_structure is not None:
+        for blk_list in [
+            block_structure.main_flow_blocks,
+            *block_structure.alternative_flow_blocks.values(),
+            *block_structure.exception_flow_blocks.values(),
+        ]:
+            for blk in blk_list:
+                if blk.condition_text:
+                    read_only_terms.update(blk.condition_text.lower().split())
+
+    return DeclarationEvidenceView(
+        declared_input_names=declared_input_names,
+        declared_output_names=declared_output_names,
+        read_only_context_terms=read_only_terms,
+    )
+from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter import (
+    is_allowed_resource_variable,
+)
 
 
 class LegacyMethodsMixin:
@@ -171,6 +219,29 @@ class LegacyMethodsMixin:
 
         self.resource_filter_warnings = list(filter_warnings)
 
+        # —— S6V4: Declaration authority gate (legacy path) ——
+        # Always use strict policy.  Evidence comes from:
+        #   - canonical_input hard facts → declared_inputs/outputs
+        #   - flow/block conditions → read_only_context_terms
+        # Even generic_nl paths have flow/blocks from Stages 4/5, so
+        # condition-derived predicates (boolean + condition text overlap)
+        # are rejected.  No legacy waiver.
+        policy_evidence = _build_legacy_evidence_view(
+            canonical_input=canonical_input,
+            flow_structure=flow_structure,
+            block_structure=block_structure,
+        )
+        policy = Stage6VariableDeclarationPolicy(policy_evidence)
+        policy_result = policy.evaluate(variables)
+        variables = list(policy_result.accepted)
+
+        if policy_result.rejected:
+            for audit in policy_result.rejected:
+                filter_warnings.append(
+                    f"S6V4: rejected variable '{audit.variable_name}' "
+                    f"({audit.rejection_reason}): {audit.reason}"
+                )
+
         resources = ResourceRegistryIR(
             variables=variables,
             files=files,
@@ -188,8 +259,10 @@ class LegacyMethodsMixin:
             )
 
         self.logger.info(
-            "Extracted %d variables, %d files, %d APIs, %d types",
+            "Extracted %d variables (%d rejected by policy), "
+            "%d files, %d APIs, %d types",
             len(variables),
+            len(policy_result.rejected),
             len(files),
             len(apis),
             len(types),

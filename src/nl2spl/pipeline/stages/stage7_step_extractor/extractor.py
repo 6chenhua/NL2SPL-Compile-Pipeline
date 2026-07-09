@@ -235,20 +235,10 @@ Output JSON:"""
                 kept_steps.append(step)
             steps = kept_steps
 
-        # 4. Handle new_variables (declare before updating producers/consumers)
-        for new_var_data in result.get("new_variables", []):
-            try:
-                new_var_name = new_var_data["name"]
-                if new_var_name not in symbol_table.variables:
-                    symbol_table.declare(
-                        name=new_var_name,
-                        data_type=new_var_data.get("data_type", "text"),
-                        source="step",
-                        description=new_var_data.get("description", ""),
-                    )
-                    symbol_table.variables[new_var_name].declared = False
-            except (KeyError, TypeError) as e:
-                self.logger.warning("Skipping invalid new variable: %s", e)
+        # 4. Preserve raw LLM new_variables only in the checkpoint. They are
+        # not SymbolTable declaration authority. Step output authority is
+        # established by typed Stage 7 relation plans / ProducerIndex, not by
+        # this free-form response field.
 
         # 5. Apply worker plan handoffs if worker_plan is present
         if worker_plan is not None:

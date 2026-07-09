@@ -12,7 +12,6 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import (
     ContractFieldIR,
-    HandoffContractIR,
     InputBindingIR,
     OutputBindingIR,
     WorkerBlockPlanIR,
@@ -78,6 +77,12 @@ def sample_worker_plan() -> WorkerPlanIR:
                 kind="main",
                 purpose="Main worker",
                 owned_span_ids=["s1"],
+                input_contract=[
+                    ContractFieldIR(
+                        "query", "text", True, "User query", "input",
+                        contract_demand_id="rcd_input_query",
+                    )
+                ],
             ),
             WorkerSpecIR(
                 worker_id="worker_child",
@@ -85,6 +90,12 @@ def sample_worker_plan() -> WorkerPlanIR:
                 kind="child",
                 purpose="Child worker",
                 owned_span_ids=["s2"],
+                output_contract=[
+                    ContractFieldIR(
+                        "result", "text", True, "Worker result", "output",
+                        contract_demand_id="rcd_output_result",
+                    )
+                ],
             ),
         ],
         handoffs=[
@@ -255,6 +266,7 @@ def test_execute_worker_scoped_seeds_contract_variables(
                         True,
                         "Main input",
                         "input",
+                        contract_demand_id="rcd_main_input",
                     )
                 ],
                 output_contract=[
@@ -264,6 +276,7 @@ def test_execute_worker_scoped_seeds_contract_variables(
                         True,
                         "Main output",
                         "output",
+                        contract_demand_id="rcd_main_output",
                     )
                 ],
             ),
@@ -280,6 +293,7 @@ def test_execute_worker_scoped_seeds_contract_variables(
                         True,
                         "Child input",
                         "input",
+                        contract_demand_id="rcd_child_input",
                     )
                 ],
                 output_contract=[
@@ -289,6 +303,7 @@ def test_execute_worker_scoped_seeds_contract_variables(
                         True,
                         "Child output",
                         "output",
+                        contract_demand_id="rcd_child_output",
                     )
                 ],
             ),
@@ -620,6 +635,12 @@ def test_execute_worker_scoped_missing_flow_blocks_skips_worker(
                 kind="main",
                 purpose="Main",
                 owned_span_ids=["s1"],
+                input_contract=[
+                    ContractFieldIR(
+                        "query", "text", True, "User query", "input",
+                        contract_demand_id="rcd_input_query",
+                    )
+                ],
             ),
             WorkerSpecIR(
                 worker_id="worker_missing",
