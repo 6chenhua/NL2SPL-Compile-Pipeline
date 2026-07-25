@@ -1,0 +1,51 @@
+{
+  "stage": "condition_variable_reference_plan",
+  "timestamp": "2026-07-10T00:09:44.968064",
+  "metadata": {},
+  "result": {
+    "schema_version": "condition_variable_reference_plan.v2",
+    "references": [
+      {
+        "reference_id": "cond_ref_8d271cf2d7_llm_0",
+        "owner_kind": "exception_flow_condition",
+        "owner_ref": "condition:flow:worker_main:exception:exc_adapter_03",
+        "condition_text": "Missing timeframe",
+        "ref_text": null,
+        "canonical_ref": "timeframe",
+        "top_level_name": "timeframe",
+        "qualified_path": [
+          "timeframe"
+        ],
+        "status": "resolved",
+        "source_span_ids": [
+          "s31"
+        ],
+        "worker_id": "worker_main",
+        "flow_ref": "exc_adapter_03",
+        "block_ref": null,
+        "evidence_kind": "llm_condition_semantic_match",
+        "evidence_text": "timeframe",
+        "selected_symbol": "timeframe",
+        "proposed_symbol_text": null,
+        "confidence": "high",
+        "reason": "Directly mentions the candidate symbol timeframe."
+      }
+    ],
+    "text_rewrites": [
+      {
+        "owner_ref": "condition:flow:worker_main:exception:exc_adapter_03",
+        "original_condition_text": "Missing timeframe",
+        "rewritten_condition_text": "Missing <REF>timeframe</REF>",
+        "rewrite_reason": "llm_semantic_ref_materialization",
+        "source_reference_ids": [
+          "cond_ref_8d271cf2d7_llm_0"
+        ]
+      }
+    ],
+    "diagnostics": [],
+    "metadata": {
+      "authority": "stage6_5_condition_reference_extractor",
+      "final_authority": "stage9_5_condition_variable_visibility_validator"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+Task Family:
+Internal newsletters, internal announcements, periodic update digests, executive briefs, and other internal-facing communication materials. These materials are primarily intended for reading and use by company employees, management, department heads, or other internal audiences specified by the user.
+
+Inputs for Each Run:
+A user’s communication request, known topics, timeframe, background information, target audience, available information sources, and format preferences. The user request is a required input; all other content is optional.
+
+Required Outputs:
+A draft communication artifact, a source/evidence set, a record of unresolved items, and a completion status for the task.
+
+Reusable Process:
+Analyze the user’s request to clarify the type of communication material, communication purpose, target audience, and expression requirements.
+Check if the facts and background information needed to generate the material are available. If critical information that affects content accuracy is missing, ask the user necessary clarifying questions; if the information is available, proceed.
+Organize the obtained facts and background information, extract core messages to be conveyed, and structure the content based on the material type.
+Generate a draft communication artifact and verify if it meets the user’s specified requirements for target audience, tone, language, length, structure, and format. If not, revise it based on the verification results.
+Output the draft communication artifact, record of unresolved items, and completion status.
+If the user requests revisions to the draft, make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria.
+
+Policies:
+Do not fabricate facts, data, events, or sources that are not provided by the user or obtained from available information sources.
+External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information.
+Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions.
+Do not alter the meaning of the user’s original request for the sake of completeness, fluency, or professionalism of expression.
+Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved.
+
+Failure Handling:
+Missing Critical Information: If information essential to task completion is lacking, inquire with the user. If such information cannot be obtained, record the missing items, do not generate a full draft, and mark the task as incomplete.
+Conflicting Instructions: If the user’s requirements conflict and impede task execution, document the specific conflicts. Do not generate a full draft and mark the task as incomplete until the conflicts are resolved.
+
+Delegation Policy:
+Where controlled components are configured and available in the system, well-defined subtasks such as template matching may be delegated to these components for processing, though delegation is not mandatory.
+Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.
+The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.
+If delegation fails or returns results beyond the authorized scope, such results shall not be adopted; if the results are essential to task completion, record unresolved items and mark the task as incomplete.

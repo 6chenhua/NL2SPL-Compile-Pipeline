@@ -1,6 +1,6 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-07-08T01:20:22.652502",
+  "timestamp": "2026-07-10T00:08:59.042719",
   "metadata": {},
   "result": {
     "worker_blocks": {
@@ -48,30 +48,32 @@
             ]
           },
           {
-            "block_id": "b_cr_local_if_s22",
+            "block_id": "b_5",
             "block_type": "IF",
             "condition_text": "required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
             "spans": [
-              "s22"
+              "s23"
             ]
           },
           {
-            "block_id": "b_3_seq_2",
+            "block_id": "b_4",
             "block_type": "SEQUENTIAL",
             "condition_text": null,
             "spans": [
-              "s23"
+              "s24",
+              "s25"
             ]
           }
         ],
         "alternative_flow_blocks": {
-          "cr_top_alt_s21": [
+          "cr_top_alt_alt_1": [
             {
-              "block_id": "b_cr_top_alt_s21",
+              "block_id": "b_cr_top_alt_alt_1",
               "block_type": "IF",
-              "condition_text": "the user asks for revision",
+              "condition_text": "the user asks for a revision",
               "spans": [
-                "s21"
+                "s21a",
+                "s22"
               ]
             }
           ]
@@ -87,13 +89,6 @@
       }
     },
     "control_complexity_regions": [],
-    "warnings": [
-      "ConstructPlan: condition span s30 for exc_demand_00 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s32 for exc_demand_01 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s31 for exc_demand_02 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s29 for exc_demand_03 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s34 for exc_demand_04 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s33 for exc_demand_05 has unowned; attached to main worker worker_main."
-    ]
+    "warnings": []
   }
 }

@@ -1,0 +1,64 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-07-25T11:22:29.626447",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "Do not fabricate facts.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s41"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information. Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions. Do not alter the meaning of the user’s original request for the sake of completeness.",
+        "kind": "evidence",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s44"
+        ]
+      },
+      {
+        "constraint_id": "c_3",
+        "text": "Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved.",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s46"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.",
+        "kind": "delegation_boundary",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s57"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
+        "text": "If delegation fails or returns results beyond the authorized scope, such results shall not be adopted.",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s59"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-07-25T11:22:27.613932",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal communication drafting assistant",
+      "aspects": [
+        {
+          "name": "AccuracyFocused",
+          "text": "Prioritizes factual accuracy, avoids fabricating facts, and asks clarifying questions when critical information is missing.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "ProfessionalAndFluent",
+          "text": "Produces communication with professional expression and fluency.",
+          "source_span_ids": [
+            "s45"
+          ],
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_fluency",
+          "provenance_relation": "normalized"
+        },
+        {
+          "name": "RequirementsDriven",
+          "text": "Checks communication purpose, target audience, tone, language, length, structure, and format against user requirements before finalizing.",
+          "source_span_ids": [
+            "s21",
+            "s22",
+            "s31",
+            "s32",
+            "s33",
+            "s34"
+          ],
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": null,
+          "provenance_relation": "derived"
+        }
+      ],
+      "source_span_ids": [],
+      "source_section_id": null,
+      "source_packet_id": null,
+      "provenance_relation": "assumed"
+    },
+    "audience_aspects": [
+      {
+        "name": "InternalCompanyAudience",
+        "text": "Company employees and other internal audiences specified by the user, including management and department heads.",
+        "source_span_ids": [
+          "s6",
+          "s7",
+          "s8"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      }
+    ],
+    "concepts": [
+      {
+        "term": "Internal newsletters",
+        "definition": "Newsletter-style communication materials intended for internal company use.",
+        "source_span_ids": [
+          "s1",
+          "s5"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      },
+      {
+        "term": "Internal announcements",
+        "definition": "Announcements shared within a company for internal audiences.",
+        "source_span_ids": [
+          "s2",
+          "s5"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      },
+      {
+        "term": "Periodic update digests",
+        "definition": "Regular summary communications that compile updates over time.",
+        "source_span_ids": [
+          "s3"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_periodic_update_digests",
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Executive briefs",
+        "definition": "Concise communication materials prepared for executives or senior leadership.",
+        "source_span_ids": [
+          "s4",
+          "s6"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      },
+      {
+        "term": "Internal-facing communication materials",
+        "definition": "Communication artifacts primarily intended to be read and used by company employees.",
+        "source_span_ids": [
+          "s5"
+        ],
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees",
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Communication purpose",
+        "definition": "The intended objective or function of the communication.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
+      },
+      {
+        "term": "Target audience",
+        "definition": "The intended recipients or readers of the communication.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
+      },
+      {
+        "term": "Source/evidence set",
+        "definition": "A collected set of supporting sources or evidence used to justify the draft.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
+      },
+      {
+        "term": "Unresolved items",
+        "definition": "Open issues or missing points that could not be fully resolved during the task.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
+      },
+      {
+        "term": "Completion status",
+        "definition": "A final indication of whether the task was completed or remains incomplete.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
+      }
+    ]
+  }
+}

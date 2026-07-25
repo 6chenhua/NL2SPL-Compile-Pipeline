@@ -1,10 +1,10 @@
 {
   "stage": "stage3_ambiguity_resolver",
-  "timestamp": "2026-07-07T16:55:51.625993",
+  "timestamp": "2026-07-10T00:08:35.426421",
   "metadata": {},
   "result": {
-    "original_spans_count": 35,
-    "resolved_spans_count": 70,
+    "original_spans_count": 37,
+    "resolved_spans_count": 73,
     "resolved_spans": [
       {
         "span_id": "s1",
@@ -251,21 +251,19 @@
         "segmentation_kind": "guarded_action"
       },
       {
-        "span_id": "s21",
-        "text": "If the user asks for revision revise while re checking constraints.",
+        "span_id": "s22",
+        "text": "checking constraints.",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
         },
         "source_section_id": "sec_reusable_process",
-        "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
-        "guard_text_exact": "the user asks for revision",
-        "action_text_exact": "revise while re checking constraints",
-        "segmentation_kind": "guarded_action"
+        "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+        "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s22",
+        "span_id": "s23",
         "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
         "ambiguity": {
           "is_ambiguous": false,
@@ -274,13 +272,11 @@
         },
         "source_section_id": "sec_reusable_process",
         "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
-        "guard_text_exact": "required slots remain missing",
-        "action_text_exact": "Do not finalize",
-        "segmentation_kind": "guarded_action"
+        "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s23",
-        "text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "span_id": "s24",
+        "text": "At the end",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -288,12 +284,22 @@
         },
         "source_section_id": "sec_reusable_process",
         "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
-        "guard_text_exact": "the end",
-        "action_text_exact": "record a short assumptions log for any unresolved items and set a completion status for the run",
-        "segmentation_kind": "guarded_action"
+        "segmentation_kind": "ambiguous_boundary"
       },
       {
-        "span_id": "s24",
+        "span_id": "s25",
+        "text": "record a short assumptions log for any unresolved items and set a completion status for the run",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s26",
         "text": "Do not invent links or unseen facts",
         "ambiguity": {
           "is_ambiguous": false,
@@ -305,7 +311,7 @@
         "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s25",
+        "span_id": "s27",
         "text": "Require evidence for sourced claims",
         "ambiguity": {
           "is_ambiguous": false,
@@ -317,7 +323,7 @@
         "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s26",
+        "span_id": "s28",
         "text": "Limit questions per turn",
         "ambiguity": {
           "is_ambiguous": false,
@@ -329,7 +335,7 @@
         "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s27",
+        "span_id": "s29",
         "text": "Prefer tool evidence over unnecessary user questioning",
         "ambiguity": {
           "is_ambiguous": false,
@@ -341,7 +347,7 @@
         "segmentation_kind": "atomic_action_candidate"
       },
       {
-        "span_id": "s28",
+        "span_id": "s30",
         "text": "Deny finalization if critical slots are missing or provenance fails",
         "ambiguity": {
           "is_ambiguous": false,
@@ -355,7 +361,7 @@
         "segmentation_kind": "guarded_action"
       },
       {
-        "span_id": "s29",
+        "span_id": "s31",
         "text": "Missing timeframe",
         "ambiguity": {
           "is_ambiguous": false,
@@ -367,7 +373,7 @@
         "segmentation_kind": "atomic_text_unit"
       },
       {
-        "span_id": "s30",
+        "span_id": "s32",
         "text": "conflicting instructions",
         "ambiguity": {
           "is_ambiguous": false,
@@ -379,7 +385,7 @@
         "segmentation_kind": "atomic_text_unit"
       },
       {
-        "span_id": "s31",
+        "span_id": "s33",
         "text": "insufficient source access",
         "ambiguity": {
           "is_ambiguous": false,
@@ -391,7 +397,7 @@
         "segmentation_kind": "atomic_text_unit"
       },
       {
-        "span_id": "s32",
+        "span_id": "s34",
         "text": "evidence shortage",
         "ambiguity": {
           "is_ambiguous": false,
@@ -403,7 +409,7 @@
         "segmentation_kind": "atomic_text_unit"
       },
       {
-        "span_id": "s33",
+        "span_id": "s35",
         "text": "user refusal to answer",
         "ambiguity": {
           "is_ambiguous": false,
@@ -415,7 +421,7 @@
         "segmentation_kind": "atomic_text_unit"
       },
       {
-        "span_id": "s34",
+        "span_id": "s36",
         "text": "provenance failure",
         "ambiguity": {
           "is_ambiguous": false,
@@ -607,17 +613,19 @@
         }
       },
       {
-        "span_id": "s21",
-        "text": "If the user asks for revision revise while re checking constraints.",
+        "span_id": "s21a",
+        "text": "If the user asks for revision revise while re",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
           "needs_split": false
-        }
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision"
       },
       {
         "span_id": "s22",
-        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "text": "checking constraints.",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -626,7 +634,7 @@
       },
       {
         "span_id": "s23",
-        "text": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
+        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -635,7 +643,7 @@
       },
       {
         "span_id": "s24",
-        "text": "Do not invent links or unseen facts",
+        "text": "At the end",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -644,7 +652,7 @@
       },
       {
         "span_id": "s25",
-        "text": "Require evidence for sourced claims",
+        "text": "record a short assumptions log for any unresolved items and set a completion status for the run",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -653,7 +661,7 @@
       },
       {
         "span_id": "s26",
-        "text": "Limit questions per turn",
+        "text": "Do not invent links or unseen facts",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -662,7 +670,7 @@
       },
       {
         "span_id": "s27",
-        "text": "Prefer tool evidence over unnecessary user questioning",
+        "text": "Require evidence for sourced claims",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -671,7 +679,7 @@
       },
       {
         "span_id": "s28",
-        "text": "Deny finalization if critical slots are missing or provenance fails",
+        "text": "Limit questions per turn",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -680,7 +688,7 @@
       },
       {
         "span_id": "s29",
-        "text": "Missing timeframe",
+        "text": "Prefer tool evidence over unnecessary user questioning",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -689,7 +697,7 @@
       },
       {
         "span_id": "s30",
-        "text": "conflicting instructions",
+        "text": "Deny finalization if critical slots are missing or provenance fails",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -698,7 +706,7 @@
       },
       {
         "span_id": "s31",
-        "text": "insufficient source access",
+        "text": "Missing timeframe",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -707,7 +715,7 @@
       },
       {
         "span_id": "s32",
-        "text": "evidence shortage",
+        "text": "conflicting instructions",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -716,7 +724,7 @@
       },
       {
         "span_id": "s33",
-        "text": "user refusal to answer",
+        "text": "insufficient source access",
         "ambiguity": {
           "is_ambiguous": false,
           "reasons": [],
@@ -725,6 +733,24 @@
       },
       {
         "span_id": "s34",
+        "text": "evidence shortage",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s35",
+        "text": "user refusal to answer",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      },
+      {
+        "span_id": "s36",
         "text": "provenance failure",
         "ambiguity": {
           "is_ambiguous": false,
@@ -733,7 +759,7 @@
         }
       },
       {
-        "span_id": "s35a",
+        "span_id": "s37a",
         "text": "Optional delegated subtasks such as source gathering or template matching may be used",
         "ambiguity": {
           "is_ambiguous": false,
@@ -744,7 +770,7 @@
         "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers"
       },
       {
-        "span_id": "s35b",
+        "span_id": "s37b",
         "text": "if bounded and the returned evidence is normalized into approved evidence carriers",
         "ambiguity": {
           "is_ambiguous": false,
@@ -759,14 +785,13 @@
       "identity": [],
       "audience": [],
       "rules": [
-        "s19",
-        "s22",
-        "s24",
-        "s25",
+        "s23",
         "s26",
         "s27",
         "s28",
-        "s35b"
+        "s29",
+        "s30",
+        "s37b"
       ],
       "domain": [
         "s1",
@@ -781,16 +806,19 @@
         "s16",
         "s17",
         "s18",
+        "s19",
         "s20",
-        "s21",
-        "s23",
-        "s29",
-        "s30",
+        "s21a",
+        "s22",
+        "s24",
+        "s25",
         "s31",
         "s32",
         "s33",
         "s34",
-        "s35a"
+        "s35",
+        "s36",
+        "s37a"
       ],
       "annotations": [
         {
@@ -1083,15 +1111,15 @@
         },
         {
           "span_id": "s19",
-          "field": "rules",
-          "semantic_role": "constraint",
-          "route_family": "constraint",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
           "source_packet_id": "p_list_item_retrieve_them_using_approved_source_recipes_maintain_provenance_for_externally_sourced_facts_when_enough_required_information_is_available",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
-          "executable": false,
+          "executable": true,
           "primary": true,
           "diagnostics": [],
           "metadata": {}
@@ -1112,12 +1140,12 @@
           "metadata": {}
         },
         {
-          "span_id": "s21",
+          "span_id": "s22",
           "field": "behavior",
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
           "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
           "source_hint_ids": [],
           "construct_target": null,
           "slot_target": null,
@@ -1127,7 +1155,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s22",
+          "span_id": "s23",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1142,7 +1170,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s23",
+          "span_id": "s24",
           "field": "behavior",
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
@@ -1157,7 +1185,22 @@
           "metadata": {}
         },
         {
-          "span_id": "s24",
+          "span_id": "s25",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s26",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1172,7 +1215,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s25",
+          "span_id": "s27",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1187,7 +1230,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s26",
+          "span_id": "s28",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1202,7 +1245,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s27",
+          "span_id": "s29",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1217,7 +1260,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s28",
+          "span_id": "s30",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -1232,7 +1275,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s29",
+          "span_id": "s31",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1247,7 +1290,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s30",
+          "span_id": "s32",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1262,7 +1305,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s31",
+          "span_id": "s33",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1277,7 +1320,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s32",
+          "span_id": "s34",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1292,7 +1335,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s33",
+          "span_id": "s35",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1307,7 +1350,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s34",
+          "span_id": "s36",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -1322,7 +1365,24 @@
           "metadata": {}
         },
         {
-          "span_id": "s35a",
+          "span_id": "s21a",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_produce_a_draft_if_the_user_asks_for_revision",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "_raw_": {}
+          }
+        },
+        {
+          "span_id": "s37a",
           "field": "behavior",
           "semantic_role": "delegation_intent",
           "route_family": "delegation_boundary",
@@ -1339,7 +1399,7 @@
           }
         },
         {
-          "span_id": "s35b",
+          "span_id": "s37b",
           "field": "rules",
           "semantic_role": "delegation_boundary_constraint",
           "route_family": "delegation_boundary",

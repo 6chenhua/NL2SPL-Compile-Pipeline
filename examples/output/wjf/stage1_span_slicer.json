@@ -1,0 +1,2804 @@
+{
+  "stage": "stage1_span_slicer",
+  "timestamp": "2026-07-25T11:21:14.097585",
+  "metadata": {},
+  "result": {
+    "source_schema": "structural_nl",
+    "raw_text_length": 3500,
+    "spans_count": 60,
+    "spans": [
+      {
+        "span_id": "s1",
+        "text": "Internal newsletters",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_internal_newsletters",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s2",
+        "text": "internal announcements",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_internal_announcements",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s3",
+        "text": "periodic update digests",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_periodic_update_digests",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s4",
+        "text": "executive briefs",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_executive_briefs",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s5",
+        "text": "other internal-facing communication materials. These materials are primarily intended for reading and use by company employees",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s6",
+        "text": "management",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_management",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s7",
+        "text": "department heads",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_department_heads",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s8",
+        "text": "other internal audiences specified by the user",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_task_family",
+        "source_packet_id": "p_list_item_other_internal_audiences_specified_by_the_user",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s9",
+        "text": "A user’s communication request",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_s_communication_request",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s10",
+        "text": "known topics",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_known_topics",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s11",
+        "text": "timeframe",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_timeframe",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s12",
+        "text": "background information",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_background_information",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s13",
+        "text": "target audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_target_audience",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s14",
+        "text": "available information sources",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_available_information_sources",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s15",
+        "text": "format preferences. The user request is a required input; all other content is optional",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s16",
+        "text": "A draft communication artifact",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_draft_communication_artifact",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s17",
+        "text": "a source/evidence set",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_source_evidence_set",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s18",
+        "text": "a record of unresolved items",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_record_of_unresolved_items",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s19",
+        "text": "a completion status for the task",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_required_outputs",
+        "source_packet_id": "p_list_item_completion_status_for_the_task",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s20",
+        "text": "Analyze the user’s request to clarify the type of communication material",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_analyze_the_user_s_request_to_clarify_the_type_of_communication_material",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s21",
+        "text": "communication purpose",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_communication_purpose",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s22",
+        "text": "target audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_target_audience_2",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s23",
+        "text": "expression requirements.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s24",
+        "text": "Check if the facts and background information needed to generate the material are available.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s25",
+        "text": "If critical information that affects content accuracy is missing ask the user necessary clarifying questions; if the information is available",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+        "guard_text_exact": "critical information that affects content accuracy is missing",
+        "action_text_exact": "ask the user necessary clarifying questions; if the information is available",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s26",
+        "text": "proceed.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s27",
+        "text": "Organize the obtained facts and background information",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s28",
+        "text": "extract core messages to be conveyed",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_extract_core_messages_to_be_conveyed",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s29",
+        "text": "structure the content based on the material type.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s30",
+        "text": "Generate a draft communication artifact and verify if it meets the user’s specified requirements for target audience",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s31",
+        "text": "tone",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_tone",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s32",
+        "text": "language",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_language",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s33",
+        "text": "length",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_length",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s34",
+        "text": "structure",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_structure",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s35",
+        "text": "format. If not",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_format_if_not",
+        "segmentation_kind": "ambiguous_boundary"
+      },
+      {
+        "span_id": "s36",
+        "text": "revise it based on the verification results.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s37",
+        "text": "Output the draft communication artifact",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s38",
+        "text": "record of unresolved items",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_record_of_unresolved_items_2",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s39",
+        "text": "completion status.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s40",
+        "text": "If the user requests revisions to the draft make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+        "guard_text_exact": "the user requests revisions to the draft",
+        "action_text_exact": "make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s41",
+        "text": "Do not fabricate facts",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_do_not_fabricate_facts",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s42",
+        "text": "data",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_data",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s43",
+        "text": "events",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_events",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s44",
+        "text": "sources that are not provided by the user or obtained from available information sources. External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information. Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions. Do not alter the meaning of the user’s original request for the sake of completeness",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_sources_that_are_not_provided_by_the_user_or_obtained_from_available_information_sources_external_facts_must_have_traceable_sources_facts_directly_provided_by_the_user_shall_be_marked_as_user_provided_information_prioritize_information_already_provided_by_the_user_to_avoid_unnecessary_information_retrieval_and_clarifying_questions_do_not_alter_the_meaning_of_the_user_s_original_request_for_the_sake_of_completeness",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s45",
+        "text": "fluency",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_fluency",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s46",
+        "text": "professionalism of expression. Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_policies",
+        "source_packet_id": "p_list_item_professionalism_of_expression_do_not_mark_the_task_as_complete_if_critical_information_is_missing_or_conflicting_instructions_remain_unresolved",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s47",
+        "text": "Missing Critical Information:",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s48",
+        "text": "If information essential to task completion is lacking inquire with the user.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+        "guard_text_exact": "information essential to task completion is lacking",
+        "action_text_exact": "inquire with the user.",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s49",
+        "text": "If such information cannot be obtained record the missing items",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained",
+        "guard_text_exact": "such information cannot be obtained",
+        "action_text_exact": "record the missing items",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s50",
+        "text": "do not generate a full draft",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_do_not_generate_a_full_draft",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s51",
+        "text": "mark the task as incomplete",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_failure_handling",
+        "source_packet_id": "p_list_item_mark_the_task_as_incomplete",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s52",
+        "text": "If the user’s requirements conflict and impede task execution document the specific conflicts.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_conflicting_instructions",
+        "source_packet_id": "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+        "guard_text_exact": "the user’s requirements conflict and impede task execution",
+        "action_text_exact": "document the specific conflicts.",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s53",
+        "text": "Do not generate a full draft and mark the task as incomplete until the conflicts are resolved",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_conflicting_instructions",
+        "source_packet_id": "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s54",
+        "text": "Where controlled components are configured and available in the system",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_where_controlled_components_are_configured_and_available_in_the_system",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s55",
+        "text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s56",
+        "text": "though delegation is not mandatory.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+        "segmentation_kind": "atomic_text_unit"
+      },
+      {
+        "span_id": "s57",
+        "text": "Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s58",
+        "text": "The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+        "segmentation_kind": "atomic_action_candidate"
+      },
+      {
+        "span_id": "s59",
+        "text": "If delegation fails or returns results beyond the authorized scope such results shall not be adopted;",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+        "guard_text_exact": "delegation fails or returns results beyond the authorized scope",
+        "action_text_exact": "such results shall not be adopted;",
+        "segmentation_kind": "guarded_action"
+      },
+      {
+        "span_id": "s60",
+        "text": "if the results are essential to task completion record unresolved items and mark the task as incomplete",
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        },
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion",
+        "guard_text_exact": "the results are essential to task completion",
+        "action_text_exact": "record unresolved items and mark the task as incomplete",
+        "segmentation_kind": "guarded_action"
+      }
+    ],
+    "stage1_segmentation_records": [
+      {
+        "span_id": "s1",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Internal newsletters",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_newsletters"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 0,
+        "char_end": 20,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s2",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "internal announcements",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_announcements"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 21,
+        "char_end": 43,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s3",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "periodic update digests",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_periodic_update_digests"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 44,
+        "char_end": 67,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s4",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "executive briefs",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_executive_briefs"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 68,
+        "char_end": 84,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s5",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "other internal-facing communication materials. These materials are primarily intended for reading and use by company employees",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 85,
+        "char_end": 211,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s6",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "management",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_management"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 212,
+        "char_end": 222,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s7",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "department heads",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_department_heads"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 223,
+        "char_end": 239,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s8",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "other internal audiences specified by the user",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_other_internal_audiences_specified_by_the_user"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 240,
+        "char_end": 286,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s9",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A user’s communication request",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_s_communication_request"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s10",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "known topics",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_known_topics"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 31,
+        "char_end": 43,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s11",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_timeframe"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 44,
+        "char_end": 53,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s12",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "background information",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_background_information"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 54,
+        "char_end": 76,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s13",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_target_audience"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 77,
+        "char_end": 92,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s14",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "available information sources",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_available_information_sources"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 93,
+        "char_end": 122,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s15",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "format preferences. The user request is a required input; all other content is optional",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 123,
+        "char_end": 210,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s16",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s17",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a source/evidence set",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_source_evidence_set"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 31,
+        "char_end": 52,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s18",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a record of unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_record_of_unresolved_items"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 53,
+        "char_end": 81,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s19",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a completion status for the task",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status_for_the_task"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 82,
+        "char_end": 114,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s20",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Analyze the user’s request to clarify the type of communication material",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_analyze_the_user_s_request_to_clarify_the_type_of_communication_material"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 0,
+        "char_end": 72,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s21",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "communication purpose",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_communication_purpose"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 73,
+        "char_end": 94,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s22",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_target_audience_2"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 95,
+        "char_end": 110,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s23",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "expression requirements.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 111,
+        "char_end": 135,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s24",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Check if the facts and background information needed to generate the material are available.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 136,
+        "char_end": 228,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s25",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If critical information that affects content accuracy is missing ask the user necessary clarifying questions; if the information is available",
+        "guard_text_exact": "critical information that affects content accuracy is missing",
+        "action_text_exact": "ask the user necessary clarifying questions; if the information is available",
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "p_list_item_ask_the_user_necessary_clarifying_questions_if_the_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 229,
+        "char_end": 370,
+        "boundary_confidence": "medium",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s26",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "proceed.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_proceed_organize_the_obtained_facts_and_background_information"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 371,
+        "char_end": 379,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s27",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Organize the obtained facts and background information",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_proceed_organize_the_obtained_facts_and_background_information"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 380,
+        "char_end": 434,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s28",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "extract core messages to be conveyed",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_extract_core_messages_to_be_conveyed"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 435,
+        "char_end": 471,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s29",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "structure the content based on the material type.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 472,
+        "char_end": 521,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s30",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Generate a draft communication artifact and verify if it meets the user’s specified requirements for target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 522,
+        "char_end": 638,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s31",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "tone",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_tone"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 639,
+        "char_end": 643,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s32",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "language",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_language"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 644,
+        "char_end": 652,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s33",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "length",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_length"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 653,
+        "char_end": 659,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s34",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "structure",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 660,
+        "char_end": 669,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s35",
+        "segmentation_kind": "ambiguous_boundary",
+        "span_text": "format. If not",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_if_not"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 670,
+        "char_end": 684,
+        "boundary_confidence": "medium",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s36",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "revise it based on the verification results.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 685,
+        "char_end": 729,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s37",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Output the draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 730,
+        "char_end": 769,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s38",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "record of unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_record_of_unresolved_items_2"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 770,
+        "char_end": 796,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s39",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "completion status.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 797,
+        "char_end": 815,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s40",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user requests revisions to the draft make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "guard_text_exact": "the user requests revisions to the draft",
+        "action_text_exact": "make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "parent_packet_ids": [
+          "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "p_list_item_make_amendments_per_the_user_s_requirements_and_recheck_compliance_of_the_revised_draft_with_relevant_criteria"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 816,
+        "char_end": 970,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s41",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not fabricate facts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_do_not_fabricate_facts"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 0,
+        "char_end": 22,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s42",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "data",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_data"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 23,
+        "char_end": 27,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s43",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "events",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_events"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 28,
+        "char_end": 34,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s44",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "sources that are not provided by the user or obtained from available information sources. External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information. Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions. Do not alter the meaning of the user’s original request for the sake of completeness",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_sources_that_are_not_provided_by_the_user_or_obtained_from_available_information_sources_external_facts_must_have_traceable_sources_facts_directly_provided_by_the_user_shall_be_marked_as_user_provided_information_prioritize_information_already_provided_by_the_user_to_avoid_unnecessary_information_retrieval_and_clarifying_questions_do_not_alter_the_meaning_of_the_user_s_original_request_for_the_sake_of_completeness"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 35,
+        "char_end": 456,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s45",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "fluency",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_fluency"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 457,
+        "char_end": 464,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s46",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "professionalism of expression. Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_professionalism_of_expression_do_not_mark_the_task_as_complete_if_critical_information_is_missing_or_conflicting_instructions_remain_unresolved"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 465,
+        "char_end": 609,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s47",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Missing Critical Information:",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 0,
+        "char_end": 29,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s48",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If information essential to task completion is lacking inquire with the user.",
+        "guard_text_exact": "information essential to task completion is lacking",
+        "action_text_exact": "inquire with the user.",
+        "parent_packet_ids": [
+          "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 30,
+        "char_end": 107,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s49",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If such information cannot be obtained record the missing items",
+        "guard_text_exact": "such information cannot be obtained",
+        "action_text_exact": "record the missing items",
+        "parent_packet_ids": [
+          "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained",
+          "p_list_item_record_the_missing_items"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 108,
+        "char_end": 171,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s50",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "do not generate a full draft",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_do_not_generate_a_full_draft"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 172,
+        "char_end": 200,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s51",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "mark the task as incomplete",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_mark_the_task_as_incomplete"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 201,
+        "char_end": 228,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s52",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user’s requirements conflict and impede task execution document the specific conflicts.",
+        "guard_text_exact": "the user’s requirements conflict and impede task execution",
+        "action_text_exact": "document the specific conflicts.",
+        "parent_packet_ids": [
+          "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+          "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved"
+        ],
+        "source_section_id": "sec_conflicting_instructions",
+        "char_start": 0,
+        "char_end": 94,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s53",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not generate a full draft and mark the task as incomplete until the conflicts are resolved",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved"
+        ],
+        "source_section_id": "sec_conflicting_instructions",
+        "char_start": 95,
+        "char_end": 188,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s54",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Where controlled components are configured and available in the system",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_where_controlled_components_are_configured_and_available_in_the_system"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 0,
+        "char_end": 70,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s55",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 71,
+        "char_end": 170,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s56",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "though delegation is not mandatory.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 171,
+        "char_end": 206,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s57",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 207,
+        "char_end": 314,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s58",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 315,
+        "char_end": 438,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s59",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If delegation fails or returns results beyond the authorized scope such results shall not be adopted;",
+        "guard_text_exact": "delegation fails or returns results beyond the authorized scope",
+        "action_text_exact": "such results shall not be adopted;",
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 439,
+        "char_end": 540,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s60",
+        "segmentation_kind": "guarded_action",
+        "span_text": "if the results are essential to task completion record unresolved items and mark the task as incomplete",
+        "guard_text_exact": "the results are essential to task completion",
+        "action_text_exact": "record unresolved items and mark the task as incomplete",
+        "parent_packet_ids": [
+          "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion",
+          "p_list_item_record_unresolved_items_and_mark_the_task_as_incomplete"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 541,
+        "char_end": 644,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      }
+    ],
+    "span_segmentation_records": [
+      {
+        "span_id": "s1",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Internal newsletters",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_newsletters"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 0,
+        "char_end": 20,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s2",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "internal announcements",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_internal_announcements"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 21,
+        "char_end": 43,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s3",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "periodic update digests",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_periodic_update_digests"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 44,
+        "char_end": 67,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s4",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "executive briefs",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_executive_briefs"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 68,
+        "char_end": 84,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s5",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "other internal-facing communication materials. These materials are primarily intended for reading and use by company employees",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 85,
+        "char_end": 211,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s6",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "management",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_management"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 212,
+        "char_end": 222,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s7",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "department heads",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_department_heads"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 223,
+        "char_end": 239,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s8",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "other internal audiences specified by the user",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_other_internal_audiences_specified_by_the_user"
+        ],
+        "source_section_id": "sec_task_family",
+        "char_start": 240,
+        "char_end": 286,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s9",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A user’s communication request",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_user_s_communication_request"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s10",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "known topics",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_known_topics"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 31,
+        "char_end": 43,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s11",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "timeframe",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_timeframe"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 44,
+        "char_end": 53,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s12",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "background information",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_background_information"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 54,
+        "char_end": 76,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s13",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_target_audience"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 77,
+        "char_end": 92,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s14",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "available information sources",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_available_information_sources"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 93,
+        "char_end": 122,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s15",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "format preferences. The user request is a required input; all other content is optional",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "char_start": 123,
+        "char_end": 210,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s16",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "A draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 0,
+        "char_end": 30,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s17",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a source/evidence set",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_source_evidence_set"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 31,
+        "char_end": 52,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s18",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a record of unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_record_of_unresolved_items"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 53,
+        "char_end": 81,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s19",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "a completion status for the task",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status_for_the_task"
+        ],
+        "source_section_id": "sec_required_outputs",
+        "char_start": 82,
+        "char_end": 114,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s20",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Analyze the user’s request to clarify the type of communication material",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_analyze_the_user_s_request_to_clarify_the_type_of_communication_material"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 0,
+        "char_end": 72,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s21",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "communication purpose",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_communication_purpose"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 73,
+        "char_end": 94,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s22",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_target_audience_2"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 95,
+        "char_end": 110,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s23",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "expression requirements.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 111,
+        "char_end": 135,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s24",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Check if the facts and background information needed to generate the material are available.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 136,
+        "char_end": 228,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s25",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If critical information that affects content accuracy is missing ask the user necessary clarifying questions; if the information is available",
+        "guard_text_exact": "critical information that affects content accuracy is missing",
+        "action_text_exact": "ask the user necessary clarifying questions; if the information is available",
+        "parent_packet_ids": [
+          "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "p_list_item_ask_the_user_necessary_clarifying_questions_if_the_information_is_available"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 229,
+        "char_end": 370,
+        "boundary_confidence": "medium",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s26",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "proceed.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_proceed_organize_the_obtained_facts_and_background_information"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 371,
+        "char_end": 379,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s27",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Organize the obtained facts and background information",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_proceed_organize_the_obtained_facts_and_background_information"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 380,
+        "char_end": 434,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s28",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "extract core messages to be conveyed",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_extract_core_messages_to_be_conveyed"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 435,
+        "char_end": 471,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s29",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "structure the content based on the material type.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 472,
+        "char_end": 521,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s30",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Generate a draft communication artifact and verify if it meets the user’s specified requirements for target audience",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 522,
+        "char_end": 638,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s31",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "tone",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_tone"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 639,
+        "char_end": 643,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s32",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "language",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_language"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 644,
+        "char_end": 652,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s33",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "length",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_length"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 653,
+        "char_end": 659,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s34",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "structure",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_structure"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 660,
+        "char_end": 669,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s35",
+        "segmentation_kind": "ambiguous_boundary",
+        "span_text": "format. If not",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_format_if_not"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 670,
+        "char_end": 684,
+        "boundary_confidence": "medium",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s36",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "revise it based on the verification results.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 685,
+        "char_end": 729,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s37",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Output the draft communication artifact",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 730,
+        "char_end": 769,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s38",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "record of unresolved items",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_record_of_unresolved_items_2"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 770,
+        "char_end": 796,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s39",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "completion status.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 797,
+        "char_end": 815,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s40",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user requests revisions to the draft make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "guard_text_exact": "the user requests revisions to the draft",
+        "action_text_exact": "make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "parent_packet_ids": [
+          "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "p_list_item_make_amendments_per_the_user_s_requirements_and_recheck_compliance_of_the_revised_draft_with_relevant_criteria"
+        ],
+        "source_section_id": "sec_reusable_process",
+        "char_start": 816,
+        "char_end": 970,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s41",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not fabricate facts",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_do_not_fabricate_facts"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 0,
+        "char_end": 22,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s42",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "data",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_data"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 23,
+        "char_end": 27,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s43",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "events",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_events"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 28,
+        "char_end": 34,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s44",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "sources that are not provided by the user or obtained from available information sources. External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information. Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions. Do not alter the meaning of the user’s original request for the sake of completeness",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_sources_that_are_not_provided_by_the_user_or_obtained_from_available_information_sources_external_facts_must_have_traceable_sources_facts_directly_provided_by_the_user_shall_be_marked_as_user_provided_information_prioritize_information_already_provided_by_the_user_to_avoid_unnecessary_information_retrieval_and_clarifying_questions_do_not_alter_the_meaning_of_the_user_s_original_request_for_the_sake_of_completeness"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 35,
+        "char_end": 456,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s45",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "fluency",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_fluency"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 457,
+        "char_end": 464,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s46",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "professionalism of expression. Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_professionalism_of_expression_do_not_mark_the_task_as_complete_if_critical_information_is_missing_or_conflicting_instructions_remain_unresolved"
+        ],
+        "source_section_id": "sec_policies",
+        "char_start": 465,
+        "char_end": 609,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s47",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Missing Critical Information:",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 0,
+        "char_end": 29,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s48",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If information essential to task completion is lacking inquire with the user.",
+        "guard_text_exact": "information essential to task completion is lacking",
+        "action_text_exact": "inquire with the user.",
+        "parent_packet_ids": [
+          "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 30,
+        "char_end": 107,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s49",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If such information cannot be obtained record the missing items",
+        "guard_text_exact": "such information cannot be obtained",
+        "action_text_exact": "record the missing items",
+        "parent_packet_ids": [
+          "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained",
+          "p_list_item_record_the_missing_items"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 108,
+        "char_end": 171,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s50",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "do not generate a full draft",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_do_not_generate_a_full_draft"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 172,
+        "char_end": 200,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s51",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "mark the task as incomplete",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_mark_the_task_as_incomplete"
+        ],
+        "source_section_id": "sec_failure_handling",
+        "char_start": 201,
+        "char_end": 228,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s52",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If the user’s requirements conflict and impede task execution document the specific conflicts.",
+        "guard_text_exact": "the user’s requirements conflict and impede task execution",
+        "action_text_exact": "document the specific conflicts.",
+        "parent_packet_ids": [
+          "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+          "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved"
+        ],
+        "source_section_id": "sec_conflicting_instructions",
+        "char_start": 0,
+        "char_end": 94,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s53",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Do not generate a full draft and mark the task as incomplete until the conflicts are resolved",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved"
+        ],
+        "source_section_id": "sec_conflicting_instructions",
+        "char_start": 95,
+        "char_end": 188,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s54",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "Where controlled components are configured and available in the system",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_where_controlled_components_are_configured_and_available_in_the_system"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 0,
+        "char_end": 70,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s55",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 71,
+        "char_end": 170,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s56",
+        "segmentation_kind": "atomic_text_unit",
+        "span_text": "though delegation is not mandatory.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 171,
+        "char_end": 206,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s57",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 207,
+        "char_end": 314,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s58",
+        "segmentation_kind": "atomic_action_candidate",
+        "span_text": "The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.",
+        "guard_text_exact": null,
+        "action_text_exact": null,
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 315,
+        "char_end": 438,
+        "boundary_confidence": "high",
+        "continuation_repaired": false,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s59",
+        "segmentation_kind": "guarded_action",
+        "span_text": "If delegation fails or returns results beyond the authorized scope such results shall not be adopted;",
+        "guard_text_exact": "delegation fails or returns results beyond the authorized scope",
+        "action_text_exact": "such results shall not be adopted;",
+        "parent_packet_ids": [
+          "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 439,
+        "char_end": 540,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      },
+      {
+        "span_id": "s60",
+        "segmentation_kind": "guarded_action",
+        "span_text": "if the results are essential to task completion record unresolved items and mark the task as incomplete",
+        "guard_text_exact": "the results are essential to task completion",
+        "action_text_exact": "record unresolved items and mark the task as incomplete",
+        "parent_packet_ids": [
+          "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion",
+          "p_list_item_record_unresolved_items_and_mark_the_task_as_incomplete"
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "char_start": 541,
+        "char_end": 644,
+        "boundary_confidence": "high",
+        "continuation_repaired": true,
+        "validation_status": "validated",
+        "metadata": {}
+      }
+    ]
+  }
+}

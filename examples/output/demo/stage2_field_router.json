@@ -1,19 +1,19 @@
 {
   "stage": "stage2_field_router",
-  "timestamp": "2026-07-08T01:20:02.553235",
+  "timestamp": "2026-07-10T00:08:23.062345",
   "metadata": {},
   "result": {
     "routes": {
       "identity": [],
       "audience": [],
       "rules": [
-        "s22",
-        "s24",
-        "s25",
+        "s23",
         "s26",
         "s27",
         "s28",
-        "s35"
+        "s29",
+        "s30",
+        "s37"
       ],
       "domain": [
         "s1",
@@ -31,7 +31,9 @@
         "s19",
         "s20",
         "s21",
-        "s23"
+        "s22",
+        "s24",
+        "s25"
       ],
       "annotations": [
         {
@@ -369,21 +371,6 @@
         },
         {
           "span_id": "s22",
-          "field": "rules",
-          "semantic_role": "constraint",
-          "route_family": "constraint",
-          "source_section_id": "sec_reusable_process",
-          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
-          "source_hint_ids": [],
-          "construct_target": null,
-          "slot_target": null,
-          "executable": false,
-          "primary": true,
-          "diagnostics": [],
-          "metadata": {}
-        },
-        {
-          "span_id": "s23",
           "field": "behavior",
           "semantic_role": "process_step",
           "route_family": "flow_relevant",
@@ -398,7 +385,52 @@
           "metadata": {}
         },
         {
+          "span_id": "s23",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
           "span_id": "s24",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s25",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s26",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -413,7 +445,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s25",
+          "span_id": "s27",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -428,7 +460,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s26",
+          "span_id": "s28",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -443,7 +475,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s27",
+          "span_id": "s29",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -458,7 +490,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s28",
+          "span_id": "s30",
           "field": "rules",
           "semantic_role": "constraint",
           "route_family": "constraint",
@@ -473,7 +505,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s29",
+          "span_id": "s31",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -488,7 +520,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s30",
+          "span_id": "s32",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -503,7 +535,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s31",
+          "span_id": "s33",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -518,7 +550,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s32",
+          "span_id": "s34",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -533,7 +565,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s33",
+          "span_id": "s35",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -548,7 +580,7 @@
           "metadata": {}
         },
         {
-          "span_id": "s34",
+          "span_id": "s36",
           "field": "behavior",
           "semantic_role": "failure_mode",
           "route_family": "flow_relevant",
@@ -563,7 +595,22 @@
           "metadata": {}
         },
         {
-          "span_id": "s35",
+          "span_id": "s37",
+          "field": "behavior",
+          "semantic_role": "delegation_intent",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
+          "source_hint_ids": [],
+          "construct_target": "WORKER_HANDOFF",
+          "slot_target": "target",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s37",
           "field": "rules",
           "semantic_role": "delegation_boundary_constraint",
           "route_family": "delegation_boundary",
@@ -573,7 +620,7 @@
           "construct_target": "CONSTRAINT",
           "slot_target": "boundary",
           "executable": false,
-          "primary": true,
+          "primary": false,
           "diagnostics": [],
           "metadata": {}
         }
@@ -949,6 +996,38 @@
         },
         {
           "span_id": "s24",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_while_re_checking_constraints_do_not_finalize_if_required_slots_remain_missing_unless_the_draft_is_explicitly_marked_as_assumption_bearing_and_the_user_confirms_at_the_end",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s25",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_a_short_assumptions_log_for_any_unresolved_items_and_set_a_completion_status_for_the_run",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s26",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_do_not_invent_links_or_unseen_facts",
@@ -964,7 +1043,7 @@
           }
         },
         {
-          "span_id": "s25",
+          "span_id": "s27",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_require_evidence_for_sourced_claims",
@@ -980,7 +1059,7 @@
           }
         },
         {
-          "span_id": "s26",
+          "span_id": "s28",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_limit_questions_per_turn",
@@ -996,7 +1075,7 @@
           }
         },
         {
-          "span_id": "s27",
+          "span_id": "s29",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_prefer_tool_evidence_over_unnecessary_user_questioning",
@@ -1012,7 +1091,7 @@
           }
         },
         {
-          "span_id": "s28",
+          "span_id": "s30",
           "suggested_field": "rules",
           "source_section_id": "sec_policies",
           "source_packet_id": "p_sentence_deny_finalization_if_critical_slots_are_missing_or_provenance_fails",
@@ -1028,7 +1107,7 @@
           }
         },
         {
-          "span_id": "s29",
+          "span_id": "s31",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_missing_timeframe",
@@ -1044,7 +1123,7 @@
           }
         },
         {
-          "span_id": "s30",
+          "span_id": "s32",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_conflicting_instructions",
@@ -1060,7 +1139,7 @@
           }
         },
         {
-          "span_id": "s31",
+          "span_id": "s33",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_insufficient_source_access",
@@ -1076,7 +1155,7 @@
           }
         },
         {
-          "span_id": "s32",
+          "span_id": "s34",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_evidence_shortage",
@@ -1092,7 +1171,7 @@
           }
         },
         {
-          "span_id": "s33",
+          "span_id": "s35",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_user_refusal_to_answer",
@@ -1108,7 +1187,7 @@
           }
         },
         {
-          "span_id": "s34",
+          "span_id": "s36",
           "suggested_field": "behavior",
           "source_section_id": "sec_failure_handling",
           "source_packet_id": "p_list_item_provenance_failure",
@@ -1124,7 +1203,7 @@
           }
         },
         {
-          "span_id": "s35",
+          "span_id": "s37",
           "suggested_field": "behavior",
           "source_section_id": "sec_delegation_policy",
           "source_packet_id": "p_sentence_delegated_subtasks_such_as_source_gathering_or_template_matching_may_be_used_if_bounded_and_the_returned_evidence_is_normalized_into_approved_evidence_carriers",
@@ -1141,60 +1220,161 @@
         }
       ],
       "route_diagnostics": [
-        "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
+        "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a process step, but the text is a constraint on finalization.",
+        "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a policy/rule, mapped to constraint based on imperative prohibition wording.",
+        "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a policy/rule, mapped to constraint based on requirement wording.",
+        "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a policy/rule, mapped to constraint based on a limiting rule.",
+        "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a policy/rule, mapped to constraint based on preference/limitation wording.",
+        "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a policy/rule, mapped to constraint because it prohibits finalization under stated conditions.",
+        "LLM route diagnostic [mixed_delegation_semantics] span='s37': Delegation permission and delegation conditions are mixed; emitted multi-label annotations."
       ],
       "structured_route_diagnostics": [
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
+          "message": "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a process step, but the text is a constraint on finalization."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
+          "message": "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a policy/rule, mapped to constraint based on imperative prohibition wording."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
+          "message": "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a policy/rule, mapped to constraint based on requirement wording."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
+          "message": "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a policy/rule, mapped to constraint based on a limiting rule."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain."
+          "message": "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a policy/rule, mapped to constraint based on preference/limitation wording."
         },
         {
           "span_id": "",
           "kind": "route_refinement_diagnostic",
-          "message": "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
+          "message": "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a policy/rule, mapped to constraint because it prohibits finalization under stated conditions."
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [mixed_delegation_semantics] span='s37': Delegation permission and delegation conditions are mixed; emitted multi-label annotations."
+        },
+        {
+          "span_id": "s21",
+          "kind": "route_refinement_split",
+          "message": "Split recommended for s21: The span is truncated but still expresses a revision process step; no separate semantic target is clearly recoverable."
+        },
+        {
+          "span_id": "s37",
+          "kind": "route_refinement_split",
+          "message": "Split recommended for s37: The span mixes delegation permission with conditions on delegation use and evidence normalization."
         }
       ]
     },
-    "ambiguity_updates": [],
+    "ambiguity_updates": [
+      {
+        "span_id": "s21",
+        "is_ambiguous": true,
+        "reasons": [
+          "The span is truncated but still expresses a revision process step; no separate semantic target is clearly recoverable."
+        ],
+        "needs_split": true,
+        "split_recommendation": {
+          "parent_span_id": "s21",
+          "reason": "The span is truncated but still expresses a revision process step; no separate semantic target is clearly recoverable.",
+          "segments": [
+            {
+              "text": "If the user asks for revision revise while re",
+              "semantic_role": "process_step",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        }
+      },
+      {
+        "span_id": "s37",
+        "is_ambiguous": true,
+        "reasons": [
+          "The span mixes delegation permission with conditions on delegation use and evidence normalization."
+        ],
+        "needs_split": true,
+        "split_recommendation": {
+          "parent_span_id": "s37",
+          "reason": "The span mixes delegation permission with conditions on delegation use and evidence normalization.",
+          "segments": [
+            {
+              "text": "Optional delegated subtasks such as source gathering or template matching may be used",
+              "semantic_role": "delegation_intent",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            },
+            {
+              "text": "if bounded and the returned evidence is normalized into approved evidence carriers",
+              "semantic_role": "delegation_boundary_constraint",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        }
+      }
+    ],
     "overlaps": [],
     "adapter_consumed_spans": [],
     "llm_refinement": {
       "used": true,
       "route_diagnostics": [
-        "LLM route diagnostic [override_prior] span='s1': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s2': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s3': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s4': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s5': Structural prior suggested domain, but the span is a task-family label and is better classified as profile_domain.",
-        "LLM route diagnostic [override_prior] span='s35': Structural prior suggested delegation_intent, but the text states a condition on delegated subtasks rather than a generic intent."
+        "LLM route diagnostic [prior_overridden] span='s23': Structural prior suggested a process step, but the text is a constraint on finalization.",
+        "LLM route diagnostic [prior_overridden] span='s26': Structural prior suggested a policy/rule, mapped to constraint based on imperative prohibition wording.",
+        "LLM route diagnostic [prior_overridden] span='s27': Structural prior suggested a policy/rule, mapped to constraint based on requirement wording.",
+        "LLM route diagnostic [prior_overridden] span='s28': Structural prior suggested a policy/rule, mapped to constraint based on a limiting rule.",
+        "LLM route diagnostic [prior_overridden] span='s29': Structural prior suggested a policy/rule, mapped to constraint based on preference/limitation wording.",
+        "LLM route diagnostic [prior_overridden] span='s30': Structural prior suggested a policy/rule, mapped to constraint because it prohibits finalization under stated conditions.",
+        "LLM route diagnostic [mixed_delegation_semantics] span='s37': Delegation permission and delegation conditions are mixed; emitted multi-label annotations."
       ],
-      "split_recommendations": []
+      "split_recommendations": [
+        {
+          "parent_span_id": "s21",
+          "reason": "The span is truncated but still expresses a revision process step; no separate semantic target is clearly recoverable.",
+          "segments": [
+            {
+              "text": "If the user asks for revision revise while re",
+              "semantic_role": "process_step",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        },
+        {
+          "parent_span_id": "s37",
+          "reason": "The span mixes delegation permission with conditions on delegation use and evidence normalization.",
+          "segments": [
+            {
+              "text": "Optional delegated subtasks such as source gathering or template matching may be used",
+              "semantic_role": "delegation_intent",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            },
+            {
+              "text": "if bounded and the returned evidence is normalized into approved evidence carriers",
+              "semantic_role": "delegation_boundary_constraint",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        }
+      ]
     }
   }
 }

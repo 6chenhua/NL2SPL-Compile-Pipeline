@@ -1,0 +1,59 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-07-25T11:21:46.012940",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [
+          "s20",
+          "s21",
+          "s22",
+          "s23",
+          "s24",
+          "s27",
+          "s28",
+          "s29",
+          "s30",
+          "s31",
+          "s32",
+          "s33",
+          "s34",
+          "s35",
+          "s36",
+          "s58"
+        ],
+        "alternative_flows": [
+          {
+            "flow_id": "alt_1",
+            "condition_text": "if the user requests revisions to the draft",
+            "spans": [
+              "s40"
+            ]
+          }
+        ],
+        "exception_flows": [
+          {
+            "flow_id": "exc_adapter_00",
+            "condition_text": "If the user’s requirements conflict and impede task execution",
+            "spans": [
+              "s52a"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_01",
+            "condition_text": "Missing Critical Information:",
+            "spans": [
+              "s47"
+            ]
+          }
+        ],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": [
+      "ConstructPlan: cannot enforce ownership for exc_demand_03; condition spans have owners [].",
+      "ConstructPlan: condition span s47 for exc_demand_03 has unowned; attached to main worker worker_main."
+    ]
+  }
+}

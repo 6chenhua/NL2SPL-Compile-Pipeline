@@ -1,0 +1,912 @@
+{
+  "stage": "executable_action_placement_plan",
+  "timestamp": "2026-07-25T11:21:43.599374",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "action_s20",
+        "source_span_ids": [
+          "s20"
+        ],
+        "action_text": "Analyze the user’s request to clarify the type of communication material",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s21",
+        "source_span_ids": [
+          "s21"
+        ],
+        "action_text": "communication purpose",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s22",
+        "source_span_ids": [
+          "s22"
+        ],
+        "action_text": "target audience",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s23",
+        "source_span_ids": [
+          "s23"
+        ],
+        "action_text": "expression requirements.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s24",
+        "source_span_ids": [
+          "s24"
+        ],
+        "action_text": "Check if the facts and background information needed to generate the material are available.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s25",
+        "source_span_ids": [
+          "s25"
+        ],
+        "action_text": "ask the user necessary clarifying questions; if the information is available",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "critical information that affects content accuracy is missing"
+      },
+      {
+        "candidate_id": "action_s26",
+        "source_span_ids": [
+          "s26"
+        ],
+        "action_text": "proceed.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s27",
+        "source_span_ids": [
+          "s27"
+        ],
+        "action_text": "Organize the obtained facts and background information",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s28",
+        "source_span_ids": [
+          "s28"
+        ],
+        "action_text": "extract core messages to be conveyed",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s29",
+        "source_span_ids": [
+          "s29"
+        ],
+        "action_text": "structure the content based on the material type.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s30",
+        "source_span_ids": [
+          "s30"
+        ],
+        "action_text": "Generate a draft communication artifact and verify if it meets the user’s specified requirements for target audience",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s31",
+        "source_span_ids": [
+          "s31"
+        ],
+        "action_text": "tone",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s32",
+        "source_span_ids": [
+          "s32"
+        ],
+        "action_text": "language",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s33",
+        "source_span_ids": [
+          "s33"
+        ],
+        "action_text": "length",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s34",
+        "source_span_ids": [
+          "s34"
+        ],
+        "action_text": "structure",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s35",
+        "source_span_ids": [
+          "s35"
+        ],
+        "action_text": "format. If not",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s36",
+        "source_span_ids": [
+          "s36"
+        ],
+        "action_text": "revise it based on the verification results.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s37",
+        "source_span_ids": [
+          "s37"
+        ],
+        "action_text": "Output the draft communication artifact",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s40",
+        "source_span_ids": [
+          "s40"
+        ],
+        "action_text": "make amendments per the user’s requirements and recheck compliance of the revised draft with relevant criteria",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "the user requests revisions to the draft"
+      },
+      {
+        "candidate_id": "action_s48",
+        "source_span_ids": [
+          "s48"
+        ],
+        "action_text": "inquire with the user.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "information essential to task completion is lacking"
+      },
+      {
+        "candidate_id": "action_s51",
+        "source_span_ids": [
+          "s51"
+        ],
+        "action_text": "mark the task as incomplete",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s52b",
+        "source_span_ids": [
+          "s52b"
+        ],
+        "action_text": "document the specific conflicts.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s53",
+        "source_span_ids": [
+          "s53"
+        ],
+        "action_text": "Do not generate a full draft and mark the task as incomplete until the conflicts are resolved",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s58",
+        "source_span_ids": [
+          "s58"
+        ],
+        "action_text": "The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s60",
+        "source_span_ids": [
+          "s60"
+        ],
+        "action_text": "record unresolved items and mark the task as incomplete",
+        "source": "stage1_action_segmentation",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": "the results are essential to task completion"
+      },
+      {
+        "candidate_id": "action_s1",
+        "source_span_ids": [
+          "s1"
+        ],
+        "action_text": "Internal newsletters",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s2",
+        "source_span_ids": [
+          "s2"
+        ],
+        "action_text": "internal announcements",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s3",
+        "source_span_ids": [
+          "s3"
+        ],
+        "action_text": "periodic update digests",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s4",
+        "source_span_ids": [
+          "s4"
+        ],
+        "action_text": "executive briefs",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s5",
+        "source_span_ids": [
+          "s5"
+        ],
+        "action_text": "other internal-facing communication materials. These materials are primarily intended for reading and use by company employees",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s6",
+        "source_span_ids": [
+          "s6"
+        ],
+        "action_text": "management",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s7",
+        "source_span_ids": [
+          "s7"
+        ],
+        "action_text": "department heads",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s8",
+        "source_span_ids": [
+          "s8"
+        ],
+        "action_text": "other internal audiences specified by the user",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s9",
+        "source_span_ids": [
+          "s9"
+        ],
+        "action_text": "A user’s communication request",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s10",
+        "source_span_ids": [
+          "s10"
+        ],
+        "action_text": "known topics",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s11",
+        "source_span_ids": [
+          "s11"
+        ],
+        "action_text": "timeframe",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s12",
+        "source_span_ids": [
+          "s12"
+        ],
+        "action_text": "background information",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s13",
+        "source_span_ids": [
+          "s13"
+        ],
+        "action_text": "target audience",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s14",
+        "source_span_ids": [
+          "s14"
+        ],
+        "action_text": "available information sources",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s15",
+        "source_span_ids": [
+          "s15"
+        ],
+        "action_text": "format preferences. The user request is a required input; all other content is optional",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s16",
+        "source_span_ids": [
+          "s16"
+        ],
+        "action_text": "A draft communication artifact",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s17",
+        "source_span_ids": [
+          "s17"
+        ],
+        "action_text": "a source/evidence set",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s18",
+        "source_span_ids": [
+          "s18"
+        ],
+        "action_text": "a record of unresolved items",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s19",
+        "source_span_ids": [
+          "s19"
+        ],
+        "action_text": "a completion status for the task",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s38",
+        "source_span_ids": [
+          "s38"
+        ],
+        "action_text": "record of unresolved items",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s39",
+        "source_span_ids": [
+          "s39"
+        ],
+        "action_text": "completion status.",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "required_output_or_input_declaration",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s42",
+        "source_span_ids": [
+          "s42"
+        ],
+        "action_text": "data",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s43",
+        "source_span_ids": [
+          "s43"
+        ],
+        "action_text": "events",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s45",
+        "source_span_ids": [
+          "s45"
+        ],
+        "action_text": "fluency",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "persona_profile_or_concept",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s47",
+        "source_span_ids": [
+          "s47"
+        ],
+        "action_text": "Missing Critical Information:",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s54",
+        "source_span_ids": [
+          "s54"
+        ],
+        "action_text": "Where controlled components are configured and available in the system",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "route_non_executable",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s55",
+        "source_span_ids": [
+          "s55"
+        ],
+        "action_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "route_non_executable",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s52a",
+        "source_span_ids": [
+          "s52a"
+        ],
+        "action_text": "If the user’s requirements conflict and impede task execution",
+        "source": "route_executable_role",
+        "status": "rejected_non_executable",
+        "reason": "failure_condition_only",
+        "command_type_hint": null,
+        "guard_text": null
+      }
+    ],
+    "placements": [
+      {
+        "candidate_id": "action_s20",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s21",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s22",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s23",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s24",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s25",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s26",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s27",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s28",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s29",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s30",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s31",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s32",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s33",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s34",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s35",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s36",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s37",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s40",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s48",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s51",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s52b",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s53",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s58",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s60",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      }
+    ],
+    "worker_actions": [
+      {
+        "worker_id": "worker_main",
+        "placement_span_ids": [
+          "s20",
+          "s21",
+          "s22",
+          "s23",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30",
+          "s31",
+          "s32",
+          "s33",
+          "s34",
+          "s35",
+          "s36",
+          "s37",
+          "s40",
+          "s48",
+          "s51",
+          "s52b",
+          "s53",
+          "s58",
+          "s60"
+        ],
+        "generic_step_extraction_span_ids": [
+          "s20",
+          "s21",
+          "s22",
+          "s23",
+          "s24",
+          "s25",
+          "s26",
+          "s27",
+          "s28",
+          "s29",
+          "s30",
+          "s31",
+          "s32",
+          "s33",
+          "s34",
+          "s35",
+          "s36",
+          "s37",
+          "s40",
+          "s48",
+          "s51",
+          "s52b",
+          "s53",
+          "s58",
+          "s60"
+        ],
+        "materialization_exclusions": []
+      }
+    ],
+    "diagnostics": [],
+    "audit": {
+      "total_candidates": 53,
+      "source": "stage1/routes/construct_plan"
+    }
+  }
+}

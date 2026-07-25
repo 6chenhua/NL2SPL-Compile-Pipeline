@@ -1,0 +1,129 @@
+{
+  "stage": "control_region_plan",
+  "timestamp": "2026-07-25T11:21:46.017257",
+  "metadata": {},
+  "result": {
+    "regions": [
+      {
+        "region_id": "cr_local_if_s25",
+        "region_kind": "local_if",
+        "condition_text": "critical information that affects content accuracy is missing",
+        "action_span_ids": [
+          "s25"
+        ],
+        "condition_source_span_ids": [
+          "s25"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_guarded_action",
+        "status": "validated",
+        "reason": null,
+        "relation": "direct",
+        "classification_source": "stage1_guarded_action",
+        "confidence": "high",
+        "notes": []
+      },
+      {
+        "region_id": "cr_top_alt_s40",
+        "region_kind": "top_level_alternative",
+        "condition_text": "the user requests revisions to the draft",
+        "action_span_ids": [
+          "s40"
+        ],
+        "condition_source_span_ids": [
+          "s40"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage4_llm_classified",
+        "status": "validated",
+        "reason": null,
+        "relation": "direct",
+        "classification_source": "stage4_llm_classified",
+        "confidence": "high",
+        "notes": [
+          "stage4_alternative_flow_preserved"
+        ]
+      },
+      {
+        "region_id": "cr_local_if_s48",
+        "region_kind": "local_if",
+        "condition_text": "information essential to task completion is lacking",
+        "action_span_ids": [
+          "s48"
+        ],
+        "condition_source_span_ids": [
+          "s48"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_guarded_action",
+        "status": "validated",
+        "reason": null,
+        "relation": "direct",
+        "classification_source": "stage1_guarded_action",
+        "confidence": "high",
+        "notes": []
+      },
+      {
+        "region_id": "cr_local_if_s60",
+        "region_kind": "local_if",
+        "condition_text": "the results are essential to task completion",
+        "action_span_ids": [
+          "s60"
+        ],
+        "condition_source_span_ids": [
+          "s60"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_guarded_action",
+        "status": "validated",
+        "reason": null,
+        "relation": "direct",
+        "classification_source": "stage1_guarded_action",
+        "confidence": "high",
+        "notes": []
+      },
+      {
+        "region_id": "cr_local_if_s35_s36",
+        "region_kind": "local_if",
+        "condition_text": "not",
+        "action_span_ids": [
+          "s36"
+        ],
+        "condition_source_span_ids": [
+          "s35"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_cross_packet_guard_repair",
+        "status": "validated",
+        "reason": "guard_tail_precedes_accepted_action",
+        "relation": "derived",
+        "classification_source": "deterministic_evidence",
+        "confidence": "medium",
+        "notes": []
+      },
+      {
+        "region_id": "cr_local_if_s52a_s52b",
+        "region_kind": "local_if",
+        "condition_text": "the user’s requirements conflict and impede task execution",
+        "action_span_ids": [
+          "s52b"
+        ],
+        "condition_source_span_ids": [
+          "s52a"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_cross_packet_guard_repair",
+        "status": "validated",
+        "reason": "guard_tail_precedes_accepted_action",
+        "relation": "derived",
+        "classification_source": "deterministic_evidence",
+        "confidence": "medium",
+        "notes": []
+      }
+    ],
+    "diagnostics": [
+      "guarded_action_not_executable:s49",
+      "guarded_action_not_executable:s59"
+    ]
+  }
+}

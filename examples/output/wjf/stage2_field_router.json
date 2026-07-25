@@ -1,0 +1,2076 @@
+{
+  "stage": "stage2_field_router",
+  "timestamp": "2026-07-25T11:21:28.054276",
+  "metadata": {},
+  "result": {
+    "routes": {
+      "identity": [],
+      "audience": [],
+      "rules": [
+        "s41",
+        "s44",
+        "s46",
+        "s56",
+        "s57",
+        "s59"
+      ],
+      "domain": [
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+        "s7",
+        "s8",
+        "s42",
+        "s43",
+        "s45"
+      ],
+      "integrations": [],
+      "behavior": [
+        "s20",
+        "s21",
+        "s22",
+        "s23",
+        "s24",
+        "s25",
+        "s26",
+        "s27",
+        "s28",
+        "s29",
+        "s30",
+        "s31",
+        "s32",
+        "s33",
+        "s34",
+        "s35",
+        "s36",
+        "s40",
+        "s48",
+        "s51",
+        "s52",
+        "s53",
+        "s58",
+        "s60"
+      ],
+      "annotations": [
+        {
+          "span_id": "s1",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_internal_newsletters",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s2",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_internal_announcements",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s3",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_periodic_update_digests",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s4",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_executive_briefs",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s5",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s6",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_management",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s7",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_department_heads",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s8",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_other_internal_audiences_specified_by_the_user",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s9",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_user_s_communication_request",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s10",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_known_topics",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s11",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_timeframe",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s12",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_background_information",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s13",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_target_audience",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s14",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_available_information_sources",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s15",
+          "field": "resources",
+          "semantic_role": "input_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "input",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s16",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_draft_communication_artifact",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s17",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_source_evidence_set",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s18",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_record_of_unresolved_items",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s19",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_completion_status_for_the_task",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {
+            "requiredness": "required"
+          }
+        },
+        {
+          "span_id": "s20",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_analyze_the_user_s_request_to_clarify_the_type_of_communication_material",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s21",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_communication_purpose",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s22",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_target_audience_2",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s23",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s24",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s25",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s26",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s27",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s28",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_extract_core_messages_to_be_conveyed",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s29",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s30",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s31",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_tone",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s32",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_language",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s33",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_length",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s34",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s35",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_format_if_not",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s36",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s37",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s38",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_of_unresolved_items_2",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s39",
+          "field": "resources",
+          "semantic_role": "output_contract",
+          "route_family": "resource_contract",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "source_hint_ids": [],
+          "construct_target": "RESOURCE_CONTRACT",
+          "slot_target": "output",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s40",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s41",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_do_not_fabricate_facts",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s42",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_data",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s43",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_events",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s44",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_sources_that_are_not_provided_by_the_user_or_obtained_from_available_information_sources_external_facts_must_have_traceable_sources_facts_directly_provided_by_the_user_shall_be_marked_as_user_provided_information_prioritize_information_already_provided_by_the_user_to_avoid_unnecessary_information_retrieval_and_clarifying_questions_do_not_alter_the_meaning_of_the_user_s_original_request_for_the_sake_of_completeness",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s45",
+          "field": "domain",
+          "semantic_role": "profile_domain",
+          "route_family": "profile",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_fluency",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s46",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_professionalism_of_expression_do_not_mark_the_task_as_complete_if_critical_information_is_missing_or_conflicting_instructions_remain_unresolved",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s47",
+          "field": "behavior",
+          "semantic_role": "failure_mode",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "condition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s48",
+          "field": "behavior",
+          "semantic_role": "exception_handler_action",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "handler",
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s51",
+          "field": "behavior",
+          "semantic_role": "exception_handler_action",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_mark_the_task_as_incomplete",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "handler",
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s52",
+          "field": "behavior",
+          "semantic_role": "failure_mode",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_conflicting_instructions",
+          "source_packet_id": "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "condition",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s52",
+          "field": "behavior",
+          "semantic_role": "exception_handler_action",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_conflicting_instructions",
+          "source_packet_id": "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "handler",
+          "executable": true,
+          "primary": false,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s53",
+          "field": "behavior",
+          "semantic_role": "exception_handler_action",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_conflicting_instructions",
+          "source_packet_id": "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "handler",
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s54",
+          "field": "behavior",
+          "semantic_role": "delegation_intent",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_where_controlled_components_are_configured_and_available_in_the_system",
+          "source_hint_ids": [],
+          "construct_target": "WORKER_HANDOFF",
+          "slot_target": "target",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s55",
+          "field": "behavior",
+          "semantic_role": "delegation_intent",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+          "source_hint_ids": [],
+          "construct_target": "WORKER_HANDOFF",
+          "slot_target": "target",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s56",
+          "field": "rules",
+          "semantic_role": "delegation_boundary_constraint",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s57",
+          "field": "rules",
+          "semantic_role": "constraint",
+          "route_family": "constraint",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s58",
+          "field": "behavior",
+          "semantic_role": "process_step",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "construct_target": null,
+          "slot_target": null,
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s59",
+          "field": "rules",
+          "semantic_role": "delegation_boundary_constraint",
+          "route_family": "delegation_boundary",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "construct_target": "CONSTRAINT",
+          "slot_target": "boundary",
+          "executable": false,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s60",
+          "field": "behavior",
+          "semantic_role": "exception_handler_action",
+          "route_family": "flow_relevant",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion",
+          "source_hint_ids": [],
+          "construct_target": "EXCEPTION_FLOW",
+          "slot_target": "handler",
+          "executable": true,
+          "primary": true,
+          "diagnostics": [],
+          "metadata": {}
+        }
+      ],
+      "structural_priors": [
+        {
+          "span_id": "s1",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_internal_newsletters",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s2",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_internal_announcements",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s3",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_periodic_update_digests",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s4",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_executive_briefs",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s5",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_other_internal_facing_communication_materials_these_materials_are_primarily_intended_for_reading_and_use_by_company_employees",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s6",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_management",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s7",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_department_heads",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s8",
+          "suggested_field": "domain",
+          "source_section_id": "sec_task_family",
+          "source_packet_id": "p_list_item_other_internal_audiences_specified_by_the_user",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests task_family",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "task_family"
+          }
+        },
+        {
+          "span_id": "s9",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_user_s_communication_request",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s10",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_known_topics",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s11",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_timeframe",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s12",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_background_information",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s13",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_target_audience",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s14",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_available_information_sources",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s15",
+          "suggested_field": "resources",
+          "source_section_id": "sec_inputs_for_each_run",
+          "source_packet_id": "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests input_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "input_contract"
+          }
+        },
+        {
+          "span_id": "s16",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_draft_communication_artifact",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s17",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_source_evidence_set",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s18",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_record_of_unresolved_items",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s19",
+          "suggested_field": "resources",
+          "source_section_id": "sec_required_outputs",
+          "source_packet_id": "p_list_item_completion_status_for_the_task",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests output_contract",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "output_contract"
+          }
+        },
+        {
+          "span_id": "s20",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_analyze_the_user_s_request_to_clarify_the_type_of_communication_material",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s21",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_communication_purpose",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s22",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_target_audience_2",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s23",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s24",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s25",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_expression_requirements_check_if_the_facts_and_background_information_needed_to_generate_the_material_are_available_if_critical_information_that_affects_content_accuracy_is_missing",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s26",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s27",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_proceed_organize_the_obtained_facts_and_background_information",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s28",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_extract_core_messages_to_be_conveyed",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s29",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s30",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure_the_content_based_on_the_material_type_generate_a_draft_communication_artifact_and_verify_if_it_meets_the_user_s_specified_requirements_for_target_audience",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s31",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_tone",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s32",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_language",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s33",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_length",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s34",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_structure",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s35",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_format_if_not",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s36",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s37",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s38",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_of_unresolved_items_2",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s39",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s40",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests process_step",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "process_step"
+          }
+        },
+        {
+          "span_id": "s41",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_do_not_fabricate_facts",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s42",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_data",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s43",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_events",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s44",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_sources_that_are_not_provided_by_the_user_or_obtained_from_available_information_sources_external_facts_must_have_traceable_sources_facts_directly_provided_by_the_user_shall_be_marked_as_user_provided_information_prioritize_information_already_provided_by_the_user_to_avoid_unnecessary_information_retrieval_and_clarifying_questions_do_not_alter_the_meaning_of_the_user_s_original_request_for_the_sake_of_completeness",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s45",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_fluency",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s46",
+          "suggested_field": "rules",
+          "source_section_id": "sec_policies",
+          "source_packet_id": "p_list_item_professionalism_of_expression_do_not_mark_the_task_as_complete_if_critical_information_is_missing_or_conflicting_instructions_remain_unresolved",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests policy",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "policy"
+          }
+        },
+        {
+          "span_id": "s47",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s48",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_missing_critical_information_if_information_essential_to_task_completion_is_lacking",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s49",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_inquire_with_the_user_if_such_information_cannot_be_obtained",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s50",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_do_not_generate_a_full_draft",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s51",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_failure_handling",
+          "source_packet_id": "p_list_item_mark_the_task_as_incomplete",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests failure_mode",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "failure_mode"
+          }
+        },
+        {
+          "span_id": "s52",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_conflicting_instructions",
+          "source_packet_id": "p_list_item_if_the_user_s_requirements_conflict_and_impede_task_execution",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s53",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_conflicting_instructions",
+          "source_packet_id": "p_list_item_document_the_specific_conflicts_do_not_generate_a_full_draft_and_mark_the_task_as_incomplete_until_the_conflicts_are_resolved",
+          "source_hint_ids": [],
+          "prior_kind": "neutral_context",
+          "confidence": "context",
+          "reason": "No matching route prior for neutral packet",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {}
+        },
+        {
+          "span_id": "s54",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_where_controlled_components_are_configured_and_available_in_the_system",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s55",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s56",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s57",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s58",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s59",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_though_delegation_is_not_mandatory_delegated_tasks_shall_not_expand_the_scope_of_the_original_task_nor_alter_the_user_s_original_requirements_the_main_process_shall_verify_that_delegated_results_comply_with_the_task_scope_and_user_requirements_before_adopting_them_if_delegation_fails_or_returns_results_beyond_the_authorized_scope",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        },
+        {
+          "span_id": "s60",
+          "suggested_field": "behavior",
+          "source_section_id": "sec_delegation_policy",
+          "source_packet_id": "p_list_item_such_results_shall_not_be_adopted_if_the_results_are_essential_to_task_completion",
+          "source_hint_ids": [],
+          "prior_kind": "route_prior",
+          "confidence": "structural",
+          "reason": "Section title suggests delegation_intent",
+          "packet_type": "list_item",
+          "section_title": null,
+          "structural_tags": [],
+          "metadata": {
+            "suggested_semantic_role": "delegation_intent"
+          }
+        }
+      ],
+      "route_diagnostics": [
+        "Rejected: exception_handler_action for span 's49' has no handler action verb in source text 'If such information cannot be obtained record the missing items'",
+        "Rejected: exception_handler_action for span 's50' has no handler action verb in source text 'do not generate a full draft'",
+        "route_refinement_conflict: span 's52' has both executable and non-executable annotations with populated semantic roles",
+        "LLM route diagnostic [mixed_failure_semantics] span='s52': Condition and handler are mixed; emitted multi-label.",
+        "Post-enrichment: span 's37' (output_contract) has no requiredness metadata",
+        "Post-enrichment: span 's38' (output_contract) has no requiredness metadata",
+        "Post-enrichment: span 's39' (output_contract) has no requiredness metadata"
+      ],
+      "structured_route_diagnostics": [
+        {
+          "span_id": "s49",
+          "kind": "route_refinement_rejected",
+          "message": "Rejected: exception_handler_action for span 's49' has no handler action verb in source text 'If such information cannot be obtained record the missing items'"
+        },
+        {
+          "span_id": "s50",
+          "kind": "route_refinement_rejected",
+          "message": "Rejected: exception_handler_action for span 's50' has no handler action verb in source text 'do not generate a full draft'"
+        },
+        {
+          "span_id": "s52",
+          "kind": "route_refinement_conflict",
+          "message": "route_refinement_conflict: span 's52' has both executable and non-executable annotations with populated semantic roles"
+        },
+        {
+          "span_id": "",
+          "kind": "route_refinement_diagnostic",
+          "message": "LLM route diagnostic [mixed_failure_semantics] span='s52': Condition and handler are mixed; emitted multi-label."
+        },
+        {
+          "span_id": "s37",
+          "kind": "route_refinement_diagnostic",
+          "message": "Post-enrichment: span 's37' (output_contract) has no requiredness metadata"
+        },
+        {
+          "span_id": "s38",
+          "kind": "route_refinement_diagnostic",
+          "message": "Post-enrichment: span 's38' (output_contract) has no requiredness metadata"
+        },
+        {
+          "span_id": "s39",
+          "kind": "route_refinement_diagnostic",
+          "message": "Post-enrichment: span 's39' (output_contract) has no requiredness metadata"
+        },
+        {
+          "span_id": "s52",
+          "kind": "route_refinement_split",
+          "message": "Split recommended for s52: The span mixes a failure condition with a handler instruction."
+        },
+        {
+          "kind": "annotation_missing_requiredness",
+          "span_id": "s37",
+          "semantic_role": "output_contract",
+          "field_name": "requiredness",
+          "expected": "required | optional | unspecified",
+          "actual": null,
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
+          "message": "Post-enrichment: span 's37' (output_contract) has no requiredness metadata"
+        },
+        {
+          "kind": "annotation_missing_requiredness",
+          "span_id": "s38",
+          "semantic_role": "output_contract",
+          "field_name": "requiredness",
+          "expected": "required | optional | unspecified",
+          "actual": null,
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_record_of_unresolved_items_2",
+          "message": "Post-enrichment: span 's38' (output_contract) has no requiredness metadata"
+        },
+        {
+          "kind": "annotation_missing_requiredness",
+          "span_id": "s39",
+          "semantic_role": "output_contract",
+          "field_name": "requiredness",
+          "expected": "required | optional | unspecified",
+          "actual": null,
+          "source_section_id": "sec_reusable_process",
+          "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
+          "message": "Post-enrichment: span 's39' (output_contract) has no requiredness metadata"
+        }
+      ]
+    },
+    "ambiguity_updates": [
+      {
+        "span_id": "s52",
+        "is_ambiguous": true,
+        "reasons": [
+          "The span mixes a failure condition with a handler instruction."
+        ],
+        "needs_split": true,
+        "split_recommendation": {
+          "parent_span_id": "s52",
+          "reason": "The span mixes a failure condition with a handler instruction.",
+          "segments": [
+            {
+              "text": "If the user’s requirements conflict and impede task execution",
+              "semantic_role": "failure_mode",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            },
+            {
+              "text": "document the specific conflicts.",
+              "semantic_role": "exception_handler_action",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        }
+      }
+    ],
+    "overlaps": [],
+    "adapter_consumed_spans": [],
+    "llm_refinement": {
+      "used": true,
+      "route_diagnostics": [
+        "Rejected: exception_handler_action for span 's49' has no handler action verb in source text 'If such information cannot be obtained record the missing items'",
+        "Rejected: exception_handler_action for span 's50' has no handler action verb in source text 'do not generate a full draft'",
+        "route_refinement_conflict: span 's52' has both executable and non-executable annotations with populated semantic roles",
+        "LLM route diagnostic [mixed_failure_semantics] span='s52': Condition and handler are mixed; emitted multi-label.",
+        "Post-enrichment: span 's37' (output_contract) has no requiredness metadata",
+        "Post-enrichment: span 's38' (output_contract) has no requiredness metadata",
+        "Post-enrichment: span 's39' (output_contract) has no requiredness metadata"
+      ],
+      "split_recommendations": [
+        {
+          "parent_span_id": "s52",
+          "reason": "The span mixes a failure condition with a handler instruction.",
+          "segments": [
+            {
+              "text": "If the user’s requirements conflict and impede task execution",
+              "semantic_role": "failure_mode",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            },
+            {
+              "text": "document the specific conflicts.",
+              "semantic_role": "exception_handler_action",
+              "construct_target": null,
+              "slot_target": null,
+              "executable": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,25 +1,9 @@
 {
   "stage": "required_output_fulfillment",
-  "timestamp": "2026-07-10T00:09:45.005962",
+  "timestamp": "2026-07-25T11:22:29.629840",
   "metadata": {},
   "result": {
     "states": [
-      {
-        "output_name": "assumptions_log",
-        "status": "missing",
-        "producer_step_ids": [],
-        "deferred_refs": [],
-        "reason": "missing_source_backed_producer"
-      },
-      {
-        "output_name": "assumptions_log_completion_status",
-        "status": "produced",
-        "producer_step_ids": [
-          "st_8"
-        ],
-        "deferred_refs": [],
-        "reason": "source_backed_producer"
-      },
       {
         "output_name": "completion_status",
         "status": "missing",
@@ -31,19 +15,29 @@
         "output_name": "draft_communication_artifact",
         "status": "produced",
         "producer_step_ids": [
-          "st_5"
+          "st_1",
+          "st_4",
+          "st_8",
+          "st_12"
         ],
         "deferred_refs": [],
         "reason": "source_backed_producer"
       },
       {
         "output_name": "source_evidence_set",
-        "status": "deferred",
+        "status": "missing",
         "producer_step_ids": [],
-        "deferred_refs": [
-          "st_api_8564b1b8dc"
+        "deferred_refs": [],
+        "reason": "missing_source_backed_producer"
+      },
+      {
+        "output_name": "unresolved_items",
+        "status": "produced",
+        "producer_step_ids": [
+          "st_11"
         ],
-        "reason": "api_return_contract_unknown"
+        "deferred_refs": [],
+        "reason": "source_backed_producer"
       }
     ]
   }

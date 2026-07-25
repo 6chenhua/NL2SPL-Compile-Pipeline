@@ -1,6 +1,6 @@
 {
   "stage": "control_region_plan",
-  "timestamp": "2026-07-08T01:20:19.054255",
+  "timestamp": "2026-07-10T00:08:55.890103",
   "metadata": {},
   "result": {
     "regions": [
@@ -43,46 +43,6 @@
         "notes": []
       },
       {
-        "region_id": "cr_top_alt_s21",
-        "region_kind": "top_level_alternative",
-        "condition_text": "the user asks for revision",
-        "action_span_ids": [
-          "s21"
-        ],
-        "condition_source_span_ids": [
-          "s21"
-        ],
-        "worker_id": "worker_main",
-        "source": "stage4_llm_classified",
-        "status": "validated",
-        "reason": null,
-        "relation": "direct",
-        "classification_source": "stage4_llm_classified",
-        "confidence": "high",
-        "notes": [
-          "stage4_alternative_flow_preserved"
-        ]
-      },
-      {
-        "region_id": "cr_local_if_s22",
-        "region_kind": "local_if",
-        "condition_text": "required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms",
-        "action_span_ids": [
-          "s22"
-        ],
-        "condition_source_span_ids": [
-          "s22"
-        ],
-        "worker_id": "worker_main",
-        "source": "stage1_guarded_action",
-        "status": "validated",
-        "reason": null,
-        "relation": "direct",
-        "classification_source": "stage1_guarded_action",
-        "confidence": "high",
-        "notes": []
-      },
-      {
         "region_id": "cr_local_if_s17",
         "region_kind": "local_if",
         "condition_text": "required fields are still missing",
@@ -103,11 +63,31 @@
         "notes": [
           "derived_from_adjacent_source_packet"
         ]
+      },
+      {
+        "region_id": "cr_top_alt_alt_1",
+        "region_kind": "top_level_alternative",
+        "condition_text": "the user asks for a revision",
+        "action_span_ids": [
+          "s21a",
+          "s22"
+        ],
+        "condition_source_span_ids": [
+          "s21a",
+          "s22"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage4_llm_classified",
+        "status": "validated",
+        "reason": null,
+        "relation": "direct",
+        "classification_source": "stage4_llm_classified",
+        "confidence": "medium",
+        "notes": []
       }
     ],
     "diagnostics": [
-      "guarded_action_not_executable:s28",
-      "guarded_action_not_executable:s35"
+      "guarded_action_not_executable:s30"
     ]
   }
 }

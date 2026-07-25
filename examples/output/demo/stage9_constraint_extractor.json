@@ -1,19 +1,18 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-07-08T01:20:45.107853",
+  "timestamp": "2026-07-10T00:09:44.962980",
   "metadata": {},
   "result": {
     "constraints": [
       {
         "constraint_id": "c_1",
-        "text": "Do not finalize if <REF>draft_communication_artifact</REF> still has required slots missing, unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+        "text": "Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
         "kind": "gate",
         "targets": [
-          "step:st_6",
-          "global"
+          "step:st_7"
         ],
         "source_span_ids": [
-          "s22"
+          "s23"
         ]
       },
       {
@@ -24,7 +23,7 @@
           "global"
         ],
         "source_span_ids": [
-          "s24"
+          "s26"
         ]
       },
       {
@@ -32,11 +31,10 @@
         "text": "Require evidence for sourced claims.",
         "kind": "evidence",
         "targets": [
-          "global",
-          "step:st_4"
+          "global"
         ],
         "source_span_ids": [
-          "s25"
+          "s27"
         ]
       },
       {
@@ -47,7 +45,7 @@
           "step:st_3"
         ],
         "source_span_ids": [
-          "s26"
+          "s28"
         ]
       },
       {
@@ -55,10 +53,10 @@
         "text": "Prefer tool evidence over unnecessary user questioning.",
         "kind": "requirement",
         "targets": [
-          "step:st_3"
+          "global"
         ],
         "source_span_ids": [
-          "s27"
+          "s29"
         ]
       },
       {
@@ -66,23 +64,21 @@
         "text": "Deny finalization if critical slots are missing or provenance fails.",
         "kind": "gate",
         "targets": [
-          "global",
-          "step:st_6"
+          "step:st_7"
         ],
         "source_span_ids": [
-          "s28"
+          "s30"
         ]
       },
       {
         "constraint_id": "c_7",
-        "text": "Optional delegated subtasks such as source gathering or template matching may be used only if bounded and the returned evidence is normalized into approved evidence carriers.",
+        "text": "Delegated subtasks such as source gathering or template matching may be used only if bounded and the returned evidence is normalized into approved evidence carriers.",
         "kind": "delegation_boundary",
         "targets": [
-          "global",
           "step:st_api_8564b1b8dc"
         ],
         "source_span_ids": [
-          "s35"
+          "s37b"
         ]
       }
     ]

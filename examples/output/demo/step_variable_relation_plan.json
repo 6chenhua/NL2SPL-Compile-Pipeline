@@ -1,6 +1,6 @@
 {
   "stage": "step_variable_relation_plan",
-  "timestamp": "2026-07-08T01:20:36.711662",
+  "timestamp": "2026-07-10T00:09:36.212385",
   "metadata": {},
   "result": {
     "relations": [
@@ -35,7 +35,8 @@
         "variable_name": "draft_communication_artifact",
         "relation": "ambiguous",
         "source_span_ids": [
-          "s21"
+          "s21a",
+          "s22"
         ],
         "evidence_kind": "stage7_structured_output_without_source_match",
         "reason": "output_name_or_description_not_mentioned",
@@ -44,29 +45,29 @@
         "confidence": "low"
       },
       {
-        "step_id": "st_7",
+        "step_id": "st_8",
         "variable_name": "assumptions_log",
         "relation": "produces",
         "source_span_ids": [
-          "s23"
+          "s25"
         ],
         "evidence_kind": "stage7_structured_output_source_match",
         "reason": null,
         "evidence_source": "source_text",
-        "evidence_text": "Record an assumptions log and set completion status.",
+        "evidence_text": "Record assumptions and set completion status.",
         "confidence": "medium"
       },
       {
-        "step_id": "st_7",
+        "step_id": "st_8",
         "variable_name": "completion_status",
         "relation": "produces",
         "source_span_ids": [
-          "s23"
+          "s25"
         ],
         "evidence_kind": "stage7_structured_output_source_match",
         "reason": null,
         "evidence_source": "source_text",
-        "evidence_text": "Record an assumptions log and set completion status.",
+        "evidence_text": "Record assumptions and set completion status.",
         "confidence": "medium"
       }
     ],

@@ -1,6 +1,6 @@
 {
   "stage": "stage8_profile_extractor",
-  "timestamp": "2026-07-08T01:20:41.822278",
+  "timestamp": "2026-07-10T00:09:41.420906",
   "metadata": {},
   "result": {
     "persona": {
@@ -8,63 +8,149 @@
       "aspects": [
         {
           "name": "EvidenceDriven",
-          "text": "Produces communication drafts using source evidence and maintains provenance for externally sourced facts."
-        },
-        {
-          "name": "ConservativeFinalization",
-          "text": "Avoids finalizing when critical information is missing or provenance is not established."
+          "text": "Maintains provenance for externally sourced facts, requires evidence for sourced claims, and avoids inventing links or unseen facts.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
         },
         {
           "name": "ClarificationFocused",
-          "text": "Asks only the highest-value clarifying questions needed to move forward and limits questions per turn."
+          "text": "First determines the communication type, identifies missing required fields, and asks only the highest-value clarifying questions needed to move forward.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
         },
         {
           "name": "ConstraintAware",
-          "text": "Rechecks constraints during revision and does not invent links or unseen facts."
+          "text": "Checks constraints while revising and does not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "StructuredCompletion",
+          "text": "Produces a draft, source/evidence set, assumptions log, and completion status, and records unresolved items at the end.",
+          "source_span_ids": [
+            "s24",
+            "s24"
+          ],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "derived"
         }
-      ]
+      ],
+      "source_span_ids": [],
+      "source_section_id": null,
+      "source_packet_id": null,
+      "provenance_relation": "assumed"
     },
     "audience_aspects": [],
     "concepts": [
       {
         "term": "Internal newsletters",
-        "definition": "Newsletter-style communications intended for internal organizational audiences."
+        "definition": "Newsletter-style communication intended for internal organizational audiences.",
+        "source_span_ids": [
+          "s1",
+          "s1"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
       },
       {
         "term": "Announcements",
-        "definition": "Short internal communications that notify people about updates, events, or decisions."
+        "definition": "Short internal communications meant to inform people about updates or events.",
+        "source_span_ids": [
+          "s2",
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
       },
       {
         "term": "Update digests",
-        "definition": "Condensed summaries of recent updates collected into a brief format."
+        "definition": "Condensed summaries of updates collected into a single communication.",
+        "source_span_ids": [
+          "s3",
+          "s3"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
       },
       {
         "term": "Executive briefs",
-        "definition": "Concise summaries prepared for executives, emphasizing key points and status."
+        "definition": "Concise communication artifacts prepared for executives, summarizing key information.",
+        "source_span_ids": [
+          "s4",
+          "s4"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
       },
       {
         "term": "Internal-comms artifacts",
-        "definition": "Communication materials used in internal communications, such as newsletters, briefs, or announcements."
+        "definition": "Communication materials used within an organization for internal communication purposes.",
+        "source_span_ids": [
+          "s5",
+          "s5"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      },
+      {
+        "term": "Source recipes",
+        "definition": "Approved procedures or methods for retrieving sources.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       },
       {
         "term": "Provenance",
-        "definition": "The traceable origin of facts or claims, used to verify where sourced information came from."
+        "definition": "Traceable origin and evidence chain for sourced facts.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       },
       {
         "term": "Assumptions log",
-        "definition": "A short record of unresolved items that required assumptions in the draft."
+        "definition": "A short record of unresolved items and the assumptions made about them.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       },
       {
         "term": "Completion status",
-        "definition": "A status indicator showing whether the run or task is complete."
+        "definition": "A marker indicating the outcome state of the run.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       },
       {
-        "term": "Approved source recipes",
-        "definition": "Authorized procedures or methods for retrieving information from sources."
+        "term": "Critical slots",
+        "definition": "Required information fields that must be present before finalization.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       },
       {
         "term": "Approved evidence carriers",
-        "definition": "Accepted formats or containers for normalized evidence returned from delegated subtasks."
+        "definition": "Accepted formats or containers for normalized evidence returned by delegated subtasks.",
+        "source_span_ids": [],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "assumed"
       }
     ]
   }

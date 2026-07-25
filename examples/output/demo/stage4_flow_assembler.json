@@ -1,6 +1,6 @@
 {
   "stage": "stage4_flow_assembler",
-  "timestamp": "2026-07-08T01:20:19.052526",
+  "timestamp": "2026-07-10T00:08:55.887126",
   "metadata": {},
   "result": {
     "worker_flows": {
@@ -12,14 +12,16 @@
           "s19",
           "s18",
           "s20",
-          "s23"
+          "s24",
+          "s25"
         ],
         "alternative_flows": [
           {
             "flow_id": "alt_1",
-            "condition_text": "the user asks for revision",
+            "condition_text": "the user asks for a revision",
             "spans": [
-              "s21"
+              "s21a",
+              "s22"
             ]
           }
         ],
@@ -28,55 +30,48 @@
             "flow_id": "exc_adapter_00",
             "condition_text": "conflicting instructions",
             "spans": [
-              "s30"
+              "s32"
             ]
           },
           {
             "flow_id": "exc_adapter_01",
             "condition_text": "evidence shortage",
             "spans": [
-              "s32"
+              "s34"
             ]
           },
           {
             "flow_id": "exc_adapter_02",
             "condition_text": "insufficient source access",
             "spans": [
-              "s31"
+              "s33"
             ]
           },
           {
             "flow_id": "exc_adapter_03",
             "condition_text": "Missing timeframe",
             "spans": [
-              "s29"
+              "s31"
             ]
           },
           {
             "flow_id": "exc_adapter_04",
             "condition_text": "provenance failure",
             "spans": [
-              "s34"
+              "s36"
             ]
           },
           {
             "flow_id": "exc_adapter_05",
             "condition_text": "user refusal to answer",
             "spans": [
-              "s33"
+              "s35"
             ]
           }
         ],
         "delegation_candidates": []
       }
     },
-    "warnings": [
-      "ConstructPlan: condition span s30 for exc_demand_00 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s32 for exc_demand_01 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s31 for exc_demand_02 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s29 for exc_demand_03 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s34 for exc_demand_04 has unowned; attached to main worker worker_main.",
-      "ConstructPlan: condition span s33 for exc_demand_05 has unowned; attached to main worker worker_main."
-    ]
+    "warnings": []
   }
 }

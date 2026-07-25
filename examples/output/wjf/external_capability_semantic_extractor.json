@@ -1,0 +1,459 @@
+{
+  "stage": "external_capability_semantic_extractor",
+  "timestamp": "2026-07-25T11:21:38.614683",
+  "metadata": {},
+  "result": {
+    "status": "available",
+    "failure_reason": null,
+    "candidates": [
+      {
+        "candidate_id": "cap_candidate_19e661ceb9371c39",
+        "source_span_ids": [
+          "s55"
+        ],
+        "operation_surface": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "operation_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+        "capability_surface": "these components",
+        "capability_ref_candidate": null,
+        "boundary_claim": "candidate_external",
+        "identity_claim": "described_unnamed",
+        "invocation_claim": "mention_only",
+        "evidence": [
+          {
+            "evidence_id": "cap_sem_ev_583592128125126d",
+            "source_span_id": "s55",
+            "claim": "invocation",
+            "surface_text": "may be delegated to",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_6af6de703f863049",
+            "source_span_id": "s55",
+            "claim": "operation",
+            "surface_text": "well-defined subtasks such as template matching",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_833323e9d8edd3ff",
+            "source_span_id": "s55",
+            "claim": "identity",
+            "surface_text": "these components",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_e6a1a959e269ed44",
+            "source_span_id": "s55",
+            "claim": "boundary",
+            "surface_text": "may be delegated to these components for processing",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          }
+        ],
+        "source_section_id": "sec_delegation_policy",
+        "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+        "metadata": {
+          "normalizer_version": "CapabilitySurfaceNormalizerV1",
+          "operation_anchor_relation": "direct"
+        }
+      }
+    ],
+    "dispositions": [
+      {
+        "source_span_id": "s1",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s2",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s3",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s4",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s5",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s6",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s7",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s8",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s9",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s10",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s11",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s12",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s13",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s14",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s15",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "input_contract"
+      },
+      {
+        "source_span_id": "s16",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s17",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s18",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s19",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s20",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s21",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s22",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s23",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s24",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s25",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s26",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s27",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s28",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s29",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s30",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s31",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s32",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s33",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s34",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s35",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s36",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s37",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s38",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s39",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "output_contract"
+      },
+      {
+        "source_span_id": "s40",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s41",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s42",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s43",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s44",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s45",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "profile_domain"
+      },
+      {
+        "source_span_id": "s46",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s47",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s48",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      },
+      {
+        "source_span_id": "s49",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      },
+      {
+        "source_span_id": "s50",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s51",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      },
+      {
+        "source_span_id": "s52a",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "failure_mode_only"
+      },
+      {
+        "source_span_id": "s52b",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      },
+      {
+        "source_span_id": "s53",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      },
+      {
+        "source_span_id": "s54",
+        "status": "insufficient_evidence",
+        "related_candidate_ids": [],
+        "reason_code": "extractor_disposition_missing"
+      },
+      {
+        "source_span_id": "s55",
+        "status": "candidate_emitted",
+        "related_candidate_ids": [
+          "cap_candidate_19e661ceb9371c39"
+        ],
+        "reason_code": null
+      },
+      {
+        "source_span_id": "s56",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "delegation_constraint"
+      },
+      {
+        "source_span_id": "s57",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "constraint_only"
+      },
+      {
+        "source_span_id": "s58",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "process_step_only"
+      },
+      {
+        "source_span_id": "s59",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "delegation_constraint"
+      },
+      {
+        "source_span_id": "s60",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "exception_handler_only"
+      }
+    ],
+    "diagnostics": [],
+    "metadata": {
+      "coverage_policy": "all_resolved_spans",
+      "model_config_fingerprint": "122ca40284b3b01520ce108a94dc8b3e86ee956588ab89419d924d6d9d41fca0",
+      "prompt_version": "external-capability-semantic-extractor.v1",
+      "resolved_span_count": 61,
+      "schema_version": "ExternalCapabilityIntentCandidateIR.v1",
+      "stage_name": "external_capability_semantic_extractor"
+    }
+  }
+}
