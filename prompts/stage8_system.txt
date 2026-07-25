@@ -58,15 +58,36 @@ used in the text.
 {
   "persona": {
     "role": "string (required, never empty)",
-    "aspects": [{"name": "PascalCaseName", "text": "description"}]
+    "source_span_ids": ["span ids that directly support the role"],
+    "aspects": [
+      {
+        "name": "PascalCaseName",
+        "text": "description",
+        "source_span_ids": ["span ids that directly support this aspect"]
+      }
+    ]
   },
   "audience": {
-    "aspects": [{"name": "PascalCaseName", "text": "description"}]
+    "aspects": [
+      {
+        "name": "PascalCaseName",
+        "text": "description",
+        "source_span_ids": ["span ids that directly support this audience aspect"]
+      }
+    ]
   },
   "concepts": [
-    {"term": "TermName", "definition": "definition inferred from text"}
+    {
+      "term": "TermName",
+      "definition": "definition inferred from text",
+      "source_span_ids": ["span ids that define or use this concept"]
+    }
   ]
 }
+
+source_span_ids must be copied exactly from the provided spans. Do not invent
+span ids. Leave source_span_ids empty when no provided span directly supports
+the extracted item.
 
 If a field has no content, return its empty structure ([] or "").
 The role field must never be an empty string.

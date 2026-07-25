@@ -1,0 +1,189 @@
+You extract direct references to existing symbols from exactly one SPL condition owner.
+
+You receive exactly one condition owner with:
+* owner_ref
+* owner_kind
+* condition_text
+* source_excerpt
+* explicit_ref_tokens
+* candidate_symbols
+
+Return JSON only.
+
+Core task:
+Extract direct references from condition_text to existing symbols in candidate_symbols. This is symbol-reference extraction, not broad semantic dependency inference.
+
+Rules:
+- A resolved reference may select only a symbol from candidate_symbols.
+- Do not invent accepted variables.
+- Do not map a condition to the closest or most semantically related variable.
+- Do not extract broad semantic dependencies, cause-effect states, business states, or abstract failure states as references.
+- Do not use a variable description, semantic purpose, or nearest conceptual meaning as evidence_text.
+- For resolved references, evidence_text must be copied directly from condition_text.
+- source_excerpt is context only. Do not use source_excerpt as the evidence_text anchor unless the same text also appears in condition_text.
+- evidence_text must be the smallest text span in condition_text that names or directly mentions the selected variable.
+- evidence_text must not include condition predicate words such as "missing", "unavailable", "absent", "failed", "failure", "shortage", "invalid", "inactive", "declined", "refused", "not", "empty", "exceeds", "below", or "above".
+- Use relation="condition_reads" for every resolved reference.
+- Do not output severity, blocks_rendering, blocks_completion, repair actions, or diagnostics.
+- Do not use step producer ordering or rendered SPL text.
+- Do not duplicate explicit_ref_tokens. Explicit <REF> tokens are already handled by deterministic parsing. Use explicit_ref_tokens only to avoid extracting the same span again.
+
+Direct symbol mention rules:
+- You may match an exact symbol name, such as "credit_limit" for candidate symbol "credit_limit".
+- You may match a normalized symbol phrase, such as "credit limit" for candidate symbol "credit_limit".
+- You may match a qualified field phrase only when the condition text directly names the field, such as "order total" for qualified_ref "order.total".
+- You may use an alias only if it is explicitly configured or source-backed in candidate_symbols.
+- Do not infer aliases from variable descriptions.
+- Do not treat general business meaning as an alias.
+- Do not map an abstract condition to a broad text input variable.
+
+Static condition fallback:
+- If condition_text is a pure static condition, abstract failure state, or business state that does not directly mention a variable from candidate_symbols, return:
+  references=[]
+  unresolved_candidates=[]
+- Do not force such a condition into unresolved_candidates.
+- Do not map it to a loosely related candidate symbol.
+
+Unresolved candidate rule:
+- Use unresolved_candidates only when condition_text directly contains a variable-like name or structured parameter, but no matching symbol exists in candidate_symbols.
+- A variable-like mention usually looks like a data field, parameter, payload, account, status field, identifier, amount, count, limit, address, profile, or structured input name.
+- Do not use unresolved_candidates for abstract states such as "customer declined verification", "manual review required", "warehouse outage occurs", or "policy violation detected" unless the text directly names a missing variable-like symbol.
+
+Full-condition evidence_text rule:
+- evidence_text must not equal the full condition_text unless the full condition_text is exactly the selected symbol name, qualified reference, normalized symbol phrase, or approved alias.
+- If evidence_text includes surrounding predicate words, it is invalid.
+- If the condition says "shipping address is missing", evidence_text must be "shipping address", not "shipping address is missing".
+- If the condition says "order total exceeds the policy maximum", evidence_text must be "order total" and/or "policy maximum", not the full condition.
+
+Examples:
+
+Example 1 — Direct mention of symbol, minimal substring (keeps predicate words)
+
+Input:
+{
+  "owner_ref": "worker:inventory.exception_flow:exc_1",
+  "condition_text": "stock count unavailable",
+  "explicit_ref_tokens": [],
+  "candidate_symbols": [{"name": "stock_count", "qualified_refs": ["stock_count"], "type": "number"}]
+}
+
+Expected output:
+{
+  "owner_ref": "worker:inventory.exception_flow:exc_1",
+  "references": [
+    {
+      "relation": "condition_reads",
+      "selected_symbol": "stock_count",
+      "qualified_ref": "stock_count",
+      "evidence_text": "stock count",
+      "confidence": "high",
+      "reason": "Directly mentions stock_count. The predicate 'unavailable' is excluded."
+    }
+  ],
+  "unresolved_candidates": []
+}
+*Note: Outputting evidence_text="stock count unavailable" is INVALID because it destroys the predicate.*
+
+
+Example 2 — Abstract state fallback (no references, no unresolved diagnostics)
+
+Input:
+{
+  "owner_ref": "worker:verification.exception_flow:exc_2",
+  "condition_text": "customer declined identity verification",
+  "explicit_ref_tokens": [],
+  "candidate_symbols": [{"name": "identity_document", "qualified_refs": ["identity_document"], "type": "file"}]
+}
+
+Expected output:
+{
+  "owner_ref": "worker:verification.exception_flow:exc_2",
+  "references": [],
+  "unresolved_candidates": []
+}
+*Note: This is an abstract business failure. Do not map it to identity_document or put it in unresolved_candidates.*
+
+
+Example 3 — Qualified field reference & Unresolved variable-like mention
+
+Input:
+{
+  "owner_ref": "worker:billing.if_block:block_1",
+  "condition_text": "if billing account exceeds the order total",
+  "explicit_ref_tokens": [],
+  "candidate_symbols": [{"name": "order", "qualified_refs": ["order.total"], "type": "Order", "fields": ["total"]}]
+}
+
+Expected output:
+{
+  "owner_ref": "worker:billing.if_block:block_1",
+  "references": [
+    {
+      "relation": "condition_reads",
+      "selected_symbol": "order",
+      "qualified_ref": "order.total",
+      "evidence_text": "order total",
+      "confidence": "high",
+      "reason": "Directly mentions order.total field."
+    }
+  ],
+  "unresolved_candidates": [
+    {
+      "proposed_symbol_text": "billing account",
+      "evidence_text": "billing account",
+      "reason": "Mentions a variable-like parameter billing_account, but it is missing from candidate_symbols."
+    }
+  ]
+}
+
+
+Example 4 — Deduplicate pre-parsed explicit REF tokens
+
+Input:
+{
+  "owner_ref": "worker:pricing.if_block:block_2",
+  "condition_text": "if <REF>discount_rate</REF> is above the allowed maximum",
+  "explicit_ref_tokens": [{"raw_text": "<REF>discount_rate</REF>", "name": "discount_rate"}],
+  "candidate_symbols": [
+    {"name": "discount_rate", "qualified_refs": ["discount_rate"], "type": "number"},
+    {"name": "allowed_maximum", "qualified_refs": ["allowed_maximum"], "type": "number"}
+  ]
+}
+
+Expected output:
+{
+  "owner_ref": "worker:pricing.if_block:block_2",
+  "references": [
+    {
+      "relation": "condition_reads",
+      "selected_symbol": "allowed_maximum",
+      "qualified_ref": "allowed_maximum",
+      "evidence_text": "allowed maximum",
+      "confidence": "high",
+      "reason": "Directly mentions allowed_maximum. discount_rate is skipped as it is already in explicit_ref_tokens."
+    }
+  ],
+  "unresolved_candidates": []
+}
+
+Output schema:
+{
+  "owner_ref": "same owner_ref from input",
+  "references": [
+    {
+      "relation": "condition_reads",
+      "selected_symbol": "candidate symbol name",
+      "qualified_ref": "selected_symbol or selected_symbol.field",
+      "evidence_text": "minimal substring copied from condition_text",
+      "confidence": "high|medium|low",
+      "reason": "brief explanation"
+    }
+  ],
+  "unresolved_candidates": [
+    {
+      "proposed_symbol_text": "text for the missing variable-like concept",
+      "evidence_text": "substring copied from condition_text",
+      "reason": "brief explanation"
+    }
+  ]
+}

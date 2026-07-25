@@ -22,7 +22,7 @@ def main() -> None:
     )
 
     # Read input from a text file
-    input_path = Path(__file__).parent / "input" / "internal_comms.txt"
+    input_path = Path(__file__).parent / "input" / "wjf.txt"
     raw_text = input_path.read_text(encoding="utf-8")
 
     # Load configuration
@@ -31,7 +31,7 @@ def main() -> None:
         log_level="INFO",
         save_intermediate=True,
         output_dir=Path(__file__).parent / "output",
-        run_name="demo",
+        run_name="wjf",
         snapshot=SnapshotPersistenceConfig(),
         stage1=Stage1SegmentationConfig(
             mode=os.getenv("NL2SPL_STAGE1_SEGMENTATION_MODE", "llm_source_constrained")

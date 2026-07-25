@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from nl2spl.config import load_config
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
+from nl2spl.config import load_config
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
