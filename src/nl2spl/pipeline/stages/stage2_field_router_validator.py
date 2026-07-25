@@ -47,31 +47,6 @@ from nl2spl.pipeline.stages.stage2_field_router_prompt import (
 # A module-level alias exists only for tests that check convergence status.
 _ROLE_CONTRACT: dict[str, dict[str, Any]] = {}
 
-_HANDLER_ACTION_VERBS: frozenset[str] = frozenset(
-    {
-        "ask",
-        "clarify",
-        "handle",
-        "return",
-        "notify",
-        "respond",
-        "reply",
-        "request",
-        "query",
-        "prompt",
-        "alert",
-        "warn",
-        "report",
-        "log",
-        "fallback",
-        "default",
-        "skip",
-        "ignore",
-        "retry",
-        "abort",
-    }
-)
-
 
 def _is_explicit_api_action_override(
     semantic_role: str,
@@ -290,16 +265,33 @@ class RouteRefinementValidator:
                         f"('{span_text[:60]}') cannot be annotated as {ann.semantic_role}"
                     )
 
-        # --- 6. Anti-fabrication: handler must have source text ----------
+        # --- 6. Anti-fabrication: handler must have source-backed action text
         if ann.semantic_role == "exception_handler_action":
-            if span is not None:
-                span_text = getattr(span, "text", "").lower()
-                if not any(v in span_text for v in _HANDLER_ACTION_VERBS):
-                    return reject(
-                        f"Rejected: exception_handler_action for span "
-                        f"'{ann.span_id}' has no handler action verb in "
-                        f"source text '{getattr(span, 'text', '')[:80]}'"
-                    )
+            span_text = getattr(span, "text", "").strip() if span is not None else ""
+            if not span_text:
+                return reject(
+                    f"Rejected: exception_handler_action for span "
+                    f"'{ann.span_id}' has no source text"
+                )
+            segmentation_kind = getattr(span, "segmentation_kind", None)
+            action_text = getattr(span, "action_text_exact", None)
+            has_structural_action_suffix = bool(
+                ":" in span_text and span_text.partition(":")[2].strip(" .;")
+            )
+            if (
+                segmentation_kind
+                not in {"guarded_action", "atomic_action_candidate"}
+                and not has_structural_action_suffix
+            ):
+                return reject(
+                    f"Rejected: exception_handler_action for span "
+                    f"'{ann.span_id}' has no validated executable-action boundary"
+                )
+            if segmentation_kind == "guarded_action" and not action_text:
+                return reject(
+                    f"Rejected: exception_handler_action for guarded span "
+                    f"'{ann.span_id}' has no source-backed action_text_exact"
+                )
 
         # --- 7. Anti-fabrication: worker / API must be in source --------
         if ann.semantic_role == "worker_handoff_candidate":
@@ -651,6 +643,7 @@ class RouteRefinementValidator:
             parent_span = span_by_id.get(sr.parent_span_id)
             parent_text = getattr(parent_span, "text", "") if parent_span else ""
             valid_segments: list[dict[str, Any]] = []
+            source_boundary_violation = False
 
             for seg in sr.segments:
                 seg_text = (seg.text or "").strip()
@@ -659,13 +652,20 @@ class RouteRefinementValidator:
                         f"Split segment rejected: empty text for parent '{sr.parent_span_id}'"
                     )
                     continue
-                in_parent = parent_text and seg_text.lower() in parent_text.lower()
+                normalized_parent = " ".join(parent_text.lower().split())
+                normalized_segment = " ".join(seg_text.lower().split())
+                in_parent = bool(
+                    normalized_parent
+                    and normalized_segment in normalized_parent
+                )
                 if not in_parent:
                     diagnostics.append(
-                        f"Split segment warning: segment text "
+                        f"Split recommendation rejected: segment text "
                         f"'{seg_text[:60]}' not found in parent span text "
                         f"'{parent_text[:60]}' for parent '{sr.parent_span_id}'"
                     )
+                    source_boundary_violation = True
+                    break
                 valid_segments.append(
                     {
                         "text": seg_text,
@@ -676,6 +676,8 @@ class RouteRefinementValidator:
                     }
                 )
 
+            if source_boundary_violation:
+                continue
             if valid_segments:
                 out.append(
                     {

@@ -438,6 +438,7 @@ class PipelineOrchestrator:
             worker_plan,
             worker_flow_plan,
             executable_action_plan,
+            active_construct_plan,
         )
         intermediate[ik.CONTROL_REGION_PLAN] = control_region_plan
         if self.config.save_intermediate:

@@ -89,8 +89,74 @@ def _compute_packet_required(section: RawSection, clean_text: str) -> bool | Non
     if title in _OUTPUT_TITLES:
         return True
     if title in _INPUT_TITLES:
+        declaration = _section_input_requiredness_declaration(section.text)
+        if declaration is not None:
+            required_subject, all_other_optional = declaration
+            if all_other_optional:
+                return _declaration_subject_matches_item(
+                    required_subject,
+                    clean_text,
+                )
         return not clean_text.lower().startswith("optional ")
     return None
+
+
+def _section_input_requiredness_declaration(
+    section_text: str,
+) -> tuple[str, bool] | None:
+    """Read an explicit section-level required/optional declaration."""
+
+    normalized = " ".join(section_text.split())
+    required_match = re.search(
+        r"(?P<subject>[^.;]+?)\s+is\s+(?:a\s+)?required\s+input\b",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if required_match is None:
+        return None
+    all_other_optional = bool(
+        re.search(
+            r"\ball\s+other\s+(?:content|inputs?|items?)\s+"
+            r"(?:is|are)\s+optional\b",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+    )
+    return required_match.group("subject").strip(" ,.;"), all_other_optional
+
+
+def _declaration_subject_matches_item(subject: str, item: str) -> bool:
+    """Match a section-level required subject to one declaration item."""
+
+    def terms(text: str) -> set[str]:
+        normalized = text.lower().replace("\u2019", "'")
+        normalized = re.sub(r"'s\b", "", normalized)
+        normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+        return {
+            token
+            for token in normalized.split()
+            if token not in {"a", "an", "the", "input", "content", "item"}
+        }
+
+    subject_terms = terms(subject)
+    item_terms = terms(item)
+    return bool(subject_terms and subject_terms <= item_terms)
+
+
+def _strip_list_requiredness_qualifier(text: str) -> str:
+    """Remove a trailing sentence that qualifies list-item requiredness."""
+
+    normalized = " ".join(text.split())
+    match = re.search(
+        r"(?<=[.!?])\s+(?=[^.?!]*\brequired\s+input\b"
+        r"[^.?!]*\ball\s+other\s+(?:content|inputs?|items?)\s+"
+        r"(?:is|are)\s+optional\b)",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if match is None:
+        return text
+    return normalized[: match.start()]
 
 
 class StructuralNLAdapter(InputAdapter):
@@ -261,7 +327,7 @@ class StructuralNLAdapter(InputAdapter):
             following_text = raw_text[line_end:next_start].strip()
             text = "\n".join(part for part in [inline_text, following_text] if part).strip()
             section_id = self._section_id(canonical_title, order, headings)
-            has_list = self._has_list_shape(text)
+            has_list = self._has_list_shape(text, canonical_title)
             structure_type = "list" if has_list else "paragraph"
             list_items = self._split_list_items(text) if has_list else None
             sections.append(
@@ -478,13 +544,20 @@ class StructuralNLAdapter(InputAdapter):
         if ordered_items:
             return ordered_items
 
-        normalized = text.strip().rstrip('.')
+        normalized = _strip_list_requiredness_qualifier(text).strip().rstrip(".")
         normalized = re.sub(r',\s+and\s+', ', ', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\s+and\s+a\s+', ', a ', normalized, flags=re.IGNORECASE)
         return [item.strip() for item in normalized.split(',') if item.strip()]
 
     @staticmethod
-    def _has_list_shape(text: str) -> bool:
+    def _has_list_shape(text: str, canonical_title: str | None = None) -> bool:
+        """Return whether a section has an explicit list shape.
+
+        Commas inside ordinary prose are punctuation, not structural packet
+        boundaries.  Only declaration-oriented sections retain support for
+        wrapped comma lists; other sections need an explicit markdown/ordered
+        list or a single-line, sentence-free enumeration.
+        """
         stripped = text.strip()
         if not stripped:
             return False
@@ -495,7 +568,20 @@ class StructuralNLAdapter(InputAdapter):
             return True
         normalized = re.sub(r",\s+and\s+", ", ", stripped, flags=re.IGNORECASE)
         normalized = re.sub(r"\s+and\s+a\s+", ", a ", normalized, flags=re.IGNORECASE)
-        return "," in normalized
+        if "," not in normalized:
+            return False
+        if canonical_title in {
+            "inputs for each run",
+            "required outputs",
+            "inputs",
+            "outputs",
+        }:
+            return True
+        non_empty_lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+        return (
+            len(non_empty_lines) == 1
+            and not re.search(r"[.!?;]", non_empty_lines[0])
+        )
 
     @staticmethod
     def _split_sentences(text: str) -> list[str]:

@@ -158,10 +158,8 @@ class ConditionVariableVisibilityValidator:
             }:
                 # S6V5/Fix3: explicit missing <REF> blocks completion;
                 # LLM unresolved/rejected → report/audit only.
-                is_explicit_missing = (
-                    reference.evidence_kind == "explicit_ref_token"
-                    and reference.status == "unresolved"
-                )
+                if reference.evidence_kind != "explicit_ref_token":
+                    continue
                 diagnostics.append(
                     _condition_diagnostic(
                         reference=reference,
@@ -171,7 +169,7 @@ class ConditionVariableVisibilityValidator:
                             f"{reference.ref_text or reference.evidence_text or reference.proposed_symbol_text} "
                             f"is {reference.status}."
                         ),
-                        blocks_completion=is_explicit_missing,
+                        blocks_completion=True,
                     )
                 )
                 continue
@@ -198,11 +196,20 @@ class ConditionVariableVisibilityValidator:
                 )
                 continue
 
-            if visible.producer_step and _producer_not_available(
+            producer_step_ids = _typed_producer_step_ids(
                 reference,
-                visible.producer_step,
                 worker_step_plan,
-                worker_block_plan,
+            )
+            if not producer_step_ids and visible.producer_step:
+                producer_step_ids = (visible.producer_step,)
+            if producer_step_ids and all(
+                _producer_not_available(
+                    reference,
+                    producer_step_id,
+                    worker_step_plan,
+                    worker_block_plan,
+                )
+                for producer_step_id in producer_step_ids
             ):
                 diagnostics.append(
                     _condition_diagnostic(
@@ -377,6 +384,22 @@ def _producer_not_available(
         reference,
         producer_step,
         worker_block_plan,
+    )
+
+
+def _typed_producer_step_ids(
+    reference: ConditionVariableReferenceIR,
+    worker_step_plan: WorkerStepPlanIR,
+) -> tuple[str, ...]:
+    relation_plan = worker_step_plan.step_variable_relation_plan
+    if relation_plan is None or not reference.top_level_name:
+        return ()
+    return tuple(
+        dict.fromkeys(
+            relation.step_id
+            for relation in relation_plan.producing_relations()
+            if relation.variable_name == reference.top_level_name
+        )
     )
 
 

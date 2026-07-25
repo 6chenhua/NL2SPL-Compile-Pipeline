@@ -105,33 +105,28 @@ class ConditionReferenceResolver:
             ]
             references.extend(filtered_owner_refs)
             for reference in filtered_owner_refs:
-                if reference.status != "resolved":
-                    # S6V5: explicit missing <REF> blocks completion;
-                    # LLM unresolved/rejected is report/audit only.
-                    is_explicit_missing = (
-                        reference.evidence_kind == "explicit_ref_token"
-                        and reference.status == "unresolved"
+                if not _requires_resolver_diagnostic(reference):
+                    continue
+                diagnostics.append(
+                    resolver_diagnostic(
+                        diagnostic_id=f"condition_ref_{reference.reference_id}",
+                        kind=_resolver_kind_for_status(reference.status),
+                        message=(
+                            f"Condition reference "
+                            f"{reference.ref_text or reference.evidence_text or reference.proposed_symbol_text} "
+                            f"is {reference.status}."
+                        ),
+                        owner_ref=owner.owner_ref,
+                        source_span_ids=owner.source_span_ids,
+                        metadata={
+                            "stage": "stage6_5",
+                            "reference_id": reference.reference_id,
+                            "reason": reference.reason,
+                            "evidence_kind": reference.evidence_kind,
+                        },
+                        blocks_completion=True,
                     )
-                    diagnostics.append(
-                        resolver_diagnostic(
-                            diagnostic_id=f"condition_ref_{reference.reference_id}",
-                            kind=_resolver_kind_for_status(reference.status),
-                            message=(
-                                f"Condition reference "
-                                f"{reference.ref_text or reference.evidence_text or reference.proposed_symbol_text} "
-                                f"is {reference.status}."
-                            ),
-                            owner_ref=owner.owner_ref,
-                            source_span_ids=owner.source_span_ids,
-                            metadata={
-                                "stage": "stage6_5",
-                                "reference_id": reference.reference_id,
-                                "reason": reference.reason,
-                                "evidence_kind": reference.evidence_kind,
-                            },
-                            blocks_completion=is_explicit_missing,
-                        )
-                    )
+                )
 
         return ConditionVariableReferencePlan(
             references=tuple(references),
@@ -416,6 +411,19 @@ def _resolver_kind_for_status(status: str) -> str:
     if status == "rejected":
         return "condition_variable_llm_candidate_rejected"
     return f"condition_variable_{status}"
+
+
+def _requires_resolver_diagnostic(
+    reference: ConditionVariableReferenceIR,
+) -> bool:
+    """Only invalid explicit source refs produce compiler diagnostics."""
+
+    return (
+        reference.evidence_kind == "explicit_ref_token"
+        and reference.status != "resolved"
+    )
+
+
 def evidence_text_is_direct_symbol_anchor(
     evidence_text: str,
     selected_symbol: CandidateSymbol,
@@ -423,32 +431,32 @@ def evidence_text_is_direct_symbol_anchor(
 ) -> bool:
     """Check if evidence_text is a direct textual anchor for the selected symbol."""
     et_lower = evidence_text.lower().strip()
-    
+
     # 1. Exact variable name (e.g. "timeframe")
     if et_lower == selected_symbol.name.lower():
         return True
-        
+
     # 2. Normalized variable name (replacing "_" with " ")
     normalized_name = selected_symbol.name.lower().replace("_", " ")
     if et_lower == normalized_name:
         return True
-        
+
     # 3. Qualified ref (e.g. "user_request.field")
     if et_lower == qualified_ref.lower():
         return True
-        
+
     # 4. Space-normalized qualified ref
     normalized_qualified = qualified_ref.lower().replace("_", " ")
     if et_lower == normalized_qualified:
         return True
-        
+
     # 5. Final field segment for known structured fields
     parts = qualified_ref.split(".")
     if len(parts) > 1:
         final_segment = parts[-1].lower()
         if et_lower == final_segment:
             return True
-            
+
     return False
 
 

@@ -24,6 +24,8 @@ StepVariableEvidenceSource = Literal[
     "stage7_structured_output_source_match",
     "stage7_structured_output_without_source_match",
     "stage7_provenance_maintenance_no_output",
+    "worker_handoff",
+    "command_type_contract",
 ]
 RequiredOutputFulfillmentStatus = Literal["produced", "deferred", "missing"]
 

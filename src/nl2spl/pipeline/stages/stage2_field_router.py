@@ -292,6 +292,9 @@ Output valid JSON:"""
             except StageError as exc:
                 self._save_adapter_guided_failure_checkpoint(exc)
                 raise
+        route_diagnostics.extend(
+            _complete_guarded_exception_slots(priors, spans)
+        )
 
         # ARC4: collect structured diagnostics from validator merge
         struct_diags: list[dict] = list(merge_struct_diags)
@@ -1380,6 +1383,80 @@ Output valid JSON:"""
         if semantic_role in ("profile_domain",):
             return "profile"
         return ""
+
+
+def _complete_guarded_exception_slots(
+    annotations: list[RouteAnnotation],
+    spans: list[SpanIR],
+) -> list[str]:
+    """Project validated Stage 1 guard/action parts into exception slots."""
+
+    span_by_id = {span.span_id: span for span in spans}
+    exception_slots_by_span: dict[str, set[str]] = {}
+    for annotation in annotations:
+        if annotation.construct_target != "EXCEPTION_FLOW":
+            continue
+        if annotation.slot_target not in {"condition", "handler"}:
+            continue
+        exception_slots_by_span.setdefault(annotation.span_id, set()).add(
+            annotation.slot_target
+        )
+
+    diagnostics: list[str] = []
+    for span_id, slots in sorted(exception_slots_by_span.items()):
+        span = span_by_id.get(span_id)
+        if (
+            span is None
+            or span.segmentation_kind != "guarded_action"
+            or not span.guard_text_exact
+            or not span.action_text_exact
+        ):
+            continue
+        template = next(
+            annotation
+            for annotation in annotations
+            if annotation.span_id == span_id
+            and annotation.construct_target == "EXCEPTION_FLOW"
+        )
+        common = {
+            "span_id": span_id,
+            "field": "behavior",
+            "route_family": "flow_relevant",
+            "source_section_id": span.source_section_id,
+            "source_packet_id": span.source_packet_id,
+            "source_hint_ids": list(template.source_hint_ids),
+            "construct_target": "EXCEPTION_FLOW",
+            "primary": False,
+            "diagnostics": [],
+            "metadata": {
+                "slot_completion_source": "stage1_guarded_action",
+            },
+        }
+        if "condition" not in slots:
+            annotations.append(
+                RouteAnnotation(
+                    **common,
+                    semantic_role="failure_mode",
+                    slot_target="condition",
+                    executable=False,
+                )
+            )
+            diagnostics.append(
+                f"stage1_guarded_action_completed_condition_slot:{span_id}"
+            )
+        if "handler" not in slots:
+            annotations.append(
+                RouteAnnotation(
+                    **common,
+                    semantic_role="exception_handler_action",
+                    slot_target="handler",
+                    executable=True,
+                )
+            )
+            diagnostics.append(
+                f"stage1_guarded_action_completed_handler_slot:{span_id}"
+            )
+    return diagnostics
 
 
 def _build_structured_diagnostics(

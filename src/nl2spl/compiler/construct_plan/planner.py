@@ -122,6 +122,11 @@ class ConstructPlanner:
                     demands.append(demand)
                 used_handlers.update(ann.span_id for ann in group_handlers)
 
+        demands = _attach_adjacent_orphan_handlers(
+            demands,
+            spans,
+        )
+
         (
             api_declaration_demands,
             api_call_demands,
@@ -179,7 +184,13 @@ class ConstructPlanner:
             demand_id=demand_id,
             condition_span_ids=[condition.span_id],
             handler_span_ids=handler_span_ids,
-            condition_text=condition_span.text if condition_span else None,
+            condition_text=(
+                condition_span.guard_text_exact
+                if condition_span
+                and condition_span.segmentation_kind == "guarded_action"
+                and condition_span.guard_text_exact
+                else condition_span.text if condition_span else None
+            ),
             slots={
                 "condition": _slot_from_annotations("condition", [condition]),
                 "handler": _slot_from_annotations(
@@ -268,13 +279,25 @@ def _dual_role_handler_spans(
     handlers: list[RouteAnnotation],
 ) -> set[str]:
     handler_ids = {ann.span_id for ann in handlers}
+    condition_ids = {
+        ann.span_id
+        for ann in routes.annotations
+        if ann.construct_target == "EXCEPTION_FLOW"
+        and ann.slot_target == "condition"
+        and ann.executable is False
+    }
     return {
         ann.span_id
         for ann in routes.annotations
         if ann.span_id in handler_ids
-        and ann.semantic_role == "process_step"
-        and ann.executable is True
-        and ann.field == "behavior"
+        and (
+            ann.span_id in condition_ids
+            or (
+                ann.semantic_role == "process_step"
+                and ann.executable is True
+                and ann.field == "behavior"
+            )
+        )
     }
 
 
@@ -592,6 +615,86 @@ def _group_annotations(
     for ann in annotations:
         grouped[_group_key(ann)].append(ann)
     return grouped
+
+
+def _attach_adjacent_orphan_handlers(
+    demands: list[
+        ExceptionFlowDemand | APIDeclarationDemand | APICallDemand
+    ],
+    spans: list[SpanIR],
+) -> list[
+    ExceptionFlowDemand | APIDeclarationDemand | APICallDemand
+]:
+    """Attach a source-adjacent handler continuation to its condition demand."""
+
+    source_order = {
+        span.span_id: index
+        for index, span in enumerate(spans)
+    }
+    exception_demands = [
+        demand
+        for demand in demands
+        if isinstance(demand, ExceptionFlowDemand)
+    ]
+    removed_ids: set[str] = set()
+
+    for orphan in exception_demands:
+        if (
+            orphan.pairing_status != "orphan_handler"
+            or len(orphan.handler_span_ids) != 1
+        ):
+            continue
+        handler_span_id = orphan.handler_span_ids[0]
+        handler_position = source_order.get(handler_span_id)
+        if handler_position is None:
+            continue
+        candidates = [
+            demand
+            for demand in exception_demands
+            if demand.condition_span_ids
+            and demand.source_section_id == orphan.source_section_id
+            and max(
+                (
+                    source_order.get(span_id, -1)
+                    for span_id in demand.source_span_ids
+                ),
+                default=-1,
+            )
+            == handler_position - 1
+        ]
+        if len(candidates) != 1:
+            continue
+        target = candidates[0]
+        target.handler_span_ids.append(handler_span_id)
+        target.source_span_ids.append(handler_span_id)
+        target.reserved_span_ids.add(handler_span_id)
+        target.slots["handler"].source_span_ids.append(handler_span_id)
+        target.slots["handler"].semantic_roles.extend(
+            orphan.slots["handler"].semantic_roles
+        )
+        target.slots["handler"].executable_values.extend(
+            orphan.slots["handler"].executable_values
+        )
+        target.slots["handler"].status = "present"
+        target.related_edges.extend(
+            _slot_edges(
+                target.demand_id,
+                condition_span_ids=[],
+                handler_span_ids=[handler_span_id],
+            )
+        )
+        target.pairing_status = "condition_with_handler"
+        target.metadata["adjacent_handler_continuation"] = handler_span_id
+        removed_ids.add(orphan.demand_id)
+
+    return [
+        demand
+        for demand in demands
+        if not (
+            isinstance(demand, ExceptionFlowDemand)
+            and demand.demand_id in removed_ids
+        )
+    ]
 
 
 def _group_key(ann: RouteAnnotation) -> str:

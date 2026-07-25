@@ -28,6 +28,26 @@ def _find_parent_span(parent_id: str | None, spans: list[SpanIR]) -> SpanIR | No
     return None
 
 
+def _resolve_approved_parent_id(
+    span_data: dict[str, Any],
+    ambiguous_ids: set[str],
+) -> str | None:
+    declared_parent = span_data.get("parent_span_id")
+    if declared_parent in ambiguous_ids:
+        return declared_parent
+    llm_span_id = span_data.get("span_id")
+    if not isinstance(llm_span_id, str):
+        return None
+    candidates = [
+        parent_id
+        for parent_id in ambiguous_ids
+        if llm_span_id.startswith(parent_id)
+        and len(llm_span_id) == len(parent_id) + 1
+        and llm_span_id[-1].isalpha()
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def _derive_child_annotation(
     parent_ann: RouteAnnotation,
     child_span_id: str,
@@ -145,10 +165,25 @@ Output valid JSON:"""
         # LLM may return extra resolved_spans for non-ambiguous parents; skip them.
         ambiguous_ids = {u.get("span_id") for u in ambiguity_updates if u.get("span_id")}
 
-        new_spans = []
+        new_spans: list[SpanIR] = []
+        child_parent_by_id: dict[str, str] = {}
+        llm_child_id_map: dict[str, str] = {}
+        split_parent_ids: set[str] = set()
+        resolution_diagnostics: list[str] = []
+        original_span_ids = {span.span_id for span in spans}
         for span_data in resolved_spans_data:
-            parent_id = span_data.get("parent_span_id")
+            parent_id = _resolve_approved_parent_id(span_data, ambiguous_ids)
             parent = _find_parent_span(parent_id, spans)
+            if parent is None or parent_id not in ambiguous_ids:
+                if span_data.get("span_id") in original_span_ids:
+                    continue
+                message = (
+                    "Stage 3 rejected resolved child with unknown or "
+                    f"non-ambiguous parent: {parent_id!r}."
+                )
+                self.logger.warning(message)
+                resolution_diagnostics.append(message)
+                continue
             # Only accept children whose parent was marked ambiguous in Stage 2.
             # LLM may fabricate children for non-ambiguous parents; skip them.
             if parent and parent_id and parent_id not in ambiguous_ids:
@@ -156,17 +191,15 @@ Output valid JSON:"""
             try:
                 # -- Sub-span ID: suffix strategy (s5 -> s5a, s5b, ...) -------
                 # Avoids collision with Stage 1's global renumbering.
-                if parent:
-                    existing_children = sum(
-                        1 for s in new_spans
-                        if s.span_id.startswith(parent.span_id)
-                        and len(s.span_id) == len(parent.span_id) + 1
-                    )
-                    child_id = (
-                        f"{parent.span_id}{chr(ord('a') + existing_children)}"
-                    )
-                else:
-                    child_id = span_data["span_id"]  # fallback: use LLM value
+                existing_children = sum(
+                    1
+                    for s in new_spans
+                    if s.span_id.startswith(parent.span_id)
+                    and len(s.span_id) == len(parent.span_id) + 1
+                )
+                child_id = (
+                    f"{parent.span_id}{chr(ord('a') + existing_children)}"
+                )
 
                 # System provenance is authoritative; LLM is fallback only.
                 child_sid = (parent.source_section_id if parent else None) or span_data.get("source_section_id")
@@ -186,6 +219,12 @@ Output valid JSON:"""
                     ),
                 )
                 new_spans.append(span)
+                child_parent_by_id[child_id] = parent_id
+                llm_span_id = span_data.get("span_id")
+                if isinstance(llm_span_id, str) and llm_span_id:
+                    llm_child_id_map[llm_span_id] = child_id
+                llm_child_id_map[child_id] = child_id
+                split_parent_ids.add(parent_id)
             except KeyError as e:
                 self.logger.warning("Missing field in resolved span data: %s", e)
                 continue
@@ -193,26 +232,71 @@ Output valid JSON:"""
                 self.logger.warning("Invalid resolved span data: %s", e)
                 continue
 
-        # 5. Merge spans: remove original ambiguous spans, add new resolved spans
+        # Remove a parent only after at least one validated child was admitted.
         resolved_spans = []
         for span in spans:
-            if span.span_id not in ambiguous_ids:
+            if span.span_id not in split_parent_ids:
                 resolved_spans.append(span)
         resolved_spans.extend(new_spans)
 
         # 6. Create resolved routes with preserved and derived annotations
+        field_names = (
+            "identity",
+            "audience",
+            "rules",
+            "domain",
+            "integrations",
+            "behavior",
+        )
+        route_values: dict[str, list[str]] = {
+            field_name: [
+                span_id
+                for span_id in getattr(routes, field_name)
+                if span_id in original_span_ids
+                and span_id not in split_parent_ids
+            ]
+            for field_name in field_names
+        }
+        child_field_by_id: dict[str, str] = {}
+        for field_name in field_names:
+            for llm_span_id in resolved_routes_data.get(field_name, []):
+                child_id = llm_child_id_map.get(llm_span_id)
+                if child_id is None:
+                    if (
+                        llm_span_id in original_span_ids
+                        and routes.get_field_for_span(llm_span_id) == field_name
+                    ):
+                        continue
+                    resolution_diagnostics.append(
+                        "Stage 3 ignored route for non-admitted span "
+                        f"'{llm_span_id}'."
+                    )
+                    continue
+                if child_id in child_field_by_id:
+                    resolution_diagnostics.append(
+                        "Stage 3 ignored overlapping route for admitted child "
+                        f"'{child_id}'."
+                    )
+                    continue
+                child_field_by_id[child_id] = field_name
+                route_values[field_name].append(child_id)
+
+        for child in new_spans:
+            if child.span_id in child_field_by_id:
+                continue
+            parent_id = child_parent_by_id[child.span_id]
+            fallback_field = routes.get_primary_field(parent_id) or "behavior"
+            child_field_by_id[child.span_id] = fallback_field
+            route_values[fallback_field].append(child.span_id)
+
         resolved_routes = FieldRouteIR(
-            identity=resolved_routes_data.get("identity", []),
-            audience=resolved_routes_data.get("audience", []),
-            rules=resolved_routes_data.get("rules", []),
-            domain=resolved_routes_data.get("domain", []),
-            integrations=resolved_routes_data.get("integrations", []),
-            behavior=resolved_routes_data.get("behavior", []),
+            **route_values,
+            route_diagnostics=list(routes.route_diagnostics),
+            structured_route_diagnostics=list(routes.structured_route_diagnostics),
         )
         # Preserve annotations for non-ambiguous spans
-        ambiguous_span_ids = {u.get("span_id") for u in ambiguity_updates if u.get("span_id")}
         resolved_routes.annotations = [
-            a for a in routes.annotations if a.span_id not in ambiguous_span_ids
+            a for a in routes.annotations if a.span_id not in split_parent_ids
         ]
         # Derive annotations for split children.
         #
@@ -245,18 +329,12 @@ Output valid JSON:"""
         _parent_seg_index: dict[str, int] = {}
 
         # Collect fallback diagnostics for route-level visibility (P2).
-        _fallback_diags: list[str] = []
+        _fallback_diags: list[str] = list(resolution_diagnostics)
 
         for child in new_spans:
-            parent_span_id = next(
-                (sd.get("parent_span_id") for sd in resolved_spans_data
-                 if sd.get("span_id") == child.span_id),
-                None,
-            )
-            if not parent_span_id:
-                continue
+            parent_span_id = child_parent_by_id[child.span_id]
             parent_anns = routes.get_annotations(parent_span_id)
-            child_field = resolved_routes.get_field_for_span(child.span_id) or "behavior"
+            child_field = child_field_by_id[child.span_id]
 
             # -- Step 1: try split segment semantic_role (PRIMARY) ----------
             segments = _split_by_parent.get(parent_span_id)
@@ -340,11 +418,10 @@ Output valid JSON:"""
                 msg = (
                     f"Stage 3: split child '{child.span_id}' "
                     f"(parent '{parent_span_id}') has no segment "
-                    f"semantic_role and no parent annotations; skipping."
+                    "semantic_role and no parent annotations; skipping."
                 )
                 self.logger.warning(msg)
                 _fallback_diags.append(msg)
-
         # P2: surface fallback diagnostics in route artifacts, not just logs.
         if _fallback_diags:
             resolved_routes.route_diagnostics.extend(_fallback_diags)

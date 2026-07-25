@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from nl2spl.compiler.construct_plan.model import ConstructPlan
+from nl2spl.compiler.construct_plan.model import ConstructPlan, ExceptionFlowDemand
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
@@ -55,7 +55,7 @@ def materialize_exception_flows_from_construct_plan(
         condition_span = span_by_id.get(condition_span_id)
         if condition_span is None or condition_span.is_placeholder:
             continue
-        condition_text = condition_span.text
+        condition_text = demand.condition_text or condition_span.text
         # 过滤 "None" / "N/A" 等空标记，防止 adapter 输出的无效文本被当成 condition
         if is_empty_condition_marker(condition_text):
             continue
@@ -104,6 +104,7 @@ def materialize_worker_exception_flows_from_construct_plan(
         for span_id in worker.owned_span_ids:
             owners_by_span.setdefault(span_id, []).append(worker.worker_id)
 
+    demands_by_worker: dict[str, list[ExceptionFlowDemand]] = {}
     for demand in construct_plan.exception_flow_demands():
         if not demand.condition_span_ids:
             continue
@@ -111,7 +112,8 @@ def materialize_worker_exception_flows_from_construct_plan(
         condition_span = span_by_id.get(condition_span_id)
         if condition_span is None or condition_span.is_placeholder:
             continue
-        if is_empty_condition_marker(condition_span.text):
+        condition_text = demand.condition_text or condition_span.text
+        if is_empty_condition_marker(condition_text):
             continue
 
         # 按 condition span 的所有权决定目标 worker
@@ -128,13 +130,30 @@ def materialize_worker_exception_flows_from_construct_plan(
                 f"{target_worker_id}."
             )
 
-        worker_flows.setdefault(target_worker_id, FlowStructureIR())
-        # 将单个 demand 包装成单元素 ConstructPlan，复用单 flow 版的物化逻辑
+        demands_by_worker.setdefault(target_worker_id, []).append(demand)
+
+    for target_worker_id, worker_demands in demands_by_worker.items():
+        current_flow = worker_flows.setdefault(target_worker_id, FlowStructureIR())
+        condition_span_ids = {
+            span_id
+            for demand in worker_demands
+            for span_id in demand.condition_span_ids
+        }
+        base_flow = FlowStructureIR(
+            main_flow_spans=list(current_flow.main_flow_spans),
+            alternative_flows=list(current_flow.alternative_flows),
+            exception_flows=[
+                exception_flow
+                for exception_flow in current_flow.exception_flows
+                if not condition_span_ids.intersection(exception_flow.spans)
+            ],
+            delegation_candidates=list(current_flow.delegation_candidates),
+        )
         worker_flows[target_worker_id] = materialize_exception_flows_from_construct_plan(
-            worker_flows[target_worker_id],
+            base_flow,
             ConstructPlan(
                 plan_id=construct_plan.plan_id,
-                demands=[demand],
+                demands=list(worker_demands),
             ),
             spans,
         )
@@ -161,6 +180,7 @@ def materialize_handler_blocks_from_construct_plan(
         for flow_id, flow_blocks in blocks.exception_flow_blocks.items()
     }
     changed = False
+    materialized_handler_span_ids: set[str] = set()
     counter = sum(
         len(flow_blocks)
         for flow_blocks in exception_flow_blocks.values()
@@ -185,9 +205,15 @@ def materialize_handler_blocks_from_construct_plan(
         flow_blocks = exception_flow_blocks.setdefault(flow_id, [])
         existing_span_sets = {tuple(block.spans) for block in flow_blocks}
         for handler_span_id in demand.handler_span_ids:
+            materialized_handler_span_ids.add(handler_span_id)
             # 去重：同一个 handler span 不重复创建 block
             key = (handler_span_id,)
             if key in existing_span_sets:
+                if handler_span_id in demand.condition_span_ids:
+                    for existing_block in flow_blocks:
+                        if existing_block.spans == [handler_span_id]:
+                            existing_block.block_type = "SEQUENTIAL"
+                            existing_block.condition_text = None
                 continue
             counter += 1
             flow_blocks.append(
@@ -200,13 +226,51 @@ def materialize_handler_blocks_from_construct_plan(
             existing_span_sets.add(key)
             changed = True
 
-    if not changed:
-        return blocks
-    return BlockStructureIR(
-        main_flow_blocks=list(blocks.main_flow_blocks),
-        alternative_flow_blocks={
+    cleaned_main_blocks = _remove_owned_handler_spans(
+        blocks.main_flow_blocks,
+        materialized_handler_span_ids,
+    )
+    cleaned_alternative_blocks = {
+        flow_id: _remove_owned_handler_spans(
+            flow_blocks,
+            materialized_handler_span_ids,
+        )
+        for flow_id, flow_blocks in blocks.alternative_flow_blocks.items()
+    }
+    placement_changed = (
+        cleaned_main_blocks != list(blocks.main_flow_blocks)
+        or cleaned_alternative_blocks
+        != {
             flow_id: list(flow_blocks)
             for flow_id, flow_blocks in blocks.alternative_flow_blocks.items()
-        },
+        }
+    )
+    if not changed and not placement_changed:
+        return blocks
+    return BlockStructureIR(
+        main_flow_blocks=cleaned_main_blocks,
+        alternative_flow_blocks=cleaned_alternative_blocks,
         exception_flow_blocks=exception_flow_blocks,
     )
+
+
+def _remove_owned_handler_spans(
+    blocks: list[BlockIR],
+    handler_span_ids: set[str],
+) -> list[BlockIR]:
+    cleaned: list[BlockIR] = []
+    for block in blocks:
+        remaining = [
+            span_id for span_id in block.spans if span_id not in handler_span_ids
+        ]
+        if not remaining:
+            continue
+        cleaned.append(
+            BlockIR(
+                block_id=block.block_id,
+                block_type=block.block_type,
+                condition_text=block.condition_text,
+                spans=remaining,
+            )
+        )
+    return cleaned

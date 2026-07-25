@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+
+from nl2spl.compiler.construct_plan import ConstructPlan
 from nl2spl.ir.action_placement_ir import ExecutableActionPlacementPlan
 from nl2spl.ir.control_region_ir import ControlRegion, ControlRegionPlan
 from nl2spl.ir.flow_structure_ir import AlternativeFlow
@@ -14,6 +17,7 @@ def build_control_region_plan(
     worker_plan: WorkerPlanIR,
     worker_flow_plan: WorkerFlowPlanIR,
     action_plan: ExecutableActionPlacementPlan,
+    construct_plan: ConstructPlan | None = None,
 ) -> ControlRegionPlan:
     """Build validated local/top-level control regions.
 
@@ -25,6 +29,7 @@ def build_control_region_plan(
         worker_plan,
         worker_flow_plan,
         action_plan,
+        construct_plan,
     )
     return ControlRegionPlanValidator(action_plan, worker_plan).validate(
         builder.build()
@@ -40,6 +45,7 @@ class ControlRegionPlanBuilder:
         worker_plan: WorkerPlanIR,
         worker_flow_plan: WorkerFlowPlanIR,
         action_plan: ExecutableActionPlacementPlan,
+        construct_plan: ConstructPlan | None = None,
     ) -> None:
         self.spans = _dedupe_spans_by_id(spans)
         self.worker_plan = worker_plan
@@ -50,13 +56,24 @@ class ControlRegionPlanBuilder:
         self.worker_by_span = _worker_by_span(worker_plan)
         self.api_action_span_ids = _api_action_span_ids(action_plan)
         self.alternative_span_ids = _alternative_span_ids(worker_flow_plan)
+        self.exception_handler_span_ids = {
+            span_id
+            for demand in (
+                construct_plan.exception_flow_demands()
+                if construct_plan is not None
+                else ()
+            )
+            for span_id in demand.handler_span_ids
+        }
 
     def build(self) -> ControlRegionPlan:
         regions: list[ControlRegion] = []
         diagnostics: list[str] = []
 
-        for span in self.spans:
+        for span_index, span in enumerate(self.spans):
             if span.segmentation_kind != "guarded_action":
+                continue
+            if span.span_id in self.exception_handler_span_ids:
                 continue
             worker_id = self.worker_by_span.get(
                 span.span_id,
@@ -69,8 +86,30 @@ class ControlRegionPlanBuilder:
             if not guard:
                 diagnostics.append(f"guarded_action_missing_guard:{span.span_id}")
                 continue
+            condition_source_span_ids = (span.span_id,)
+            relation = "direct"
+            source = "stage1_guarded_action"
+            confidence = "high"
+            reason = None
+            if _is_incomplete_guard(guard):
+                resolved = _resolve_negative_anaphoric_guard(self.spans, span_index)
+                if resolved is None:
+                    diagnostics.append(
+                        f"guarded_action_incomplete_guard:{span.span_id}:{guard}"
+                    )
+                    continue
+                guard, condition_source_span_ids = resolved
+                relation = "derived"
+                source = "stage1_cross_packet_guard_repair"
+                confidence = "medium"
+                reason = "negative_anaphora_resolved_from_prior_verification"
             if is_terminal_placement_guard(guard):
                 diagnostics.append(f"guarded_action_terminal_placement:{span.span_id}")
+                continue
+            if not _has_guard_led_control_shape(span):
+                diagnostics.append(
+                    f"guarded_action_not_guard_led:{span.span_id}"
+                )
                 continue
             if (
                 span.span_id in self.alternative_span_ids
@@ -82,12 +121,13 @@ class ControlRegionPlanBuilder:
                         region_kind="top_level_alternative",
                         condition_text=guard,
                         action_span_ids=(span.span_id,),
-                        condition_source_span_ids=(span.span_id,),
+                        condition_source_span_ids=condition_source_span_ids,
                         worker_id=worker_id,
-                        source="stage4_llm_classified",
-                        relation="direct",
+                        source=source,
+                        relation=relation,
                         classification_source="stage4_llm_classified",
-                        confidence="high",
+                        confidence=confidence,
+                        reason=reason,
                         notes=("stage4_alternative_flow_preserved",),
                     )
                 )
@@ -98,12 +138,13 @@ class ControlRegionPlanBuilder:
                     region_kind="local_if",
                     condition_text=guard,
                     action_span_ids=(span.span_id,),
-                    condition_source_span_ids=(span.span_id,),
+                    condition_source_span_ids=condition_source_span_ids,
                     worker_id=worker_id,
-                    source="stage1_guarded_action",
-                    relation="direct",
-                    classification_source="stage1_guarded_action",
-                    confidence="high",
+                    source=source,
+                    relation=relation,
+                    classification_source=source,
+                    confidence=confidence,
+                    reason=reason,
                 )
             )
 
@@ -127,6 +168,7 @@ class ControlRegionPlanBuilder:
                     if region.region_kind == "local_if"
                     for span_id in region.action_span_ids
                 },
+                excluded_action_span_ids=self.exception_handler_span_ids,
             )
         )
 
@@ -288,6 +330,7 @@ def _derive_cross_packet_guard_regions(
     main_worker_id: str,
     *,
     existing_action_span_ids: set[str],
+    excluded_action_span_ids: set[str] | None = None,
 ) -> list[ControlRegion]:
     """Repair source-adjacent guard tails split from executable actions.
 
@@ -299,6 +342,8 @@ def _derive_cross_packet_guard_regions(
     regions: list[ControlRegion] = []
     for index, condition_span in enumerate(spans[:-1]):
         action_span = spans[index + 1]
+        if action_span.span_id in (excluded_action_span_ids or set()):
+            continue
         if condition_span.segmentation_kind == "guarded_action":
             continue
         if action_span.span_id in existing_action_span_ids:
@@ -310,19 +355,27 @@ def _derive_cross_packet_guard_regions(
         guard = _trailing_guard_text(condition_span.text)
         if not guard:
             continue
+        condition_source_span_ids = (condition_span.span_id,)
+        reason = "guard_tail_precedes_accepted_action"
+        if _is_incomplete_guard(guard):
+            resolved = _resolve_negative_anaphoric_guard(spans, index)
+            if resolved is None:
+                continue
+            guard, condition_source_span_ids = resolved
+            reason = "negative_anaphora_resolved_from_prior_verification"
         regions.append(
             ControlRegion(
                 region_id=f"cr_local_if_{condition_span.span_id}_{action_span.span_id}",
                 region_kind="local_if",
                 condition_text=guard,
                 action_span_ids=(action_span.span_id,),
-                condition_source_span_ids=(condition_span.span_id,),
+                condition_source_span_ids=condition_source_span_ids,
                 worker_id=worker_by_span.get(action_span.span_id, main_worker_id),
                 source="stage1_cross_packet_guard_repair",
                 relation="derived",
                 classification_source="deterministic_evidence",
                 confidence="medium",
-                reason="guard_tail_precedes_accepted_action",
+                reason=reason,
             )
         )
         existing_action_span_ids.add(action_span.span_id)
@@ -415,6 +468,60 @@ def _trailing_guard_text(text: str) -> str | None:
             guard = candidate[len(prefix):].strip(" ,;.")
             return guard or None
     return None
+
+
+def _is_incomplete_guard(text: str) -> bool:
+    normalized = " ".join(text.lower().strip(" ,.;:").split())
+    return normalized in {
+        "not",
+        "otherwise",
+        "if not",
+        "when not",
+        "unless so",
+    }
+
+
+def _resolve_negative_anaphoric_guard(
+    spans: list[SpanIR],
+    condition_index: int,
+) -> tuple[str, tuple[str, ...]] | None:
+    """Resolve a narrow ``if not`` reference from prior verification evidence."""
+
+    condition_span = spans[condition_index]
+    for prior in reversed(spans[max(0, condition_index - 8) : condition_index]):
+        if prior.source_section_id != condition_span.source_section_id:
+            break
+        prior_text = " ".join(prior.text.split())
+        match = re.search(
+            r"(?:generate|create|produce)\s+(?:a\s+|the\s+)?"
+            r"(?P<subject>.+?)\s+and\s+verify\s+(?:whether|if)\s+it\s+meets\s+"
+            r"(?P<criteria>.+?)(?:[.;]|$)",
+            prior_text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            continue
+        subject = match.group("subject").strip(" ,.;")
+        criteria = match.group("criteria").strip(" ,.;")
+        if not subject or not criteria:
+            continue
+        return (
+            f"{subject} does not meet {criteria}",
+            (prior.span_id, condition_span.span_id),
+        )
+    return None
+
+
+def _has_guard_led_control_shape(span: SpanIR) -> bool:
+    """Reject embedded ``check whether/if`` clauses as control regions."""
+
+    text = " ".join(span.text.lower().split()).lstrip()
+    if text.startswith(("if ", "when ", "unless ", "where ")):
+        return True
+    if ":" not in text:
+        return False
+    _label, suffix = text.split(":", 1)
+    return suffix.lstrip().startswith(("if ", "when ", "unless ", "where "))
 
 
 def re_split_sentences(text: str) -> list[str]:

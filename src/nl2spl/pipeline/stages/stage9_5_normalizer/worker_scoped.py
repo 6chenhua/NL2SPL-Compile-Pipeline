@@ -140,15 +140,36 @@ class WorkerScopedMixin:
         """Refresh producer/consumer links without crossing worker scopes."""
         for variable in getattr(symbol_table, "_variables", {}).values():
             variable.consumer_steps = []
-            if variable.source in {"step", "output", "user_confirmed_repair"}:
+            if variable.source in {"step", "output"}:
                 variable.producer_step = None
 
         for worker_id, steps in worker_step_plan.worker_steps.items():
             for step in steps:
                 for input_name in step.inputs:
                     _add_worker_consumer(symbol_table, worker_id, input_name, step.step_id)
-                for output_name in step.outputs:
-                    _set_worker_producer(symbol_table, worker_id, output_name, step.step_id)
+        relation_plan = worker_step_plan.step_variable_relation_plan
+        if relation_plan is None:
+            return
+        registered: set[tuple[str, str]] = set()
+        step_owner = {
+            step.step_id: worker_id
+            for worker_id, steps in worker_step_plan.worker_steps.items()
+            for step in steps
+        }
+        for relation in relation_plan.producing_relations():
+            worker_id = step_owner.get(relation.step_id)
+            if worker_id is None:
+                continue
+            key = (worker_id, relation.variable_name)
+            if key in registered:
+                continue
+            _set_worker_producer(
+                symbol_table,
+                worker_id,
+                relation.variable_name,
+                relation.step_id,
+            )
+            registered.add(key)
 
     def _validate_command_shapes(
         self,

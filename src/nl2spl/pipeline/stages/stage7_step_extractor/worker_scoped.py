@@ -115,6 +115,16 @@ class WorkerScopedMethodsMixin:
             worker_step_plan.worker_steps[worker_id] = worker_steps
 
         # 2. 为 main worker 从 handoffs 生成 INVOKE_WORKER / CALL_API steps
+        if construct_plan is not None:
+            _materialize_exception_handler_steps(
+                worker_step_plan,
+                worker_flow_plan,
+                worker_block_plan,
+                worker_plan,
+                construct_plan,
+                spans,
+            )
+
         handoff_steps_by_worker = self._generate_handoff_steps(
             worker_plan,
             symbol_table,
@@ -849,6 +859,117 @@ Output JSON:"""
         return errors
 
 
+def _materialize_exception_handler_steps(
+    worker_step_plan: WorkerStepPlanIR,
+    worker_flow_plan: WorkerFlowPlanIR,
+    worker_block_plan: WorkerBlockPlanIR,
+    worker_plan: WorkerPlanIR,
+    construct_plan: ConstructPlan,
+    spans: list[SpanIR],
+) -> None:
+    """Materialize source-backed handler actions reserved by ConstructPlan."""
+
+    span_by_id = {span.span_id: span for span in spans}
+    owner_by_span = {
+        span_id: worker.worker_id
+        for worker in worker_plan.workers
+        for span_id in worker.owned_span_ids
+    }
+    handler_span_ids = {
+        span_id
+        for demand in construct_plan.exception_flow_demands()
+        for span_id in demand.handler_span_ids
+    }
+    for worker_id, worker_steps in worker_step_plan.worker_steps.items():
+        normalized_steps: list[StepIR] = []
+        for step in worker_steps:
+            remaining_source_span_ids = [
+                span_id
+                for span_id in step.source_span_ids
+                if span_id not in handler_span_ids
+            ]
+            if step.source_span_ids and not remaining_source_span_ids:
+                continue
+            step.source_span_ids = remaining_source_span_ids
+            normalized_steps.append(step)
+        worker_step_plan.worker_steps[worker_id] = normalized_steps
+    for demand in construct_plan.exception_flow_demands():
+        if not demand.condition_span_ids or not demand.handler_span_ids:
+            continue
+        placement = _exception_handler_placement(
+            demand.condition_span_ids,
+            demand.handler_span_ids,
+            worker_flow_plan,
+            worker_block_plan,
+            owner_by_span,
+        )
+        if placement is None:
+            continue
+        worker_id, flow_id, block_by_span = placement
+        worker_steps = worker_step_plan.worker_steps.setdefault(worker_id, [])
+        for handler_span_id in demand.handler_span_ids:
+            span = span_by_id.get(handler_span_id)
+            block_ref = block_by_span.get(handler_span_id)
+            if span is None or block_ref is None:
+                continue
+            action_text = (span.action_text_exact or span.text).strip(" ,.;")
+            if not action_text:
+                continue
+            worker_steps.append(
+                StepIR(
+                    step_id=f"st_exception_{flow_id}_{handler_span_id}",
+                    text=action_text,
+                    source_span_ids=[handler_span_id],
+                    command_type="GENERAL_COMMAND",
+                    flow_ref=flow_id,
+                    block_ref=block_ref,
+                    metadata={
+                        "construct_demand_id": demand.demand_id,
+                        "materialization_authority": "construct_plan_exception_handler",
+                    },
+                )
+            )
+
+
+def _exception_handler_placement(
+    condition_span_ids: list[str],
+    handler_span_ids: list[str],
+    worker_flow_plan: WorkerFlowPlanIR,
+    worker_block_plan: WorkerBlockPlanIR,
+    owner_by_span: dict[str, str],
+) -> tuple[str, str, dict[str, str]] | None:
+    condition_ids = set(condition_span_ids)
+    for worker_id, flow in worker_flow_plan.worker_flows.items():
+        flow_id = next(
+            (
+                exception.flow_id
+                for exception in flow.exception_flows
+                if condition_ids.intersection(exception.spans)
+            ),
+            None,
+        )
+        if flow_id is None:
+            continue
+        block_structure = worker_block_plan.worker_blocks.get(worker_id)
+        if block_structure is None:
+            continue
+        block_by_span = {
+            span_id: block.block_id
+            for block in block_structure.exception_flow_blocks.get(flow_id, [])
+            for span_id in block.spans
+            if span_id in handler_span_ids
+        }
+        if not block_by_span:
+            continue
+        if any(
+            owner_by_span.get(span_id, worker_id) != worker_id
+            for span_id in block_by_span
+        ):
+            continue
+        return worker_id, flow_id, block_by_span
+    return None
+
+
 def _build_step_variable_relation_plan(
     worker_step_plan: WorkerStepPlanIR,
     symbol_table: SymbolTable,
@@ -873,10 +994,45 @@ def _build_step_variable_relation_plan(
                     )
                 )
             continue
+        if step.command_type == "INVOKE_WORKER":
+            for output in step.outputs:
+                relations.append(
+                    StepVariableRelation(
+                        step_id=step.step_id,
+                        variable_name=output,
+                        relation="produces",
+                        source_span_ids=tuple(step.source_span_ids),
+                        evidence_kind="worker_handoff_contract",
+                        evidence_source="worker_handoff",
+                        confidence="high",
+                    )
+                )
+            continue
         _strip_control_condition_inputs(step)
         _strip_unbacked_provenance_inputs(step)
         _strip_unbacked_output_contract_inputs(step, variables, span_by_id or {})
-        _augment_source_backed_outputs(step, variables, span_by_id or {})
+        source_text = _source_text_for_step(step, span_by_id or {})
+        action_text = _source_action_text_for_step(step, span_by_id or {})
+        _enforce_explicit_source_command_type(step, action_text)
+        if step.command_type == "DISPLAY_MESSAGE":
+            for output in list(step.outputs):
+                relations.append(
+                    StepVariableRelation(
+                        step_id=step.step_id,
+                        variable_name=output,
+                        relation="ambiguous",
+                        source_span_ids=tuple(step.source_span_ids),
+                        evidence_kind="display_message_cannot_produce",
+                        evidence_source="command_type_contract",
+                        reason="display_message_output_forbidden",
+                        confidence="high",
+                    )
+                )
+                diagnostics.append(
+                    f"step_variable_relation_ambiguous:{step.step_id}:{output}"
+                )
+            step.outputs = []
+            continue
         if _is_no_output_provenance_maintenance(step, span_by_id or {}):
             for output in list(step.outputs):
                 relations.append(
@@ -898,40 +1054,47 @@ def _build_step_variable_relation_plan(
             continue
         kept_outputs: list[str] = []
         for output in list(step.outputs):
-            if _output_is_source_backed(step, output, variables):
-                relation = _source_backed_output_relation(step, output)
+            if _output_is_source_backed(
+                step,
+                output,
+                variables,
+                span_by_id or {},
+            ):
+                relation = _source_backed_output_relation(step, action_text)
                 if relation == "produces":
                     kept_outputs.append(output)
-                relations.append(
-                    StepVariableRelation(
-                        step_id=step.step_id,
-                        variable_name=output,
-                        relation=relation,
-                        source_span_ids=tuple(step.source_span_ids),
-                        evidence_kind="stage7_structured_output_source_match",
-                        evidence_source="source_text",
-                        evidence_text=step.text,
-                        confidence="medium",
+                if relation != "ambiguous":
+                    relations.append(
+                        StepVariableRelation(
+                            step_id=step.step_id,
+                            variable_name=output,
+                            relation=relation,
+                            source_span_ids=tuple(step.source_span_ids),
+                            evidence_kind="stage7_structured_output_source_match",
+                            evidence_source="source_text",
+                            evidence_text=source_text,
+                            confidence="high",
+                        )
                     )
-                )
+                    continue
+                reason = "source_mentions_output_without_producer_action"
             else:
-                relations.append(
-                    StepVariableRelation(
-                        step_id=step.step_id,
-                        variable_name=output,
-                        relation="ambiguous",
-                        source_span_ids=tuple(step.source_span_ids),
-                        evidence_kind=(
-                            "stage7_structured_output_without_source_match"
-                        ),
-                        evidence_source="inferred_unconfirmed",
-                        reason="output_name_or_description_not_mentioned",
-                        confidence="low",
-                    )
+                reason = "output_name_not_mentioned_in_source"
+            relations.append(
+                StepVariableRelation(
+                    step_id=step.step_id,
+                    variable_name=output,
+                    relation="ambiguous",
+                    source_span_ids=tuple(step.source_span_ids),
+                    evidence_kind="stage7_structured_output_without_source_match",
+                    evidence_source="inferred_unconfirmed",
+                    reason=reason,
+                    confidence="low",
                 )
-                diagnostics.append(
-                    f"step_variable_relation_ambiguous:{step.step_id}:{output}"
-                )
+            )
+            diagnostics.append(
+                f"step_variable_relation_ambiguous:{step.step_id}:{output}"
+            )
         step.outputs = kept_outputs
 
     return StepVariableRelationPlan(
@@ -1133,38 +1296,6 @@ def _symbol_variables(symbol_table: SymbolTable) -> dict[str, object]:
     return variables
 
 
-def _augment_source_backed_outputs(
-    step: StepIR,
-    variables: dict[str, object],
-    span_by_id: dict[str, SpanIR],
-) -> None:
-    """Recover source-backed output mentions omitted by the LLM step text.
-
-    This is intentionally narrow: the source span, not keyword matching over the
-    generated command text, must mention an output contract variable by name or
-    description before we add it to the step.
-    """
-    if not span_by_id:
-        return
-    source_text = _source_text_for_step(step, span_by_id)
-    if not source_text:
-        return
-    normalized_source = _normalize_relation_text(source_text)
-    added_outputs: list[str] = []
-    for name, variable in variables.items():
-        if name in step.outputs:
-            continue
-        if getattr(variable, "source", "") != "output":
-            continue
-        if not _output_mentioned_in_text(name, variable, normalized_source):
-            continue
-        step.outputs.append(name)
-        added_outputs.append(name)
-    if added_outputs:
-        step.metadata["source_backed_output_recovery"] = ",".join(added_outputs)
-        _append_recovered_outputs_to_step_text(step, added_outputs)
-
-
 def _source_text_for_step(step: StepIR, span_by_id: dict[str, SpanIR]) -> str:
     parts = [
         span_by_id[span_id].text
@@ -1174,71 +1305,87 @@ def _source_text_for_step(step: StepIR, span_by_id: dict[str, SpanIR]) -> str:
     return " ".join(parts)
 
 
+def _source_action_text_for_step(
+    step: StepIR,
+    span_by_id: dict[str, SpanIR],
+) -> str:
+    """Return source-owned action text without treating guards as actions."""
+
+    parts = []
+    for span_id in step.source_span_ids:
+        span = span_by_id.get(span_id)
+        if span is None:
+            continue
+        parts.append(span.action_text_exact or span.text)
+    return " ".join(parts)
+
+
+def _enforce_explicit_source_command_type(
+    step: StepIR,
+    source_action_text: str,
+) -> None:
+    """Honor an explicit source-level display/output imperative."""
+
+    normalized = _normalize_relation_text(source_action_text)
+    first_token = normalized.split()[0] if normalized else ""
+    if first_token not in {"display", "output", "present", "show"}:
+        return
+    step.command_type = "DISPLAY_MESSAGE"
+    step.text = source_action_text.strip().rstrip(".")
+
+
 def _output_mentioned_in_text(
     output: str,
     variable: object,
     normalized_text: str,
 ) -> bool:
-    if _tokens_mentioned(_meaningful_tokens(output), normalized_text):
-        return True
-    description = getattr(variable, "description", "") or ""
-    if _tokens_mentioned(_meaningful_tokens(description), normalized_text):
-        return True
-    if output == "completion_status" and "completion status" in normalized_text:
-        return True
-    if output.endswith("_log") and output[:-4].replace("_", " ") in normalized_text:
-        return True
-    return False
-
-
-def _append_recovered_outputs_to_step_text(
-    step: StepIR,
-    added_outputs: list[str],
-) -> None:
-    normalized_text = _normalize_relation_text(step.text)
-    additions: list[str] = []
-    for output in added_outputs:
-        display = output.replace("_", " ")
-        if display in normalized_text:
-            continue
-        if output == "completion_status":
-            additions.append("set completion status")
-        else:
-            additions.append(f"produce {display}")
-    if additions:
-        step.text = f"{step.text.rstrip('.')} and {' and '.join(additions)}."
+    del variable
+    output_phrase = _normalize_relation_text(output.replace("_", " "))
+    return bool(output_phrase and output_phrase in normalized_text)
 
 
 def _output_is_source_backed(
     step: StepIR,
     output: str,
     variables: dict[str, object],
+    span_by_id: dict[str, SpanIR],
 ) -> bool:
-    action_text = _normalize_relation_text(step.text)
-    output_tokens = _meaningful_tokens(output)
+    source_text = _normalize_relation_text(_source_text_for_step(step, span_by_id))
     variable = variables.get(output)
-    description = getattr(variable, "description", "") if variable else ""
-    description_tokens = _meaningful_tokens(description)
-    if _tokens_mentioned(output_tokens, action_text):
-        return True
-    if _tokens_mentioned(description_tokens, action_text):
-        return True
-    if output == "completion_status" and "completion status" in action_text:
-        return True
-    if output.endswith("_log") and output[:-4].replace("_", " ") in action_text:
-        return True
-    return False
+    return _output_mentioned_in_text(output, variable, source_text)
 
 
-def _source_backed_output_relation(step: StepIR, output: str) -> str:
-    del output
-    action_text = _normalize_relation_text(step.text)
+def _source_backed_output_relation(step: StepIR, source_text: str) -> str:
+    action_text = _normalize_relation_text(source_text)
+    for prefix in ("at the end ", "at end ", "finally "):
+        if action_text.startswith(prefix):
+            action_text = action_text.removeprefix(prefix)
+            break
     action_tokens = action_text.split()
     if action_tokens and action_tokens[0] in {"revise", "refine", "update"}:
         return "refines"
     if " revise " in f" {action_text} " or " refine " in f" {action_text} ":
         return "refines"
-    return "produces"
+    if step.command_type == "REQUEST_INPUT":
+        if any(
+            marker in f" {action_text} "
+            for marker in (" ask ", " request ", " inquire ", " prompt ", " collect ")
+        ):
+            return "produces"
+        return "ambiguous"
+    if action_tokens and action_tokens[0] in {
+        "produce",
+        "generate",
+        "create",
+        "record",
+        "set",
+        "write",
+        "compose",
+        "return",
+        "emit",
+    }:
+        return "produces"
+    return "ambiguous"
 
 
 def _normalize_relation_text(text: str) -> str:

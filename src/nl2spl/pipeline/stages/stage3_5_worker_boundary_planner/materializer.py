@@ -34,6 +34,82 @@ def _span_sort_key(sid: str) -> tuple[int, str]:
     return (0, sid)
 
 
+def _dedupe_contract_fields(
+    fields: list[ContractFieldIR],
+) -> list[ContractFieldIR]:
+    """Collapse duplicate named fields without losing declaration evidence."""
+    grouped: dict[str, list[ContractFieldIR]] = {}
+    order: list[str] = []
+    for index, field_ir in enumerate(fields):
+        normalized_name = field_ir.name.strip().casefold()
+        key = normalized_name or field_ir.contract_demand_id or f"anonymous:{index}"
+        if key not in grouped:
+            grouped[key] = []
+            order.append(key)
+        grouped[key].append(field_ir)
+
+    result: list[ContractFieldIR] = []
+    for key in order:
+        candidates = grouped[key]
+        if len(candidates) == 1:
+            result.append(candidates[0])
+            continue
+
+        base = min(
+            candidates,
+            key=lambda item: (
+                item.required is not True,
+                item.contract_demand_id is None,
+            ),
+        )
+        required = (
+            True
+            if any(item.required is True for item in candidates)
+            else False
+            if all(item.required is False for item in candidates)
+            else None
+        )
+        source_span_ids = list(
+            dict.fromkeys(
+                span_id
+                for item in candidates
+                for span_id in item.source_span_ids
+            )
+        )
+        result.append(
+            ContractFieldIR(
+                name=base.name,
+                data_type=next(
+                    (item.data_type for item in candidates if item.data_type),
+                    base.data_type,
+                ),
+                required=required,
+                description=next(
+                    (
+                        item.description
+                        for item in candidates
+                        if item.description
+                    ),
+                    base.description,
+                ),
+                source=base.source,
+                contract_demand_id=base.contract_demand_id,
+                source_span_ids=source_span_ids,
+                source_section_id=base.source_section_id,
+                source_packet_id=base.source_packet_id,
+                resource_kind=base.resource_kind,
+                requiredness=(
+                    "required"
+                    if required is True
+                    else "optional"
+                    if required is False
+                    else base.requiredness
+                ),
+            )
+        )
+    return result
+
+
 class WorkerPlanMaterializer:
     """Deterministic builder that produces a valid WorkerPlanIR.
 
@@ -177,8 +253,8 @@ class WorkerPlanMaterializer:
             worker_name=worker_name,
             kind="main",
             purpose="Orchestrate the end-to-end process and delegate to sub-tasks.",
-            input_contract=list(inputs),
-            output_contract=list(outputs),
+            input_contract=_dedupe_contract_fields(inputs),
+            output_contract=_dedupe_contract_fields(outputs),
             boundary_kind="main_worker",
         )
 

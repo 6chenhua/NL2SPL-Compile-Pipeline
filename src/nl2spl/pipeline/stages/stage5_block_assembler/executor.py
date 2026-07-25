@@ -279,12 +279,22 @@ Return JSON only."""
 
         # Identify condition spans via route annotations (preferred)
         condition_span_ids: set[str] = set()
+        handler_span_ids: set[str] = set()
+        has_condition_authority = construct_plan is not None or bool(
+            routes is not None and routes.annotations
+        )
         if construct_plan is not None:
             condition_span_ids = {
                 span_id
                 for demand in construct_plan.exception_flow_demands()
                 for span_id in demand.condition_span_ids
             }
+            handler_span_ids = {
+                span_id
+                for demand in construct_plan.exception_flow_demands()
+                for span_id in demand.handler_span_ids
+            }
+            condition_span_ids -= handler_span_ids
         elif routes is not None and routes.annotations:
             condition_span_ids = {
                 a.span_id
@@ -302,8 +312,9 @@ Return JSON only."""
         for exc in flow_structure.exception_flows:
             if not exc.flow_id.startswith("exc_adapter_"):
                 continue
-            if condition_span_ids:
-                # Use route-annotated condition spans intersected with flow spans
+            if has_condition_authority:
+                # An empty authoritative set means every condition span in the
+                # flow is also a source-backed handler, not "authority absent".
                 flow_condition_spans[exc.flow_id] = set(exc.spans) & condition_span_ids
             else:
                 # Fallback: all flow spans are considered condition evidence
@@ -530,10 +541,11 @@ def _copy_block_chunk(block: BlockIR, spans: list[str], chunk_index: int) -> Blo
 
 def _block_for_region(region: ControlRegion) -> BlockIR:
     block_id = f"b_{region.region_id}"
+    is_local_condition = region.region_kind == "local_if"
     return BlockIR(
         block_id=block_id,
-        block_type="IF",
-        condition_text=region.condition_text,
+        block_type="IF" if is_local_condition else "SEQUENTIAL",
+        condition_text=region.condition_text if is_local_condition else None,
         spans=list(region.action_span_ids),
     )
 
@@ -561,16 +573,32 @@ def _apply_control_region_plan(
     output. Legacy flow output remains provenance/debug input only.
     """
     regions = control_region_plan.regions_for_worker(worker_id)
-    if not regions:
-        return block_structure
+    planned_local_span_ids = {
+        span_id
+        for region in regions
+        if region.region_kind == "local_if"
+        for span_id in region.action_span_ids
+    }
 
     planned_span_ids = {
         span_id
         for region in regions
         for span_id in region.action_span_ids
     }
+    authoritative_main_blocks = [
+        BlockIR(
+            block_id=block.block_id,
+            block_type="SEQUENTIAL",
+            condition_text=None,
+            spans=list(block.spans),
+        )
+        if block.block_type == "IF"
+        and not set(block.spans).issubset(planned_local_span_ids)
+        else block
+        for block in block_structure.main_flow_blocks
+    ]
     main_blocks = _remove_spans_from_blocks(
-        block_structure.main_flow_blocks,
+        authoritative_main_blocks,
         planned_span_ids,
     )
     alternative_blocks = {
