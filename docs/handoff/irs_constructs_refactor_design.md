@@ -1,148 +1,142 @@
-# IRS / Constructs 代码组织重构设计文档
+# IRS / Constructs 分层重构设计文档 v2
 
-**文档状态**: Draft for implementation review  
+**文档状态**: v2 architecture design, not yet an implementation plan
 **适用仓库**: `NL2SPL-Compile-Pipeline`  
-**范围**: `src/nl2spl/compiler/construct_registry.py`, `src/nl2spl/compiler/irs/`, `src/nl2spl/compiler/construct_plan/`, `src/nl2spl/compiler/diagnostic_registry.py`, `src/nl2spl/compiler/irs_prompt_builder.py`, `src/nl2spl/compiler/report_renderer.py`  
-**目标版本**: IRS / Constructs package-architecture refactor  
-**核心原则**: 行为冻结、分层清晰、依赖单向、兼容迁移、可回滚
+**范围**: `src/nl2spl/compiler/construct_registry.py`, `src/nl2spl/compiler/irs/`, `src/nl2spl/compiler/construct_plan/`, `src/nl2spl/compiler/diagnostic_registry.py`, `src/nl2spl/compiler/diagnostic_consolidator.py`, `src/nl2spl/compiler/irs_prompt_builder.py`, `src/nl2spl/compiler/report_renderer.py`, `src/nl2spl/compiler/spl_editing/`, `src/nl2spl/compiler/resource_contract_demand_view/`, `src/nl2spl/compiler/capability_intent/`
+**目标版本**: IRS / Constructs / Repair Contracts package-architecture refactor
+**核心原则**: 行为冻结、分层清晰、依赖单向、兼容迁移、repair authority 不上移、可回滚
 
 ---
 
-## 1. 背景与问题定义
+## 1. 设计结论
 
-当前 IRS 顶层设计本身是正确的：
+原 v1 文档对早期 IRS package boundary 的判断仍然成立：
 
 ```text
-ConstructPlan       → source-demand planning
-ConstructIRS        → static construct information requirements
-IRS runtime         → runtime checking / satisfaction / diagnostic projection
-ReportRenderer      → deterministic human-readable feedback
+constructs      = SPL construct domain model
+diagnostics     = compiler diagnostic domain model
+construct_plan  = source-demand planning
+irs             = runtime checking / projection
+reporting       = human-readable rendering
+pipeline        = orchestration
 ```
 
-但当前代码组织没有完整反映这个设计。现有实现把以下不同层次的概念混在一起：
+但当前 IRS 已经扩展到 repair affordance、SPL Editing、worker delegation closure、API materialization、resource demand view、selected promoted diagnostics 等概念。v1 不能再作为直接实施蓝图。
 
-1. SPL 构件静态领域模型；
-2. 构件 satisfaction 运行结果；
-3. 构件图与 recursive checking 边界类型；
-4. IRS checker runtime；
-5. Diagnostic registry；
-6. Prompt checklist renderer；
-7. Human-readable feedback renderer。
-
-最明显的架构坏味道是：
+v2 的核心升级是把静态 construct domain、repair metadata contract、IRS runtime、SPL Editing strategy/runtime、compiler evidence view 分开：
 
 ```text
-compiler/construct_registry.py
-  imports compiler.irs.frontier
-  imports compiler.irs.graph
+ConstructIRS / SlotSpec
+  -> 声明 construct slot satisfaction contract
+  -> 可声明 repair affordance linkage metadata
+  -> 不执行 repair
+
+repair_contracts
+  -> 保存 constructs 与 SPL Editing 共享的纯 metadata contract
+  -> 不持有 strategy runtime / closure planner / applier / verifier
+
+spl_editing
+  -> 解释 repair_strategy_id
+  -> 负责 strategy registry / closure / preview / materialization / verification
+
+irs
+  -> 执行 structured evidence 上的 slot satisfaction
+  -> 投影 diagnostics
+  -> 不 repair、不 render SPL、不做人类报告渲染
 ```
 
-这说明 compiler-level construct domain model 反向依赖了 IRS runtime package。该依赖方向与目标架构相反。
-
-同时，`construct_plan/model.py` 与 `construct_plan/planner.py` 也直接消费 `irs.graph.ConstructEdge`。这进一步说明 `ConstructEdge` 已经不是 IRS runtime 私有类型，而是跨 `construct_registry`、`construct_plan`、`irs` 多层共享的基础领域类型。
-
 ---
 
-## 2. 设计目标
+## 2. 当前依赖事实
 
-本次重构的目标不是改变 IRS 语义，也不是新增 construct 检查能力，而是重建 package boundary。
-
-### 2.1 主要目标
-
-1. 建立 `compiler.constructs` 作为 SPL construct domain layer。
-2. 建立 `compiler.diagnostics` 作为 compiler-wide diagnostic domain layer。
-3. 收缩 `compiler.irs`，使其只承载 runtime checking / projection / result storage / subsystem orchestration。
-4. 保持 `compiler.construct_plan` 独立，作为 source-demand planning layer。
-5. 建立 `compiler.reporting`，承载 deterministic report / feedback rendering。
-6. 消除 `constructs -> irs` 反向依赖。
-7. 通过 compatibility shims 支持渐进迁移，避免一次性破坏 16+ 源文件与 20+ 测试文件的 import path。
-8. 在重构阶段保持 compile 行为、diagnostic 行为、report 内容稳定。
-
-### 2.2 非目标
-
-本次重构不做以下事项：
-
-1. 不修改 IRS slot satisfaction 语义。
-2. 不新增 REQUIRED_OUTPUT / REQUEST_INPUT / CALL_API / INVOKE_WORKER 的新检查规则。
-3. 不改变 `PipelineResult` / `CompileResult` public schema。
-4. 不移除 legacy import path，第一轮只添加 shim。
-5. 不重写 Stage 4 / Stage 7 / Stage 9.5 行为。
-6. 不引入新的 LLM 调用。
-7. 不把 semantic conflict、dataflow、worker graph validation 规则代码化。
-8. 不将 reporting 层与 IRS runtime 混合。
-
----
-
-## 3. 当前依赖事实
-
-### 3.1 `construct_registry.py` 的实际导入
+当前代码仍然存在 v1 指出的包边界问题：
 
 ```text
 construct_registry.py
-  ← irs.frontier  (CutlineReason, FrontierStatus)
-  ← irs.graph     (ConstructEdge)
+  imports compiler.irs.frontier
+  imports compiler.irs.graph
+  imports compiler.irs.patch_type_meta
+
+construct_plan/model.py
+construct_plan/planner.py
+  import compiler.irs.graph.ConstructEdge
+
+report_renderer.py
+  imports compiler.irs.feedback_projector
+
+irs_prompt_builder.py
+  combines construct checklist rendering, stage -> construct mapping, and stage notes
 ```
 
-### 3.2 `irs/graph.py` 的跨层消费者
-
-`ConstructEdge` / `ConstructGraph` 当前不只是 IRS 内部使用，还被 `construct_registry.py`、`construct_plan/model.py`、`construct_plan/planner.py` 等 compiler-level 模块消费。
-
-因此 `irs/graph.py` 的位置错误。它应被视为 construct domain graph schema，而不是 runtime checker 实现。
-
-### 3.3 `diagnostic_registry.py` 的当前消费者
-
-当前主要消费者是：
+同时，`construct_registry.py` 已经不只是 construct static spec。它还承载：
 
 ```text
-compiler/__init__.py
-irs/projector.py
+RepairAffordanceSpec
+SlotActionabilityDecision
+PatchTypeMeta linkage
+repair_strategy_id
+materialization_plan_id
+selectable_ref_policy_id
+intent_schema_id
+stage_authority
+patch_type_metadata
+default actionability decisions
 ```
 
-虽然目前消费者较少，但 `DiagnosticRegistry` 的 kind 范围已经是 compiler-wide，而非 construct-only。例如：
-
-```text
-missing_handler
-missing_output_producer
-type_or_contract_ambiguity
-assumed_command_not_renderable
-unmapped_behavior_span
-missing_provenance
-semantic_conflict
-```
-
-其中 `semantic_conflict`、`missing_provenance`、`unmapped_behavior_span` 不属于单个 construct spec，因此 diagnostic registry 不应放入 `constructs/`。
+这些字段是 constructs 与 SPL Editing 的 contract metadata，不应继续放在 `irs/`，也不应被误认为 SPL Editing runtime。
 
 ---
 
-## 4. 目标架构
+## 3. 非目标
 
-### 4.1 目标 package layout
+本次重构设计不改变以下行为：
+
+1. 不修改 IRS slot satisfaction 语义。
+2. 不新增 construct checker 规则。
+3. 不改变 `PipelineResult` / `CompileResult` public schema。
+4. 不移除 legacy import path，第一轮实现必须保留 shim。
+5. 不重写 Stage 3.5 / Stage 4 / Stage 7 / Stage 9.5 行为。
+6. 不引入新的 LLM 调用。
+7. 不把 repair strategy runtime 上移到 `constructs`。
+8. 不把 planner demand、source signal、diagnostic kind 机械注册成 IRS construct。
+
+---
+
+## 4. v2 目标 package layout
 
 ```text
 src/nl2spl/compiler/
+
   constructs/
     __init__.py
-    spec.py
-    satisfaction.py
-    graph.py
-    registry.py
-    defaults.py
-    prompt_builder.py
+    spec.py                  # ConstructIRS, SlotSpec, ExistencePolicy, NoDemandBehavior
+    satisfaction.py          # SlotSatisfaction, ConstructSatisfactionReport, serialized frontier status fields
+    graph.py                 # ConstructEdge, ConstructGraph, graph schema helpers
+    registry.py              # SPLConstructRegistry
+    defaults.py              # build_default_construct_registry()
+    prompt_builder.py        # construct checklist rendering only
     definitions/
       __init__.py
       exception_flow.py
-      required_output.py
+      output.py
       command.py
-      worker.py
       api.py
-      policy.py
+      worker.py
+      resource_contract_demand.py
+
+  repair_contracts/
+    __init__.py
+    model.py                 # RepairAffordanceSpec, SlotActionabilityDecision, PatchTypeMeta
+    constants.py             # shared ids and constants, if needed
+    audit.py                 # local affordance/actionability shape checks only
 
   diagnostics/
     __init__.py
-    spec.py
-    registry.py
-    defaults.py
-    kinds.py
+    spec.py                  # DiagnosticSpec, Severity
+    registry.py              # DiagnosticRegistry
+    defaults.py              # build_default_diagnostic_registry()
+    kinds.py                 # diagnostic kind constants
+    consolidator.py          # DiagnosticConsolidator, DiagnosticDedupKey, IRS-neutral authority inputs
 
   construct_plan/
     __init__.py
@@ -151,10 +145,10 @@ src/nl2spl/compiler/
     extractors/
       __init__.py
       exception_flow.py
-      required_output.py
+      output.py
       request_input.py
-      call_api.py
-      worker_handoff.py
+      api.py
+      worker.py
 
   irs/
     __init__.py
@@ -167,342 +161,528 @@ src/nl2spl/compiler/
     projector.py
     result_store.py
     subsystem.py
-    factory.py
     traversal.py
     graph_snapshot.py
     checkers/
       __init__.py
       exception_flow.py
+      step.py
+      post_normalize.py
       worker_delegation.py
-      post_normalize/
-        __init__.py
-        checker.py
-        exception_flow.py
-        required_output.py
-        general_command.py
-        request_input.py
-        call_api.py
-        invoke_worker.py
-      steps/
-        __init__.py
-        checker.py
-        general_command.py
-        request_input.py
-        call_api.py
-        invoke_worker.py
+      api_declaration.py
 
   reporting/
     __init__.py
     report_renderer.py
+    feedback_report_renderer.py
     construct_satisfaction_renderer.py
+
+  pipeline/
+    prompt_profiles/
+      irs_profiles.py        # stage -> construct list and stage-specific critical rules
+
+  resource_contract_demand_view/
+    ...
+
+  capability_intent/
+    ...
+
+  spl_editing/
+    core/
+    strategy/
+    closure/
+    materialization/
+    verification/
+    preview/
+    drafting/
+    ...
 ```
 
 ---
 
-## 5. 分层职责定义
+## 5. 分层职责
 
 ### 5.1 `compiler.constructs`
 
-`constructs` 是 SPL construct domain layer。
+`constructs` 是 construct domain layer。
 
 它负责：
 
-1. 静态 construct spec；
-2. slot spec；
-3. satisfaction report 数据结构；
-4. construct graph schema；
-5. construct registry；
-6. default construct definitions；
-7. construct spec 到 prompt checklist 的纯渲染。
+1. `ConstructIRS` / `SlotSpec` 静态定义。
+2. construct graph schema。
+3. construct satisfaction report 数据结构。
+4. construct registry shell。
+5. default construct definitions。
+6. construct checklist 的纯渲染。
 
-它不负责：
+它可以依赖：
 
-1. IRS runtime checking；
-2. Stage orchestration；
-3. diagnostic projection；
-4. report rendering；
-5. LLM 调用；
-6. pipeline-specific stage policy。
+```text
+repair_contracts
+```
 
-推荐文件职责：
+它禁止依赖：
 
-| 文件 | 职责 |
-|---|---|
-| `spec.py` | `SlotSpec`, `ConstructIRS`, `ExistencePolicy`, `NoDemandBehavior` |
-| `satisfaction.py` | `SlotSatisfaction`, `ConstructSatisfactionReport`, `FrontierStatus`, `CutlineReason`, `ConstructCompleteness` |
-| `graph.py` | `ConstructEdge`, `ConstructGraph`, `ConstructEdgeType`, graph serialization/dedup helpers |
-| `registry.py` | `SPLConstructRegistry` |
-| `defaults.py` | `build_default_construct_registry()` |
-| `definitions/*` | 各 construct 的 IRS definitions |
-| `prompt_builder.py` | `ConstructPromptBuilder`, construct checklist rendering |
+```text
+irs
+spl_editing
+pipeline
+reporting
+construct_plan
+```
 
-### 5.2 `compiler.diagnostics`
+`SlotSpec` 可以声明 `repair_affordances` 与 `actionability_decision`，但只能保存 contract metadata 和 linkage ids。它不能 import repair handler、patch applier、closure planner、stage slice runner、preview renderer 或 verifier。
+
+`FrontierStatus` / `CutlineReason` 作为 serialized report fields 可以放在 `constructs.satisfaction`。frontier expansion、cutline decision、recursive traversal 等算法必须留在 `irs.traversal` 或 IRS runtime checker 内，不能上移到 `constructs`。
+
+### 5.2 `compiler.repair_contracts`
+
+`repair_contracts` 是 constructs 与 SPL Editing 之间的共享 contract layer。
+
+它负责：
+
+1. `RepairAffordanceSpec`。
+2. `SlotActionabilityDecision`。
+3. `PatchTypeMeta`。
+4. `repair_strategy_id` linkage metadata。
+5. affordance/actionability local shape validation。
+
+它禁止负责：
+
+1. `RepairStrategySpec` registry。
+2. construct closure planning。
+3. patch application。
+4. stage-slice execution。
+5. preview rendering。
+6. repair verification lanes。
+7. LLM drafting。
+
+`repair_contracts.audit` 只能做本层 shape validation，例如字段完整性、id 格式、patch type metadata 结构一致性。跨层 linkage validation 不能放在 `repair_contracts`，因为它需要读取 SPL Editing strategy registry。
+
+允许的跨层审计位置是：
+
+```text
+spl_editing.strategy.catalog_projection
+compiler/architecture_audit/repair_linkage_audit.py
+.agents/skills/audit-irs-contract
+```
+
+这些位置可以显式依赖 `repair_contracts` 与 `spl_editing.strategy`，但 `repair_contracts` 本身不能反向 import SPL Editing。
+
+### 5.3 `compiler.spl_editing`
+
+`spl_editing` 是 repair strategy/runtime layer。
+
+它负责：
+
+1. `RepairCatalogBuilder.from_construct_registry()` 从 registry 派生 repair catalog。
+2. `RepairStrategySpec` 与 strategy registry。
+3. closure planning。
+4. directive / preview / apply。
+5. materialization。
+6. compiler-authority verification。
+7. drafting flow。
+
+它可以依赖：
+
+```text
+constructs
+repair_contracts
+diagnostics
+irs public API
+```
+
+它不应被以下层反向依赖：
+
+```text
+constructs
+repair_contracts
+irs
+diagnostics
+construct_plan
+```
+
+### 5.4 `compiler.diagnostics`
 
 `diagnostics` 是 compiler-wide diagnostic domain layer。
 
 它负责：
 
-1. `DiagnosticSpec`；
-2. `DiagnosticRegistry`；
-3. default diagnostic kinds；
-4. enabled/reserved kind 管理；
-5. diagnostic kind 常量。
+1. `DiagnosticSpec`。
+2. `DiagnosticRegistry`。
+3. default diagnostic kinds。
+4. diagnostic kind constants。
+5. `DiagnosticConsolidator` / `DiagnosticDedupKey`。
 
-它不负责：
+`DiagnosticConsolidator` 是 compiler-wide authority merge，不应长期留在 compiler root。
 
-1. 生成 `CompileDiagnostic`；
-2. 读取 IRS context；
-3. 投影 satisfaction report；
-4. report rendering；
-5. pipeline orchestration。
+迁移 `DiagnosticConsolidator` 前，必须先引入 IRS-neutral diagnostic authority input DTO/protocol。`diagnostics.consolidator` 不能直接 import `IRSResultStore`。
 
-推荐文件职责：
+可选命名：
 
-| 文件 | 职责 |
-|---|---|
-| `spec.py` | `DiagnosticSpec`, `Severity` |
-| `registry.py` | `DiagnosticRegistry` |
-| `defaults.py` | `build_default_diagnostic_registry()` |
-| `kinds.py` | diagnostic kind constants, if needed |
+```text
+DiagnosticAuthorityBundle
+StageLocalDiagnosticBundle
+ConstructDiagnosticAuthoritySnapshot
+```
 
-### 5.3 `compiler.construct_plan`
+IRS runtime 可以负责把 `IRSResultStore` 转换成该 neutral input；`diagnostics` 只消费 neutral diagnostic authority snapshot。
+
+它禁止依赖：
+
+```text
+irs
+pipeline
+reporting
+spl_editing
+```
+
+### 5.5 `compiler.construct_plan`
 
 `construct_plan` 是 source-demand planning layer。
 
 它负责：
 
-1. 从 route annotation / semantic role / evidence 中识别 construct demand；
-2. 记录 slot-level evidence；
-3. 记录 reserved spans / dual-role spans；
-4. 对 EXCEPTION_FLOW 等 source-demand 做 ownership enforcement；
-5. 输出 downstream stages 与 IRS 可消费的 `ConstructPlan`。
+1. 从 route annotation / semantic role / evidence 识别 construct demand。
+2. 记录 slot-level evidence。
+3. 记录 reserved spans / dual-role spans。
+4. 输出 downstream stages 与 IRS 可消费的 `ConstructPlan`。
 
-它不负责：
+它可以依赖：
 
-1. 定义 ConstructIRS；
-2. 执行 IRS checking；
-3. 生成 SPL IR；
-4. 生成 `ConstructSatisfactionReport`；
-5. 生成 final compile diagnostics。
+```text
+constructs
+```
 
-### 5.4 `compiler.irs`
+它不应依赖：
+
+```text
+irs.graph
+irs.frontier
+spl_editing
+reporting
+```
+
+### 5.6 `compiler.irs`
 
 `irs` 是 runtime checking layer。
 
 它负责：
 
-1. `IRSCheckContext`；
-2. `ConstructInstance`；
-3. `IRSChecker` protocol；
-4. checker registry；
-5. runner；
-6. diagnostic projector；
-7. result store；
-8. subsystem facade；
-9. runtime graph traversal / graph snapshot；
+1. `IRSCheckContext`。
+2. `ConstructInstance`。
+3. `IRSChecker` protocol。
+4. checker registry。
+5. runner。
+6. diagnostic projector。
+7. result store。
+8. subsystem facade。
+9. runtime graph traversal / graph snapshot。
 10. concrete checkers。
 
-它不负责：
+它禁止负责：
 
-1. 定义 SPL construct static spec；
-2. 定义 diagnostic registry；
-3. 渲染人类可读 report；
-4. 维护 pipeline-specific prompt policy。
+1. SPL construct static spec。
+2. diagnostic registry。
+3. human-readable report rendering。
+4. SPL Editing repair execution。
+5. LLM drafting。
+6. stage prompt policy。
 
-### 5.5 `compiler.reporting`
+### 5.7 `compiler.reporting`
 
 `reporting` 是 presentation layer。
 
 它负责：
 
-1. deterministic compile report rendering；
-2. construct satisfaction feedback rendering；
+1. deterministic compile report rendering。
+2. construct satisfaction feedback rendering。
 3. diagnostic / assumption / trace 的人类可读文本组织。
 
 它不负责：
 
-1. IRS checking；
-2. diagnostic projection；
-3. construct slot 判断；
+1. IRS checking。
+2. diagnostic projection。
+3. construct slot 判断。
 4. 修改 IR / SPL。
+
+### 5.8 `resource_contract_demand_view` 与 `capability_intent`
+
+这两个包不属于 `irs`，也不属于 `constructs`。
+
+```text
+resource_contract_demand_view = compiler evidence / demand view
+capability_intent             = API/capability semantic extraction and lowering
+```
+
+它们可以为 construct extraction、API materialization、resource binding、producer analysis 提供 structured evidence，但 evidence view 本身不自动成为 IRS construct。
 
 ---
 
-## 6. 关键设计决策
+## 6. IRS construct admission ledger
 
-### 6.1 `DiagnosticRegistry` 不归入 `constructs`
+新增或保留 IRS construct 前，必须证明它是 SPL grammar construct，或者是 architecture 明确批准的 compiler materialization / analysis construct。
 
-虽然 `DiagnosticRegistry` 和 `SPLConstructRegistry` 都是 registry，但二者不是父子关系。
+| Candidate | IRS construct? | Owner | v2 decision |
+|---|---:|---|---|
+| `EXCEPTION_FLOW` | yes | SPL grammar | keep |
+| `GENERAL_COMMAND` | yes | SPL grammar | keep |
+| `REQUEST_INPUT` | yes | SPL grammar | keep |
+| `CALL_API` | yes | SPL grammar | keep |
+| `INVOKE_WORKER` | yes | SPL grammar | keep |
+| `API_DECLARATION` | yes | SPL grammar | keep |
+| `REQUIRED_OUTPUT` | yes | output contract construct | keep |
+| `WORKER_CANDIDATE` | yes | approved compiler analysis construct | keep, document slot ownership |
+| `WORKER_PROMOTION` | yes | approved compiler analysis construct | keep, document promotion boundary |
+| `WORKER_HANDOFF` | yes | approved materialization / analysis construct | keep, document WorkerPlanIR lifecycle |
+| `RESOURCE_CONTRACT_DEMAND` | needs explicit review | DemandView / RequiredOutput alias candidate | do not blindly keep; justify construct identity or demote to evidence / alias diagnostic |
+| `delegation_intent` | no | route evidence only | never register as ConstructIRS |
+| `input_contract` / `output_contract` annotation | no | route evidence only | use as evidence for worker constructs |
+| diagnostic kinds | no | diagnostics only | project from real construct slots |
 
-`SPLConstructRegistry` 属于 construct domain。  
-`DiagnosticRegistry` 属于 compiler-wide diagnostic domain。
+`RESOURCE_CONTRACT_DEMAND` is the only current registry entry that needs a dedicated admission review before implementation. If it remains an IRS construct, the implementation plan must document:
 
-因此目标是：
+1. its stable construct identity;
+2. its independent slots;
+3. which stage materializes or demands it;
+4. why diagnostics cannot be owned by `REQUIRED_OUTPUT`, file/variable declarations, or producer checks;
+5. whether its diagnostics should be primary or alias issues.
+
+---
+
+## 7. Repair authority chain
+
+Every repairable IRS slot must preserve this authority chain:
 
 ```text
-compiler.constructs      # construct domain
-compiler.diagnostics     # diagnostic domain
+ConstructIRS slot + missing diagnostic
+-> RepairAffordanceSpec.repair_strategy_id
+-> RepairStrategySpec
+-> ConstructClosurePlan
+-> repair-mode stage-slice chain
+-> preview and user confirmation
+-> confirmed materialization
+-> compiler-authority verification
 ```
 
-而不是：
+Allowed in `constructs` / `repair_contracts`:
 
 ```text
-compiler.constructs.diagnostic_registry
+repair_strategy_id
+affordance_id
+supported_patch_types
+default_patch_type
+handler_id
+target_resolver_id
+materialization_plan_id
+selectable_ref_policy_id
+intent_schema_id
+stage_authority
+patch_type_metadata
+actionability decision
 ```
 
-这样可以避免未来 `semantic_conflict`、`missing_provenance`、`use_before_def`、`worker_graph_inconsistency` 等 cross-cutting diagnostics 被错误绑定到 construct domain。
-
-### 6.2 `feedback_projector.py` 不归入 `constructs`
-
-`feedback_projector.py` 当前只依赖 `ConstructSatisfactionReport`，但它的职责是文本渲染。依赖某个领域对象不代表属于该领域层。
-
-因此它应进入：
+Forbidden in `constructs` / `repair_contracts`:
 
 ```text
-compiler.reporting.construct_satisfaction_renderer
+RepairStrategySpec registry
+closure planner implementation
+patch applier
+stage slice runner
+preview renderer
+verification lane execution
+LLM drafting implementation
 ```
 
-而不是：
+`RepairStrategySpec` remains in `spl_editing.strategy`. It is not a construct static domain type and not an IRS runtime type.
 
-```text
-compiler.constructs.feedback_projector
-```
+---
 
-### 6.3 `irs_prompt_builder.py` 应拆分
+## 8. Prompt profile split
 
-当前 `irs_prompt_builder.py` 同时包含：
+`irs_prompt_builder.py` must be split because it currently mixes:
 
-1. construct spec checklist rendering；
-2. stage-specific construct mapping；
-3. stage-specific critical rules。
+1. construct checklist rendering;
+2. stage -> construct mapping;
+3. stage-specific critical rules.
 
-应拆分为：
+Target split:
 
 ```text
 constructs/prompt_builder.py
-  只负责 construct checklist rendering
+  render ConstructIRS slot checklist only
 
-pipeline/stage_prompt_profiles.py
-  负责 stage → constructs mapping 与 stage-specific notes
+pipeline/prompt_profiles/irs_profiles.py
+  stage -> construct list
+  stage-specific critical rules
+  rollout / stage-local prompt policy
 ```
 
-这样 `constructs` 不需要知道 pipeline stage names。
-
-### 6.4 `graph.py` 类型移入 `constructs`，算法留在 `irs`
-
-`ConstructEdge` / `ConstructGraph` 是 construct domain graph schema。它们可以包含轻量 serialization / dedup helper。
-
-但 recursive checking traversal、frontier expansion、cutline decision、runtime graph snapshot building 应留在 `irs/`。
+This keeps `constructs` independent from pipeline stage names.
 
 ---
 
-## 7. 依赖规则
+## 9. Dependency rules
 
-### 7.1 允许的依赖
-
-```text
-construct_plan -> constructs
-irs            -> constructs + diagnostics
-reporting      -> constructs + diagnostics + compile_result / ir diagnostics
-pipeline       -> construct_plan + irs + reporting + constructs
-```
-
-### 7.2 禁止的依赖
+### 9.1 Allowed dependencies
 
 ```text
-constructs -> irs
-constructs -> pipeline
-constructs -> reporting
-constructs -> construct_plan
-
-diagnostics -> irs
-diagnostics -> pipeline
-diagnostics -> reporting
-
-irs -> reporting
-irs -> pipeline
+constructs      -> repair_contracts
+construct_plan  -> constructs
+irs             -> constructs + diagnostics
+reporting       -> constructs + diagnostics + compile result models
+spl_editing     -> constructs + repair_contracts + diagnostics + irs public API
+pipeline        -> construct_plan + irs + reporting + constructs + spl_editing
 ```
 
-### 7.3 兼容 shim 例外
+### 9.2 Forbidden dependencies
 
-迁移期允许保留以下 shim：
+```text
+constructs      -> irs
+constructs      -> spl_editing
+constructs      -> pipeline
+constructs      -> reporting
+constructs      -> construct_plan
+
+repair_contracts -> irs
+repair_contracts -> spl_editing
+repair_contracts -> pipeline
+
+diagnostics     -> irs
+diagnostics     -> spl_editing
+diagnostics     -> pipeline
+diagnostics     -> reporting
+
+irs             -> reporting
+irs             -> spl_editing
+irs             -> pipeline
+
+construct_plan  -> irs.graph
+construct_plan  -> spl_editing
+```
+
+### 9.3 Compatibility shim exceptions
+
+Migration may retain these legacy paths as shim-only modules:
 
 ```text
 compiler/construct_registry.py
 compiler/diagnostic_registry.py
+compiler/diagnostic_consolidator.py
 compiler/irs/graph.py
 compiler/irs/frontier.py
+compiler/irs/patch_type_meta.py
 compiler/irs_prompt_builder.py
 compiler/report_renderer.py
 ```
 
-但 shim 只能 re-export，不得承载新逻辑。
+Shim modules may re-export and emit deprecation comments, but must not host new logic.
 
 ---
 
-## 8. Public API 兼容策略
+## 10. Default registry split
 
-### 8.1 保留旧路径
-
-第一轮重构后，旧 import path 必须继续可用：
-
-```python
-from nl2spl.compiler.construct_registry import ConstructIRS
-from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry
-from nl2spl.compiler.irs.graph import ConstructEdge
-from nl2spl.compiler.irs.frontier import FrontierStatus
-from nl2spl.compiler.irs_prompt_builder import irs_checklist_for_stage
-from nl2spl.compiler.report_renderer import render_report
-```
-
-这些路径在迁移期通过 shim 实现。
-
-### 8.2 新路径
-
-新代码应使用：
-
-```python
-from nl2spl.compiler.constructs import ConstructIRS, SPLConstructRegistry
-from nl2spl.compiler.constructs.graph import ConstructEdge, ConstructGraph
-from nl2spl.compiler.constructs.satisfaction import ConstructSatisfactionReport
-from nl2spl.compiler.diagnostics import DiagnosticRegistry
-from nl2spl.compiler.reporting.report_renderer import render_report
-```
-
-### 8.3 shim 退出策略
-
-shim 不在本轮删除。建议在至少一个 minor version 或一个重构周期后再逐步移除。
-
----
-
-## 9. 验收原则
-
-本次重构完成后必须满足：
-
-1. `constructs/*` 不 import `irs/*`。
-2. `diagnostics/*` 不 import `irs/*`。
-3. `construct_plan/*` 不 import `irs.graph`。
-4. `reporting/*` 不 import `irs.feedback_projector`。
-5. `irs/*` 不包含 human-readable report renderer。
-6. `construct_registry.py` 只作为 shim 存在。
-7. `diagnostic_registry.py` 只作为 shim 存在。
-8. `irs/graph.py` 与 `irs/frontier.py` 只作为 shim 存在。
-9. 全量测试行为不变。
-10. report snapshot / diagnostic snapshot 不发生非预期变化。
-
----
-
-## 10. 最终设计结论
-
-本次重构的核心不是简单移动文件，而是建立清晰的 compiler package architecture：
+`construct_registry.py` is now too large to remain a single implementation file. The default registry should move to grouped definitions:
 
 ```text
-constructs      = SPL construct domain model
-diagnostics     = compiler diagnostic domain model
-construct_plan  = source-demand planning
-irs             = runtime checking / projection
-reporting       = human-readable rendering
-pipeline        = orchestration
+constructs/definitions/
+  exception_flow.py
+  output.py
+  command.py
+  api.py
+  worker.py
+  resource_contract_demand.py
 ```
 
-重构完成后，IRS 目录将从“所有与 IRS 相关的东西”收缩为真正的 runtime checking framework。SPL construct spec、diagnostic registry、construct graph schema、prompt checklist renderer、report renderer 都将回到各自更准确的层次。
+`constructs/defaults.py` should assemble these definitions into `build_default_construct_registry()`.
+
+The split must preserve:
+
+1. construct type names;
+2. slot names;
+3. missing diagnostics;
+4. `required_for_partial` / `required_for_complete`;
+5. `renderable_without`;
+6. repair affordance ids;
+7. actionability decisions;
+8. existing catalog entry ids.
+
+---
+
+## 11. Migration strategy
+
+Implementation must be staged after this design, not mixed into the design PR.
+
+Recommended stages:
+
+0. Characterization and import-boundary baseline.
+   - snapshot current default construct registry shape;
+   - snapshot `RepairCatalog` entries;
+   - snapshot `DiagnosticRegistry` enabled/reserved kinds;
+   - snapshot current import violations as expected baseline;
+   - add tests that document current violations and are tightened stage by stage.
+1. Complete the `RESOURCE_CONTRACT_DEMAND` admission decision before splitting default definitions.
+   - keep only if it has approved construct identity, independent slots, and lifecycle;
+   - otherwise demote to evidence view / alias diagnostic ownership before package migration;
+   - do not create `constructs/definitions/resource_contract_demand.py` until this decision is explicit.
+2. Add new packages and pure re-export shims without behavioral changes.
+3. Move graph/frontier/satisfaction domain types out of `irs`; keep traversal algorithms in IRS runtime.
+4. Move repair metadata contract types to `repair_contracts`; keep cross-layer repair linkage audits outside `repair_contracts`.
+5. Introduce an IRS-neutral diagnostic authority input DTO/protocol for `DiagnosticConsolidator`.
+6. Move diagnostics registry and consolidator to `diagnostics`.
+7. Split default construct definitions.
+8. Split reporting and feedback rendering out of `irs`.
+9. Split prompt builder into construct renderer and pipeline prompt profiles.
+10. Update imports in production code.
+11. Add import-boundary tests.
+12. Run focused IRS / SPL Editing tests, Ruff, and demo artifact checks.
+
+Each stage must be reversible and should keep legacy imports working until the final cleanup phase.
+
+---
+
+## 12. Acceptance criteria
+
+The refactor is complete only when all criteria below are true:
+
+1. `constructs/*` does not import `irs/*`.
+2. `constructs/*` does not import `spl_editing/*`.
+3. `repair_contracts/*` does not import `irs/*` or `spl_editing/*`.
+4. `diagnostics/*` does not import `irs/*`.
+5. `construct_plan/*` does not import `irs.graph`.
+6. `reporting/*` does not import `irs.feedback_projector`.
+7. `irs/*` does not contain human-readable report renderer logic.
+8. `irs/*` does not execute SPL Editing repair.
+9. `construct_registry.py` is shim-only.
+10. `diagnostic_registry.py` is shim-only.
+11. `diagnostic_consolidator.py` is shim-only.
+12. `irs/graph.py`, `irs/frontier.py`, and `irs/patch_type_meta.py` are shim-only.
+13. `diagnostics.consolidator` does not import `IRSResultStore` or any `irs/*` module.
+14. `repair_contracts.audit` does not import SPL Editing strategy registry, catalog builder, handlers, appliers, preview, or verification modules.
+15. frontier expansion and cutline decision algorithms remain in `irs.traversal` or checker runtime, not in `constructs`.
+16. `RepairCatalogBuilder.from_construct_registry()` still derives identical catalog entries.
+17. `RESOURCE_CONTRACT_DEMAND` has an explicit admission decision.
+18. Full test behavior, diagnostic snapshots, and report snapshots have no unintended changes.
+
+---
+
+## 13. Final v2 position
+
+This design keeps the v1 package-boundary insight but rejects mechanical implementation of the v1 layout.
+
+The current architecture needs a layered refactor:
+
+```text
+constructs                static construct domain
+repair_contracts          repair metadata contract
+diagnostics               compiler diagnostic domain
+construct_plan            source-demand planning
+irs                       runtime checking / projection
+reporting                 human-readable rendering
+resource_contract_demand_view    compiler evidence / demand view
+capability_intent         capability extraction and lowering
+spl_editing               repair strategy / materialization / verification runtime
+pipeline                  orchestration and prompt policy
+```
+
+The next artifact should be a new implementation plan that gates each migration step, names import-boundary checks, and performs a dedicated admission review for `RESOURCE_CONTRACT_DEMAND` before moving default definitions.
