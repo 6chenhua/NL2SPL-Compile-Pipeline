@@ -1,6 +1,6 @@
 {
   "stage": "stage5_block_assembler",
-  "timestamp": "2026-07-25T11:21:49.264477",
+  "timestamp": "2026-07-25T14:36:27.885179",
   "metadata": {},
   "result": {
     "worker_blocks": {
@@ -11,89 +11,18 @@
             "block_type": "SEQUENTIAL",
             "condition_text": null,
             "spans": [
-              "s20",
-              "s21",
-              "s22",
-              "s23"
+              "s14",
+              "s15",
+              "s17",
+              "s18"
             ]
           },
           {
-            "block_id": "b_2",
+            "block_id": "b_cr_local_if_s19",
             "block_type": "IF",
-            "condition_text": "critical information that affects content accuracy is missing",
+            "condition_text": "draft communication artifact does not meet the user’s specified requirements for target audience, tone, language, length, structure, and format",
             "spans": [
-              "s24"
-            ]
-          },
-          {
-            "block_id": "b_cr_local_if_s25",
-            "block_type": "IF",
-            "condition_text": "critical information that affects content accuracy is missing",
-            "spans": [
-              "s25"
-            ]
-          },
-          {
-            "block_id": "b_3",
-            "block_type": "SEQUENTIAL",
-            "condition_text": null,
-            "spans": [
-              "s27",
-              "s28",
-              "s29"
-            ]
-          },
-          {
-            "block_id": "b_4",
-            "block_type": "IF",
-            "condition_text": "the draft communication artifact does not meet the user’s specified requirements for target audience tone language length structure format",
-            "spans": [
-              "s30",
-              "s31",
-              "s32",
-              "s33",
-              "s34",
-              "s35"
-            ]
-          },
-          {
-            "block_id": "b_cr_local_if_s35_s36",
-            "block_type": "IF",
-            "condition_text": "not",
-            "spans": [
-              "s36"
-            ]
-          },
-          {
-            "block_id": "b_cr_local_if_s48",
-            "block_type": "IF",
-            "condition_text": "information essential to task completion is lacking",
-            "spans": [
-              "s48"
-            ]
-          },
-          {
-            "block_id": "b_6",
-            "block_type": "IF",
-            "condition_text": "information essential to task completion is lacking",
-            "spans": [
-              "s51"
-            ]
-          },
-          {
-            "block_id": "b_cr_local_if_s52a_s52b",
-            "block_type": "IF",
-            "condition_text": "the user’s requirements conflict and impede task execution",
-            "spans": [
-              "s52b"
-            ]
-          },
-          {
-            "block_id": "b_6_part_2",
-            "block_type": "IF",
-            "condition_text": "information essential to task completion is lacking",
-            "spans": [
-              "s53"
+              "s19"
             ]
           },
           {
@@ -101,48 +30,69 @@
             "block_type": "SEQUENTIAL",
             "condition_text": null,
             "spans": [
-              "s58"
+              "s20"
             ]
           },
           {
-            "block_id": "b_cr_local_if_s60",
+            "block_id": "b_cr_local_if_s21",
             "block_type": "IF",
-            "condition_text": "the results are essential to task completion",
+            "condition_text": "the user requests revisions to the draft",
             "spans": [
-              "s60"
+              "s21"
             ]
           }
         ],
         "alternative_flow_blocks": {
-          "cr_top_alt_s40": [
+          "cr_top_alt_s16": [
             {
-              "block_id": "b_cr_top_alt_s40",
-              "block_type": "IF",
-              "condition_text": "the user requests revisions to the draft",
+              "block_id": "b_cr_top_alt_s16",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
               "spans": [
-                "s40"
+                "s16"
+              ]
+            }
+          ],
+          "cr_top_alt_alt_1": [
+            {
+              "block_id": "b_cr_top_alt_alt_1",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s16"
               ]
             }
           ]
         },
         "exception_flow_blocks": {
-          "exc_adapter_00": [
+          "exc_adapter_01": [
             {
-              "block_id": "b_exc_handler_01",
+              "block_id": "b_11",
               "block_type": "SEQUENTIAL",
               "condition_text": null,
               "spans": [
-                "s52b"
+                "s29",
+                "s30"
               ]
             }
           ],
-          "exc_adapter_01": [
+          "exc_adapter_00": [
             {
               "block_id": "b_exc_handler_02",
               "block_type": "SEQUENTIAL",
               "condition_text": null,
               "spans": [
-                "s48"
+                "s28"
+              ]
+            }
+          ],
+          "exc_adapter_02": [
+            {
+              "block_id": "b_exc_handler_04",
+              "block_type": "SEQUENTIAL",
+              "condition_text": null,
+              "spans": [
+                "s27"
               ]
             }
           ]
@@ -150,9 +100,6 @@
       }
     },
     "control_complexity_regions": [],
-    "warnings": [
-      "ConstructPlan: cannot enforce ownership for exc_demand_03; condition spans have owners [].",
-      "ConstructPlan: condition span s47 for exc_demand_03 has unowned; attached to main worker worker_main."
-    ]
+    "warnings": []
   }
 }

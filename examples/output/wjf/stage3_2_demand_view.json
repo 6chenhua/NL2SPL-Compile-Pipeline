@@ -1,118 +1,118 @@
 {
   "stage": "stage3_2_demand_view",
-  "timestamp": "2026-07-25T11:21:38.616820",
+  "timestamp": "2026-07-25T14:36:16.455208",
   "metadata": {},
   "result": {
     "demands": [
       {
-        "demand_id": "rcd_input_s10",
+        "demand_id": "rcd_input_s3",
         "direction": "input",
         "requiredness": "required",
         "required": true,
+        "evidence_text": "A user’s communication request",
+        "source_span_ids": [
+          "s3"
+        ],
+        "source_section_id": "sec_inputs_for_each_run",
+        "source_packet_id": "p_list_item_user_s_communication_request",
+        "source_hint_ids": [],
+        "route_annotation_ids": [
+          "s3"
+        ],
+        "evidence_source": "stage2_annotation",
+        "view_status": "valid",
+        "resource_ref": null
+      },
+      {
+        "demand_id": "rcd_input_s4",
+        "direction": "input",
+        "requiredness": "optional",
+        "required": false,
         "evidence_text": "known topics",
         "source_span_ids": [
-          "s10"
+          "s4"
         ],
         "source_section_id": "sec_inputs_for_each_run",
         "source_packet_id": "p_list_item_known_topics",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s10"
+          "s4"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_input_s11",
+        "demand_id": "rcd_input_s5",
         "direction": "input",
-        "requiredness": "required",
-        "required": true,
+        "requiredness": "optional",
+        "required": false,
         "evidence_text": "timeframe",
         "source_span_ids": [
-          "s11"
+          "s5"
         ],
         "source_section_id": "sec_inputs_for_each_run",
         "source_packet_id": "p_list_item_timeframe",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s11"
+          "s5"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_input_s12",
+        "demand_id": "rcd_input_s6",
         "direction": "input",
-        "requiredness": "required",
-        "required": true,
+        "requiredness": "optional",
+        "required": false,
         "evidence_text": "background information",
         "source_span_ids": [
-          "s12"
+          "s6"
         ],
         "source_section_id": "sec_inputs_for_each_run",
         "source_packet_id": "p_list_item_background_information",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s12"
+          "s6"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_input_s13",
+        "demand_id": "rcd_input_s7",
         "direction": "input",
-        "requiredness": "required",
-        "required": true,
+        "requiredness": "optional",
+        "required": false,
         "evidence_text": "target audience",
         "source_span_ids": [
-          "s13"
+          "s7"
         ],
         "source_section_id": "sec_inputs_for_each_run",
         "source_packet_id": "p_list_item_target_audience",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s13"
+          "s7"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_input_s14",
+        "demand_id": "rcd_input_s8",
         "direction": "input",
-        "requiredness": "required",
-        "required": true,
+        "requiredness": "optional",
+        "required": false,
         "evidence_text": "available information sources",
         "source_span_ids": [
-          "s14"
+          "s8"
         ],
         "source_section_id": "sec_inputs_for_each_run",
         "source_packet_id": "p_list_item_available_information_sources",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s14"
-        ],
-        "evidence_source": "stage2_annotation",
-        "view_status": "valid",
-        "resource_ref": null
-      },
-      {
-        "demand_id": "rcd_input_s15",
-        "direction": "input",
-        "requiredness": "required",
-        "required": true,
-        "evidence_text": "format preferences. The user request is a required input; all other content is optional",
-        "source_span_ids": [
-          "s15"
-        ],
-        "source_section_id": "sec_inputs_for_each_run",
-        "source_packet_id": "p_list_item_format_preferences_the_user_request_is_a_required_input_all_other_content_is_optional",
-        "source_hint_ids": [],
-        "route_annotation_ids": [
-          "s15"
+          "s8"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
@@ -121,14 +121,14 @@
       {
         "demand_id": "rcd_input_s9",
         "direction": "input",
-        "requiredness": "required",
-        "required": true,
-        "evidence_text": "A user’s communication request",
+        "requiredness": "optional",
+        "required": false,
+        "evidence_text": "format preferences",
         "source_span_ids": [
           "s9"
         ],
         "source_section_id": "sec_inputs_for_each_run",
-        "source_packet_id": "p_list_item_user_s_communication_request",
+        "source_packet_id": "p_list_item_format_preferences",
         "source_hint_ids": [],
         "route_annotation_ids": [
           "s9"
@@ -138,168 +138,83 @@
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_output_s16",
+        "demand_id": "rcd_output_s10",
         "direction": "output",
         "requiredness": "required",
         "required": true,
         "evidence_text": "A draft communication artifact",
         "source_span_ids": [
-          "s16"
+          "s10"
         ],
         "source_section_id": "sec_required_outputs",
         "source_packet_id": "p_list_item_draft_communication_artifact",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s16"
+          "s10"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_output_s17",
+        "demand_id": "rcd_output_s11",
         "direction": "output",
         "requiredness": "required",
         "required": true,
         "evidence_text": "a source/evidence set",
         "source_span_ids": [
-          "s17"
+          "s11"
         ],
         "source_section_id": "sec_required_outputs",
         "source_packet_id": "p_list_item_source_evidence_set",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s17"
+          "s11"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_output_s18",
+        "demand_id": "rcd_output_s12",
         "direction": "output",
         "requiredness": "required",
         "required": true,
         "evidence_text": "a record of unresolved items",
         "source_span_ids": [
-          "s18"
+          "s12"
         ],
         "source_section_id": "sec_required_outputs",
         "source_packet_id": "p_list_item_record_of_unresolved_items",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s18"
+          "s12"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       },
       {
-        "demand_id": "rcd_output_s19",
+        "demand_id": "rcd_output_s13",
         "direction": "output",
         "requiredness": "required",
         "required": true,
         "evidence_text": "a completion status for the task",
         "source_span_ids": [
-          "s19"
+          "s13"
         ],
         "source_section_id": "sec_required_outputs",
         "source_packet_id": "p_list_item_completion_status_for_the_task",
         "source_hint_ids": [],
         "route_annotation_ids": [
-          "s19"
-        ],
-        "evidence_source": "stage2_annotation",
-        "view_status": "valid",
-        "resource_ref": null
-      },
-      {
-        "demand_id": "rcd_output_s37",
-        "direction": "output",
-        "requiredness": "unspecified",
-        "required": null,
-        "evidence_text": "Output the draft communication artifact",
-        "source_span_ids": [
-          "s37"
-        ],
-        "source_section_id": "sec_reusable_process",
-        "source_packet_id": "p_list_item_revise_it_based_on_the_verification_results_output_the_draft_communication_artifact",
-        "source_hint_ids": [],
-        "route_annotation_ids": [
-          "s37"
-        ],
-        "evidence_source": "stage2_annotation",
-        "view_status": "valid",
-        "resource_ref": null
-      },
-      {
-        "demand_id": "rcd_output_s38",
-        "direction": "output",
-        "requiredness": "unspecified",
-        "required": null,
-        "evidence_text": "record of unresolved items",
-        "source_span_ids": [
-          "s38"
-        ],
-        "source_section_id": "sec_reusable_process",
-        "source_packet_id": "p_list_item_record_of_unresolved_items_2",
-        "source_hint_ids": [],
-        "route_annotation_ids": [
-          "s38"
-        ],
-        "evidence_source": "stage2_annotation",
-        "view_status": "valid",
-        "resource_ref": null
-      },
-      {
-        "demand_id": "rcd_output_s39",
-        "direction": "output",
-        "requiredness": "unspecified",
-        "required": null,
-        "evidence_text": "completion status.",
-        "source_span_ids": [
-          "s39"
-        ],
-        "source_section_id": "sec_reusable_process",
-        "source_packet_id": "p_list_item_completion_status_if_the_user_requests_revisions_to_the_draft",
-        "source_hint_ids": [],
-        "route_annotation_ids": [
-          "s39"
+          "s13"
         ],
         "evidence_source": "stage2_annotation",
         "view_status": "valid",
         "resource_ref": null
       }
     ],
-    "view_diagnostics": [
-      {
-        "kind": "resource_contract_annotation_missing_requiredness",
-        "severity": "info",
-        "message": "Requiredness is unspecified for demand rcd_output_s37 (span s37).",
-        "span_ids": [
-          "s37"
-        ],
-        "demand_id": "rcd_output_s37"
-      },
-      {
-        "kind": "resource_contract_annotation_missing_requiredness",
-        "severity": "info",
-        "message": "Requiredness is unspecified for demand rcd_output_s38 (span s38).",
-        "span_ids": [
-          "s38"
-        ],
-        "demand_id": "rcd_output_s38"
-      },
-      {
-        "kind": "resource_contract_annotation_missing_requiredness",
-        "severity": "info",
-        "message": "Requiredness is unspecified for demand rcd_output_s39 (span s39).",
-        "span_ids": [
-          "s39"
-        ],
-        "demand_id": "rcd_output_s39"
-      }
-    ],
+    "view_diagnostics": [],
     "warnings": []
   }
 }

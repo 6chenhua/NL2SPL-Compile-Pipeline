@@ -1,71 +1,71 @@
 {
   "stage": "external_capability_intent_resolver",
-  "timestamp": "2026-07-25T11:21:38.618998",
+  "timestamp": "2026-07-25T14:36:16.456268",
   "metadata": {},
   "result": {
-    "plan_id": "cap_plan_2dd31da24570711c",
+    "plan_id": "cap_plan_c33dfcab1090868d",
     "intents": [
       {
-        "intent_id": "cap_intent_68eb6f340ea24329",
+        "intent_id": "cap_intent_54d0835febd34468",
         "source_candidate_ids": [
-          "cap_candidate_19e661ceb9371c39"
+          "cap_candidate_a4cd26c39929d406"
         ],
         "source_span_ids": [
-          "s55"
+          "s31"
         ],
-        "operation_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
-        "capability_surface": "these components",
+        "operation_text": "may be delegated to these components for processing",
+        "capability_surface": "controlled components",
         "capability_ref": null,
         "boundary_status": "candidate_external",
         "identity_status": "described_unnamed",
-        "invocation_status": "mention_only",
+        "invocation_status": "policy_only",
         "capability_admission_status": "candidate_capability",
         "invocation_admission_status": "no_invocation",
         "evidence": [
           {
-            "evidence_id": "cap_sem_ev_583592128125126d",
-            "source_span_id": "s55",
-            "claim": "invocation",
-            "surface_text": "may be delegated to",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
-            "metadata": {
-              "validated_anchor_relation": "direct"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_6af6de703f863049",
-            "source_span_id": "s55",
-            "claim": "operation",
-            "surface_text": "well-defined subtasks such as template matching",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
-            "metadata": {
-              "validated_anchor_relation": "direct"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_833323e9d8edd3ff",
-            "source_span_id": "s55",
-            "claim": "identity",
-            "surface_text": "these components",
-            "relation": "direct",
-            "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
-            "metadata": {
-              "validated_anchor_relation": "direct"
-            }
-          },
-          {
-            "evidence_id": "cap_sem_ev_e6a1a959e269ed44",
-            "source_span_id": "s55",
+            "evidence_id": "cap_sem_ev_05b63ba4088c5b53",
+            "source_span_id": "s31",
             "claim": "boundary",
+            "surface_text": "controlled components are configured and available in the system",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_where_controlled_components_are_configured_and_available_in_the_system_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing_though_delegation_is_not_mandatory",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_068281bbfcfd5a7c",
+            "source_span_id": "s31",
+            "claim": "invocation",
+            "surface_text": "may be delegated to these components for processing, though delegation is not mandatory",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_where_controlled_components_are_configured_and_available_in_the_system_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing_though_delegation_is_not_mandatory",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_3548cdd947972773",
+            "source_span_id": "s31",
+            "claim": "operation",
             "surface_text": "may be delegated to these components for processing",
             "relation": "direct",
             "source_section_id": "sec_delegation_policy",
-            "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+            "source_packet_id": "p_sentence_where_controlled_components_are_configured_and_available_in_the_system_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing_though_delegation_is_not_mandatory",
+            "metadata": {
+              "validated_anchor_relation": "direct"
+            }
+          },
+          {
+            "evidence_id": "cap_sem_ev_58b62043c5116a49",
+            "source_span_id": "s31",
+            "claim": "identity",
+            "surface_text": "controlled components",
+            "relation": "direct",
+            "source_section_id": "sec_delegation_policy",
+            "source_packet_id": "p_sentence_where_controlled_components_are_configured_and_available_in_the_system_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing_though_delegation_is_not_mandatory",
             "metadata": {
               "validated_anchor_relation": "direct"
             }
@@ -76,7 +76,7 @@
         "binding_status": "not_required",
         "unresolved_binding_claims": [],
         "source_section_id": "sec_delegation_policy",
-        "source_packet_id": "p_list_item_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing",
+        "source_packet_id": "p_sentence_where_controlled_components_are_configured_and_available_in_the_system_well_defined_subtasks_such_as_template_matching_may_be_delegated_to_these_components_for_processing_though_delegation_is_not_mandatory",
         "metadata": {
           "merged_candidate_count": 1,
           "resolver_version": "ExternalCapabilityIntentResolverV1"
@@ -88,49 +88,49 @@
         "source_span_id": "s1",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "internal_profile_context"
       },
       {
         "source_span_id": "s2",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "internal_audience_context"
       },
       {
         "source_span_id": "s3",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s4",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s5",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s6",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s7",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s8",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "profile_domain"
+        "reason_code": "input_contract"
       },
       {
         "source_span_id": "s9",
@@ -142,329 +142,167 @@
         "source_span_id": "s10",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s11",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s12",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s13",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "output_contract"
       },
       {
         "source_span_id": "s14",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s15",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "input_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s16",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s17",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s18",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s19",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "output_contract"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s20",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s21",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "ordinary_process_step"
       },
       {
         "source_span_id": "s22",
-        "status": "no_external_boundary",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "constraint_only"
       },
       {
         "source_span_id": "s23",
-        "status": "no_external_boundary",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "constraint_only"
       },
       {
         "source_span_id": "s24",
-        "status": "no_external_boundary",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "constraint_only"
       },
       {
         "source_span_id": "s25",
-        "status": "no_external_boundary",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "constraint_only"
       },
       {
         "source_span_id": "s26",
-        "status": "no_external_boundary",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "constraint_only"
       },
       {
         "source_span_id": "s27",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "failure_condition_only"
       },
       {
         "source_span_id": "s28",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "failure_handler_internal"
       },
       {
         "source_span_id": "s29",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "failure_condition_only"
       },
       {
         "source_span_id": "s30",
         "status": "no_external_boundary",
         "related_candidate_ids": [],
-        "reason_code": "process_step_only"
+        "reason_code": "failure_handler_internal"
       },
       {
         "source_span_id": "s31",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s32",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s33",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s34",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s35",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s36",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s37",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "output_contract"
-      },
-      {
-        "source_span_id": "s38",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "output_contract"
-      },
-      {
-        "source_span_id": "s39",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "output_contract"
-      },
-      {
-        "source_span_id": "s40",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s41",
-        "status": "policy_only",
-        "related_candidate_ids": [],
-        "reason_code": "constraint_only"
-      },
-      {
-        "source_span_id": "s42",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "profile_domain"
-      },
-      {
-        "source_span_id": "s43",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "profile_domain"
-      },
-      {
-        "source_span_id": "s44",
-        "status": "policy_only",
-        "related_candidate_ids": [],
-        "reason_code": "constraint_only"
-      },
-      {
-        "source_span_id": "s45",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "profile_domain"
-      },
-      {
-        "source_span_id": "s46",
-        "status": "policy_only",
-        "related_candidate_ids": [],
-        "reason_code": "constraint_only"
-      },
-      {
-        "source_span_id": "s47",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
-      },
-      {
-        "source_span_id": "s48",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
-      },
-      {
-        "source_span_id": "s49",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
-      },
-      {
-        "source_span_id": "s50",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s51",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
-      },
-      {
-        "source_span_id": "s52a",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "failure_mode_only"
-      },
-      {
-        "source_span_id": "s52b",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
-      },
-      {
-        "source_span_id": "s53",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
-      },
-      {
-        "source_span_id": "s54",
-        "status": "insufficient_evidence",
-        "related_candidate_ids": [],
-        "reason_code": "extractor_disposition_missing"
-      },
-      {
-        "source_span_id": "s55",
         "status": "candidate_emitted",
         "related_candidate_ids": [
-          "cap_candidate_19e661ceb9371c39"
+          "cap_candidate_a4cd26c39929d406"
         ],
         "reason_code": null
       },
       {
-        "source_span_id": "s56",
+        "source_span_id": "s32",
         "status": "policy_only",
         "related_candidate_ids": [],
         "reason_code": "delegation_constraint"
       },
       {
-        "source_span_id": "s57",
-        "status": "policy_only",
-        "related_candidate_ids": [],
-        "reason_code": "constraint_only"
-      },
-      {
-        "source_span_id": "s58",
-        "status": "no_external_boundary",
-        "related_candidate_ids": [],
-        "reason_code": "process_step_only"
-      },
-      {
-        "source_span_id": "s59",
+        "source_span_id": "s33",
         "status": "policy_only",
         "related_candidate_ids": [],
         "reason_code": "delegation_constraint"
       },
       {
-        "source_span_id": "s60",
-        "status": "no_external_boundary",
+        "source_span_id": "s34",
+        "status": "policy_only",
         "related_candidate_ids": [],
-        "reason_code": "exception_handler_only"
+        "reason_code": "delegation_constraint"
       }
     ],
     "candidate_resolution_map": {
-      "cap_candidate_19e661ceb9371c39": "cap_intent_68eb6f340ea24329"
+      "cap_candidate_a4cd26c39929d406": "cap_intent_54d0835febd34468"
     },
     "diagnostics": [
       {
-        "diagnostic_id": "diag_cap_intent_68eb6f340ea24329_candidate",
+        "diagnostic_id": "diag_cap_intent_54d0835febd34468_candidate",
         "kind": "external_capability_candidate_not_admitted",
         "severity": "warning",
         "message": "External capability evidence is incomplete or conflicting; no API demand was authorized.",
-        "target_ref": "capability_intent:cap_intent_68eb6f340ea24329",
+        "target_ref": "capability_intent:cap_intent_54d0835febd34468",
         "source_span_ids": [
-          "s55"
+          "s31"
         ],
         "metadata": {
           "capability_admission_status": "candidate_capability",

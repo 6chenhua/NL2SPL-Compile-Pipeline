@@ -1,62 +1,95 @@
 {
   "stage": "stage9_constraint_extractor",
-  "timestamp": "2026-07-25T11:22:29.626447",
+  "timestamp": "2026-07-25T14:36:54.074043",
   "metadata": {},
   "result": {
     "constraints": [
       {
         "constraint_id": "c_1",
-        "text": "Do not fabricate facts.",
+        "text": "Do not fabricate facts, data, events, or sources that are not provided by the user or obtained from available information sources.",
         "kind": "prohibition",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s41"
+          "s22"
         ]
       },
       {
         "constraint_id": "c_2",
-        "text": "External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information. Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions. Do not alter the meaning of the user’s original request for the sake of completeness.",
+        "text": "External facts must have traceable sources; facts directly provided by the user shall be marked as user-provided information.",
         "kind": "evidence",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s44"
+          "s23"
         ]
       },
       {
         "constraint_id": "c_3",
+        "text": "Prioritize information already provided by the user to avoid unnecessary information retrieval and clarifying questions.",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s24"
+        ]
+      },
+      {
+        "constraint_id": "c_4",
+        "text": "Do not alter the meaning of the user’s original request for the sake of completeness, fluency, or professionalism of expression.",
+        "kind": "prohibition",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s25"
+        ]
+      },
+      {
+        "constraint_id": "c_5",
         "text": "Do not mark the task as complete if critical information is missing or conflicting instructions remain unresolved.",
         "kind": "gate",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s46"
+          "s26"
         ]
       },
       {
-        "constraint_id": "c_4",
+        "constraint_id": "c_6",
         "text": "Delegated tasks shall not expand the scope of the original task nor alter the user’s original requirements.",
         "kind": "delegation_boundary",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s57"
+          "s32"
         ]
       },
       {
-        "constraint_id": "c_5",
-        "text": "If delegation fails or returns results beyond the authorized scope, such results shall not be adopted.",
+        "constraint_id": "c_7",
+        "text": "The main process shall verify that delegated results comply with the task scope and user requirements before adopting them.",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s33"
+        ]
+      },
+      {
+        "constraint_id": "c_8",
+        "text": "If delegation fails or returns results beyond the authorized scope, such results shall not be adopted; if the results are essential to task completion, record unresolved items and mark the task as incomplete.",
         "kind": "gate",
         "targets": [
           "global"
         ],
         "source_span_ids": [
-          "s59"
+          "s34"
         ]
       }
     ]

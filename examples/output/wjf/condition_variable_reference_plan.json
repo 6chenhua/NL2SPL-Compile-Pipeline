@@ -1,15 +1,15 @@
 {
   "stage": "condition_variable_reference_plan",
-  "timestamp": "2026-07-25T11:22:29.628021",
+  "timestamp": "2026-07-25T14:36:54.074933",
   "metadata": {},
   "result": {
     "schema_version": "condition_variable_reference_plan.v2",
     "references": [
       {
-        "reference_id": "cond_ref_3512d2fc9b_llm_0",
+        "reference_id": "cond_ref_45c766b977_llm_0",
         "owner_kind": "block_condition",
-        "owner_ref": "condition:block:worker_main:main:b_4",
-        "condition_text": "the draft communication artifact does not meet the user’s specified requirements for target audience tone language length structure format",
+        "owner_ref": "condition:block:worker_main:main:b_cr_local_if_s19",
+        "condition_text": "draft communication artifact does not meet the user’s specified requirements for target audience, tone, language, length, structure, and format",
         "ref_text": null,
         "canonical_ref": "draft_communication_artifact",
         "top_level_name": "draft_communication_artifact",
@@ -18,16 +18,11 @@
         ],
         "status": "resolved",
         "source_span_ids": [
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35"
+          "s19"
         ],
         "worker_id": "worker_main",
         "flow_ref": "main",
-        "block_ref": "b_4",
+        "block_ref": "b_cr_local_if_s19",
         "evidence_kind": "llm_condition_semantic_match",
         "evidence_text": "draft communication artifact",
         "selected_symbol": "draft_communication_artifact",
@@ -36,10 +31,10 @@
         "reason": "Directly mentions the draft communication artifact."
       },
       {
-        "reference_id": "cond_ref_3512d2fc9b_llm_2",
+        "reference_id": "cond_ref_45c766b977_llm_2",
         "owner_kind": "block_condition",
-        "owner_ref": "condition:block:worker_main:main:b_4",
-        "condition_text": "the draft communication artifact does not meet the user’s specified requirements for target audience tone language length structure format",
+        "owner_ref": "condition:block:worker_main:main:b_cr_local_if_s19",
+        "condition_text": "draft communication artifact does not meet the user’s specified requirements for target audience, tone, language, length, structure, and format",
         "ref_text": null,
         "canonical_ref": "target_audience",
         "top_level_name": "target_audience",
@@ -48,67 +43,32 @@
         ],
         "status": "resolved",
         "source_span_ids": [
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35"
+          "s19"
         ],
         "worker_id": "worker_main",
         "flow_ref": "main",
-        "block_ref": "b_4",
+        "block_ref": "b_cr_local_if_s19",
         "evidence_kind": "llm_condition_semantic_match",
         "evidence_text": "target audience",
         "selected_symbol": "target_audience",
         "proposed_symbol_text": null,
         "confidence": "high",
-        "reason": "Directly mentions target audience."
+        "reason": "Directly mentions the target audience."
       }
     ],
     "text_rewrites": [
       {
-        "owner_ref": "condition:block:worker_main:main:b_4",
-        "original_condition_text": "the draft communication artifact does not meet the user’s specified requirements for target audience tone language length structure format",
-        "rewritten_condition_text": "the <REF>draft_communication_artifact</REF> does not meet the user’s specified requirements for <REF>target_audience</REF> tone language length structure format",
+        "owner_ref": "condition:block:worker_main:main:b_cr_local_if_s19",
+        "original_condition_text": "draft communication artifact does not meet the user’s specified requirements for target audience, tone, language, length, structure, and format",
+        "rewritten_condition_text": "<REF>draft_communication_artifact</REF> does not meet the user’s specified requirements for <REF>target_audience</REF>, tone, language, length, structure, and format",
         "rewrite_reason": "llm_semantic_ref_materialization",
         "source_reference_ids": [
-          "cond_ref_3512d2fc9b_llm_0",
-          "cond_ref_3512d2fc9b_llm_2"
+          "cond_ref_45c766b977_llm_0",
+          "cond_ref_45c766b977_llm_2"
         ]
       }
     ],
-    "diagnostics": [
-      {
-        "$type": "CompileDiagnostic",
-        "diagnostic_id": "condition_variable_not_available_before_decision_cond_ref_3512d2fc9b_llm_0",
-        "kind": "condition_variable_not_available_before_decision",
-        "severity": "warning",
-        "message": "Condition reference draft communication artifact is produced after or inside the decision it controls.",
-        "target_ref": "condition:block:worker_main:main:b_4",
-        "source_span_ids": [
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35"
-        ],
-        "source_section_id": null,
-        "source_packet_id": null,
-        "suggested_resolution": null,
-        "metadata": {
-          "stage": "stage9_5",
-          "reference_id": "cond_ref_3512d2fc9b_llm_0",
-          "owner_kind": "block_condition",
-          "canonical_ref": "draft_communication_artifact",
-          "evidence_kind": "llm_condition_semantic_match"
-        },
-        "blocks_rendering": false,
-        "blocks_completion": true,
-        "missing_slot": null
-      }
-    ],
+    "diagnostics": [],
     "metadata": {
       "authority": "stage6_5_condition_reference_extractor",
       "final_authority": "stage9_5_condition_variable_visibility_validator"

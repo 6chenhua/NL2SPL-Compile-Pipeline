@@ -1,52 +1,43 @@
 {
   "stage": "stage3_5b_worker_boundary_decisions",
-  "timestamp": "2026-07-25T11:21:43.589054",
+  "timestamp": "2026-07-25T14:36:22.393256",
   "metadata": {},
   "result": {
     "decisions": [
       {
-        "candidate_id": "candidate_clarify_request_scope",
+        "candidate_id": "candidate_clarify_missing_information",
         "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_organize_source_material",
-        "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_draft_and_verify_communication",
-        "decision": "keep_in_main_worker",
-        "boundary_strength": "weak",
-        "boundary_kind": "bounded_subtask",
-        "rejection_reason": "ordinary_sequential_step",
-        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
-        "evidence": []
-      },
-      {
-        "candidate_id": "candidate_handle_revision_requests",
-        "decision": "compile_as_alternative_flow",
         "boundary_strength": "weak",
         "boundary_kind": "failure_recovery_protocol",
-        "rejection_reason": "alternative_flow",
-        "reason": "Auto-rejected: blocking risk alternative_flow",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
         "evidence": []
       },
       {
-        "candidate_id": "candidate_mark_task_incomplete_on_missing_info",
-        "decision": "compile_as_exception_flow",
+        "candidate_id": "candidate_revise_draft_for_compliance",
+        "decision": "keep_in_main_worker",
         "boundary_strength": "weak",
-        "boundary_kind": "failure_recovery_protocol",
-        "rejection_reason": "exception_flow",
-        "reason": "Auto-rejected: blocking risk exception_flow",
+        "boundary_kind": "complex_control_extraction",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_output_draft_and_status",
+        "decision": "compile_as_call_api",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "single_api_call",
+        "reason": "Auto-rejected: blocking risk single_api_call",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_organize_facts_and_extract_messages",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
         "evidence": []
       }
     ]

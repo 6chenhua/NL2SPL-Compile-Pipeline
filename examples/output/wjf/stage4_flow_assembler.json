@@ -1,59 +1,56 @@
 {
   "stage": "stage4_flow_assembler",
-  "timestamp": "2026-07-25T11:21:46.012940",
+  "timestamp": "2026-07-25T14:36:24.330721",
   "metadata": {},
   "result": {
     "worker_flows": {
       "worker_main": {
         "main_flow_spans": [
+          "s14",
+          "s15",
+          "s17",
+          "s18",
+          "s19",
           "s20",
-          "s21",
-          "s22",
-          "s23",
-          "s24",
-          "s27",
-          "s28",
-          "s29",
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35",
-          "s36",
-          "s58"
+          "s21"
         ],
         "alternative_flows": [
           {
             "flow_id": "alt_1",
-            "condition_text": "if the user requests revisions to the draft",
+            "condition_text": "Critical information affecting content accuracy is missing",
             "spans": [
-              "s40"
+              "s16",
+              "s27",
+              "s28"
             ]
           }
         ],
         "exception_flows": [
           {
             "flow_id": "exc_adapter_00",
-            "condition_text": "If the user’s requirements conflict and impede task execution",
+            "condition_text": "such information cannot be obtained",
             "spans": [
-              "s52a"
+              "s28"
             ]
           },
           {
             "flow_id": "exc_adapter_01",
-            "condition_text": "Missing Critical Information:",
+            "condition_text": "the user’s requirements conflict and impede task execution",
             "spans": [
-              "s47"
+              "s29"
+            ]
+          },
+          {
+            "flow_id": "exc_adapter_02",
+            "condition_text": "information essential to task completion is lacking",
+            "spans": [
+              "s27"
             ]
           }
         ],
         "delegation_candidates": []
       }
     },
-    "warnings": [
-      "ConstructPlan: cannot enforce ownership for exc_demand_03; condition spans have owners [].",
-      "ConstructPlan: condition span s47 for exc_demand_03 has unowned; attached to main worker worker_main."
-    ]
+    "warnings": []
   }
 }

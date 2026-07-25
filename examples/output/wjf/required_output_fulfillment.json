@@ -1,6 +1,6 @@
 {
   "stage": "required_output_fulfillment",
-  "timestamp": "2026-07-25T11:22:29.629840",
+  "timestamp": "2026-07-25T14:36:54.081005",
   "metadata": {},
   "result": {
     "states": [
@@ -15,13 +15,17 @@
         "output_name": "draft_communication_artifact",
         "status": "produced",
         "producer_step_ids": [
-          "st_1",
-          "st_4",
-          "st_8",
-          "st_12"
+          "st_5"
         ],
         "deferred_refs": [],
         "reason": "source_backed_producer"
+      },
+      {
+        "output_name": "record_of_unresolved_items",
+        "status": "missing",
+        "producer_step_ids": [],
+        "deferred_refs": [],
+        "reason": "missing_source_backed_producer"
       },
       {
         "output_name": "source_evidence_set",
@@ -29,15 +33,6 @@
         "producer_step_ids": [],
         "deferred_refs": [],
         "reason": "missing_source_backed_producer"
-      },
-      {
-        "output_name": "unresolved_items",
-        "status": "produced",
-        "producer_step_ids": [
-          "st_11"
-        ],
-        "deferred_refs": [],
-        "reason": "source_backed_producer"
       }
     ]
   }

@@ -1,29 +1,40 @@
 {
   "stage": "stage3_5a_candidate_task_units",
-  "timestamp": "2026-07-25T11:21:43.586615",
+  "timestamp": "2026-07-25T14:36:22.392114",
   "metadata": {},
   "result": {
     "candidates": [
       {
-        "candidate_id": "candidate_clarify_request_scope",
+        "candidate_id": "candidate_clarify_missing_information",
         "source_span_ids": [
-          "s20",
-          "s21",
-          "s22",
-          "s23",
-          "s24",
-          "s25",
-          "s48"
+          "s16",
+          "s27",
+          "s28",
+          "s30",
+          "s34"
         ],
-        "task_text": "Clarify the communication request by identifying the material type, communication purpose, target audience, and whether critical information is missing; ask clarifying questions when needed.",
-        "purpose": "Ensure the request has enough context to proceed accurately.",
-        "candidate_kind": "bounded_subtask",
+        "task_text": "Handle missing critical information by asking clarifying questions, recording unresolved items if the information cannot be obtained, and marking the task incomplete when needed.",
+        "purpose": "Ensure the communication task can only proceed when essential content inputs are available or explicitly unresolved.",
+        "candidate_kind": "failure_recovery_protocol",
         "possible_inputs": [
           {
-            "name": "user_communication_request",
+            "name": "user_request",
             "data_type": "text",
             "required": true,
-            "description": "The user's communication request.",
+            "description": "The user’s communication request and related details provided so far.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "missing_critical_information",
+            "data_type": "text",
+            "required": true,
+            "description": "Information essential to task completion that is not currently available.",
             "source": "input",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -35,10 +46,36 @@
         ],
         "possible_outputs": [
           {
-            "name": "clarified_request_context",
+            "name": "clarifying_questions",
             "data_type": "text",
             "required": false,
-            "description": "Clarified material type, purpose, target audience, and expression requirements when available.",
+            "description": "Questions to ask the user for missing critical information.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "record_of_unresolved_items",
+            "data_type": "text",
+            "required": false,
+            "description": "Items that could not be obtained or resolved.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "completion_status",
+            "data_type": "text",
+            "required": false,
+            "description": "Status indicating the task is incomplete when critical information remains missing.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -49,9 +86,90 @@
           }
         ],
         "signals": [
-          "bounded_io",
+          "independent_failure_policy",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_output_contract",
+          "insufficient_semantic_boundary",
+          "alternative_flow"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      },
+      {
+        "candidate_id": "candidate_revise_draft_for_compliance",
+        "source_span_ids": [
+          "s18",
+          "s19",
+          "s21",
+          "s33"
+        ],
+        "task_text": "Review a draft communication artifact against user requirements, revise it when needed, and recheck compliance after user-requested amendments or verification failures.",
+        "purpose": "Keep the draft aligned with target audience, tone, language, length, structure, format, and scope requirements through iterative checking and revision.",
+        "candidate_kind": "complex_control_extraction",
+        "possible_inputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "The draft communication artifact to be checked and revised.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "user_specified_requirements",
+            "data_type": "text",
+            "required": true,
+            "description": "Requirements for target audience, tone, language, length, structure, and format.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "revised_draft",
+            "data_type": "text",
+            "required": false,
+            "description": "The revised communication artifact after compliance-focused amendments.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "compliance_check_result",
+            "data_type": "text",
+            "required": false,
+            "description": "Result of rechecking the revised draft against relevant criteria.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
           "multi_step_process",
-          "testability"
+          "complex_control",
+          "bounded_io"
         ],
         "risks": [
           "no_clear_output_contract",
@@ -64,14 +182,115 @@
         "output_contract_status_source": null
       },
       {
-        "candidate_id": "candidate_organize_source_material",
+        "candidate_id": "candidate_output_draft_and_status",
         "source_span_ids": [
-          "s27",
-          "s28",
-          "s29"
+          "s20"
         ],
-        "task_text": "Organize obtained facts and background information, extract core messages, and structure the content based on the material type.",
-        "purpose": "Prepare source material into an organized basis for drafting.",
+        "task_text": "Output the draft communication artifact along with unresolved items and completion status.",
+        "purpose": "Package the final draft and task-state information for the caller.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "The draft communication artifact to output.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "record_of_unresolved_items",
+            "data_type": "text",
+            "required": true,
+            "description": "Any unresolved items to include in the output.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "completion_status",
+            "data_type": "text",
+            "required": true,
+            "description": "The task completion status to report.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "possible_outputs": [
+          {
+            "name": "draft_communication_artifact",
+            "data_type": "text",
+            "required": true,
+            "description": "The draft communication artifact.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "record_of_unresolved_items",
+            "data_type": "text",
+            "required": true,
+            "description": "The unresolved items record.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "completion_status",
+            "data_type": "text",
+            "required": true,
+            "description": "The task completion status.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "reuse_potential"
+        ],
+        "risks": [
+          "single_api_call",
+          "unclear_result_handoff"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      },
+      {
+        "candidate_id": "candidate_organize_facts_and_extract_messages",
+        "source_span_ids": [
+          "s17"
+        ],
+        "task_text": "Organize obtained facts and background information, extract core messages, and structure content according to the communication material type.",
+        "purpose": "Prepare the substance and structure needed for drafting the communication artifact.",
         "candidate_kind": "bounded_subtask",
         "possible_inputs": [
           {
@@ -86,14 +305,40 @@
             "source_packet_id": null,
             "resource_kind": null,
             "requiredness": "unspecified"
+          },
+          {
+            "name": "material_type",
+            "data_type": "text",
+            "required": true,
+            "description": "The type of communication material to be produced.",
+            "source": "input",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
           }
         ],
         "possible_outputs": [
           {
-            "name": "organized_content_outline",
+            "name": "core_messages",
             "data_type": "text",
-            "required": false,
-            "description": "Core messages and content structure derived from the source material.",
+            "required": true,
+            "description": "Core messages to be conveyed.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          },
+          {
+            "name": "content_structure",
+            "data_type": "text",
+            "required": true,
+            "description": "A content structure based on the material type.",
             "source": "output",
             "contract_demand_id": null,
             "source_span_ids": [],
@@ -104,276 +349,14 @@
           }
         ],
         "signals": [
-          "bounded_io",
           "multi_step_process",
+          "bounded_io",
           "reuse_potential"
         ],
         "risks": [
-          "no_clear_output_contract",
-          "ordinary_sequential_step",
-          "insufficient_semantic_boundary"
-        ],
-        "input_contract_status": "unknown",
-        "output_contract_status": "unknown",
-        "input_contract_status_source": null,
-        "output_contract_status_source": null
-      },
-      {
-        "candidate_id": "candidate_draft_and_verify_communication",
-        "source_span_ids": [
-          "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35",
-          "s36"
-        ],
-        "task_text": "Generate a draft communication artifact and verify it against the specified requirements for target audience, tone, language, length, structure, and format; revise based on verification results.",
-        "purpose": "Produce a draft that conforms to the user's communication requirements.",
-        "candidate_kind": "bounded_subtask",
-        "possible_inputs": [
-          {
-            "name": "organized_content",
-            "data_type": "text",
-            "required": true,
-            "description": "Organized facts, background information, and core messages.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "target_audience",
-            "data_type": "text",
-            "required": false,
-            "description": "Specified audience for the communication.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "tone",
-            "data_type": "text",
-            "required": false,
-            "description": "Requested tone.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "language",
-            "data_type": "text",
-            "required": false,
-            "description": "Requested language.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "length",
-            "data_type": "text",
-            "required": false,
-            "description": "Requested length.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "structure",
-            "data_type": "text",
-            "required": false,
-            "description": "Requested structure.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "format",
-            "data_type": "text",
-            "required": false,
-            "description": "Requested format.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "possible_outputs": [
-          {
-            "name": "draft_communication_artifact",
-            "data_type": "text",
-            "required": true,
-            "description": "The drafted communication artifact after verification and revision.",
-            "source": "output",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "signals": [
-          "bounded_io",
-          "multi_step_process",
-          "testability",
-          "complex_control"
-        ],
-        "risks": [
-          "no_clear_input_contract",
-          "ordinary_sequential_step",
-          "insufficient_semantic_boundary"
-        ],
-        "input_contract_status": "unknown",
-        "output_contract_status": "unknown",
-        "input_contract_status_source": null,
-        "output_contract_status_source": null
-      },
-      {
-        "candidate_id": "candidate_handle_revision_requests",
-        "source_span_ids": [
-          "s40",
-          "s58",
-          "s59",
-          "s60"
-        ],
-        "task_text": "Handle user-requested revisions or delegated-result scope issues by checking compliance, refusing out-of-scope adoption, and recording unresolved items when completion is blocked.",
-        "purpose": "Provide controlled revision and exception handling for draft completion.",
-        "candidate_kind": "failure_recovery_protocol",
-        "possible_inputs": [
-          {
-            "name": "draft_communication_artifact",
-            "data_type": "text",
-            "required": true,
-            "description": "The current draft communication artifact.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          },
-          {
-            "name": "user_revision_requests",
-            "data_type": "text",
-            "required": false,
-            "description": "User requests to revise the draft.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "possible_outputs": [
-          {
-            "name": "revised_draft_or_unresolved_items",
-            "data_type": "text",
-            "required": false,
-            "description": "Revised draft when possible, or unresolved items when adoption is blocked.",
-            "source": "output",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "signals": [
-          "independent_failure_policy",
-          "complex_control",
-          "bounded_io"
-        ],
-        "risks": [
-          "no_clear_output_contract",
-          "alternative_flow",
-          "exception_flow",
-          "unclear_result_handoff"
-        ],
-        "input_contract_status": "unknown",
-        "output_contract_status": "unknown",
-        "input_contract_status_source": null,
-        "output_contract_status_source": null
-      },
-      {
-        "candidate_id": "candidate_mark_task_incomplete_on_missing_info",
-        "source_span_ids": [
-          "s48",
-          "s51"
-        ],
-        "task_text": "When essential information is lacking, inquire with the user and mark the task as incomplete if completion cannot proceed.",
-        "purpose": "Preserve task integrity when required information is missing.",
-        "candidate_kind": "failure_recovery_protocol",
-        "possible_inputs": [
-          {
-            "name": "missing_critical_information",
-            "data_type": "text",
-            "required": false,
-            "description": "Information essential to task completion that is lacking.",
-            "source": "input",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "possible_outputs": [
-          {
-            "name": "task_incomplete_status",
-            "data_type": "text",
-            "required": true,
-            "description": "Status indicating the task was marked incomplete.",
-            "source": "output",
-            "contract_demand_id": null,
-            "source_span_ids": [],
-            "source_section_id": null,
-            "source_packet_id": null,
-            "resource_kind": null,
-            "requiredness": "unspecified"
-          }
-        ],
-        "signals": [
-          "independent_failure_policy",
-          "bounded_io"
-        ],
-        "risks": [
           "no_clear_input_contract",
           "no_clear_output_contract",
-          "exception_flow",
-          "insufficient_semantic_boundary"
+          "ordinary_sequential_step"
         ],
         "input_contract_status": "unknown",
         "output_contract_status": "unknown",
@@ -394,14 +377,14 @@
             "api_call_demand_id": null,
             "boundary_status": "candidate_external",
             "capability_admission_status": "candidate_capability",
-            "capability_surface": "these components",
+            "capability_surface": "controlled components",
             "consumed_by_api_authority": false,
-            "intent_id": "cap_intent_68eb6f340ea24329",
+            "intent_id": "cap_intent_54d0835febd34468",
             "invocation_admission_status": "no_invocation",
-            "invocation_status": "mention_only",
-            "operation_text": "well-defined subtasks such as template matching may be delegated to these components for processing",
+            "invocation_status": "policy_only",
+            "operation_text": "may be delegated to these components for processing",
             "source_span_ids": [
-              "s55"
+              "s31"
             ]
           }
         ]
@@ -409,87 +392,15 @@
     },
     "sanitization_results": [
       {
-        "original_candidate_id": "candidate_clarify_request_scope",
+        "original_candidate_id": "candidate_clarify_missing_information",
         "result_kind": "unchanged",
-        "residual_candidate_id": "candidate_clarify_request_scope",
+        "residual_candidate_id": "candidate_clarify_missing_information",
         "residual_source_span_ids": [
-          "s20",
-          "s21",
-          "s22",
-          "s23",
-          "s24",
-          "s25",
-          "s48"
-        ],
-        "removed_api_span_ids": [],
-        "auto_decision": null,
-        "residual_policy_reason": null,
-        "requires_residual_re_evaluation": false,
-        "audit": {
-          "api_call_demand_ids": {},
-          "candidate_source_span_ids": [
-            "s20",
-            "s21",
-            "s22",
-            "s23",
-            "s24",
-            "s25",
-            "s48"
-          ],
-          "exclusion_authority": "external_capability_intent_plan",
-          "removed_api_span_ids": [],
-          "residual_source_span_ids": [
-            "s20",
-            "s21",
-            "s22",
-            "s23",
-            "s24",
-            "s25",
-            "s48"
-          ]
-        }
-      },
-      {
-        "original_candidate_id": "candidate_organize_source_material",
-        "result_kind": "unchanged",
-        "residual_candidate_id": "candidate_organize_source_material",
-        "residual_source_span_ids": [
+          "s16",
           "s27",
           "s28",
-          "s29"
-        ],
-        "removed_api_span_ids": [],
-        "auto_decision": null,
-        "residual_policy_reason": null,
-        "requires_residual_re_evaluation": false,
-        "audit": {
-          "api_call_demand_ids": {},
-          "candidate_source_span_ids": [
-            "s27",
-            "s28",
-            "s29"
-          ],
-          "exclusion_authority": "external_capability_intent_plan",
-          "removed_api_span_ids": [],
-          "residual_source_span_ids": [
-            "s27",
-            "s28",
-            "s29"
-          ]
-        }
-      },
-      {
-        "original_candidate_id": "candidate_draft_and_verify_communication",
-        "result_kind": "unchanged",
-        "residual_candidate_id": "candidate_draft_and_verify_communication",
-        "residual_source_span_ids": [
           "s30",
-          "s31",
-          "s32",
-          "s33",
-          "s34",
-          "s35",
-          "s36"
+          "s34"
         ],
         "removed_api_span_ids": [],
         "auto_decision": null,
@@ -498,36 +409,32 @@
         "audit": {
           "api_call_demand_ids": {},
           "candidate_source_span_ids": [
+            "s16",
+            "s27",
+            "s28",
             "s30",
-            "s31",
-            "s32",
-            "s33",
-            "s34",
-            "s35",
-            "s36"
+            "s34"
           ],
           "exclusion_authority": "external_capability_intent_plan",
           "removed_api_span_ids": [],
           "residual_source_span_ids": [
+            "s16",
+            "s27",
+            "s28",
             "s30",
-            "s31",
-            "s32",
-            "s33",
-            "s34",
-            "s35",
-            "s36"
+            "s34"
           ]
         }
       },
       {
-        "original_candidate_id": "candidate_handle_revision_requests",
+        "original_candidate_id": "candidate_revise_draft_for_compliance",
         "result_kind": "unchanged",
-        "residual_candidate_id": "candidate_handle_revision_requests",
+        "residual_candidate_id": "candidate_revise_draft_for_compliance",
         "residual_source_span_ids": [
-          "s40",
-          "s58",
-          "s59",
-          "s60"
+          "s18",
+          "s19",
+          "s21",
+          "s33"
         ],
         "removed_api_span_ids": [],
         "auto_decision": null,
@@ -536,28 +443,27 @@
         "audit": {
           "api_call_demand_ids": {},
           "candidate_source_span_ids": [
-            "s40",
-            "s58",
-            "s59",
-            "s60"
+            "s18",
+            "s19",
+            "s21",
+            "s33"
           ],
           "exclusion_authority": "external_capability_intent_plan",
           "removed_api_span_ids": [],
           "residual_source_span_ids": [
-            "s40",
-            "s58",
-            "s59",
-            "s60"
+            "s18",
+            "s19",
+            "s21",
+            "s33"
           ]
         }
       },
       {
-        "original_candidate_id": "candidate_mark_task_incomplete_on_missing_info",
+        "original_candidate_id": "candidate_output_draft_and_status",
         "result_kind": "unchanged",
-        "residual_candidate_id": "candidate_mark_task_incomplete_on_missing_info",
+        "residual_candidate_id": "candidate_output_draft_and_status",
         "residual_source_span_ids": [
-          "s48",
-          "s51"
+          "s20"
         ],
         "removed_api_span_ids": [],
         "auto_decision": null,
@@ -566,14 +472,35 @@
         "audit": {
           "api_call_demand_ids": {},
           "candidate_source_span_ids": [
-            "s48",
-            "s51"
+            "s20"
           ],
           "exclusion_authority": "external_capability_intent_plan",
           "removed_api_span_ids": [],
           "residual_source_span_ids": [
-            "s48",
-            "s51"
+            "s20"
+          ]
+        }
+      },
+      {
+        "original_candidate_id": "candidate_organize_facts_and_extract_messages",
+        "result_kind": "unchanged",
+        "residual_candidate_id": "candidate_organize_facts_and_extract_messages",
+        "residual_source_span_ids": [
+          "s17"
+        ],
+        "removed_api_span_ids": [],
+        "auto_decision": null,
+        "residual_policy_reason": null,
+        "requires_residual_re_evaluation": false,
+        "audit": {
+          "api_call_demand_ids": {},
+          "candidate_source_span_ids": [
+            "s17"
+          ],
+          "exclusion_authority": "external_capability_intent_plan",
+          "removed_api_span_ids": [],
+          "residual_source_span_ids": [
+            "s17"
           ]
         }
       }
