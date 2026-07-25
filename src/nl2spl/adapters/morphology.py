@@ -22,21 +22,21 @@ class MorphologyProfile:
 
 class ShapeGrammar:
     """Shared regular expressions for morphological structure."""
-    
+
     # Markdown headings (e.g., "# Title")
     MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+\S")
-    
+
     # Colon-delimited section heading (for example, "Heading:").
     # \uff1a is the Unicode FULLWIDTH COLON (U+FF1A) used in CJK text.
     # Keeping it as an escape avoids encoding issues across platforms.
     COLON_HEADING = re.compile(r"^[^:\uff1a\n]{1,120}[:\uff1a]$")
-    
+
     # Key-value section line (for example, "Key: Value").
     KEY_VALUE = re.compile(r"^[^:\uff1a\n]{1,120}[:\uff1a]\s*\S")
-    
+
     # List items (- or * or 1.)
     LIST_ITEM = re.compile(r"^[-*]\s+\S|^\d+\.\s+\S")
-    
+
     # Table-like structure (e.g., | Header |)
     TABLE_ROW = re.compile(r"^\|.*\|$")
 

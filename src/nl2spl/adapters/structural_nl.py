@@ -6,8 +6,8 @@ import re
 from collections import Counter
 from typing import Literal
 
-from nl2spl.adapters.morphology import ShapeGrammar
 from nl2spl.adapters.base import InputAdapter
+from nl2spl.adapters.morphology import ShapeGrammar
 from nl2spl.canonical.compile_input import (
     AdapterDetectionResult,
     AdapterWarning,
@@ -55,7 +55,7 @@ def _is_empty_marker(text: str) -> bool:
         _label, candidate = re.split(r"[:\uff1a]", candidate, maxsplit=1)
     candidate = candidate.replace("**", "").replace("__", "")
     normalized = re.sub(r"[^\w\s]", "", candidate.lower()).strip()
-    
+
     empty_markers = {
         "none",
         "na",
@@ -71,7 +71,7 @@ _INPUT_TITLES = frozenset({"inputs for each run", "inputs_for_each_run"})
 _OUTPUT_TITLES = frozenset({"required outputs", "required_outputs"})
 
 
-def _compute_packet_required(section: "RawSection", clean_text: str) -> bool | None:
+def _compute_packet_required(section: RawSection, clean_text: str) -> bool | None:
     """Compute the requiredness bool for a list-item packet from structural
     section evidence.
 
@@ -128,7 +128,7 @@ class StructuralNLAdapter(InputAdapter):
             and not self._is_document_title_section(section, sections, raw_text)
         ]
         missing_sections = []
-        
+
         from nl2spl.adapters.morphology import StructuralShapeDetector
         profile = StructuralShapeDetector.detect(raw_text)
         matched = profile.is_highly_structured
@@ -211,7 +211,7 @@ class StructuralNLAdapter(InputAdapter):
         headings: list[tuple[int, int, int, str, str, str]] = []
         unexpected: list[str] = []
         offset = 0
-        
+
         for index, line in enumerate(lines):
             stripped = line.strip()
             line_start = offset

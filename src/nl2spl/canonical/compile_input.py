@@ -226,7 +226,7 @@ class CanonicalCompileInputValidator:
                 )
             errors.extend(
                 cls._validate_evidence_refs(
-                    hint.evidence, f"CompileHint",
+                    hint.evidence, "CompileHint",
                     section_id_set, packet_by_id,
                 )
             )

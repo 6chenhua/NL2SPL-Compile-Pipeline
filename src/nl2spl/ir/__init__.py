@@ -16,6 +16,11 @@ from nl2spl.ir.composite_output_plan_ir import (
     ReferenceRewrite,
     WorkerOutputRewrite,
 )
+from nl2spl.ir.condition_variable_reference_ir import (
+    ConditionTextRewrite,
+    ConditionVariableReferenceIR,
+    ConditionVariableReferencePlan,
+)
 from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.control_region_ir import ControlRegion, ControlRegionPlan
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
@@ -89,6 +94,9 @@ __all__ = [
     "DelegationCandidate",
     "BlockStructureIR",
     "BlockIR",
+    "ConditionTextRewrite",
+    "ConditionVariableReferenceIR",
+    "ConditionVariableReferencePlan",
     "AgentProfileIR",
     "PersonaIR",
     "Aspect",

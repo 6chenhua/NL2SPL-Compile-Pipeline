@@ -18,6 +18,7 @@ STAGE_PROMPT_FILES = {
     "stage4": PROMPTS_DIR / "stage4_system.txt",
     "stage5": PROMPTS_DIR / "stage5_system.txt",
     "stage6": PROMPTS_DIR / "stage6_system.txt",
+    "stage6_5_condition_reference": PROMPTS_DIR / "stage6_5_condition_reference_system.txt",
     "stage7": PROMPTS_DIR / "stage7_system.txt",
     "stage8": PROMPTS_DIR / "stage8_system.txt",
     "stage9": PROMPTS_DIR / "stage9_system.txt",
