@@ -8,7 +8,7 @@ from nl2spl.compiler.construct_plan.model import ConstructPlan
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerPlanIR
+from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 
 
 def normalize_condition_text(text: str) -> str:

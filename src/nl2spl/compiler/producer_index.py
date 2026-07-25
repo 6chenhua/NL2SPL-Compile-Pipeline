@@ -204,14 +204,14 @@ class ProducerIndex:
             if step_variable_relation_plan
             else ()
         )
-        relation_authority_mode = bool(relation_outputs)
+        relation_authority_mode = step_variable_relation_plan is not None
 
         if relation_authority_mode:
             self.mode = "relation_authority"
         else:
             self.mode = "legacy_fallback"
             self.compat_warnings.append(
-                "ProducerIndex legacy_fallback: no non-empty StepVariableRelationPlan supplied; "
+                "ProducerIndex legacy_fallback: no StepVariableRelationPlan supplied; "
                 "StepIR.outputs used for compatibility."
             )
 
@@ -220,7 +220,7 @@ class ProducerIndex:
             step_by_id = {step.step_id: step for step in steps}
 
             # Step produces
-            for relation in step_variable_relation_plan.producing_relations():
+            for relation in relation_outputs:
                 step = step_by_id.get(relation.step_id)
                 if step is not None and step.command_type == "CALL_API":
                     continue
@@ -251,7 +251,7 @@ class ProducerIndex:
                 if not (step_renderable and api_declared):
                     continue
 
-                for relation in step_variable_relation_plan.producing_relations():
+                for relation in relation_outputs:
                     if relation.step_id == step.step_id:
                         self._producers[relation.variable_name].append(
                             ProducerRef(

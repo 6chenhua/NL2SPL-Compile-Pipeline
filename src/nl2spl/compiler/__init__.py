@@ -22,18 +22,18 @@ from nl2spl.compiler.compile_result import (
     TraceRelation,
 )
 from nl2spl.compiler.completeness import compute_completeness
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructIRS,
     ConstructSatisfactionReport,
-    SPLConstructRegistry,
     SlotSatisfaction,
     SlotSpec,
+    SPLConstructRegistry,
 )
-from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry, DiagnosticSpec
+from nl2spl.compiler.diagnostics import DiagnosticRegistry, DiagnosticSpec
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
 from nl2spl.compiler.irs_prompt_builder import IRSDrivenPromptBuilder
 from nl2spl.compiler.producer_index import ProducerIndex, ProducerRef
-from nl2spl.compiler.report_renderer import render_report
+from nl2spl.compiler.reporting import render_report
 from nl2spl.ir.diagnostics import CompileDiagnostic, StepRenderInfo, TraceRecord
 from nl2spl.pipeline.provenance import ProvenanceAggregator
 
@@ -60,6 +60,7 @@ __all__ = [
     "ProvenanceAggregator",
     "render_feedback_report",
     "render_report",
+    "SemanticConflictAnalyzer",
     "Severity",
     "SlotSatisfaction",
     "SlotSpec",

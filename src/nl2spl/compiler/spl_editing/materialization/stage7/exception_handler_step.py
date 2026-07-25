@@ -109,15 +109,15 @@ class ExceptionHandlerStageSliceChainMaterializer:
                 )
 
         (
-            StagePolicy,
-            StageSliceInput,
-            Stage5ExceptionHandlerBlockRepairSlice,
-            Stage7ExceptionHandlerCommandRepairSlice,
-            RepairDirective,
+            stage_policy_cls,
+            stage_slice_input_cls,
+            stage5_exception_handler_block_repair_slice_cls,
+            stage7_exception_handler_command_repair_slice_cls,
+            repair_directive_cls,
         ) = _load_stage_slice_runtime()
 
         selected_ref_ids = tuple(ref.ref.ref_id for ref in resolved_refs)
-        directive = RepairDirective(
+        directive = repair_directive_cls(
             directive_id=f"dir_{intent.intent_id}",
             source="system_default",
             target_construct_type=intent.target_construct_type,
@@ -126,9 +126,9 @@ class ExceptionHandlerStageSliceChainMaterializer:
             selected_ref_hints=selected_ref_ids,
         )
 
-        stage5 = Stage5ExceptionHandlerBlockRepairSlice()
+        stage5 = stage5_exception_handler_block_repair_slice_cls()
         stage5_result = stage5.execute(
-            StageSliceInput(
+            stage_slice_input_cls(
                 slice_id=stage5.slice_id,
                 stage_authority=_STAGE5_AUTHORITY,
                 snapshot=snapshot,
@@ -137,7 +137,7 @@ class ExceptionHandlerStageSliceChainMaterializer:
                 directive=directive,
                 intent=intent,
                 dependency_closure=input_data.plan.dependency_closure,
-                stage_policy=StagePolicy(
+                stage_policy=stage_policy_cls(
                     policy_id="exception_handler.block_shape.v1",
                     stage_authority=_STAGE5_AUTHORITY,
                     allowed_typed_plan_kinds=("BlockShapePlan",),
@@ -150,9 +150,9 @@ class ExceptionHandlerStageSliceChainMaterializer:
             )
         )
 
-        stage7 = Stage7ExceptionHandlerCommandRepairSlice()
+        stage7 = stage7_exception_handler_command_repair_slice_cls()
         stage7_result = stage7.execute(
-            StageSliceInput(
+            stage_slice_input_cls(
                 slice_id=stage7.slice_id,
                 stage_authority=_STAGE_AUTHORITY,
                 snapshot=snapshot,
@@ -161,7 +161,7 @@ class ExceptionHandlerStageSliceChainMaterializer:
                 directive=directive,
                 intent=intent,
                 dependency_closure=input_data.plan.dependency_closure,
-                stage_policy=StagePolicy(
+                stage_policy=stage_policy_cls(
                     policy_id="exception_handler.command_intent.v1",
                     stage_authority=_STAGE_AUTHORITY,
                     allowed_typed_plan_kinds=("CommandIntentPlan",),

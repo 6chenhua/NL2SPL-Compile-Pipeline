@@ -16,8 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
-from nl2spl.compiler.irs.graph import ConstructGraph
+from nl2spl.compiler.constructs import ConstructSatisfactionReport
+from nl2spl.compiler.constructs.graph import ConstructGraph
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
 
@@ -58,7 +58,7 @@ class IRSStageResult:
     @staticmethod
     def _copy_graph(graph: ConstructGraph) -> ConstructGraph:
         """Deep-copy a ConstructGraph's mutable fields."""
-        from nl2spl.compiler.irs.graph import ConstructEdge
+        from nl2spl.compiler.constructs.graph import ConstructEdge
 
         copied_edges = [
             ConstructEdge(

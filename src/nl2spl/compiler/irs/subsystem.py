@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
+from nl2spl.compiler.constructs import ConstructSatisfactionReport
+from nl2spl.compiler.constructs.graph import ConstructGraph
 from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.graph import ConstructGraph
 from nl2spl.compiler.irs.policy import IRSRuntimeConfig
 from nl2spl.compiler.irs.result_store import IRSStageResult
 from nl2spl.compiler.irs.runner import IRSRunner

@@ -5,13 +5,13 @@ Does not import catalog.py to prevent circular imports.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 
 def project_strategy_metadata(
     repair_strategy_id: str | None,
     strategy_registry: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Look up a strategy and project its display_label, closure_summary, and preview_required."""
     if not repair_strategy_id or not strategy_registry:
         return {

@@ -18,7 +18,7 @@ from nl2spl.compiler.construct_plan.model import (
     ExceptionFlowDemand,
     OperationCoverageIR,
 )
-from nl2spl.compiler.irs.graph import ConstructEdge
+from nl2spl.compiler.constructs.graph import ConstructEdge
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR

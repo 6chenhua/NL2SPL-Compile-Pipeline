@@ -12,13 +12,13 @@ R6.2 implementation:
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructIRS,
     ConstructSatisfactionReport,
     SlotSatisfaction,
 )
+from nl2spl.compiler.constructs.graph import ConstructEdge
 from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
 
 # Guard message for no-spans condition ambiguity.

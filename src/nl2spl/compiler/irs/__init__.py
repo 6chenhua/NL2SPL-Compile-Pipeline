@@ -22,9 +22,10 @@ R10 types (subsystem foundation):
 
 from __future__ import annotations
 
+from nl2spl.compiler.constructs.graph import ConstructEdge, ConstructEdgeType, ConstructGraph
+
 # R1 types: no circular dependency, can be eagerly imported
-from nl2spl.compiler.irs.frontier import CutlineReason, FrontierStatus
-from nl2spl.compiler.irs.graph import ConstructEdge, ConstructEdgeType, ConstructGraph
+from nl2spl.compiler.constructs.satisfaction import CutlineReason, FrontierStatus
 
 # R2 types: lazy import to avoid circular dependency with construct_registry
 # These will be imported on first access via __getattr__

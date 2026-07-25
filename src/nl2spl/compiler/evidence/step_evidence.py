@@ -13,9 +13,11 @@ Design rules (per implementation plan):
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Collection
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Collection
+
+from nl2spl.ir.step_ir import StepIR
 
 
 class StepEvidenceKind(StrEnum):
@@ -89,7 +91,7 @@ class StepEvidence:
 
 
 def classify_step_evidence(
-    step: "StepIR",
+    step: StepIR,
     *,
     valid_handoff_ids: Collection[str] = (),
     allow_unknown_handoff_when_no_index: bool = False,

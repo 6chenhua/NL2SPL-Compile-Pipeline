@@ -83,9 +83,9 @@ class AssumptionBuilder:
         condition = diag.message[:120]
         return cls._base(
             diag, index,
-            text=f"Exception flow has no handler action. "
-                 f"The compiler suggests specifying what should happen "
-                 f"when this failure occurs.",
+            text="Exception flow has no handler action. "
+                 "The compiler suggests specifying what should happen "
+                 "when this failure occurs.",
             reason=(
                 f"Source describes a failure condition but does not "
                 f"specify how to handle it.  The exception flow is "
@@ -111,14 +111,14 @@ class AssumptionBuilder:
         target = diag.target_ref or "unknown"
         return cls._base(
             diag, index,
-            text=f"Required output has no source-backed producer. "
-                 f"The compiler suggests adding a step that explicitly "
-                 f"produces this output.",
+            text="Required output has no source-backed producer. "
+                 "The compiler suggests adding a step that explicitly "
+                 "produces this output.",
             reason=(
-                f"The source requires this output but does not "
-                f"describe how it should be produced.  The output "
-                f"is kept in the OUTPUTS contract, but no producer "
-                f"step was rendered."
+                "The source requires this output but does not "
+                "describe how it should be produced.  The output "
+                "is kept in the OUTPUTS contract, but no producer "
+                "step was rendered."
             ),
             suggested_resolution=(
                 f"Add a source-backed step that produces {target}. "
@@ -139,14 +139,14 @@ class AssumptionBuilder:
         target = diag.target_ref or "unknown"
         return cls._base(
             diag, index,
-            text=f"Command has an ambiguous or incomplete contract. "
-                 f"The compiler suggests providing the missing "
-                 f"contract detail.",
+            text="Command has an ambiguous or incomplete contract. "
+                 "The compiler suggests providing the missing "
+                 "contract detail.",
             reason=(
-                f"A command references an API, worker, or input "
-                f"source that is not fully specified.  The compiler "
-                f"cannot materialize the command without this "
-                f"information."
+                "A command references an API, worker, or input "
+                "source that is not fully specified.  The compiler "
+                "cannot materialize the command without this "
+                "information."
             ),
             suggested_resolution=(
                 f"For {target}: provide the missing contract detail "
@@ -166,14 +166,14 @@ class AssumptionBuilder:
         target = diag.target_ref or "unknown"
         return cls._base(
             diag, index,
-            text=f"Executable command was blocked from rendering "
-                 f"because it lacks source evidence.  The compiler "
-                 f"suggests backing it with a source span or removing "
-                 f"it.",
+            text="Executable command was blocked from rendering "
+                 "because it lacks source evidence.  The compiler "
+                 "suggests backing it with a source span or removing "
+                 "it.",
             reason=(
-                f"A step claiming executable behavior has no source "
-                f"backing and is not compiler scaffolding.  The gate "
-                f"prevented it from entering SPL."
+                "A step claiming executable behavior has no source "
+                "backing and is not compiler scaffolding.  The gate "
+                "prevented it from entering SPL."
             ),
             suggested_resolution=(
                 f"For {target}: provide a source span that describes "
@@ -193,13 +193,13 @@ class AssumptionBuilder:
         target = diag.target_ref or "unknown"
         return cls._base(
             diag, index,
-            text=f"A behavior span from the source was not mapped "
-                 f"to any executable step.",
+            text="A behavior span from the source was not mapped "
+                 "to any executable step.",
             reason=(
-                f"The source describes behavior that could not be "
-                f"translated into a concrete command.  This may be "
-                f"intentional (policy, non-executable description) "
-                f"or may indicate missing detail."
+                "The source describes behavior that could not be "
+                "translated into a concrete command.  This may be "
+                "intentional (policy, non-executable description) "
+                "or may indicate missing detail."
             ),
             suggested_resolution=(
                 f"For {target}: either add a step implementing this "
@@ -217,13 +217,38 @@ class AssumptionBuilder:
         cls, diag: CompileDiagnostic, index: int
     ) -> CompileAssumption:
         target = diag.target_ref or "unknown"
+        if target.startswith("profile:") or diag.metadata.get("profile_item") is True:
+            rendered = diag.metadata.get("rendered_profile_item") is True
+            return cls._base(
+                diag, index,
+                text=(
+                    "Rendered profile item has no source-backed provenance."
+                    if rendered
+                    else "Unrendered profile item has no source-backed provenance."
+                ),
+                reason=(
+                    (
+                        "The compiler rendered this required profile item, "
+                        "but could not trace it to a source span."
+                    )
+                    if rendered
+                    else (
+                        "The compiler did not render this optional profile item "
+                        "because it could not trace it to a source span."
+                    )
+                ),
+                suggested_resolution=(
+                    f"For {target}: add source evidence that justifies this "
+                    "profile item, or confirm the assumption-bearing draft."
+                ),
+            )
         return cls._base(
             diag, index,
-            text=f"Variable has no discoverable source provenance.",
+            text="Variable has no discoverable source provenance.",
             reason=(
-                f"The compiler could not trace this variable back "
-                f"to a source span, adapter hard fact, or producer "
-                f"step.  Its origin is assumed."
+                "The compiler could not trace this variable back "
+                "to a source span, adapter hard fact, or producer "
+                "step.  Its origin is assumed."
             ),
             suggested_resolution=(
                 f"For {target}: add source evidence (a span, "

@@ -10,13 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from nl2spl.compiler.irs.graph import ConstructEdge
+from nl2spl.compiler.constructs.graph import ConstructEdge
 
 
 @dataclass
 class ConstructInstance:
     """A construct instance for IRS checking.
-    
+
     Attributes:
         construct_id: Unique identifier for this construct
         construct_type: SPL construct type (e.g., "GENERAL_COMMAND", "WORKER")
@@ -32,25 +32,25 @@ class ConstructInstance:
         source_section_id: Source section ID
         source_packet_id: Source packet ID
         metadata: Additional construct metadata
-    
+
     State semantics:
         materialized=True, source_demanded=True, candidate_only=False:
             Normal materialized construct with source evidence
-        
+
         materialized=False, source_demanded=True, candidate_only=True:
             Candidate for promotion (e.g., WORKER_CANDIDATE, WORKER_PROMOTION)
             Source demands it but it's not yet a renderable construct
-        
+
         materialized=True, source_demanded=False, candidate_only=False:
             Compiler-generated scaffolding without explicit source demand
-    
+
     Design notes:
         - Instance is mutable to allow checker-local state updates during extraction
         - Checkers must not modify ir_ref or context IRs
         - candidate_only=True typically implies materialized=False
         - Future R4 will use this for Worker/Delegation promotion analysis
     """
-    
+
     construct_id: str
     construct_type: str
     ir_ref: Any | None = None

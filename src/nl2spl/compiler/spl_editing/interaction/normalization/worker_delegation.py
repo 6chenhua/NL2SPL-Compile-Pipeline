@@ -62,13 +62,7 @@ def normalize_worker_delegation_directive(
     for admitted, parent_ref, create_temporary in usage_seeds:
         temporary = None
         if create_temporary:
-            stable = hashlib.sha256(
-                (
-                    f"{draft.base_revision}|{directive_id}|parent_local_temporary|"
-                    f"{admitted.output_id}"
-                ).encode()
-            ).hexdigest()[:8]
-            temporary = f"tmp_{admitted.canonical_name}_{stable}"
+            temporary = admitted.canonical_name
         usage.append(NormalizedResultUsage(admitted.output_id, parent_ref, temporary))
     return NormalizedWorkerDelegationDirective(
         directive_id=directive_id,

@@ -7,8 +7,7 @@ message.  ARC7 projects these into ``CompileDiagnostic``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
 
 # -- typed diagnostic model (ARC4+) -------------------------------------------
 

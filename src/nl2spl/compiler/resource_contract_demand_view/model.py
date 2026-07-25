@@ -8,7 +8,7 @@ Phase B0/B1 will decide whether these fields merge back into the canon IR.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal
 
 ContractDirection = Literal["input", "output"]

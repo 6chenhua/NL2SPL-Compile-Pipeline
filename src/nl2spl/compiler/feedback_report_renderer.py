@@ -159,7 +159,7 @@ def _render_materialized(traces: list[TraceRecord]) -> list[str]:
     grouped: dict[str, list[TraceRecord]] = defaultdict(list)
     for trace in traces:
         group = _trace_group(trace.target_ref)
-        if trace.relation != "assumed":
+        if _is_materialized_trace(trace):
             grouped[group].append(trace)
 
     if not grouped:
@@ -169,6 +169,7 @@ def _render_materialized(traces: list[TraceRecord]) -> list[str]:
     # R10 Phase 6: "Delegation Intents" replaced by "Source Signals"
     for group in [
         "Workers",
+        "Profiles",
         "Flows",
         "Steps",
         "Variables",
@@ -767,6 +768,8 @@ def _promotion_slot_line(diagnostic: CompileDiagnostic, indent: str) -> str:
 
 
 def _trace_group(target_ref: str) -> str:
+    if target_ref.startswith("profile:"):
+        return "Profiles"
     if target_ref.startswith("worker:"):
         return "Workers"
     if (
@@ -788,6 +791,17 @@ def _trace_group(target_ref: str) -> str:
     if target_ref.startswith("source_signal:delegation_intent:"):
         return "Source Signals"
     return "Other"
+
+
+def _is_materialized_trace(trace: TraceRecord) -> bool:
+    if trace.target_ref.startswith("profile:"):
+        return bool(trace.source_span_ids) and trace.relation in {
+            "direct",
+            "normalized",
+            "derived",
+            "inferred",
+        }
+    return trace.relation != "assumed"
 
 
 def _trace_source_suffix(trace: TraceRecord) -> str:

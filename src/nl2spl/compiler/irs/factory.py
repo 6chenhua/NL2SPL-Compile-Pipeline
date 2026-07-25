@@ -9,7 +9,7 @@ maintaining clean separation of concerns.
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.constructs import SPLConstructRegistry
 from nl2spl.compiler.irs.checker import IRSChecker
 from nl2spl.compiler.irs.policy import IRSRuntimeConfig
 from nl2spl.compiler.irs.projector import DiagnosticProjector

@@ -36,6 +36,22 @@ def _span_text(snapshot: ArtifactSnapshot, span_id: str) -> str | None:
         if getattr(span, "span_id", None) == span_id:
             text = getattr(span, "text", None)
             return text if isinstance(text, str) and text.strip() else None
+    base_span_id = _route_annotation_base_span_id(span_id)
+    if base_span_id is not None:
+        for span in snapshot.spans:
+            if getattr(span, "span_id", None) == base_span_id:
+                text = getattr(span, "text", None)
+                return text if isinstance(text, str) and text.strip() else None
+    return None
+
+
+def _route_annotation_base_span_id(span_id: str) -> str | None:
+    if len(span_id) < 3 or not span_id.startswith("s"):
+        return None
+    suffix = span_id[-1]
+    candidate = span_id[:-1]
+    if suffix.isalpha() and candidate[1:].isdigit():
+        return candidate
     return None
 
 

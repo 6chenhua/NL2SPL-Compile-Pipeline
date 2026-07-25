@@ -11,6 +11,9 @@ from typing import Any
 from nl2spl.compiler.artifacts.snapshot.serialization.protocol import ArtifactSerializer
 from nl2spl.compiler.artifacts.snapshot.serialization.registry import SerializerRegistry
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+from nl2spl.ir.condition_variable_reference_ir import (
+    ConditionVariableReferencePlan,
+)
 from nl2spl.ir.flow_structure_ir import DelegationCandidate, FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import (
@@ -864,7 +867,7 @@ class ConstructPlanSerializer(ArtifactSerializer):
             ExceptionFlowDemand,
             OperationCoverageIR,
         )
-        from nl2spl.compiler.irs.graph import ConstructEdge
+        from nl2spl.compiler.constructs.graph import ConstructEdge
 
         slots = {
             name: cls._slot_from_canonical(slot_data)
@@ -1095,6 +1098,18 @@ class APIMaterializationPlanIRSerializer(ArtifactSerializer):
         )
 
 
+class ConditionVariableReferencePlanSerializer(ArtifactSerializer):
+    type_id = "ConditionVariableReferencePlan"
+
+    def to_canonical(self, obj: Any) -> dict[str, Any]:
+        return {"$type": self.type_id, **obj.to_payload()}
+
+    def from_canonical(self, data: dict[str, Any]) -> Any:
+        payload = dict(data)
+        payload.pop("$type", None)
+        return ConditionVariableReferencePlan.from_payload(payload)
+
+
 # ===================================================================
 # Registration
 # ===================================================================
@@ -1130,6 +1145,7 @@ def register_all(registry: SerializerRegistry) -> None:
         APICallBindingIRSerializer(),
         APIMaterializationRecordIRSerializer(),
         APIMaterializationPlanIRSerializer(),
+        ConditionVariableReferencePlanSerializer(),
     ]
     for s in serializers:
         _reg(s)
@@ -1162,10 +1178,11 @@ def register_all(registry: SerializerRegistry) -> None:
     _cls(APICallPlacementIR, serializers[21])
     from nl2spl.pipeline.stages.stage6_resource_extractor.api_materialization import (
         APICallBindingIR,
-        APIMaterializationRecordIR,
         APIMaterializationPlanIR,
+        APIMaterializationRecordIR,
     )
 
     _cls(APICallBindingIR, serializers[22])
     _cls(APIMaterializationRecordIR, serializers[23])
     _cls(APIMaterializationPlanIR, serializers[24])
+    _cls(ConditionVariableReferencePlan, serializers[25])

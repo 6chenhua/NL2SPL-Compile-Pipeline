@@ -94,14 +94,14 @@ class Stage7ProducerRepairMaterializer:
                 )
 
         (
-            StagePolicy,
-            StageSliceInput,
-            Stage7RequiredOutputProducerCommandRepairSlice,
-            RepairDirective,
+            stage_policy_cls,
+            stage_slice_input_cls,
+            stage7_required_output_producer_command_repair_slice_cls,
+            repair_directive_cls,
         ) = _load_stage_slice_runtime()
 
         selected_ref_ids = tuple(ref.ref.ref_id for ref in resolved_refs)
-        directive = RepairDirective(
+        directive = repair_directive_cls(
             directive_id=f"dir_{intent.intent_id}",
             source="system_default",
             target_construct_type=intent.target_construct_type,
@@ -110,9 +110,9 @@ class Stage7ProducerRepairMaterializer:
             selected_ref_hints=selected_ref_ids,
         )
 
-        stage7 = Stage7RequiredOutputProducerCommandRepairSlice()
+        stage7 = stage7_required_output_producer_command_repair_slice_cls()
         stage7_result = stage7.execute(
-            StageSliceInput(
+            stage_slice_input_cls(
                 slice_id=stage7.slice_id,
                 stage_authority=_STAGE_AUTHORITY,
                 snapshot=snapshot,
@@ -121,7 +121,7 @@ class Stage7ProducerRepairMaterializer:
                 directive=directive,
                 intent=intent,
                 dependency_closure=input_data.plan.dependency_closure,
-                stage_policy=StagePolicy(
+                stage_policy=stage_policy_cls(
                     policy_id="required_output.producer_command.v1",
                     stage_authority=_STAGE_AUTHORITY,
                     allowed_typed_plan_kinds=("CommandIntentPlan",),

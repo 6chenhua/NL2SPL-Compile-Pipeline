@@ -18,13 +18,13 @@ R10 Phase 1:
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructIRS,
     ConstructSatisfactionReport,
     SlotSatisfaction,
 )
+from nl2spl.compiler.constructs.graph import ConstructEdge
 from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.ir.worker_contract_status import (
     binding_side_satisfied,

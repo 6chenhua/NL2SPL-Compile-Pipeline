@@ -16,7 +16,7 @@ from typing import Any
 @dataclass(frozen=True)
 class IRSCheckContext:
     """Read-only context for IRS checking at a specific pipeline stage.
-    
+
     Attributes:
         stage_name: Pipeline stage identifier (e.g., "stage4", "stage7")
         spans: Source spans from NL input
@@ -34,14 +34,14 @@ class IRSCheckContext:
         normalized_ir: Post-normalization IR (Stage 9.5)
         symbol_table: Symbol table for variable resolution
         metadata: Stage-local or test-specific metadata
-    
+
     Design notes:
         - frozen=True enforces read-only semantics
         - Most fields are optional to support different stages
         - Checkers must not modify context or its contained IRs
         - metadata is for test fixtures or future stage-local info
     """
-    
+
     stage_name: str
     spans: tuple[Any, ...] = ()
     routes: Any | None = None

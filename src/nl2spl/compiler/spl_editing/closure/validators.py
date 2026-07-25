@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import RepairAffordanceSpec, SPLConstructRegistry
+from nl2spl.compiler.constructs import RepairAffordanceSpec, SPLConstructRegistry
 from nl2spl.compiler.spl_editing.closure.defaults import get_default_nodes_for_strategy
 from nl2spl.compiler.spl_editing.closure.errors import ClosurePlanError
 from nl2spl.compiler.spl_editing.closure.model import ConstructClosurePlan

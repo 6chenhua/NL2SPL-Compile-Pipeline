@@ -15,8 +15,8 @@ import json
 from dataclasses import dataclass, field
 
 from nl2spl.compiler.compile_result import MissingSlot
-from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
-from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry
+from nl2spl.compiler.constructs import ConstructSatisfactionReport
+from nl2spl.compiler.diagnostics import DiagnosticRegistry
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.ir.diagnostics import CompileDiagnostic
 

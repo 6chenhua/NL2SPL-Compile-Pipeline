@@ -9,8 +9,9 @@ compiler-facing fields are always contract-derived.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from nl2spl.compiler.annotation_role_contract.registry import (
     ROLE_CONTRACT_REGISTRY,

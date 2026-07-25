@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from nl2spl.compiler.irs.graph import ConstructEdge
+from nl2spl.compiler.constructs.graph import ConstructEdge
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 

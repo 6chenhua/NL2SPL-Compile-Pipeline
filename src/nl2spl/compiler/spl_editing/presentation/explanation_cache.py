@@ -79,9 +79,11 @@ def schedule_issue_explanations(
                 },
             },
         )
-        future = _EXECUTOR.submit(
-            _generate_all, path, details, llm, language, max_workers
-        )
+        try:
+            future = _EXECUTOR.submit(_generate_all, path, details, llm, language, max_workers)
+        except Exception as exc:
+            _write_error_cache(path, details, language, exc)
+            raise
         _JOBS[key] = future
         return future
 
@@ -112,9 +114,7 @@ def read_explanation_cache(snapshot_path: Path) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def read_cached_issue_explanation(
-    snapshot_path: Path, issue_id: str
-) -> dict[str, Any] | None:
+def read_cached_issue_explanation(snapshot_path: Path, issue_id: str) -> dict[str, Any] | None:
     cache = read_explanation_cache(snapshot_path)
     items = cache.get("items") if cache else None
     item = items.get(issue_id) if isinstance(items, dict) else None
@@ -151,13 +151,16 @@ def _generate_all(
     max_workers: int,
 ) -> ExplanationPrecomputeResult:
     generator = IssueExplanationGenerator(llm)
-    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(details) or 1))) as pool:
-        values = tuple(
-            pool.map(lambda detail: generator.generate(detail, language=language), details)
-        )
+    try:
+        with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(details) or 1))) as pool:
+            values = tuple(
+                pool.map(lambda detail: generator.generate(detail, language=language), details)
+            )
+    except Exception as exc:
+        return _write_error_cache(path, details, language, exc)
+
     items = {
-        value.issue_id: {"status": "ready", "explanation": value.to_dict()}
-        for value in values
+        value.issue_id: {"status": "ready", "explanation": value.to_dict()} for value in values
     }
     current = read_explanation_cache(path) or {}
     _write_cache(
@@ -172,6 +175,36 @@ def _generate_all(
         },
     )
     return ExplanationPrecomputeResult(path, len(items), "ready", tuple(items))
+
+
+def _write_error_cache(
+    path: Path,
+    details: tuple[Any, ...],
+    language: str,
+    exc: Exception,
+) -> ExplanationPrecomputeResult:
+    current = read_explanation_cache(path) or {}
+    error_text = str(exc).strip()[:300] or type(exc).__name__
+    items = {
+        detail.issue_id: {
+            "status": "error",
+            "explanation": None,
+            "error": error_text,
+        }
+        for detail in details
+    }
+    _write_cache(
+        path,
+        {
+            "schema_version": "issue_explanation_cache.v1",
+            "status": "error",
+            "language": language,
+            "started_at": current.get("started_at", _now()),
+            "completed_at": _now(),
+            "items": items,
+        },
+    )
+    return ExplanationPrecomputeResult(path, len(items), "error", ())
 
 
 def _write_cache(path: Path, cache: dict[str, Any]) -> None:

@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 from nl2spl.compiler.capability_intent.model import (
     CapabilityEvidenceIR,
@@ -342,7 +343,7 @@ def _evidence_id(span_id: str, claim: str, surface: str, relation: str) -> str:
 
 
 def _invalid_candidate_diagnostic(index: int, raw: Any, reason: str) -> CompileDiagnostic:
-    stable = hashlib.sha256(f"{index}\x1f{reason}".encode("utf-8")).hexdigest()[:12]
+    stable = hashlib.sha256(f"{index}\x1f{reason}".encode()).hexdigest()[:12]
     span_ids = raw.get("source_span_ids", []) if isinstance(raw, dict) else []
     return CompileDiagnostic(
         diagnostic_id=f"diag_capability_candidate_invalid_{stable}",

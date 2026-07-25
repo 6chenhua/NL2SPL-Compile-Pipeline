@@ -11,13 +11,13 @@ R6.3 implementation:
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructIRS,
     ConstructSatisfactionReport,
     SlotSatisfaction,
 )
+from nl2spl.compiler.constructs.graph import ConstructEdge
 from nl2spl.compiler.irs.context import IRSCheckContext
-from nl2spl.compiler.irs.graph import ConstructEdge
 from nl2spl.compiler.irs.instance import ConstructInstance
 
 # Command types that map to IRS constructs.

@@ -7,8 +7,9 @@ None of the types in this module are SPL grammar constructs.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from nl2spl.ir.diagnostics import CompileDiagnostic
 

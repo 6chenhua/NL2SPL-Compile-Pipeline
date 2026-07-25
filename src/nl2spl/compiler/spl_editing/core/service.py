@@ -21,7 +21,7 @@ from nl2spl.compiler.artifacts.snapshot.persistence.file_repository import (
     JsonFileSnapshotRepository,
 )
 from nl2spl.compiler.artifacts.snapshot.persistence.loader import SnapshotLoader
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.constructs import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import (
     RepairCatalog,
     RepairCatalogBuilder,

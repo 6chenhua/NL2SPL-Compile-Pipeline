@@ -65,7 +65,7 @@ class LaneAReplayAdapter(LaneReplayAdapter):
 
     @staticmethod
     def _replay_real(snapshot: ArtifactSnapshot) -> VerificationArtifacts:
-        from nl2spl.compiler.diagnostic_consolidator import (
+        from nl2spl.compiler.diagnostics import (
             DiagnosticConsolidationInput,
             DiagnosticConsolidator,
         )
@@ -214,7 +214,7 @@ class LaneBReplayAdapter(LaneReplayAdapter):
 
     @staticmethod
     def _replay_real(snapshot: ArtifactSnapshot) -> VerificationArtifacts:
-        from nl2spl.compiler.diagnostic_consolidator import (
+        from nl2spl.compiler.diagnostics import (
             DiagnosticConsolidationInput,
             DiagnosticConsolidator,
         )

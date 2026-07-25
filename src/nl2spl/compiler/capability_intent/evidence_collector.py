@@ -7,7 +7,7 @@ does not inspect words in source text to decide that a capability exists.
 from __future__ import annotations
 
 import hashlib
-from typing import Iterable
+from collections.abc import Iterable
 
 from nl2spl.canonical import CanonicalCompileInput
 from nl2spl.compiler.capability_intent.model import (
@@ -142,7 +142,7 @@ def _make_candidate(**kwargs: object) -> CapabilityEvidenceCandidateIR:
 
 def _hint_id(source_section_id: str | None, index: int) -> str:
     digest = hashlib.sha256(
-        f"{source_section_id or ''}\x1f{index}".encode("utf-8")
+        f"{source_section_id or ''}\x1f{index}".encode()
     ).hexdigest()[:12]
     return f"adapter_hint_{digest}"
 

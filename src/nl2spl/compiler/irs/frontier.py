@@ -1,24 +1,8 @@
-"""Frontier and cutline types for IRS v6.
+"""Compatibility shim for construct frontier/cutline report fields.
 
-Provides FrontierStatus and CutlineReason for expressing partial construct
-evaluation boundaries in future recursive IRS checking.
+New code should import from ``nl2spl.compiler.constructs.satisfaction``.
 """
 
-from typing import Literal
+from nl2spl.compiler.constructs.satisfaction import CutlineReason, FrontierStatus
 
-FrontierStatus = Literal[
-    "continue",
-    "leaf",
-    "cutline_partial",
-    "cutline_blocked",
-]
-
-CutlineReason = Literal[
-    "missing_required_for_complete",
-    "no_source_demand",
-    "promotion_blocked",
-    "non_renderable_candidate",
-    "blocked_by_gate",
-    "missing_api_identity_or_evidence",
-    "incomplete_api_declaration_contract",
-]
+__all__ = ["CutlineReason", "FrontierStatus"]

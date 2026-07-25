@@ -29,6 +29,10 @@ from nl2spl.compiler.spl_editing.stage_slices.worker_delegation_plans import (
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import (
+    StepVariableRelation,
+    StepVariableRelationPlan,
+)
 from nl2spl.ir.worker_plan_ir import (
     ContractFieldIR,
     InputBindingIR,
@@ -79,6 +83,46 @@ def _metadata(input_data: StageSliceInput, *, closure_role: str) -> dict[str, st
             user_text=packet.user_text,
         )
     return values
+
+
+def _ensure_step_produces_relations(
+    step_plan,
+    command: StepIR,
+    output_names: tuple[str, ...],
+) -> tuple[bool, tuple[str, ...]]:
+    existing_plan = step_plan.step_variable_relation_plan
+    relations = list(existing_plan.relations) if existing_plan is not None else []
+    diagnostics = existing_plan.diagnostics if existing_plan is not None else ()
+    existing_keys = {
+        (relation.step_id, relation.variable_name, relation.relation)
+        for relation in relations
+    }
+    generated_refs: list[str] = []
+    for output_name in output_names:
+        key = (command.step_id, output_name, "produces")
+        if key in existing_keys:
+            continue
+        relations.append(
+            StepVariableRelation(
+                step_id=command.step_id,
+                variable_name=output_name,
+                relation="produces",
+                source_span_ids=tuple(command.source_span_ids),
+                evidence_kind="user_confirmed_repair",
+                evidence_source="user_confirmed_repair",
+                evidence_text=command.text,
+                reason="worker_delegation_child_command_output",
+                confidence="high",
+            )
+        )
+        generated_refs.append(f"step_variable_relation:{command.step_id}:{output_name}")
+    if not generated_refs:
+        return False, ()
+    step_plan.step_variable_relation_plan = StepVariableRelationPlan(
+        relations=tuple(relations),
+        diagnostics=diagnostics,
+    )
+    return True, tuple(generated_refs)
 
 
 @dataclass(frozen=True)
@@ -358,26 +402,41 @@ class Stage7ChildWorkerCommandSlice(_WorkerDelegationSlice):
                 or command.block_ref != plan.block_id
             ):
                 raise StageSliceValidationError("Existing child command does not match plan.")
-            return self._result(input_data, update=step_plan, action="bind_existing")
-        step_plan.worker_steps[plan.worker_id] = [
-            StepIR(
-                step_id=plan.command_id,
-                text=plan.action_text,
-                source_span_ids=list(input_data.issue.source_span_ids),
-                command_type="GENERAL_COMMAND",
-                inputs=list(plan.input_names),
-                outputs=list(plan.output_names),
-                flow_ref="main",
-                block_ref=plan.block_id,
-                metadata=_metadata(input_data, closure_role="child_command"),
+            relation_changed, relation_refs = _ensure_step_produces_relations(
+                step_plan,
+                command,
+                plan.output_names,
             )
-        ]
+            return self._result(
+                input_data,
+                update=step_plan,
+                changed_refs=relation_refs,
+                generated_refs=relation_refs,
+                action="materialize" if relation_changed else "bind_existing",
+            )
+        command = StepIR(
+            step_id=plan.command_id,
+            text=plan.action_text,
+            source_span_ids=list(input_data.issue.source_span_ids),
+            command_type="GENERAL_COMMAND",
+            inputs=list(plan.input_names),
+            outputs=list(plan.output_names),
+            flow_ref="main",
+            block_ref=plan.block_id,
+            metadata=_metadata(input_data, closure_role="child_command"),
+        )
+        step_plan.worker_steps[plan.worker_id] = [command]
+        _relation_changed, relation_refs = _ensure_step_produces_relations(
+            step_plan,
+            command,
+            plan.output_names,
+        )
         ref = f"step:{plan.worker_id}:{plan.command_id}"
         return self._result(
             input_data,
             update=step_plan,
-            changed_refs=(ref,),
-            generated_refs=(ref,),
+            changed_refs=(ref, *relation_refs),
+            generated_refs=(ref, *relation_refs),
             allocated_ids=(plan.command_id,),
             action="materialize",
         )

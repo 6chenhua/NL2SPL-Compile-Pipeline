@@ -1,27 +1,8 @@
-"""Per-patch-type metadata carried by IRS ``RepairAffordanceSpec``.
+"""Compatibility shim for repair patch-type metadata.
 
-Presented to the user as a strategy-level choice *before* LLM-generated
-suggestions are produced.
+New code should import from ``nl2spl.compiler.repair_contracts``.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class PatchTypeMeta:
-    """User-facing label, description, and verification lane for one patch type.
-
-    Carried by ``RepairAffordanceSpec.patch_type_metadata``, copied into
-    ``RepairCatalogEntry`` at build time, and projected into
-    ``RepairOptionView`` for display.
-    """
-
-    patch_type: str
-    label: str
-    description: str
-    verification_lane: str = "A"
-
+from nl2spl.compiler.repair_contracts import PatchTypeMeta
 
 __all__ = ["PatchTypeMeta"]

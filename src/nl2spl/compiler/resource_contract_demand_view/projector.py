@@ -6,9 +6,6 @@ connected to the orchestrator diagnostic path.
 
 from __future__ import annotations
 
-from nl2spl.compiler.resource_contract_demand_view.diagnostics import (
-    severity_for_kind,
-)
 from nl2spl.compiler.resource_contract_demand_view.model import (
     ResourceContractDemandView,
     ViewDiagnostic,

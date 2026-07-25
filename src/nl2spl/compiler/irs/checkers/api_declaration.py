@@ -11,7 +11,7 @@ R-API-1 implementation:
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructIRS,
     ConstructSatisfactionReport,
     SlotSatisfaction,
