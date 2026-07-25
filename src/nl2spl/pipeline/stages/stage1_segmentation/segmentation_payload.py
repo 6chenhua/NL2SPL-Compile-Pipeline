@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Mapping, Any, Sequence
+from typing import Any, Literal
 
 from nl2spl.ir.diagnostics import CompileDiagnostic
-from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SectionSourceBuffer
+
 
 @dataclass(frozen=True)
 class LLMSpanSegment:

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
+
 from nl2spl.ir.diagnostics import CompileDiagnostic
-from nl2spl.pipeline.stages.stage1_segmentation import (
-    SpanSegmentationRecord,
-    SectionSourceBuffer,
-)
+from nl2spl.pipeline.stages.stage1_segmentation.segmentation_payload import SpanSegmentationRecord
+from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SectionSourceBuffer
+
 
 class Stage1ShadowReporter:
     """Generates comparison reports between legacy span slicing and shadow LLM segmentation."""

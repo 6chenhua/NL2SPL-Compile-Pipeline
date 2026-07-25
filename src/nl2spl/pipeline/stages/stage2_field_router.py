@@ -8,6 +8,16 @@ from dataclasses import asdict
 from typing import Any
 
 from nl2spl.canonical import CanonicalCompileInput
+
+# =========================================================================
+# ARC3: Canonical role contract integration
+# =========================================================================
+from nl2spl.compiler.annotation_role_contract.normalize import (
+    normalize_annotation_from_role,
+)
+from nl2spl.compiler.annotation_role_contract.registry import (
+    ROLE_CONTRACT_REGISTRY,
+)
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation, StructuralPrior
 from nl2spl.ir.span_ir import SpanIR
@@ -25,18 +35,6 @@ from nl2spl.pipeline.stages.stage2_field_router_prompt import (
 )
 from nl2spl.pipeline.stages.stage2_field_router_validator import (
     RouteRefinementValidator,
-)
-
-# =========================================================================
-# ARC3: Canonical role contract integration
-# =========================================================================
-
-from nl2spl.compiler.annotation_role_contract.normalize import (
-    NormalizedAnnotation,
-    normalize_annotation_from_role,
-)
-from nl2spl.compiler.annotation_role_contract.registry import (
-    ROLE_CONTRACT_REGISTRY,
 )
 
 # Compatibility wrapper: packet_type → canonical semantic_role.
@@ -781,7 +779,7 @@ Output valid JSON:"""
                 executable,
             )
 
-        contract = ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
+        ROLE_CONTRACT_REGISTRY.require_role_contract(resolved)
 
         result = normalize_annotation_from_role(
             span_id=span_id,

@@ -121,10 +121,7 @@ class WorkerScopedMixin:
 
         # 7. Required output producer diagnostics are emitted by
         # post-normalize IRS after Stage 10 assembly.
-        self._sync_symbol_table_from_steps(
-            worker_step_plan.get_all_steps(),
-            symbol_table,
-        )
+        self._sync_worker_symbol_table_from_steps(worker_step_plan, symbol_table)
 
         return (
             worker_flow_plan,
@@ -134,6 +131,24 @@ class WorkerScopedMixin:
             errors,
             warnings,
         )
+
+    def _sync_worker_symbol_table_from_steps(
+        self,
+        worker_step_plan: WorkerStepPlanIR,
+        symbol_table: SymbolTable,
+    ) -> None:
+        """Refresh producer/consumer links without crossing worker scopes."""
+        for variable in getattr(symbol_table, "_variables", {}).values():
+            variable.consumer_steps = []
+            if variable.source in {"step", "output", "user_confirmed_repair"}:
+                variable.producer_step = None
+
+        for worker_id, steps in worker_step_plan.worker_steps.items():
+            for step in steps:
+                for input_name in step.inputs:
+                    _add_worker_consumer(symbol_table, worker_id, input_name, step.step_id)
+                for output_name in step.outputs:
+                    _set_worker_producer(symbol_table, worker_id, output_name, step.step_id)
 
     def _validate_command_shapes(
         self,
@@ -149,6 +164,7 @@ class WorkerScopedMixin:
                     "but declares outputs; Stage 9.5 will not reclassify it."
                 )
         return errors
+
 
     def _validate_span_ownership(
         self,
@@ -424,3 +440,43 @@ class WorkerScopedMixin:
                     errors.append(f"API_CALL handoff {handoff.handoff_id} missing api_ref")
 
         return errors
+
+
+def _worker_or_global_key(
+    symbol_table: SymbolTable,
+    worker_id: str,
+    variable_name: str,
+) -> tuple[str, str | None, str] | None:
+    worker_key = ("worker", worker_id, variable_name)
+    if worker_key in symbol_table._variables:
+        return worker_key
+    global_key = ("global", None, variable_name)
+    if global_key in symbol_table._variables:
+        return global_key
+    return None
+
+
+def _set_worker_producer(
+    symbol_table: SymbolTable,
+    worker_id: str,
+    variable_name: str,
+    step_id: str,
+) -> None:
+    key = _worker_or_global_key(symbol_table, worker_id, variable_name)
+    if key is None:
+        return
+    symbol_table._variables[key].producer_step = step_id
+
+
+def _add_worker_consumer(
+    symbol_table: SymbolTable,
+    worker_id: str,
+    variable_name: str,
+    step_id: str,
+) -> None:
+    key = _worker_or_global_key(symbol_table, worker_id, variable_name)
+    if key is None:
+        return
+    consumers = symbol_table._variables[key].consumer_steps
+    if step_id not in consumers:
+        consumers.append(step_id)

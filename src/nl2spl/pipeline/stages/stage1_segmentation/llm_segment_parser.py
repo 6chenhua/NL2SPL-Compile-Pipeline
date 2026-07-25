@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import Any
+
 from nl2spl.pipeline.stages.stage1_segmentation.segmentation_payload import LLMSpanSegment
+
 
 class LLMSegmentParser:
     """Parses raw LLM segmentation response dictionary into LLMSpanSegment structures."""

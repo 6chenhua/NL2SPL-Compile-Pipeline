@@ -8,11 +8,11 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerFlowPlanIR
 from nl2spl.pipeline.stages.base import PipelineStage
-from nl2spl.pipeline.stages.stage5_block_assembler.executor import ExecutorMixin
 from nl2spl.pipeline.stages.stage5_block_assembler.block_parser import BlockParserMixin
+from nl2spl.pipeline.stages.stage5_block_assembler.executor import ExecutorMixin
+from nl2spl.pipeline.stages.stage5_block_assembler.prompt_enricher import PromptEnricherMixin
 from nl2spl.pipeline.stages.stage5_block_assembler.region_parser import RegionParserMixin
 from nl2spl.pipeline.stages.stage5_block_assembler.span_boundary import SpanBoundaryMixin
-from nl2spl.pipeline.stages.stage5_block_assembler.prompt_enricher import PromptEnricherMixin
 
 
 class BlockAssembler(

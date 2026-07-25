@@ -3,23 +3,24 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Literal
 
 from nl2spl.ir.diagnostics import CompileDiagnostic
-from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SectionSourceBuffer
+from nl2spl.pipeline.stages.stage1_segmentation.diagnostics import (
+    COVERAGE_GAP,
+    FABRICATED_PACKET_IDS,
+    GUARD_ACTION_NOT_SUBSTRING,
+    GUARDED_ACTION_MISSING_ELEMENTS,
+    INVALID_KIND,
+    PARAPHRASE_REJECTED,
+    make_diagnostic,
+)
 from nl2spl.pipeline.stages.stage1_segmentation.segmentation_payload import (
     LLMSpanSegment,
     SpanSegmentationRecord,
 )
-from nl2spl.pipeline.stages.stage1_segmentation.diagnostics import (
-    make_diagnostic,
-    PARAPHRASE_REJECTED,
-    COVERAGE_GAP,
-    FABRICATED_PACKET_IDS,
-    INVALID_KIND,
-    GUARDED_ACTION_MISSING_ELEMENTS,
-    GUARD_ACTION_NOT_SUBSTRING,
-)
+from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SectionSourceBuffer
+
 
 class Stage1SegmentationValidator:
     """Validator serving as the P0 correctness authority for Stage 1 LLM segmentation."""
@@ -136,7 +137,11 @@ class Stage1SegmentationValidator:
                 auth_set = set(authoritative_packet_ids)
                 llm_set = set(llm_packet_ids)
 
-                validation_status: Literal["validated", "repaired_by_validator", "ambiguous"] = "validated"
+                validation_status: Literal[
+                    "validated",
+                    "repaired_by_validator",
+                    "ambiguous",
+                ] = "validated"
 
                 if not auth_set:
                     # Recomputation failed

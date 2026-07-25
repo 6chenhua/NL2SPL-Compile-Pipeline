@@ -26,13 +26,16 @@ from nl2spl.compiler.capability_intent.resolver import (
 from nl2spl.compiler.compile_result import CompileAssumption, Completeness
 from nl2spl.compiler.completeness import compute_completeness
 from nl2spl.compiler.construct_plan import ConstructPlan, ConstructPlanner
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
-from nl2spl.compiler.diagnostic_consolidator import (
+from nl2spl.compiler.constructs import SPLConstructRegistry
+from nl2spl.compiler.diagnostics import (
     DiagnosticConsolidationInput,
     DiagnosticConsolidator,
 )
 from nl2spl.compiler.final_ir_package import FinalIRPackage
 from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.diagnostic_authority_adapter import (
+    diagnostic_authority_from_irs_store,
+)
 from nl2spl.compiler.irs.factory import build_irs_subsystem
 from nl2spl.compiler.irs.result_store import IRSResultStore
 from nl2spl.compiler.irs.subsystem import IRSSubsystem
@@ -89,6 +92,9 @@ from nl2spl.pipeline.stages.stage5_block_assembler import (
     BlockAssembler,
     project_api_call_placements,
 )
+from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver import (
+    resolve_condition_variable_references,
+)
 from nl2spl.pipeline.stages.stage6_resource_extractor import (
     ResourceExtractor,
     materialize_api_declaration_skeletons,
@@ -96,6 +102,9 @@ from nl2spl.pipeline.stages.stage6_resource_extractor import (
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
 from nl2spl.pipeline.stages.stage9_5_normalizer import IRNormalizer
+from nl2spl.pipeline.stages.stage9_5_normalizer.condition_variable_validator import (
+    ConditionVariableVisibilityValidator,
+)
 from nl2spl.pipeline.stages.stage9_constraint_extractor import ConstraintExtractor
 from nl2spl.pipeline.stages.stage10_worker_assembler import WorkerAssembler
 from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
@@ -554,6 +563,31 @@ class PipelineOrchestrator:
         )
         intermediate["stage6_resources"] = resources
 
+        # Stage 6.5: condition-reference extraction.  This resolver-local
+        # plan combines explicit <REF> evidence with LLM semantic candidates;
+        # Stage 9.5 later validates availability, materializes semantic refs,
+        # and applies composite-output reference rewrites.
+        self.logger.info("Stage 6.5: Condition Reference Resolution")
+        condition_variable_reference_plan = resolve_condition_variable_references(
+            worker_flow_plan=worker_flow_plan,
+            worker_block_plan=worker_block_plan,
+            symbol_table=symbol_table,
+            resource_registry=resources,
+            llm_client=self.client,
+        )
+        intermediate[ik.CONDITION_VARIABLE_REFERENCE_PLAN] = (
+            condition_variable_reference_plan
+        )
+        intermediate[f"{ik.CONDITION_VARIABLE_REFERENCE_PLAN}_payload"] = (
+            condition_variable_reference_plan.to_payload()
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.CONDITION_VARIABLE_REFERENCE_PLAN,
+                condition_variable_reference_plan.to_payload(),
+                self.config.run_dir,
+            )
+
         # Stage 7: Step Extraction
         self.logger.info("Stage 7: Step Extraction")
         if active_construct_plan is not None:
@@ -647,8 +681,41 @@ class PipelineOrchestrator:
             normalization_warnings,
         ) = norm_result
         # 鏇存柊 steps 涓烘墍鏈?worker 鐨?steps
+        condition_variable_reference_plan = (
+            ConditionVariableVisibilityValidator().validate_and_rewrite(
+                plan=condition_variable_reference_plan,
+                worker_flow_plan=worker_flow_plan,
+                worker_block_plan=worker_block_plan,
+                worker_step_plan=worker_step_plan,
+                symbol_table=symbol_table,
+            )
+        )
+        for diagnostic in condition_variable_reference_plan.diagnostics:
+            if diagnostic.metadata.get("stage") != "stage9_5":
+                continue
+            if diagnostic.severity == "error":
+                normalization_errors.append(diagnostic.message)
+            else:
+                normalization_warnings.append(diagnostic.message)
+        condition_final_diagnostics = [
+            diagnostic
+            for diagnostic in condition_variable_reference_plan.diagnostics
+            if diagnostic.metadata.get("stage") == "stage9_5"
+        ]
         steps = worker_step_plan.get_all_steps()
         intermediate["stage9_5_normalization"] = norm_result
+        intermediate[ik.CONDITION_VARIABLE_REFERENCE_PLAN] = (
+            condition_variable_reference_plan
+        )
+        intermediate[f"{ik.CONDITION_VARIABLE_REFERENCE_PLAN}_payload"] = (
+            condition_variable_reference_plan.to_payload()
+        )
+        if self.config.save_intermediate:
+            save_intermediate_result(
+                ik.CONDITION_VARIABLE_REFERENCE_PLAN,
+                condition_variable_reference_plan.to_payload(),
+                self.config.run_dir,
+            )
         # Store normalized symbol table for S4 snapshot persistence
         intermediate["symbol_table"] = symbol_table
 
@@ -884,8 +951,11 @@ class PipelineOrchestrator:
                 ),
                 construct_plan_diagnostics=list(construct_plan.diagnostics),
                 stage7_diagnostics=list(stage7_diags),
-                irs_store=irs_store,
-                post_normalize_diagnostics=list(post_norm_diags),
+                stage_local_authority=diagnostic_authority_from_irs_store(irs_store),
+                post_normalize_diagnostics=[
+                    *list(post_norm_diags),
+                    *condition_final_diagnostics,
+                ],
                 gate_diagnostics=list(gate_diags),
                 provenance_diagnostics=list(provenance_diags),
                 irs_promoted_diagnostics=list(promoted_irs_diags),

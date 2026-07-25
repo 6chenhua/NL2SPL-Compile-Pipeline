@@ -15,7 +15,7 @@ from typing import Any
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.diagnostics import CompileDiagnostic, TraceRecord
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR, VariableSpec
+from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
@@ -106,7 +106,7 @@ class ProvenanceAggregator:
 
         # 7. Profile provenance
         if profile is not None:
-            self._trace_profile(profile, traces)
+            self._trace_profile(profile, traces, diags)
 
         return traces, diags
 
@@ -767,34 +767,121 @@ class ProvenanceAggregator:
         self,
         profile: AgentProfileIR,
         traces: list[TraceRecord],
+        diags: list[CompileDiagnostic],
     ) -> None:
-        traces.append(
-            TraceRecord(
-                target_ref="profile:persona",
-                source_span_ids=[],
-                relation="inferred",
-                explanation=f"Persona: {profile.persona.role}",
-            )
+        self._append_profile_trace(
+            target_ref="profile:persona",
+            label=f"Persona: {profile.persona.role}",
+            source_span_ids=profile.persona.source_span_ids,
+            source_section_id=profile.persona.source_section_id,
+            source_packet_id=profile.persona.source_packet_id,
+            relation=profile.persona.provenance_relation,
+            rendered=True,
+            traces=traces,
+            diags=diags,
         )
+        for i, aspect in enumerate(profile.persona.aspects):
+            self._append_profile_trace(
+                target_ref=f"profile:persona.aspect:{i}",
+                label=f"Persona aspect: {aspect.name}",
+                source_span_ids=aspect.source_span_ids,
+                source_section_id=aspect.source_section_id,
+                source_packet_id=aspect.source_packet_id,
+                relation=aspect.provenance_relation,
+                rendered=self._rendered_optional_profile_item(aspect),
+                traces=traces,
+                diags=diags,
+            )
         for i, aspect in enumerate(profile.audience_aspects):
-            traces.append(
-                TraceRecord(
-                    target_ref=f"profile:audience_{i}",
-                    source_span_ids=[],
-                    relation="inferred",
-                    explanation=f"Audience: {aspect.name}",
-                )
+            self._append_profile_trace(
+                target_ref=f"profile:audience:{i}",
+                label=f"Audience: {aspect.name}",
+                source_span_ids=aspect.source_span_ids,
+                source_section_id=aspect.source_section_id,
+                source_packet_id=aspect.source_packet_id,
+                relation=aspect.provenance_relation,
+                rendered=self._rendered_optional_profile_item(aspect),
+                traces=traces,
+                diags=diags,
             )
         for i, concept in enumerate(profile.concepts):
-            traces.append(
-                TraceRecord(
-                    target_ref=f"profile:concept_{i}",
-                    source_span_ids=[],
-                    relation="normalized",
-                    explanation=f"Concept: {concept.term} -- "
-                    f"{concept.definition}",
-                )
+            self._append_profile_trace(
+                target_ref=f"profile:concept:{i}",
+                label=f"Concept: {concept.term} -- {concept.definition}",
+                source_span_ids=concept.source_span_ids,
+                source_section_id=concept.source_section_id,
+                source_packet_id=concept.source_packet_id,
+                relation=concept.provenance_relation,
+                rendered=self._rendered_optional_profile_item(concept),
+                traces=traces,
+                diags=diags,
             )
+
+    def _append_profile_trace(
+        self,
+        target_ref: str,
+        label: str,
+        source_span_ids: list[str],
+        source_section_id: str | None,
+        source_packet_id: str | None,
+        relation: str,
+        rendered: bool,
+        traces: list[TraceRecord],
+        diags: list[CompileDiagnostic],
+    ) -> None:
+        profile_relation = self._profile_relation(relation)
+        span_ids = list(source_span_ids)
+        traces.append(
+            TraceRecord(
+                target_ref=target_ref,
+                source_span_ids=span_ids,
+                source_section_id=source_section_id if span_ids else None,
+                source_packet_id=source_packet_id if span_ids else None,
+                relation=profile_relation,
+                explanation=label,
+                needs_confirmation=profile_relation in {"assumed", "inferred"},
+            )
+        )
+        if span_ids:
+            return
+
+        diags.append(
+            CompileDiagnostic(
+                diagnostic_id=f"diag_prov_{len(diags):04d}",
+                kind="missing_provenance",
+                severity="warning",
+                message=(
+                    (
+                        f"Rendered profile item '{target_ref}' has no source-backed "
+                        "provenance."
+                    )
+                    if rendered
+                    else (
+                        f"Unrendered profile item '{target_ref}' has no "
+                        "source-backed provenance."
+                    )
+                ),
+                target_ref=target_ref,
+                source_span_ids=[],
+                blocks_rendering=False,
+                blocks_completion=rendered,
+                metadata={
+                    "profile_item": True,
+                    "rendered_profile_item": rendered,
+                },
+            )
+        )
+
+    @staticmethod
+    def _profile_relation(relation: str) -> str:
+        allowed = {"direct", "normalized", "derived", "inferred", "assumed"}
+        return relation if relation in allowed else "assumed"
+
+    @staticmethod
+    def _rendered_optional_profile_item(item: Any) -> bool:
+        return bool(getattr(item, "source_span_ids", [])) and getattr(
+            item, "provenance_relation", "assumed"
+        ) in {"direct", "normalized", "derived", "inferred"}
 
     # ------------------------------------------------------------------
     # Helpers

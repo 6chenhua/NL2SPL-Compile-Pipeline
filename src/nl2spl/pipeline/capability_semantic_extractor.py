@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import asdict
-from typing import Any, Iterable
+from typing import Any
 
 from nl2spl.compiler.capability_intent.candidate_validator import (
     SCHEMA_VERSION,

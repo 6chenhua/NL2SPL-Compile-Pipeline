@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import re
 
+from nl2spl.compiler.spl_render_contract import (
+    build_result_type_lookup,
+    grammar_aspect_name,
+    is_renderable_optional_profile_item,
+)
 from nl2spl.ir.agent_profile_ir import AgentProfileIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.symbol_table import SymbolTable
@@ -32,6 +37,10 @@ class FormattingMixin:
         warnings.append("Persona ROLE was empty; rendered fallback ROLE.")
         return "General Assistant"
 
+    def _source_backed_profile_item(self, item: object) -> bool:
+        """Return True when an optional profile item has source evidence."""
+        return is_renderable_optional_profile_item(item)
+
     def _variable_declarations(
         self,
         resources: ResourceRegistryIR,
@@ -59,14 +68,11 @@ class FormattingMixin:
         symbol_table: SymbolTable,
     ) -> dict[str, str]:
         """Return data types for result declarations."""
-        data_types = {var.name: var.data_type for var in resources.variables}
-        for var in symbol_table.get_all_declared_variables().values():
-            data_types.setdefault(var.name, var.data_type)
-        return data_types
+        return build_result_type_lookup(resources, symbol_table)
 
     def _constraint_aspect(self, kind: str) -> str:
         """Map constraint kind to a grammar-safe aspect label."""
-        return "".join(part.capitalize() for part in kind.split("_")) or "Requirement"
+        return grammar_aspect_name(kind)
 
     def _aspect_name(self, name: str) -> str:
         """Render a grammar-safe optional aspect name."""

@@ -91,20 +91,30 @@ class SPLRenderer(
         parts.append("[DEFINE_PERSONA:]")
         parts.append(f"    ROLE: {role}")
         for aspect in profile.persona.aspects:
+            if not self._source_backed_profile_item(aspect):
+                continue
             parts.append(f"    {self._aspect_name(aspect.name)}: {aspect.text}")
         parts.append("[END_PERSONA]")
 
         # 3. DEFINE_AUDIENCE
-        if profile.audience_aspects:
+        renderable_audience_aspects = [
+            aspect for aspect in profile.audience_aspects
+            if self._source_backed_profile_item(aspect)
+        ]
+        if renderable_audience_aspects:
             parts.append("[DEFINE_AUDIENCE:]")
-            for aspect in profile.audience_aspects:
+            for aspect in renderable_audience_aspects:
                 parts.append(f"    {self._aspect_name(aspect.name)}: {aspect.text}")
             parts.append("[END_AUDIENCE]")
 
         # 4. DEFINE_CONCEPTS
-        if profile.concepts:
+        renderable_concepts = [
+            concept for concept in profile.concepts
+            if self._source_backed_profile_item(concept)
+        ]
+        if renderable_concepts:
             parts.append("[DEFINE_CONCEPTS:]")
-            for concept in profile.concepts:
+            for concept in renderable_concepts:
                 parts.append(f"    {self._aspect_name(concept.term)}: {concept.definition}")
             parts.append("[END_CONCEPTS]")
 

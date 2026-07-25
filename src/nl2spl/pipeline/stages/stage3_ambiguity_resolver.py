@@ -226,7 +226,7 @@ Output valid JSON:"""
         #   2. FALLBACK: parent annotation inheritance --- only when the
         #      corresponding segment has no usable semantic_role.
         #      Diagnostic must be recorded.
-        parent_by_span_id = {s.span_id: s for s in spans}
+        {s.span_id: s for s in spans}
 
         # Build split recommendation segment index.
         # Maps parent_span_id -> segments[] from ambiguity_updates

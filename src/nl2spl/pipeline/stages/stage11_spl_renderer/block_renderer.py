@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from nl2spl.compiler.spl_render_contract import (
+    REQUEST_INPUT_DEFAULT_RESULT_NAME,
+    REQUEST_INPUT_DEFAULT_RESULT_TYPE,
+    command_result_keyword,
+)
 from nl2spl.ir.block_structure_ir import BlockIR
 from nl2spl.ir.step_ir import StepIR
 
@@ -98,33 +103,41 @@ class BlockRendererMixin:
         text = self._description_with_refs(command_text, step.inputs)
 
         if step.command_type == "GENERAL_COMMAND":
-            return f"{command_index} [COMMAND {text}{self._result_clause('RESULT', step.outputs)}]"
+            keyword = command_result_keyword(step.command_type)
+            return f"{command_index} [COMMAND {text}{self._result_clause(keyword, step.outputs)}]"
 
         if step.command_type == "CALL_API":
             if not step.integration_ref:
                 raise ValueError(f"CALL_API step {step.step_id} has no integration_ref")
             api_name = step.integration_ref
+            keyword = command_result_keyword(step.command_type)
             return (
                 f"{command_index} [CALL {api_name}"
                 f"{self._with_clause(step.inputs)}"
-                f"{self._result_clause('RESPONSE', step.outputs)}]"
+                f"{self._result_clause(keyword, step.outputs)}]"
             )
 
         if step.command_type == "INVOKE_WORKER":
             worker_name = step.integration_ref or "<UNRESOLVED_WORKER>"
+            keyword = command_result_keyword(step.command_type)
             return (
                 f"{command_index} [INVOKE {worker_name}"
                 f"{self._with_clause(step.inputs)}"
-                f"{self._result_clause('RESPONSE', step.outputs)}]"
+                f"{self._result_clause(keyword, step.outputs)}]"
             )
 
         if step.command_type == "REQUEST_INPUT":
-            result_clause = self._result_clause("VALUE", step.outputs)
+            keyword = command_result_keyword(step.command_type)
+            result_clause = self._result_clause(keyword, step.outputs)
             if not result_clause:
-                result_clause = " VALUE user_input:text SET"
+                result_clause = (
+                    f" {keyword} {REQUEST_INPUT_DEFAULT_RESULT_NAME}:"
+                    f"{REQUEST_INPUT_DEFAULT_RESULT_TYPE} SET"
+                )
             return f"{command_index} [INPUT {text}{result_clause}]"
 
         if step.command_type == "DISPLAY_MESSAGE":
             return f"{command_index} [DISPLAY {text}]"
 
-        return f"{command_index} [COMMAND {text}{self._result_clause('RESULT', step.outputs)}]"
+        keyword = command_result_keyword(step.command_type)
+        return f"{command_index} [COMMAND {text}{self._result_clause(keyword, step.outputs)}]"

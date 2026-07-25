@@ -11,4 +11,4 @@ API_CALL_PLACEMENTS = "api_call_placements"
 API_CALL_PLACEMENT_PAYLOAD = "api_call_placement_payload"
 STEP_VARIABLE_RELATION_PLAN = "step_variable_relation_plan"
 REQUIRED_OUTPUT_FULFILLMENT = "required_output_fulfillment"
-
+CONDITION_VARIABLE_REFERENCE_PLAN = "condition_variable_reference_plan"

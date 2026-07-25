@@ -18,7 +18,7 @@ irs_{hash} IDs, populated missing_slot).
 
 from __future__ import annotations
 
-from nl2spl.compiler.construct_registry import (
+from nl2spl.compiler.constructs import (
     ConstructSatisfactionReport,
     SPLConstructRegistry,
 )

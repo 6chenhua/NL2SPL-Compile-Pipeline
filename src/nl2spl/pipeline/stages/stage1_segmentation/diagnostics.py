@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
 # Stage 1 diagnostic kinds

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
+from nl2spl.ir.step_ir import StepIR
 
 
 class StepResolverMixin:

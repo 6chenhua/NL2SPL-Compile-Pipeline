@@ -3,3 +3,5 @@
 from __future__ import annotations
 
 from nl2spl.config import Stage1SegmentationConfig
+
+__all__ = ["Stage1SegmentationConfig"]

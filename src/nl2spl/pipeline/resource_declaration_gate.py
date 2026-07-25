@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from nl2spl.compiler.construct_registry import ConstructSatisfactionReport
+from nl2spl.compiler.constructs import ConstructSatisfactionReport
 from nl2spl.ir.resource_registry_ir import APISpec, ResourceRegistryIR
 
 

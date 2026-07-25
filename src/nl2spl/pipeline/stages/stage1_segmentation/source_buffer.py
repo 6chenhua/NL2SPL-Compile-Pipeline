@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Mapping, Sequence
 
 from nl2spl.canonical import CanonicalCompileInput, SemanticPacket
+
 
 @dataclass(frozen=True)
 class SourcePacketRange:
