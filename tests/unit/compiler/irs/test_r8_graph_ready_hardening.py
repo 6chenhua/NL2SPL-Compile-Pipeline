@@ -6,20 +6,16 @@ across all v6 checkers.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.irs.checkers.worker_delegation import (
     WorkerDelegationIRSChecker,
 )
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.graph import ConstructGraph
-from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.ir.worker_plan_ir import (
     CandidateTaskUnitIR,
     WorkerPlanIR,
     WorkerSpecIR,
 )
-
 
 # ------------------------------------------------------------------
 # R8.2: Worker/Delegation Edge Hardening
@@ -417,7 +413,6 @@ class TestR8ConstructPathStability:
 
     def test_exception_flow_construct_path_tuple(self) -> None:
         """EXCEPTION_FLOW construct_path is a tuple."""
-        from nl2spl.compiler.construct_registry import SPLConstructRegistry
         from nl2spl.compiler.irs.checkers.exception_flow import (
             Stage4ExceptionFlowIRSChecker,
         )

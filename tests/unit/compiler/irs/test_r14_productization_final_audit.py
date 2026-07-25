@@ -7,7 +7,6 @@ import pytest
 
 from nl2spl.config import PipelineConfig
 
-
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 

@@ -15,7 +15,9 @@ from nl2spl.compiler.spl_editing.intent.model import (
 )
 from nl2spl.compiler.spl_editing.materialization.id_allocator import IdAllocator
 from nl2spl.compiler.spl_editing.materialization.model import MaterializationInput
-from nl2spl.compiler.spl_editing.materialization.registry import build_default_materialization_registry
+from nl2spl.compiler.spl_editing.materialization.registry import (
+    build_default_materialization_registry,
+)
 from nl2spl.compiler.spl_editing.materialization.stage7.exception_handler_step import (
     ExceptionHandlerStageSliceChainMaterializer,
 )

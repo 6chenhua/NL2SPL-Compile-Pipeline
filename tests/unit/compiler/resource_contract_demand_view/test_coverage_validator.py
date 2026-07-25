@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.canonical.compile_input import (
     CanonicalCompileInput,
     EvidenceRef,
@@ -26,8 +24,6 @@ from nl2spl.compiler.resource_contract_demand_view.projector import (
 )
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
-from nl2spl.ir.span_ir import SpanIR
-
 
 # =============================================================================
 # Helpers

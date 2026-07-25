@@ -107,8 +107,12 @@ class TestReportSections:
         ]
         report = render_report("spl", diagnostics=diags)
         lines = report.split("\n")
-        diag_lines = [l for l in lines if l.strip().startswith("[")]
-        severities = [l.strip() for l in diag_lines if l.strip().startswith("[")]
+        diag_lines = [line for line in lines if line.strip().startswith("[")]
+        severities = [
+            line.strip()
+            for line in diag_lines
+            if line.strip().startswith("[")
+        ]
         # error before warning
         assert "ERROR" in severities[0]
         assert "WARNING" in severities[1] or "WARNING" in severities[2]

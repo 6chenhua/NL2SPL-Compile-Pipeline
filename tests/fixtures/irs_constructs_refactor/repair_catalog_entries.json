@@ -1,0 +1,662 @@
+[
+  {
+    "affordance_id": "call_api.specify_integration_evidence",
+    "closure_summary": null,
+    "construct_type": "CALL_API",
+    "context_id": "call_api_context",
+    "default_patch_type": "SpecifyAPIIntegration",
+    "default_verification_lane": "A",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerStepPlanIR"
+    ],
+    "entry_id": "CALL_API.integration_evidence.type_or_contract_ambiguity.call_api.specify_integration_evidence",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "integration_evidence",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "SpecifyAPIIntegration"
+    ],
+    "target_resolver_id": "step_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "exception_flow.add_handler_step",
+    "closure_summary": "Ensure handler block and materialize handler command",
+    "construct_type": "EXCEPTION_FLOW",
+    "context_id": "exception_flow_context",
+    "default_patch_type": "AddExceptionHandlerStep",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "missing_handler",
+    "editable_artifacts": [
+      "WorkerStepPlanIR",
+      "WorkerBlockPlanIR"
+    ],
+    "entry_id": "EXCEPTION_FLOW.handler_action.missing_handler.exception_flow.add_handler_step",
+    "handler_id": "missing_handler",
+    "intent_schema_id": "intent.add_exception_handler_step.v1",
+    "materialization_plan_id": "stage7.exception_handler_step_repair.v1",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "exception_flow.complete_handler_action.v1",
+    "required_context_facts": [
+      "exception_condition",
+      "worker_id",
+      "available_variables",
+      "nearby_steps",
+      "symbol_table"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "exception_flow.handler.selectable_refs.v1",
+    "slot_name": "handler_action",
+    "stage_authority": "stage7.worker_step_plan",
+    "strategy_display_label": "Complete Exception Handler Action",
+    "strategy_options": [],
+    "supported_patch_types": [
+      "AddExceptionHandlerStep"
+    ],
+    "target_resolver_id": "exception_flow_target",
+    "user_facing": true
+  },
+  {
+    "affordance_id": "invoke_worker.specify_target_worker",
+    "closure_summary": null,
+    "construct_type": "INVOKE_WORKER",
+    "context_id": "invoke_worker_context",
+    "default_patch_type": "SpecifyInvokeTarget",
+    "default_verification_lane": "A",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerStepPlanIR"
+    ],
+    "entry_id": "INVOKE_WORKER.target_worker.type_or_contract_ambiguity.invoke_worker.specify_target_worker",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "target_worker",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "SpecifyInvokeTarget"
+    ],
+    "target_resolver_id": "step_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "invoke_worker.create_or_bind_handoff",
+    "closure_summary": null,
+    "construct_type": "INVOKE_WORKER",
+    "context_id": "invoke_worker_context",
+    "default_patch_type": "CreateWorkerHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerPlanIR",
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "INVOKE_WORKER.handoff_id.type_or_contract_ambiguity.invoke_worker.create_or_bind_handoff",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "handoff_id",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "CreateWorkerHandoffContract",
+      "BindExistingHandoff"
+    ],
+    "target_resolver_id": "step_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "invoke_worker.specify_input_bindings",
+    "closure_summary": null,
+    "construct_type": "INVOKE_WORKER",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "INVOKE_WORKER.input_bindings.type_or_contract_ambiguity.invoke_worker.specify_input_bindings",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "input_bindings",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "invoke_worker.specify_output_bindings",
+    "closure_summary": null,
+    "construct_type": "INVOKE_WORKER",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "INVOKE_WORKER.output_bindings.type_or_contract_ambiguity.invoke_worker.specify_output_bindings",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "output_bindings",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "request_input.specify_value_target",
+    "closure_summary": null,
+    "construct_type": "REQUEST_INPUT",
+    "context_id": "request_input_context",
+    "default_patch_type": "SpecifyValueTarget",
+    "default_verification_lane": "A",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerStepPlanIR"
+    ],
+    "entry_id": "REQUEST_INPUT.value_target.type_or_contract_ambiguity.request_input.specify_value_target",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "value_target",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "SpecifyValueTarget"
+    ],
+    "target_resolver_id": "step_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "required_output.insert_or_bind_producer",
+    "closure_summary": "Materialize producer step",
+    "construct_type": "REQUIRED_OUTPUT",
+    "context_id": "required_output_context",
+    "default_patch_type": "InsertProducerStep",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "missing_output_producer",
+    "editable_artifacts": [
+      "WorkerStepPlanIR",
+      "WorkerBlockPlanIR"
+    ],
+    "entry_id": "REQUIRED_OUTPUT.producer.missing_output_producer.required_output.insert_or_bind_producer",
+    "handler_id": "missing_output_producer",
+    "intent_schema_id": "intent.insert_producer_step.v1",
+    "materialization_plan_id": "stage7.step_producer_repair.v1",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "required_output.materialize_producer.v1",
+    "required_context_facts": [
+      "target_output_name",
+      "worker_id",
+      "available_variables",
+      "nearby_steps",
+      "symbol_table"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "required_output.producer.selectable_refs.v1",
+    "slot_name": "producer",
+    "stage_authority": "stage7.worker_step_plan",
+    "strategy_display_label": "Materialize Producer for Required Output",
+    "strategy_options": [],
+    "supported_patch_types": [
+      "InsertProducerStep"
+    ],
+    "target_resolver_id": "required_output_target",
+    "user_facing": true
+  },
+  {
+    "affordance_id": "worker_handoff.specify_target",
+    "closure_summary": null,
+    "construct_type": "WORKER_HANDOFF",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "WORKER_HANDOFF.target.type_or_contract_ambiguity.worker_handoff.specify_target",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "target",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "worker_handoff.specify_input_bindings",
+    "closure_summary": null,
+    "construct_type": "WORKER_HANDOFF",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "WORKER_HANDOFF.input_bindings.type_or_contract_ambiguity.worker_handoff.specify_input_bindings",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "input_bindings",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "worker_handoff.specify_output_bindings",
+    "closure_summary": null,
+    "construct_type": "WORKER_HANDOFF",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "WORKER_HANDOFF.output_bindings.type_or_contract_ambiguity.worker_handoff.specify_output_bindings",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "output_bindings",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "worker_handoff.specify_invocation_site",
+    "closure_summary": null,
+    "construct_type": "WORKER_HANDOFF",
+    "context_id": "handoff_context",
+    "default_patch_type": "UpdateHandoffContract",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerHandoffIR"
+    ],
+    "entry_id": "WORKER_HANDOFF.invocation_site.type_or_contract_ambiguity.worker_handoff.specify_invocation_site",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": null,
+    "materialization_plan_id": null,
+    "patch_type_metadata": [],
+    "preview_required": false,
+    "repair_strategy_id": null,
+    "required_context_facts": [],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": null,
+    "slot_name": "invocation_site",
+    "stage_authority": null,
+    "strategy_display_label": null,
+    "strategy_options": [],
+    "supported_patch_types": [
+      "UpdateHandoffContract"
+    ],
+    "target_resolver_id": "handoff_target",
+    "user_facing": false
+  },
+  {
+    "affordance_id": "worker_promotion.resolve_contract",
+    "closure_summary": "Materialize or retain the delegated responsibility as a verified closure",
+    "construct_type": "WORKER_PROMOTION",
+    "context_id": "worker_promotion_context",
+    "default_patch_type": "DefineChildWorkerClosure",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerPlanIR",
+      "WorkerFlowPlanIR",
+      "WorkerBlockPlanIR",
+      "WorkerStepPlanIR",
+      "SymbolTable"
+    ],
+    "entry_id": "WORKER_PROMOTION.promotion_input_contract.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": "intent.worker_promotion_resolution.v1",
+    "materialization_plan_id": "worker_delegation.complete_closure.v2",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "worker_delegation.complete_closure.v2",
+    "required_context_facts": [
+      "delegation_intent",
+      "worker_id",
+      "candidate_name",
+      "possible_inputs",
+      "possible_outputs",
+      "hierarchy_graph"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "worker_promotion.handoff.selectable_refs.v1",
+    "slot_name": "promotion_input_contract",
+    "stage_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
+    "strategy_display_label": "Complete Worker Delegation Closure",
+    "strategy_options": [
+      {
+        "closure_policy_id": "worker_delegation.define_child_worker_closure.v1",
+        "description_key": "worker_delegation.define_child_worker.description",
+        "execution_patch_types": [
+          "DefineChildWorkerClosure"
+        ],
+        "interaction_contract_id": "worker_delegation.define_child_worker.v1",
+        "label_key": "worker_delegation.define_child_worker.label",
+        "option_id": "define_child_worker",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      },
+      {
+        "closure_policy_id": "worker_delegation.main_flow_closure.v1",
+        "description_key": "worker_delegation.keep_in_main_flow.description",
+        "execution_patch_types": [
+          "ConvertDelegationIntentToMainFlowStep"
+        ],
+        "interaction_contract_id": "worker_delegation.keep_in_main_flow.v1",
+        "label_key": "worker_delegation.keep_in_main_flow.label",
+        "option_id": "keep_in_main_flow",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      }
+    ],
+    "supported_patch_types": [
+      "DefineChildWorkerClosure",
+      "ConvertDelegationIntentToMainFlowStep"
+    ],
+    "target_resolver_id": "worker_promotion_target",
+    "user_facing": true
+  },
+  {
+    "affordance_id": "worker_promotion.resolve_contract",
+    "closure_summary": "Materialize or retain the delegated responsibility as a verified closure",
+    "construct_type": "WORKER_PROMOTION",
+    "context_id": "worker_promotion_context",
+    "default_patch_type": "DefineChildWorkerClosure",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerPlanIR",
+      "WorkerFlowPlanIR",
+      "WorkerBlockPlanIR",
+      "WorkerStepPlanIR",
+      "SymbolTable"
+    ],
+    "entry_id": "WORKER_PROMOTION.promotion_output_contract.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": "intent.worker_promotion_resolution.v1",
+    "materialization_plan_id": "worker_delegation.complete_closure.v2",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "worker_delegation.complete_closure.v2",
+    "required_context_facts": [
+      "delegation_intent",
+      "worker_id",
+      "candidate_name",
+      "possible_inputs",
+      "possible_outputs",
+      "hierarchy_graph"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "worker_promotion.handoff.selectable_refs.v1",
+    "slot_name": "promotion_output_contract",
+    "stage_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
+    "strategy_display_label": "Complete Worker Delegation Closure",
+    "strategy_options": [
+      {
+        "closure_policy_id": "worker_delegation.define_child_worker_closure.v1",
+        "description_key": "worker_delegation.define_child_worker.description",
+        "execution_patch_types": [
+          "DefineChildWorkerClosure"
+        ],
+        "interaction_contract_id": "worker_delegation.define_child_worker.v1",
+        "label_key": "worker_delegation.define_child_worker.label",
+        "option_id": "define_child_worker",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      },
+      {
+        "closure_policy_id": "worker_delegation.main_flow_closure.v1",
+        "description_key": "worker_delegation.keep_in_main_flow.description",
+        "execution_patch_types": [
+          "ConvertDelegationIntentToMainFlowStep"
+        ],
+        "interaction_contract_id": "worker_delegation.keep_in_main_flow.v1",
+        "label_key": "worker_delegation.keep_in_main_flow.label",
+        "option_id": "keep_in_main_flow",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      }
+    ],
+    "supported_patch_types": [
+      "DefineChildWorkerClosure",
+      "ConvertDelegationIntentToMainFlowStep"
+    ],
+    "target_resolver_id": "worker_promotion_target",
+    "user_facing": true
+  },
+  {
+    "affordance_id": "worker_promotion.resolve_contract",
+    "closure_summary": "Materialize or retain the delegated responsibility as a verified closure",
+    "construct_type": "WORKER_PROMOTION",
+    "context_id": "worker_promotion_context",
+    "default_patch_type": "DefineChildWorkerClosure",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerPlanIR",
+      "WorkerFlowPlanIR",
+      "WorkerBlockPlanIR",
+      "WorkerStepPlanIR",
+      "SymbolTable"
+    ],
+    "entry_id": "WORKER_PROMOTION.promotion_invocation_point.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": "intent.worker_promotion_resolution.v1",
+    "materialization_plan_id": "worker_delegation.complete_closure.v2",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "worker_delegation.complete_closure.v2",
+    "required_context_facts": [
+      "delegation_intent",
+      "worker_id",
+      "candidate_name",
+      "possible_inputs",
+      "possible_outputs",
+      "hierarchy_graph"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "worker_promotion.handoff.selectable_refs.v1",
+    "slot_name": "promotion_invocation_point",
+    "stage_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
+    "strategy_display_label": "Complete Worker Delegation Closure",
+    "strategy_options": [
+      {
+        "closure_policy_id": "worker_delegation.define_child_worker_closure.v1",
+        "description_key": "worker_delegation.define_child_worker.description",
+        "execution_patch_types": [
+          "DefineChildWorkerClosure"
+        ],
+        "interaction_contract_id": "worker_delegation.define_child_worker.v1",
+        "label_key": "worker_delegation.define_child_worker.label",
+        "option_id": "define_child_worker",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      },
+      {
+        "closure_policy_id": "worker_delegation.main_flow_closure.v1",
+        "description_key": "worker_delegation.keep_in_main_flow.description",
+        "execution_patch_types": [
+          "ConvertDelegationIntentToMainFlowStep"
+        ],
+        "interaction_contract_id": "worker_delegation.keep_in_main_flow.v1",
+        "label_key": "worker_delegation.keep_in_main_flow.label",
+        "option_id": "keep_in_main_flow",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      }
+    ],
+    "supported_patch_types": [
+      "DefineChildWorkerClosure",
+      "ConvertDelegationIntentToMainFlowStep"
+    ],
+    "target_resolver_id": "worker_promotion_target",
+    "user_facing": true
+  },
+  {
+    "affordance_id": "worker_promotion.resolve_contract",
+    "closure_summary": "Materialize or retain the delegated responsibility as a verified closure",
+    "construct_type": "WORKER_PROMOTION",
+    "context_id": "worker_promotion_context",
+    "default_patch_type": "DefineChildWorkerClosure",
+    "default_verification_lane": "B",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "editable_artifacts": [
+      "WorkerPlanIR",
+      "WorkerFlowPlanIR",
+      "WorkerBlockPlanIR",
+      "WorkerStepPlanIR",
+      "SymbolTable"
+    ],
+    "entry_id": "WORKER_PROMOTION.promotion_result_handoff.type_or_contract_ambiguity.worker_promotion.resolve_contract",
+    "handler_id": "type_or_contract_ambiguity",
+    "intent_schema_id": "intent.worker_promotion_resolution.v1",
+    "materialization_plan_id": "worker_delegation.complete_closure.v2",
+    "patch_type_metadata": [],
+    "preview_required": true,
+    "repair_strategy_id": "worker_delegation.complete_closure.v2",
+    "required_context_facts": [
+      "delegation_intent",
+      "worker_id",
+      "candidate_name",
+      "possible_inputs",
+      "possible_outputs",
+      "hierarchy_graph"
+    ],
+    "required_evidence_kind": "user_confirmed_repair",
+    "selectable_ref_policy_id": "worker_promotion.handoff.selectable_refs.v1",
+    "slot_name": "promotion_result_handoff",
+    "stage_authority": "stage3_5.worker_boundary + stage4.worker_flow_plan + stage5.worker_block_plan + stage7.worker_step_plan",
+    "strategy_display_label": "Complete Worker Delegation Closure",
+    "strategy_options": [
+      {
+        "closure_policy_id": "worker_delegation.define_child_worker_closure.v1",
+        "description_key": "worker_delegation.define_child_worker.description",
+        "execution_patch_types": [
+          "DefineChildWorkerClosure"
+        ],
+        "interaction_contract_id": "worker_delegation.define_child_worker.v1",
+        "label_key": "worker_delegation.define_child_worker.label",
+        "option_id": "define_child_worker",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      },
+      {
+        "closure_policy_id": "worker_delegation.main_flow_closure.v1",
+        "description_key": "worker_delegation.keep_in_main_flow.description",
+        "execution_patch_types": [
+          "ConvertDelegationIntentToMainFlowStep"
+        ],
+        "interaction_contract_id": "worker_delegation.keep_in_main_flow.v1",
+        "label_key": "worker_delegation.keep_in_main_flow.label",
+        "option_id": "keep_in_main_flow",
+        "strategy_id": "worker_delegation.complete_closure.v2",
+        "user_facing": true
+      }
+    ],
+    "supported_patch_types": [
+      "DefineChildWorkerClosure",
+      "ConvertDelegationIntentToMainFlowStep"
+    ],
+    "target_resolver_id": "worker_promotion_target",
+    "user_facing": true
+  }
+]

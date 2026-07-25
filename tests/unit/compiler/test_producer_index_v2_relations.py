@@ -68,14 +68,14 @@ def test_producer_index_legacy_fallback_none_plan() -> None:
     # 1. legacy_fallback mode is active
     assert index.mode == "legacy_fallback"
     assert len(index.compat_warnings) > 0
-    assert "no non-empty StepVariableRelationPlan supplied" in index.compat_warnings[0]
+    assert "no StepVariableRelationPlan supplied" in index.compat_warnings[0]
 
     # 2. Legacy fallback works using StepIR.outputs
     assert index.is_produced("assumptions_log")
     assert index.is_produced("completion_status")
 
 
-def test_producer_index_legacy_fallback_empty_plan() -> None:
+def test_empty_relation_plan_disables_legacy_step_outputs() -> None:
     step = StepIR(
         step_id="st7",
         text="Record assumptions and status",
@@ -90,9 +90,40 @@ def test_producer_index_legacy_fallback_empty_plan() -> None:
         step_variable_relation_plan=StepVariableRelationPlan(relations=()),
     )
 
-    assert index.mode == "legacy_fallback"
-    assert len(index.compat_warnings) > 0
-    assert index.is_produced("assumptions_log")
+    assert index.mode == "relation_authority"
+    assert len(index.compat_warnings) == 0
+    assert not index.is_produced("assumptions_log")
+    assert not index.is_produced("completion_status")
+
+
+def test_relation_plan_without_produces_disables_legacy_step_outputs() -> None:
+    step = StepIR(
+        step_id="st_1",
+        text="Maintain provenance.",
+        command_type="GENERAL_COMMAND",
+        source_span_ids=["s1"],
+        outputs=["source_evidence_set"],
+    )
+    relation_plan = StepVariableRelationPlan(
+        relations=(
+            StepVariableRelation(
+                step_id="st_1",
+                variable_name="source_evidence_set",
+                relation="ambiguous",
+                source_span_ids=("s1",),
+                evidence_kind="stage7_provenance_maintenance_no_output",
+            ),
+        )
+    )
+
+    index = ProducerIndex(
+        steps=[step],
+        step_variable_relation_plan=relation_plan,
+    )
+
+    assert index.mode == "relation_authority"
+    assert len(index.compat_warnings) == 0
+    assert not index.is_produced("source_evidence_set")
 
 
 def test_call_api_legacy_fallback_does_not_claim_outputs() -> None:

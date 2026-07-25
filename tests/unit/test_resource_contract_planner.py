@@ -11,8 +11,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.canonical.compile_input import CanonicalCompileInput, RawSection, SemanticPacket
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.resource_contract_ir import ResourceContractPlanIR
@@ -20,7 +18,6 @@ from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage3_2_resource_contract_planner import (
     ResourceContractPlanner,
 )
-
 
 # =============================================================================
 # Helpers

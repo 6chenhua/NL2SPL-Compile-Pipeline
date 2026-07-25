@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.ir.block_structure_ir import BlockStructureIR
-from nl2spl.ir.constraint_ir import ConstraintIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR

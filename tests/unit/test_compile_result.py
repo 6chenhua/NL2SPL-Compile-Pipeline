@@ -246,15 +246,15 @@ class TestCompilerReExports:
 
     def test_compile_diagnostic_re_exported(self) -> None:
         from nl2spl.compiler import CompileDiagnostic
-        from nl2spl.ir.diagnostics import CompileDiagnostic as CD
+        from nl2spl.ir.diagnostics import CompileDiagnostic as IRCompileDiagnostic
 
-        assert CompileDiagnostic is CD
+        assert CompileDiagnostic is IRCompileDiagnostic
 
     def test_trace_record_re_exported(self) -> None:
         from nl2spl.compiler import TraceRecord
-        from nl2spl.ir.diagnostics import TraceRecord as TR
+        from nl2spl.ir.diagnostics import TraceRecord as IRTraceRecord
 
-        assert TraceRecord is TR
+        assert TraceRecord is IRTraceRecord
 
     def test_step_render_info_re_exported(self) -> None:
         from nl2spl.compiler import StepRenderInfo

@@ -5,16 +5,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 from nl2spl.config import PipelineConfig
+from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
 def test_orchestrator_default_path_does_not_call_planner_as_authority():
     """The default orchestrator path builds DemandView via DemandViewBuilder,
     not via ResourceContractPlanner as the production authority."""
-    from unittest.mock import patch
 
     config = PipelineConfig()
 
@@ -38,8 +35,8 @@ def test_orchestrator_default_path_does_not_call_planner_as_authority():
             pass
 
         # Confirm the orchestrator module no longer imports ResourceContractPlanner
+
         import nl2spl.pipeline.orchestrator as orch_mod
-        import sys
         assert "ResourceContractPlanner" not in dir(orch_mod), (
             "ResourceContractPlanner must not be importable from orchestrator"
         )
@@ -99,7 +96,6 @@ def test_stage2_missing_annotation_produces_no_demand():
 
 def test_orchestrator_pipeline_result_includes_view_diagnostics():
     """PipelineResult.compile_diagnostics must contain DemandView diagnostics."""
-    from unittest.mock import patch
 
     config = PipelineConfig()
     with patch("nl2spl.pipeline.orchestrator.LLMClient") as mock_llm:

@@ -14,7 +14,6 @@ from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
-    VariableSpec,
     WorkerScopedResourceIR,
 )
 from nl2spl.ir.span_ir import SpanIR

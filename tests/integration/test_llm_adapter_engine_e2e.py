@@ -8,13 +8,13 @@ adapter hard-fact bridges.
 from __future__ import annotations
 
 from nl2spl.adapters import InputAdapterRegistry
-from nl2spl.config import PipelineConfig
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.projector import DiagnosticProjector
 from nl2spl.compiler.irs.registry import IRSCheckerRegistry
 from nl2spl.compiler.irs.runner import IRSRunner
+from nl2spl.config import PipelineConfig
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer

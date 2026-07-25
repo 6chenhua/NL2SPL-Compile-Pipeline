@@ -1,4 +1,4 @@
-﻿"""Unit tests for PipelineResult MVP fields and orchestrator run path (Phase 9)."""
+"""Unit tests for PipelineResult MVP fields and orchestrator run path (Phase 9)."""
 
 from __future__ import annotations
 
@@ -182,7 +182,7 @@ class TestOrchestratorRunPath:
         monkeypatch.setattr(
             PipelineOrchestrator,
             "_run_stage8",
-            lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T")),
+            lambda s, *a, **kw: AgentProfileIR(persona=PersonaIR(role="T", source_span_ids=["s1"], provenance_relation="direct")),
         )
         monkeypatch.setattr(PipelineOrchestrator, "_run_stage9", lambda s, *a, **kw: [])
         monkeypatch.setattr(

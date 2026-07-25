@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.ir.block_structure_ir import BlockStructureIR
-from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
@@ -31,7 +30,6 @@ from tests.fixtures.stage_prompt_fixtures import (
     generate_test_report,
     load_mock_response,
 )
-
 
 # =============================================================================
 # Pytest Markers
@@ -254,9 +252,13 @@ class TestStage7Prompt:
             (input_spans, input_routes, input_flow, input_blocks, input_symbol_table)
         )
 
-        # At least some variables should have producer/consumer info
-        has_producer = any(v.producer_step for v in updated_table.variables.values())
-        assert has_producer, "Symbol table should have at least one variable with a producer step"
+        has_consumer = any(v.consumer_steps for v in updated_table.variables.values())
+        assert has_consumer, (
+            "Symbol table should retain consumer info for predeclared variables"
+        )
+        assert not any(v.producer_step for v in updated_table.variables.values()), (
+            "Stage 7 raw step outputs are not SymbolTable declaration authority"
+        )
 
     def test_prompt_fixture_loader(self) -> None:
         """Verify load_mock_response() returns the same fixture data."""

@@ -8,7 +8,7 @@ import pytest
 
 from nl2spl.errors.exceptions import StageError
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
-from nl2spl.ir.span_ir import AmbiguityInfo, SpanIR
+from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage3_ambiguity_resolver import AmbiguityResolver
 
 

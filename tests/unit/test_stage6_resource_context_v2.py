@@ -13,11 +13,10 @@ from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import ContractFieldIR, WorkerSpecIR
+from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     build_resource_context,
 )
-from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
-
 
 # =============================================================================
 # Context builder unit tests

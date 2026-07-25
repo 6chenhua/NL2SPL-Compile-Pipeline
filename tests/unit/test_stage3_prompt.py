@@ -18,11 +18,8 @@ from tests.fixtures.stage_prompt_fixtures import (
     STAGE2_EXPECTED_AMBIGUITY_UPDATES,
     STAGE2_EXPECTED_ROUTES,
     STAGE3_MOCK_LLM_RESPONSE,
-    compare_field_routes,
-    generate_test_report,
     load_mock_response,
 )
-
 
 # =============================================================================
 # Pytest Markers

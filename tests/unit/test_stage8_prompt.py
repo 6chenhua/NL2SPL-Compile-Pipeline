@@ -26,7 +26,6 @@ from tests.fixtures.stage_prompt_fixtures import (
     load_mock_response,
 )
 
-
 # =============================================================================
 # Pytest Markers
 # =============================================================================
@@ -172,8 +171,8 @@ class TestStage8Prompt:
         profile = extractor.execute((input_spans, input_routes, input_symbol_table))
 
         for aspect in profile.audience_aspects:
-            assert isinstance(aspect.name, str), f"Audience aspect name must be str"
-            assert isinstance(aspect.text, str), f"Audience aspect text must be str"
+            assert isinstance(aspect.name, str), "Audience aspect name must be str"
+            assert isinstance(aspect.text, str), "Audience aspect text must be str"
             assert len(aspect.name) > 0, "Audience aspect name must not be empty"
 
     def test_prompt_concepts_structure(
@@ -190,8 +189,8 @@ class TestStage8Prompt:
         profile = extractor.execute((input_spans, input_routes, input_symbol_table))
 
         for concept in profile.concepts:
-            assert isinstance(concept.term, str), f"Concept term must be str"
-            assert isinstance(concept.definition, str), f"Concept definition must be str"
+            assert isinstance(concept.term, str), "Concept term must be str"
+            assert isinstance(concept.definition, str), "Concept definition must be str"
             assert len(concept.term) > 0, "Concept term must not be empty"
 
     def test_prompt_expected_role_value(

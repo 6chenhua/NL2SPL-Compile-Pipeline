@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Unit tests for renderer fail-closed validation of multi-output steps.
 """
@@ -6,23 +5,24 @@ Unit tests for renderer fail-closed validation of multi-output steps.
 from __future__ import annotations
 
 import pytest
+
 from nl2spl.ir import (
-    StepIR,
-    ResourceRegistryIR,
-    SymbolTable,
-    WorkerIR,
-    TypeSpec,
     BlockIR,
     FlowRef,
+    ResourceRegistryIR,
+    StepIR,
+    SymbolTable,
+    TypeSpec,
     VariableSpec,
+    WorkerIR,
 )
-from nl2spl.ir.agent_profile_ir import AgentProfileIR, PersonaIR
+from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
 from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import SPLRenderer
 
 
 def _setup_renderer_args(step: StepIR, types: list[TypeSpec] | None = None) -> tuple:
     step.block_ref = "b1"
-    
+
     worker = WorkerIR(
         worker_name="MainWorker",
         description="Main worker",
@@ -131,11 +131,11 @@ def test_renderer_renders_define_types_before_define_variables() -> None:
     worker, profile, resources, symbol_table, steps, constraints = _setup_renderer_args(step, types)
     renderer = SPLRenderer()
     spl_text, errors, warnings = renderer.render(worker, profile, resources, symbol_table, steps, constraints)
-    
+
     assert not errors
     assert "[DEFINE_TYPES:]" in spl_text
     assert "[DEFINE_VARIABLES:]" in spl_text
-    
+
     types_pos = spl_text.index("[DEFINE_TYPES:]")
     vars_pos = spl_text.index("[DEFINE_VARIABLES:]")
     assert types_pos < vars_pos
@@ -154,3 +154,62 @@ def test_renderer_single_output_success() -> None:
     spl_text, errors, warnings = renderer.render(worker, profile, resources, symbol_table, steps, constraints)
     assert not errors
     assert "RESULT record: text SET" in spl_text
+
+
+def test_renderer_does_not_render_unsourced_optional_profile_items() -> None:
+    step = StepIR(
+        step_id="st7",
+        text="Record assumptions",
+        command_type="GENERAL_COMMAND",
+        source_span_ids=["s20"],
+        outputs=["record"],
+    )
+    worker, profile, resources, symbol_table, steps, constraints = _setup_renderer_args(step)
+    profile.persona = PersonaIR(
+        role="Internal communications specialist",
+        aspects=[
+            Aspect(
+                name="EvidenceDriven",
+                text="Maintains provenance.",
+                provenance_relation="assumed",
+            ),
+            Aspect(
+                name="SourceBacked",
+                text="Uses provided sources.",
+                source_span_ids=["s1"],
+                provenance_relation="direct",
+            ),
+        ],
+    )
+    profile.audience_aspects = [
+        Aspect(name="Executives", text="Senior leaders.", provenance_relation="assumed"),
+        Aspect(
+            name="Staff",
+            text="Internal staff.",
+            source_span_ids=["s2"],
+            provenance_relation="direct",
+        ),
+    ]
+    profile.concepts = [
+        Concept(term="AssumedConcept", definition="No evidence.", provenance_relation="assumed"),
+        Concept(
+            term="Provenance",
+            definition="Traceable origin.",
+            source_span_ids=["s3"],
+            provenance_relation="normalized",
+        ),
+    ]
+
+    renderer = SPLRenderer()
+    spl_text, errors, warnings = renderer.render(
+        worker, profile, resources, symbol_table, steps, constraints
+    )
+
+    assert not errors
+    assert "ROLE: Internal communications specialist" in spl_text
+    assert "EvidenceDriven:" not in spl_text
+    assert "SourceBacked: Uses provided sources." in spl_text
+    assert "Executives:" not in spl_text
+    assert "Staff: Internal staff." in spl_text
+    assert "AssumedConcept:" not in spl_text
+    assert "Provenance: Traceable origin." in spl_text

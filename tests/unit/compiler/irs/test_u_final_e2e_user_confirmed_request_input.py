@@ -19,19 +19,16 @@ This is the canonical acceptance test per §16.1 of the implementation plan.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
+from nl2spl.compiler.evidence import StepEvidenceKind, classify_step_evidence
 from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.compiler.producer_index import ProducerIndex, _step_is_renderable
-from nl2spl.compiler.evidence import classify_step_evidence, StepEvidenceKind
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
-
 
 # =============================================================================
 # The canonical UCR REQUEST_INPUT step (as produced by AddExceptionHandlerStep)
@@ -128,7 +125,7 @@ class TestE2EUserConfirmedRequestInput:
         """THE CORE FIX: post-normalize IRS must not block UCR REQUEST_INPUT."""
         checker = PostNormalizeIRSCheckerV6()
         step = _ucr_request_input_step()
-        ctx = _context()
+        _context()
         registry = SPLConstructRegistry.default()
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
@@ -163,9 +160,9 @@ class TestE2EUserConfirmedRequestInput:
 
         # 4. The step MUST be renderable
         assert report.renderable is True, (
-            f"ORIGINAL BUG: REQUEST_INPUT is NOT renderable — "
-            f"the user confirmed a repair, but the IRS blocked rendering "
-            f"because source_backed was False."
+            "ORIGINAL BUG: REQUEST_INPUT is NOT renderable — "
+            "the user confirmed a repair, but the IRS blocked rendering "
+            "because source_backed was False."
         )
 
         # 5. Completeness must be "complete"
@@ -175,7 +172,7 @@ class TestE2EUserConfirmedRequestInput:
         """No false 'assumed_command_not_renderable' for UCR REQUEST_INPUT."""
         checker = PostNormalizeIRSCheckerV6()
         step = _ucr_request_input_step()
-        ctx = _context()
+        _context()
         registry = SPLConstructRegistry.default()
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
@@ -204,7 +201,7 @@ class TestE2EUserConfirmedRequestInput:
             outputs=[],  # <-- missing outputs
             metadata={"origin": "user_confirmed_repair"},
         )
-        ctx = _context()
+        _context()
         registry = SPLConstructRegistry.default()
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None

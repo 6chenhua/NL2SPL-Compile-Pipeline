@@ -6,8 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
-from nl2spl.ir.field_route_ir import FieldRouteIR
+from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.pipeline.stages.stage8_profile_extractor import ProfileExtractor
@@ -40,6 +39,8 @@ class TestProfileExtractor:
 
         # Assert
         assert profile.persona.role == "Internal communications specialist"
+        assert profile.persona.source_span_ids == ["s1"]
+        assert profile.persona.provenance_relation == "normalized"
         assert len(profile.persona.aspects) == 2
         assert profile.persona.aspects[0].name == "Tone"
         assert profile.persona.aspects[0].text == "Professional and concise"
@@ -204,6 +205,145 @@ class TestProfileExtractor:
 
         # Assert
         assert profile.persona.role.startswith("Agent specializing in internal newsletters")
+        assert profile.persona.source_span_ids == ["s1"]
+        assert profile.persona.provenance_relation == "inferred"
+
+    def test_profile_payload_source_ids_are_validated(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Stage 8 binds source ids only when they match routed profile candidates."""
+        mock_client.call_json.return_value = {
+            "persona": {
+                "role": "Internal communications specialist",
+                "source_span_ids": ["s2", "s1"],
+                "aspects": [
+                    {
+                        "name": "EvidenceDriven",
+                        "text": "Maintains provenance for sourced claims",
+                        "source_span_ids": ["s1"],
+                    }
+                ],
+            },
+            "audience": {
+                "aspects": [
+                    {
+                        "name": "Executives",
+                        "text": "Senior leadership",
+                        "source_span_ids": ["s2"],
+                    }
+                ]
+            },
+            "concepts": [
+                {
+                    "term": "Provenance",
+                    "definition": "Traceable origin of a claim",
+                    "source_span_ids": ["s3", "s4"],
+                }
+            ],
+        }
+        extractor = ProfileExtractor(pipeline_config, mock_client)
+        spans = [
+            SpanIR(
+                "s1",
+                "Internal communications specialist maintains provenance for sourced claims.",
+                source_section_id="sec_profile",
+                source_packet_id="p_profile",
+            ),
+            SpanIR(
+                "s2",
+                "Audience: Senior leadership and executives.",
+                source_section_id="sec_audience",
+                source_packet_id="p_audience",
+            ),
+            SpanIR(
+                "s3",
+                "Provenance: Traceable origin of a claim.",
+                source_section_id="sec_concepts",
+                source_packet_id="p_concepts",
+            ),
+            SpanIR(
+                "s4",
+                "Provenance is retained for external facts.",
+                source_section_id="sec_concepts",
+                source_packet_id="p_concepts",
+            ),
+        ]
+        routes = FieldRouteIR(identity=["s1"], audience=["s2"], domain=["s3", "s4"])
+
+        profile = extractor.execute((spans, routes, SymbolTable()))
+
+        assert profile.persona.source_span_ids == ["s1"]
+        assert profile.persona.source_section_id == "sec_profile"
+        assert profile.persona.provenance_relation == "direct"
+        assert profile.persona.aspects[0].source_span_ids == ["s1"]
+        assert profile.audience_aspects[0].source_span_ids == ["s2"]
+        assert profile.concepts[0].source_span_ids == ["s3", "s4"]
+        assert profile.concepts[0].source_section_id == "sec_concepts"
+        assert profile.concepts[0].source_packet_id == "p_concepts"
+
+    def test_all_spans_fallback_does_not_trust_unmatched_llm_ids(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Without routed candidates, fallback requires exact/substring evidence."""
+        mock_client.call_json.return_value = {
+            "persona": {"role": "Auditor", "source_span_ids": ["s1"], "aspects": []},
+            "audience": {"aspects": []},
+            "concepts": [
+                {
+                    "term": "Provenance",
+                    "definition": "Traceable origin",
+                    "source_span_ids": ["s1"],
+                }
+            ],
+        }
+        extractor = ProfileExtractor(pipeline_config, mock_client)
+        spans = [SpanIR("s1", "Run the workflow and produce the draft.")]
+        routes = FieldRouteIR(behavior=["s1"])
+
+        profile = extractor.execute((spans, routes, SymbolTable()))
+
+        assert profile.persona.source_span_ids == []
+        assert profile.persona.provenance_relation == "assumed"
+        assert profile.concepts[0].source_span_ids == []
+        assert profile.concepts[0].provenance_relation == "assumed"
+
+    def test_profile_domain_annotation_does_not_bind_persona_direct_provenance(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """profile_domain annotations belong to concept/domain, not persona."""
+        mock_client.call_json.return_value = {
+            "persona": {
+                "role": "Internal communications specialist",
+                "source_span_ids": ["s_domain"],
+                "aspects": [],
+            },
+            "audience": {"aspects": []},
+            "concepts": [],
+        }
+        extractor = ProfileExtractor(pipeline_config, mock_client)
+        spans = [
+            SpanIR(
+                "s_domain",
+                "Task family: Internal newsletters and announcements.",
+                source_section_id="sec_task_family",
+            )
+        ]
+        routes = FieldRouteIR(
+            domain=["s_domain"],
+            annotations=[
+                RouteAnnotation(
+                    span_id="s_domain",
+                    field="domain",
+                    semantic_role="profile_domain",
+                    route_family="profile",
+                )
+            ],
+        )
+
+        profile = extractor.execute((spans, routes, SymbolTable()))
+
+        assert profile.persona.source_span_ids == []
+        assert profile.persona.provenance_relation == "assumed"
 
     def test_checkpoint_saved(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test that checkpoint is saved."""

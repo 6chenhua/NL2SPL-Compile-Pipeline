@@ -9,10 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from nl2spl.config import LLMConfig, PipelineConfig
-from nl2spl.pipeline.orchestrator import PipelineOrchestrator, PipelineResult
+from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
 class TestRAPIBaselineLockIntegration:

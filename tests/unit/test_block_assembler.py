@@ -546,7 +546,7 @@ class TestD4PartialExceptionSkeletons:
         blocks = result.exception_flow_blocks["exc_adapter_00"]
         block_ids = [b.block_id for b in blocks]
         assert "b_ok" in block_ids, f"Handler block b_ok must be preserved, got {block_ids}"
-        assert "b_bad" not in block_ids, f"Fabricated condition block b_bad must be stripped"
+        assert "b_bad" not in block_ids, "Fabricated condition block b_bad must be stripped"
 
     def test_system_prompt_contains_partial_skeleton_rule(
         self, pipeline_config: MagicMock, mock_client: MagicMock

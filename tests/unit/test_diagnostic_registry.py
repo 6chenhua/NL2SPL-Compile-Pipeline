@@ -109,13 +109,13 @@ class TestDefaultRegistry:
         kinds = self.registry.list_kinds()
         assert "missing_handler" in kinds
         assert "redundant_requirement" in kinds  # reserved but still listed
-        assert len(kinds) == 17  # enabled + reserved, including R8 output states
+        assert len(kinds) == 24  # enabled + reserved, including R8 output states + condition variable diagnostics
 
     def test_list_kinds_enabled_only(self):
         kinds = self.registry.list_kinds(enabled_only=True)
         assert "missing_handler" in kinds
         assert "redundant_requirement" not in kinds
-        assert len(kinds) == 12  # B5 + R8 required output deferred
+        assert len(kinds) == 19  # B5 + R8 required output deferred + condition variable diagnostics
 
     # -- validation ----------------------------------------------------------
 

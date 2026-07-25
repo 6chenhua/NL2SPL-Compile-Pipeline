@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nl2spl.pipeline.stages.stage1_segmentation.config import Stage1SegmentationConfig
 
+
 def test_stage1_segmentation_config_defaults() -> None:
     config = Stage1SegmentationConfig()
     assert config.mode == "legacy_packet_passthrough"

@@ -6,14 +6,11 @@ loaded from tests/fixtures/sample_inputs.py to avoid hardcoding.
 
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from nl2spl.ir import (
     AgentProfileIR,
     Aspect,
     BlockIR,
     BlockStructureIR,
-    Concept,
     ConstraintIR,
     DelegationCandidate,
     FieldRouteIR,
@@ -25,11 +22,9 @@ from nl2spl.ir import (
     SymbolTable,
     VariableSpec,
 )
-from nl2spl.ir.flow_structure_ir import AlternativeFlow, ExceptionFlow
+from nl2spl.ir.flow_structure_ir import ExceptionFlow
 from tests.fixtures.sample_inputs import (
     STAGE1_OUTPUT_STANDARD,
-    STAGE2_OUTPUT_STANDARD,
-    STAGE3_OUTPUT_STANDARD,
     STAGE4_OUTPUT_STANDARD,
     STAGE5_OUTPUT_STANDARD,
     STAGE6_OUTPUT_STANDARD,
@@ -38,7 +33,6 @@ from tests.fixtures.sample_inputs import (
     STAGE9_OUTPUT_STANDARD,
     STANDARD_INPUT,
 )
-
 
 # =============================================================================
 # Raw Text Input
@@ -202,20 +196,6 @@ STAGE6_EXPECTED_RESOURCES = ResourceRegistryIR(
             description="Completion status indicator",
             source="output",
         ),
-        VariableSpec(
-            name="communication_type",
-            data_type="text",
-            required=False,
-            description="Type of communication determined",
-            source="step",
-        ),
-        VariableSpec(
-            name="missing_fields",
-            data_type="List[text]",
-            required=False,
-            description="List of missing required fields",
-            source="step",
-        ),
     ],
     files=[],
     apis=[],
@@ -229,8 +209,6 @@ def _build_stage6_expected_symbol_table() -> SymbolTable:
     table.declare(name="user_request", data_type="text", source="input", description="User's request text")
     table.declare(name="draft_communication", data_type="text", source="output", description="Draft communication text")
     table.declare(name="completion_status", data_type="text", source="output", description="Completion status indicator")
-    table.declare(name="communication_type", data_type="text", source="step", description="Type of communication determined")
-    table.declare(name="missing_fields", data_type="List[text]", source="step", description="List of missing required fields")
     return table
 
 
@@ -353,7 +331,7 @@ def compare_spans(actual: list[SpanIR], expected: list[SpanIR]) -> list[str]:
     if len(actual) != len(expected):
         mismatches.append(f"Span count: {len(actual)} != {len(expected)}")
         return mismatches
-    for a, e in zip(actual, expected):
+    for a, e in zip(actual, expected, strict=False):
         if a.span_id != e.span_id:
             mismatches.append(f"span_id mismatch: {a.span_id} != {e.span_id}")
         if a.text != e.text:
@@ -428,7 +406,7 @@ def compare_block_structures(actual: BlockStructureIR, expected: BlockStructureI
             f"main_flow_blocks count: {len(actual.main_flow_blocks)} != {len(expected.main_flow_blocks)}"
         )
     else:
-        for a, e in zip(actual.main_flow_blocks, expected.main_flow_blocks):
+        for a, e in zip(actual.main_flow_blocks, expected.main_flow_blocks, strict=False):
             if a.block_id != e.block_id or a.block_type != e.block_type:
                 mismatches.append(f"main block mismatch: {a.block_id}({a.block_type}) != {e.block_id}({e.block_type})")
     if set(actual.alternative_flow_blocks.keys()) != set(expected.alternative_flow_blocks.keys()):
@@ -456,7 +434,7 @@ def compare_steps(actual: list[StepIR], expected: list[StepIR]) -> list[str]:
     if len(actual) != len(expected):
         mismatches.append(f"Step count: {len(actual)} != {len(expected)}")
         return mismatches
-    for a, e in zip(actual, expected):
+    for a, e in zip(actual, expected, strict=False):
         if a.step_id != e.step_id:
             mismatches.append(f"step_id mismatch: {a.step_id} != {e.step_id}")
         if a.text != e.text:
@@ -482,7 +460,7 @@ def compare_constraints(actual: list[ConstraintIR], expected: list[ConstraintIR]
     if len(actual) != len(expected):
         mismatches.append(f"Constraint count: {len(actual)} != {len(expected)}")
         return mismatches
-    for a, e in zip(actual, expected):
+    for a, e in zip(actual, expected, strict=False):
         if a.constraint_id != e.constraint_id:
             mismatches.append(f"constraint_id mismatch: {a.constraint_id} != {e.constraint_id}")
         if a.kind != e.kind:

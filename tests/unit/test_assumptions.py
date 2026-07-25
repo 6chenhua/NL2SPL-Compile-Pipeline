@@ -5,7 +5,6 @@ from __future__ import annotations
 from nl2spl.compiler.assumptions import AssumptionBuilder
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
-
 # ---------------------------------------------------------------------------
 # missing_handler
 # ---------------------------------------------------------------------------
@@ -130,6 +129,42 @@ class TestMissingProvenance:
         assert a.target_ref == "variable:orphan"
         assert a.related_diagnostic_id == "D006"
         assert "provenance" in a.text.lower() or "source" in a.reason.lower()
+
+    def test_profile_missing_provenance_uses_profile_wording(self) -> None:
+        diag = CompileDiagnostic(
+            "D_PROFILE",
+            "missing_provenance",
+            "warning",
+            "Rendered profile item has no source-backed provenance.",
+            target_ref="profile:persona.aspect:0",
+            metadata={"profile_item": True, "rendered_profile_item": True},
+        )
+        builder = AssumptionBuilder()
+        asms = builder.build([diag])
+
+        assert len(asms) == 1
+        a = asms[0]
+        assert a.target_ref == "profile:persona.aspect:0"
+        assert "profile item" in a.text.lower()
+        assert "rendered profile item" in a.text.lower()
+        assert "variable" not in a.text.lower()
+
+    def test_unrendered_profile_missing_provenance_uses_unrendered_wording(self) -> None:
+        diag = CompileDiagnostic(
+            "D_PROFILE_UNRENDERED",
+            "missing_provenance",
+            "warning",
+            "Unrendered profile item has no source-backed provenance.",
+            target_ref="profile:concept:0",
+            metadata={"profile_item": True, "rendered_profile_item": False},
+        )
+        builder = AssumptionBuilder()
+        asms = builder.build([diag])
+
+        assert len(asms) == 1
+        a = asms[0]
+        assert "unrendered profile item" in a.text.lower()
+        assert "did not render" in a.reason.lower()
 
 
 # ---------------------------------------------------------------------------

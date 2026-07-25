@@ -5,7 +5,6 @@ from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
-from nl2spl.ir.worker_ir import ChildWorkerIR, FlowRef
 from nl2spl.ir.worker_plan_ir import (
     ContractFieldIR,
     WorkerBlockPlanIR,

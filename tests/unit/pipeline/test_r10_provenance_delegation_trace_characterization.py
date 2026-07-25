@@ -11,28 +11,18 @@ Coverage targets per Section 4.5:
 
 from __future__ import annotations
 
-import pytest
-
+from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.feedback_report_renderer import _trace_group
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.compiler.irs.projector import DiagnosticProjector
 from nl2spl.compiler.irs.registry import IRSCheckerRegistry
-from nl2spl.compiler.irs.result_store import IRSResultStore, IRSStageResult
 from nl2spl.compiler.irs.runner import IRSRunner
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
-    WorkerSpecIR,
-    WorkerHandoffIR,
-    InputBindingIR,
-    OutputBindingIR,
-    InvokeLocationHintIR,
 )
-from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 from nl2spl.pipeline.provenance import TraceRecord
-
 
 # ===========================================================================
 # Characterization: _trace_group delegates delegation_intent:* → "Delegation Intents"

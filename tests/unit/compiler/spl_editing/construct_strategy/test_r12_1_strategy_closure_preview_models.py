@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import sys
+
 import pytest
 
 from nl2spl.compiler.spl_editing.closure import (
@@ -79,7 +80,7 @@ def _make_closure_plan(strategy_id: str = "strat_1") -> ConstructClosurePlan:
     )
 
 
-class TestR12_1Models:
+class TestR12_1Models:  # noqa: N801
     def test_dto_immutability_own_fields(self) -> None:
         """Verify all DTO instances are strictly frozen on their own declared fields.
 
@@ -360,7 +361,7 @@ class TestR12_1Models:
         assert result.rendered_preview == "preview text"
 
 
-class TestR12_1HashHelpers:
+class TestR12_1HashHelpers:  # noqa: N801
     def test_intent_hash_stability_and_sensitivity(self) -> None:
         """Verify compute_intent_hash is stable for identical inputs and sensitive to changes."""
         intent_a = _make_intent(intent_id="int_1", selected_ref_ids=("ref_x",))
@@ -413,7 +414,7 @@ class TestR12_1HashHelpers:
         assert hash_a != hash_c
 
 
-class TestR12_1ImportIsolation:
+class TestR12_1ImportIsolation:  # noqa: N801
     def test_no_forbidden_runtime_imports_in_models(self) -> None:
         """Verify strategy, closure, and preview model files do not import runtime handlers, appliers, or CLI."""
         forbidden_modules = {
@@ -430,7 +431,7 @@ class TestR12_1ImportIsolation:
                 # Inspect imports of the loaded modules to ensure no dependencies exist
                 module_obj = sys.modules[mod]
                 module_vars = vars(module_obj)
-                for var_name, var_val in module_vars.items():
+                for _var_name, var_val in module_vars.items():
                     if hasattr(var_val, "__name__"):
                         mod_name = var_val.__name__
                         assert not any(mod_name.startswith(f) for f in forbidden_modules), (

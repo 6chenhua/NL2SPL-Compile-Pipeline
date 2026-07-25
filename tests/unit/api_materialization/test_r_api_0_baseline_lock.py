@@ -4,27 +4,22 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, PersonaIR
 from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
-from nl2spl.ir.resource_registry_ir import ResourceRegistryIR
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
-from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import (
-    BoundaryKind,
-    ContractFieldIR,
     WorkerBlockPlanIR,
     WorkerBoundaryDecisionIR,
     WorkerFlowPlanIR,
     WorkerPlanIR,
     WorkerSpecIR,
 )
-from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 from nl2spl.pipeline.stages.stage7_step_extractor import StepExtractor
+from nl2spl.pipeline.stages.stage11_spl_renderer import SPLRenderer
 
 
 class TestRAPIBaselineLockUnit:

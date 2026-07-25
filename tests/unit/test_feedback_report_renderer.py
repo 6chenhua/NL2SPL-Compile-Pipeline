@@ -197,6 +197,47 @@ class TestFeedbackReportRenderer:
         assert "step:st_1" in report
         assert "s1" in report
 
+    def test_profile_materialized_requires_source_spans(self) -> None:
+        """Profile traces without source spans stay out of materialized structure."""
+        report = render_feedback_report(
+            spl_text="[DEFINE_PERSONA]\nROLE: Analyst\n[END_PERSONA]",
+            completeness="partial",
+            diagnostics=[
+                CompileDiagnostic(
+                    diagnostic_id="D_PROFILE",
+                    kind="missing_provenance",
+                    severity="warning",
+                    message="Rendered profile item has no source-backed provenance.",
+                    target_ref="profile:persona",
+                    blocks_rendering=False,
+                    blocks_completion=True,
+                )
+            ],
+            traces=[
+                TraceRecord(
+                    target_ref="profile:persona",
+                    source_span_ids=[],
+                    relation="inferred",
+                    explanation="Persona: Analyst",
+                ),
+                TraceRecord(
+                    target_ref="profile:concept:0",
+                    source_span_ids=["s1"],
+                    relation="normalized",
+                    explanation="Concept: Provenance",
+                ),
+            ],
+        )
+
+        materialized_section = report.split(
+            "## 2. Materialized Source-Backed Structure"
+        )[1].split("## 3. Not Materialized / Kept Partial")[0]
+        assert "### Profiles" in materialized_section
+        assert "profile:concept:0" in materialized_section
+        assert "profile:persona" not in materialized_section
+        assert "D_PROFILE" in report
+        assert "Blocks completion: `true`" in report
+
 
 # ===========================================================================
 # D7: Route-derived exception flow evidence in feedback report

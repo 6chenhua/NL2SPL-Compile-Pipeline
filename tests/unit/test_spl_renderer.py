@@ -30,9 +30,9 @@ class TestSPLRenderer:
             outputs=[WorkerOutput("output1", True)],
         )
         profile = AgentProfileIR(
-            persona=PersonaIR(role="Test Role", aspects=[Aspect("Tone", "Professional")]),
-            audience_aspects=[Aspect("Level", "Senior")],
-            concepts=[Concept("Test", "Definition")],
+            persona=PersonaIR(role="Test Role", aspects=[Aspect("Tone", "Professional", ["s1"], provenance_relation="direct")]),
+            audience_aspects=[Aspect("Level", "Senior", ["s1"], provenance_relation="direct")],
+            concepts=[Concept("Test", "Definition", ["s1"], provenance_relation="direct")],
         )
         resources = ResourceRegistryIR(
             variables=[
@@ -209,9 +209,9 @@ class TestSPLRenderer:
             persona=PersonaIR(
                 role="Test Role",
                 aspects=[
-                    Aspect("Tone", "Professional"),
-                    Aspect("Style", "Concise"),
-                    Aspect("Format", "Clear"),
+                    Aspect("Tone", "Professional", ["s1"], provenance_relation="direct"),
+                    Aspect("Style", "Concise", ["s1"], provenance_relation="direct"),
+                    Aspect("Format", "Clear", ["s1"], provenance_relation="direct"),
                 ],
             )
         )

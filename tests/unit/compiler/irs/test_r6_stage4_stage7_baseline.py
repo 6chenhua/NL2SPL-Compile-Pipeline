@@ -8,21 +8,14 @@ populated by DiagnosticProjector.
 
 from __future__ import annotations
 
-import pytest
-
-from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerStepPlanIR
 from nl2spl.pipeline.stages.stage4_flow_assembler.irs_checker import (
     check_exception_flows_irs,
-    check_worker_flow_plan_exception_flows_irs,
 )
 from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
     check_steps_irs,
-    check_worker_step_plan_irs,
 )
-
 
 # ------------------------------------------------------------------
 # Stage 4 baseline

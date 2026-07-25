@@ -9,16 +9,10 @@ import pytest
 
 from nl2spl.config import LLMConfig, PipelineConfig
 from nl2spl.ir import (
-    AmbiguityInfo,
-    BlockIR,
     BlockStructureIR,
-    ConstraintIR,
-    DelegationCandidate,
     FieldRouteIR,
     FlowStructureIR,
     ResourceRegistryIR,
-    SpanIR,
-    StepIR,
     SymbolTable,
 )
 from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
@@ -30,7 +24,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerStepPlanIR,
 )
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator, PipelineResult
-
 
 # =============================================================================
 # Test Fixtures
@@ -330,7 +323,7 @@ class TestPipelineErrorHandling:
         """Test that pipeline handles empty input gracefully."""
         orchestrator = PipelineOrchestrator(pipeline_config)
 
-        with pytest.raises(Exception):  # Should raise appropriate error
+        with pytest.raises(Exception):  # noqa: B017 - pipeline may raise stage-specific errors
             orchestrator.run("")
 
     def test_pipeline_handles_llm_error(self, pipeline_config: PipelineConfig) -> None:
@@ -342,7 +335,7 @@ class TestPipelineErrorHandling:
         with patch.object(orchestrator.client, "call_json") as mock_call:
             mock_call.side_effect = LLMError("API Error", stage="test")
 
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017 - preserves broad pipeline error contract
                 orchestrator.run("Test input")
 
 
@@ -474,11 +467,11 @@ class TestPipelinePerformance:
         """Test pipeline completes within acceptable time."""
         import time
 
-        orchestrator = PipelineOrchestrator(pipeline_config)
+        PipelineOrchestrator(pipeline_config)
 
         start = time.time()
         # result = orchestrator.run(standard_input)
-        elapsed = time.time() - start
+        time.time() - start
 
         # Should complete within 60 seconds
         # assert elapsed < 60

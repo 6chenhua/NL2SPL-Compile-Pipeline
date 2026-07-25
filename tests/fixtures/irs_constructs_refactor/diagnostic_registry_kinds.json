@@ -1,0 +1,314 @@
+{
+  "all": [
+    "assumed_command_not_renderable",
+    "condition_variable_invalid_qualified_ref",
+    "condition_variable_llm_candidate_rejected",
+    "condition_variable_not_available_before_decision",
+    "condition_variable_not_visible_in_scope",
+    "condition_variable_ref_ambiguous",
+    "condition_variable_ref_removed_by_composite_without_rewrite",
+    "condition_variable_ref_unresolved",
+    "deferred_api_contract_validation",
+    "missing_handler",
+    "missing_output_producer",
+    "missing_provenance",
+    "missing_resource_contract",
+    "policy_step_conflict",
+    "redundant_requirement",
+    "required_output_deferred",
+    "required_output_missing_source_backed_producer",
+    "resource_kind_mismatch",
+    "semantic_conflict",
+    "type_or_contract_ambiguity",
+    "unmapped_behavior_span",
+    "unspecified_output_missing_producer",
+    "use_before_def",
+    "worker_graph_inconsistency"
+  ],
+  "enabled": [
+    "assumed_command_not_renderable",
+    "condition_variable_invalid_qualified_ref",
+    "condition_variable_llm_candidate_rejected",
+    "condition_variable_not_available_before_decision",
+    "condition_variable_not_visible_in_scope",
+    "condition_variable_ref_ambiguous",
+    "condition_variable_ref_removed_by_composite_without_rewrite",
+    "condition_variable_ref_unresolved",
+    "deferred_api_contract_validation",
+    "missing_handler",
+    "missing_output_producer",
+    "missing_provenance",
+    "missing_resource_contract",
+    "required_output_deferred",
+    "resource_kind_mismatch",
+    "semantic_conflict",
+    "type_or_contract_ambiguity",
+    "unmapped_behavior_span",
+    "unspecified_output_missing_producer"
+  ],
+  "reserved": [
+    "policy_step_conflict",
+    "redundant_requirement",
+    "required_output_missing_source_backed_producer",
+    "use_before_def",
+    "worker_graph_inconsistency"
+  ],
+  "specs": [
+    {
+      "allowed_targets": [
+        "step"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A step has no source evidence and is not compiler scaffolding.",
+      "enabled": true,
+      "kind": "assumed_command_not_renderable"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition references a structured field that does not exist.",
+      "enabled": true,
+      "kind": "condition_variable_invalid_qualified_ref"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition semantic candidate was rejected by deterministic admission.",
+      "enabled": true,
+      "kind": "condition_variable_llm_candidate_rejected"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition reads a variable that is not available before the decision.",
+      "enabled": true,
+      "kind": "condition_variable_not_available_before_decision"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition reads a variable that is not visible in this control scope.",
+      "enabled": true,
+      "kind": "condition_variable_not_visible_in_scope"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition variable reference is ambiguous in the current scope.",
+      "enabled": true,
+      "kind": "condition_variable_ref_ambiguous"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition references a variable removed by composite output lowering.",
+      "enabled": true,
+      "kind": "condition_variable_ref_removed_by_composite_without_rewrite"
+    },
+    {
+      "allowed_targets": [
+        "condition"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A condition references or semantically depends on an unknown variable.",
+      "enabled": true,
+      "kind": "condition_variable_ref_unresolved"
+    },
+    {
+      "allowed_targets": [
+        "api"
+      ],
+      "blocks_completion": false,
+      "default_severity": "info",
+      "description": "API declaration uses grammar-safe placeholders; semantic contract validation is deferred to the downstream SPL compiler.",
+      "enabled": true,
+      "kind": "deferred_api_contract_validation"
+    },
+    {
+      "allowed_targets": [
+        "exception_flow"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "Exception flow has a condition but no handler action.",
+      "enabled": true,
+      "kind": "missing_handler"
+    },
+    {
+      "allowed_targets": [
+        "variable",
+        "output"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A required output has no source-backed producer.",
+      "enabled": true,
+      "kind": "missing_output_producer"
+    },
+    {
+      "allowed_targets": [
+        "step",
+        "variable",
+        "constraint",
+        "flow"
+      ],
+      "blocks_completion": false,
+      "default_severity": "warning",
+      "description": "A materialised SPL element lacks provenance traces.",
+      "enabled": true,
+      "kind": "missing_provenance"
+    },
+    {
+      "allowed_targets": [
+        "resource_contract_demand"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A source-demanded resource contract has no materialized resource binding in Stage 6.",
+      "enabled": true,
+      "kind": "missing_resource_contract"
+    },
+    {
+      "allowed_targets": [
+        "step",
+        "constraint"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A step or command violates an explicit policy or constraint.",
+      "enabled": false,
+      "kind": "policy_step_conflict"
+    },
+    {
+      "allowed_targets": [
+        "span",
+        "step",
+        "constraint"
+      ],
+      "blocks_completion": false,
+      "default_severity": "info",
+      "description": "Two or more requirements express the same intent.",
+      "enabled": false,
+      "kind": "redundant_requirement"
+    },
+    {
+      "allowed_targets": [
+        "variable",
+        "output"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A required output may be supplied by a deferred API response, but the API return contract is not yet known.",
+      "enabled": true,
+      "kind": "required_output_deferred"
+    },
+    {
+      "allowed_targets": [
+        "variable",
+        "output"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A required output has no source-backed producer relation.",
+      "enabled": false,
+      "kind": "required_output_missing_source_backed_producer"
+    },
+    {
+      "allowed_targets": [
+        "resource_contract_demand"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A resource contract binding points to a resource kind that does not exist in the materialized ResourceRegistryIR.",
+      "enabled": true,
+      "kind": "resource_kind_mismatch"
+    },
+    {
+      "allowed_targets": [
+        "step",
+        "constraint",
+        "policy"
+      ],
+      "blocks_completion": false,
+      "default_severity": "warning",
+      "description": "A likely or possible semantic conflict between constraints, steps, or policies.  MVP uses LLM prompt analysis; future phases may add rule-based detection.",
+      "enabled": true,
+      "kind": "semantic_conflict"
+    },
+    {
+      "allowed_targets": [
+        "step",
+        "api",
+        "worker",
+        "handoff"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A construct references an incomplete or ambiguous type / API / worker contract.",
+      "enabled": true,
+      "kind": "type_or_contract_ambiguity"
+    },
+    {
+      "allowed_targets": [
+        "span"
+      ],
+      "blocks_completion": true,
+      "default_severity": "warning",
+      "description": "A behaviour span has not been mapped to any construct.",
+      "enabled": true,
+      "kind": "unmapped_behavior_span"
+    },
+    {
+      "allowed_targets": [
+        "resource_contract_demand"
+      ],
+      "blocks_completion": false,
+      "default_severity": "info",
+      "description": "A source-demanded output with requiredness=unspecified has no renderable producer.  Review whether this output should be declared optional or a producer should be added.",
+      "enabled": true,
+      "kind": "unspecified_output_missing_producer"
+    },
+    {
+      "allowed_targets": [
+        "variable",
+        "step"
+      ],
+      "blocks_completion": true,
+      "default_severity": "error",
+      "description": "A variable is consumed before any producer defines it.",
+      "enabled": false,
+      "kind": "use_before_def"
+    },
+    {
+      "allowed_targets": [
+        "worker",
+        "handoff"
+      ],
+      "blocks_completion": true,
+      "default_severity": "error",
+      "description": "The multi-worker call graph has an inconsistency.",
+      "enabled": false,
+      "kind": "worker_graph_inconsistency"
+    }
+  ]
+}

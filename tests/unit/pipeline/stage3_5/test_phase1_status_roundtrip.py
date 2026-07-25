@@ -415,12 +415,12 @@ class TestCreateWorkerHandoffContractPatchStatus:
             snapshot_id="snap_1", compile_run_id="run_1",
             overlay_version=0, worker_plan=plan,
         )
-        from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
-            CreateWorkerHandoffContractApplier,
-        )
         import pytest
 
         from nl2spl.compiler.spl_editing.core.errors import SPLEditingError
+        from nl2spl.compiler.spl_editing.patches.create_worker_handoff_contract.applier import (
+            CreateWorkerHandoffContractApplier,
+        )
 
         with pytest.raises(SPLEditingError, match="RepairMaterializationService"):
             CreateWorkerHandoffContractApplier().apply(patch, snap)

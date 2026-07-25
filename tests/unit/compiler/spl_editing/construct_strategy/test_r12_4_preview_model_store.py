@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+
 import pytest
 
 from nl2spl.compiler.spl_editing.preview import (
@@ -13,7 +14,6 @@ from nl2spl.compiler.spl_editing.preview import (
 )
 from nl2spl.compiler.spl_editing.preview.hashes import (
     compute_directive_hash,
-    compute_llm_generation_config_hash,
     compute_preview_construct_hashes_hash,
     compute_selected_refset_hash,
     compute_slice_typed_plan_hashes_hash,
@@ -53,7 +53,7 @@ def test_hash_determinism_and_order_independence() -> None:
     # 1. Slice typed plan hashes order-independence
     ref_a = StageSliceTypedPlanRef(slice_id="slice_a", typed_plan_hash="ha")
     ref_b = StageSliceTypedPlanRef(slice_id="slice_b", typed_plan_hash="hb")
-    
+
     hash1 = compute_slice_typed_plan_hashes_hash((ref_a, ref_b))
     hash2 = compute_slice_typed_plan_hashes_hash((ref_b, ref_a))
     assert hash1 == hash2
@@ -138,7 +138,7 @@ def test_preview_store_snapshot_validation() -> None:
     """Verify that a preview generated on snapshot A cannot be validated against snapshot B."""
     store = PreviewStore()
     preview = _make_preview(preview_id="p1", base_snapshot_id="snap_a")
-    
+
     store.put("sess_1", "iss_1", "snap_a", preview)
 
     # Validating against snap_a succeeds
@@ -153,7 +153,7 @@ def test_preview_store_session_issue_validation() -> None:
     """Verify that session or issue mismatch rejects access and validation."""
     store = PreviewStore()
     preview = _make_preview(preview_id="p1", base_snapshot_id="snap_1")
-    
+
     store.put("sess_1", "iss_1", "snap_1", preview)
 
     # Session mismatch
@@ -234,7 +234,7 @@ def test_preview_store_no_mutation_pollution() -> None:
     # Modifying the retrieved list shouldn't pollute the store
     retrieved_list = list(stored_preview.slice_typed_plan_hashes)
     retrieved_list.append(StageSliceTypedPlanRef(slice_id="s2", typed_plan_hash="h2"))
-    
+
     # Verify a second get() still returns the original list length
     stored_preview_2 = store.get("p1")
     assert len(stored_preview_2.slice_typed_plan_hashes) == 1

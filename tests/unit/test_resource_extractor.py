@@ -73,8 +73,10 @@ class TestResourceExtractor:
         assert resources.variables[0].source == "output"
         assert "draft_communication" in symbols.variables
 
-    def test_step_variables(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
-        """Test intermediate variable identification."""
+    def test_step_variables_without_authority_are_rejected(
+        self, pipeline_config: MagicMock, mock_client: MagicMock
+    ) -> None:
+        """Stage 6 does not declare raw step variables."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Then use the result to continue")]
         routes = FieldRouteIR(behavior=["s1"])
@@ -98,8 +100,8 @@ class TestResourceExtractor:
         resources, symbols = extractor.execute((spans, routes))
 
         # Assert
-        assert len(resources.variables) == 1
-        assert resources.variables[0].source == "step"
+        assert resources.variables == []
+        assert "intermediate_result" not in symbols.variables
 
     def test_api_extraction(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test API extraction."""

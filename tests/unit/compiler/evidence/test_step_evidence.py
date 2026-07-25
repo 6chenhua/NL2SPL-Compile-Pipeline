@@ -14,9 +14,8 @@ Plus import isolation tests per §7.7 boundary requirements.
 
 from __future__ import annotations
 
-from nl2spl.compiler.evidence import StepEvidence, StepEvidenceKind, classify_step_evidence
+from nl2spl.compiler.evidence import StepEvidenceKind, classify_step_evidence
 from nl2spl.ir.step_ir import StepIR
-
 
 # =============================================================================
 # Helpers
@@ -251,8 +250,8 @@ class TestImportIsolation:
     or renderer."""
 
     def test_no_spl_editing_import(self) -> None:
+
         import nl2spl.compiler.evidence.step_evidence as mod
-        import sys
         for name in sorted(mod.__dict__):
             obj = getattr(mod, name)
             if hasattr(obj, "__module__"):
@@ -262,22 +261,21 @@ class TestImportIsolation:
                 )
             elif hasattr(obj, "__name__"):
                 if "spl_editing" in obj.__name__:
-                    assert False, f"module {mod.__name__} references spl_editing via {name}"
+                    raise AssertionError(f"module {mod.__name__} references spl_editing via {name}")
 
     def test_no_llm_import(self) -> None:
         """Evidence predicate must not import the LLM client module."""
-        import sys
         import nl2spl.compiler.evidence.step_evidence as mod
         for name in sorted(mod.__dict__):
             obj = getattr(mod, name)
             if hasattr(obj, "__module__") and "llm" in obj.__module__:
-                assert False, f"module imports LLM via {name}"
+                raise AssertionError(f"module imports LLM via {name}")
 
     def test_no_renderer_import(self) -> None:
         """Evidence predicate must not import renderer."""
+
         import nl2spl.compiler.evidence.step_evidence as mod
-        import sys
         for name in sorted(mod.__dict__):
             obj = getattr(mod, name)
             if hasattr(obj, "__module__") and "renderer" in obj.__module__:
-                assert False, f"module imports renderer via {name}"
+                raise AssertionError(f"module imports renderer via {name}")

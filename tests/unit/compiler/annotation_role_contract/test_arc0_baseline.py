@@ -9,8 +9,6 @@ implementation plan, Section 6 (ARC0: Baseline and Gap Audit).
 
 from __future__ import annotations
 
-import pytest
-
 # ===========================================================================
 # Test 1: profile_domain + RESOURCE_CONTRACT/input risk
 # ===========================================================================
@@ -82,13 +80,13 @@ class TestProfileDomainResourceContractGap:
         The canonical registry encodes explicit construct_target=None for
         profile_domain.  The full-field validator now enforces this.
         """
-        from nl2spl.pipeline.stages.stage2_field_router_validator import (
-            _ROLE_CONTRACT,
-            RouteRefinementValidator,
-        )
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
+        )
+        from nl2spl.pipeline.stages.stage2_field_router_validator import (
+            _ROLE_CONTRACT,
+            RouteRefinementValidator,
         )
 
         contract = _ROLE_CONTRACT.get("profile_domain", {})
@@ -132,14 +130,14 @@ class TestProfileDomainResourceContractGap:
 
     def test_validator_enforces_none_slot_target_for_profile_domain(self):
         """ARC4: Validator rejects profile_domain with slot_target=input."""
-        from nl2spl.pipeline.stages.stage2_field_router_validator import (
-            RouteRefinementValidator,
-        )
+        from nl2spl.ir.span_ir import SpanIR
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
         )
-        from nl2spl.ir.span_ir import SpanIR
+        from nl2spl.pipeline.stages.stage2_field_router_validator import (
+            RouteRefinementValidator,
+        )
 
         ann = RefinedAnnotation(
             span_id="sp_001",
@@ -328,6 +326,7 @@ class TestSchemaConstantsAreHardcoded:
         role contract registry.  This test was inverted after ARC2
         completion — it formerly documented the GAP-02 pre-ARC2 state."""
         import inspect
+
         from nl2spl.pipeline.stages import stage2_field_router_prompt as m
 
         source = inspect.getsource(m)
@@ -378,14 +377,14 @@ class TestValidatorMissingExpectedNone:
     def test_validator_now_rejects_profile_domain_with_construct_target(self):
         """ARC4: Full-field validator rejects profile_domain with
         construct_target=RESOURCE_CONTRACT — expected None is enforced."""
-        from nl2spl.pipeline.stages.stage2_field_router_validator import (
-            RouteRefinementValidator,
-        )
+        from nl2spl.ir.span_ir import SpanIR
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
         )
-        from nl2spl.ir.span_ir import SpanIR
+        from nl2spl.pipeline.stages.stage2_field_router_validator import (
+            RouteRefinementValidator,
+        )
 
         ann = RefinedAnnotation(
             span_id="sp_test",
@@ -472,6 +471,7 @@ class TestDeterministicPathNotUsingSharedContract:
         """_build_packet_annotation() reads from _ANNOTATION_SEMANTICS, not from
         ROUTE_PRIOR_ROLE_CONTRACTS or a shared role contract registry."""
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 
         source = inspect.getsource(FieldRouter._build_packet_annotation)
@@ -516,6 +516,7 @@ class TestDemandViewSemanticRoleAuthorization:
         """_select_contract_annotations filters by semantic_role, not by
         construct_target, route_family, or slot_target."""
         import inspect
+
         from nl2spl.compiler.resource_contract_demand_view.builder import (
             DemandViewBuilder,
         )
@@ -653,6 +654,7 @@ class TestRequirednessIndependentFromRoleContract:
         """_enrich_contract_requiredness is a standalone method, separate from
         _normalize_annotation_contract."""
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 
         normalize_source = inspect.getsource(FieldRouter._normalize_annotation_contract)
@@ -675,6 +677,7 @@ class TestRequirednessIndependentFromRoleContract:
         """In _execute_canonical(), _enrich_contract_requiredness is called AFTER
         the LLM merge (which includes normalization)."""
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 
         source = inspect.getsource(FieldRouter._execute_canonical)
@@ -925,7 +928,7 @@ class TestEnrichFromHintsRoleContractBypass:
 
         router = self._make_router()
 
-        ann = RouteAnnotation(
+        RouteAnnotation(
             span_id="sp_004",
             field="behavior",
             semantic_role=None,  # not yet assigned
@@ -939,7 +942,7 @@ class TestEnrichFromHintsRoleContractBypass:
             text="some span text",
             metadata={"semantic_role": "input_contract"},  # hint claims it's a resource
         )
-        hint_indexes = self._make_hint_indexes({"flow": [hint]})
+        self._make_hint_indexes({"flow": [hint]})
 
         # _hint_category_for(None) returns "" so hints won't be matched.
         # But if semantic_role is later set and the category matches, hints apply.
@@ -1077,8 +1080,8 @@ class TestEnrichFromHintsRoleContractBypass:
         it only emits a diagnostic. All other role-contract fields ARE mutated."""
         import inspect
 
-        from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
         from nl2spl.ir.field_route_ir import RouteAnnotation
+        from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 
         router = self._make_router()
 

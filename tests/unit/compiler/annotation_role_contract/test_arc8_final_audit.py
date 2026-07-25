@@ -65,6 +65,7 @@ class TestFinalAudit:
     # 5. Validator uses registry.
     def test_validator_uses_registry(self):
         import inspect
+
         from nl2spl.pipeline.stages import stage2_field_router_validator as m
         source = inspect.getsource(m)
         assert "ROLE_CONTRACT_REGISTRY" in source
@@ -72,6 +73,7 @@ class TestFinalAudit:
     # 6. Deterministic annotation builder uses registry.
     def test_deterministic_path_uses_registry(self):
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
         source = inspect.getsource(FieldRouter._build_packet_annotation)
         assert "normalize_annotation_from_role" in source
@@ -79,6 +81,7 @@ class TestFinalAudit:
     # 7. DemandView only authorizes demand by semantic_role.
     def test_demandview_uses_semantic_role_only(self):
         import inspect
+
         from nl2spl.compiler.resource_contract_demand_view.builder import (
             DemandViewBuilder,
         )
@@ -90,6 +93,7 @@ class TestFinalAudit:
     # 8. Requiredness not in role contract.
     def test_requiredness_not_in_role_contract(self):
         import dataclasses
+
         from nl2spl.compiler.annotation_role_contract.model import (
             AnnotationRoleContract,
         )
@@ -119,6 +123,7 @@ class TestFinalAudit:
     # 11. _enrich_from_hints() cannot write role-contract fields.
     def test_enrich_from_hints_no_mutation(self):
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
         source = inspect.getsource(FieldRouter._enrich_from_hints)
         assert "annotation.slot_target = " not in source
@@ -129,6 +134,7 @@ class TestFinalAudit:
     # 12. Requiredness validation is post-enrichment.
     def test_requiredness_validation_post_enrichment(self):
         import inspect
+
         from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
         source = inspect.getsource(FieldRouter._execute_canonical)
         enrich_idx = source.find("_enrich_contract_requiredness")
@@ -140,6 +146,7 @@ class TestFinalAudit:
     # 13. Typed annotation diagnostics exist before projection.
     def test_typed_diagnostics_exist(self):
         import dataclasses
+
         from nl2spl.compiler.annotation_role_contract.diagnostics import (
             AnnotationValidationDiagnostic,
         )

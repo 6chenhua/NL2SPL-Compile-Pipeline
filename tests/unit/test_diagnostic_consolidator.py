@@ -8,6 +8,9 @@ from nl2spl.compiler.diagnostic_consolidator import (
     DiagnosticConsolidator,
     diagnostic_dedup_key,
 )
+from nl2spl.compiler.irs.diagnostic_authority_adapter import (
+    diagnostic_authority_from_irs_store,
+)
 from nl2spl.compiler.irs.result_store import IRSResultStore, IRSStageResult
 from nl2spl.ir.diagnostics import CompileDiagnostic
 
@@ -58,7 +61,7 @@ def test_post_normalize_suppresses_duplicate_stage_local() -> None:
 
     result = DiagnosticConsolidator().consolidate(
         DiagnosticConsolidationInput(
-            irs_store=store,
+            stage_local_authority=diagnostic_authority_from_irs_store(store),
             post_normalize_diagnostics=[post],
         )
     )
@@ -105,7 +108,9 @@ def test_stage_local_unique_default_suppressed() -> None:
     )
 
     result = DiagnosticConsolidator().consolidate(
-        DiagnosticConsolidationInput(irs_store=store)
+        DiagnosticConsolidationInput(
+            stage_local_authority=diagnostic_authority_from_irs_store(store)
+        )
     )
 
     assert result.final_diagnostics == []
@@ -123,7 +128,7 @@ def test_stage_local_unique_can_be_included_by_policy() -> None:
 
     result = DiagnosticConsolidator().consolidate(
         DiagnosticConsolidationInput(
-            irs_store=store,
+            stage_local_authority=diagnostic_authority_from_irs_store(store),
             include_stage_local_diagnostics=True,
         )
     )

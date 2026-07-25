@@ -29,7 +29,7 @@ def test_static_guardrails_no_hardcoded_spl_syntax() -> None:
         for file in files:
             if file.endswith(".py") and not file.endswith("verifier.py"):
                 filepath = os.path.join(root, file)
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     content = f.read()
 
                 for pattern in forbidden_patterns:

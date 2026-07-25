@@ -12,11 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
-
 
 # ===========================================================================
 # Helpers
@@ -90,7 +87,6 @@ class TestFullChainProcessStepSurvival:
     def test_stage3_child_annotation_from_segment(self):
         """Stage 3: when parent annotation was rejected by Stage 2 (old
         behavior), child gets annotation from split segment fallback."""
-        from unittest.mock import MagicMock
 
         from nl2spl.pipeline.stages.stage3_ambiguity_resolver import (
             AmbiguityResolver,

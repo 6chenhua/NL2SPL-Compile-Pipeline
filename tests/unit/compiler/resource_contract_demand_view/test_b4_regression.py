@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.ir.worker_plan_ir import WorkerSpecIR
 
 
 def test_unknown_demand_id_produces_no_binding() -> None:

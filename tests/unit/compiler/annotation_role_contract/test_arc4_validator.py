@@ -7,9 +7,6 @@ handles pre-/post-enrichment requiredness boundaries.
 
 from __future__ import annotations
 
-import pytest
-
-
 # ===========================================================================
 # Helpers
 # ===========================================================================
@@ -43,10 +40,10 @@ def _make_annotation(**overrides):
 
 
 def _validate(annotations: list, spans=None):
+    from nl2spl.ir.span_ir import SpanIR
     from nl2spl.pipeline.stages.stage2_field_router_prompt import (
         RouteRefinementResult,
     )
-    from nl2spl.ir.span_ir import SpanIR
 
     if spans is None:
         spans = [SpanIR(span_id=a.span_id, text="test") for a in annotations]
@@ -425,6 +422,7 @@ class TestValidatorUsesRegistry:
 
     def test_validator_imports_registry(self):
         import inspect
+
         from nl2spl.pipeline.stages import stage2_field_router_validator as m
 
         source = inspect.getsource(m)

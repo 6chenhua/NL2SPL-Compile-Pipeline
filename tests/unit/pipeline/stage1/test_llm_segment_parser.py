@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nl2spl.pipeline.stages.stage1_segmentation.llm_segment_parser import LLMSegmentParser
 
+
 def test_llm_segment_parser_valid_json() -> None:
     response = {
         "segments": [

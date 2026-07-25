@@ -6,19 +6,13 @@ and Stage7StepIRSChecker, and that the runner can execute them.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.irs import (
     IRSCheckContext,
-    IRSCheckerRegistry,
-    IRSRunner,
     build_irs_checker_registry,
     build_irs_runner,
 )
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
-from nl2spl.ir.worker_plan_ir import WorkerFlowPlanIR, WorkerStepPlanIR
-
 
 # ------------------------------------------------------------------
 # Factory registration

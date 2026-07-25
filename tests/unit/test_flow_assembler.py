@@ -7,13 +7,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.errors.exceptions import StageError
-from nl2spl.adapters import StructuralNLAdapter
-from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
-from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage4_flow_assembler import FlowAssembler
 
 
@@ -759,7 +755,6 @@ class TestD2RouteDrivenExceptions:
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
         """Original ExceptionFlow object is not mutated by the filter."""
-        from nl2spl.ir.flow_structure_ir import ExceptionFlow
 
         original = ExceptionFlow(
             flow_id="exc_original", condition_text="original text",
@@ -781,9 +776,9 @@ class TestD2RouteDrivenExceptions:
                                 slot_target="condition", executable=False),
             ],
         )
-        from nl2spl.ir.flow_structure_ir import FlowStructureIR as FSI
+        from nl2spl.ir.flow_structure_ir import FlowStructureIR
 
-        flow = FSI(exception_flows=[original])
+        flow = FlowStructureIR(exception_flows=[original])
 
         from nl2spl.pipeline.stages.stage4_flow_assembler.executor import (
             _filter_non_condition_exception_flows,
@@ -988,7 +983,7 @@ class TestD2RouteDrivenExceptions:
         self,
     ) -> None:
         """Filter with only route-derived flows 鈫?returns original unchanged."""
-        from nl2spl.ir.flow_structure_ir import FlowStructureIR as FSI, ExceptionFlow
+        from nl2spl.ir.flow_structure_ir import FlowStructureIR
         from nl2spl.pipeline.stages.stage4_flow_assembler.executor import (
             _filter_non_condition_exception_flows,
         )
@@ -1003,7 +998,7 @@ class TestD2RouteDrivenExceptions:
                                 slot_target="condition", executable=False),
             ],
         )
-        flow = FSI(exception_flows=[
+        flow = FlowStructureIR(exception_flows=[
             ExceptionFlow(flow_id="exc_adapter_00",
                           condition_text="Missing timeframe.", spans=["s1"]),
         ])

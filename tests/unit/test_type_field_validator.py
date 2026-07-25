@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Unit tests for type_field_validator.
 """

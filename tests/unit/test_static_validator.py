@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.validator.static_validator import StaticValidator, ValidationError, ValidationResult
 
 
@@ -336,7 +334,7 @@ COMMAND-2 [DISPLAY Show <REF>summary</REF> and <REF>score</REF>]
     def test_validation_error_severity(self) -> None:
         """Test that validation result considers severity."""
         # Arrange
-        validator = StaticValidator()
+        StaticValidator()
 
         # Create a result with only warnings (no errors)
         result = ValidationResult(

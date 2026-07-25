@@ -28,28 +28,22 @@ from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
-    VariableSpec,
     WorkerScopedResourceIR,
 )
 from nl2spl.ir.span_ir import SpanIR
-from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
-    CandidateTaskUnitIR,
     ContractFieldIR,
-    ControlComplexityRegionIR,
     InputBindingIR,
     InvokeLocationHintIR,
     OutputBindingIR,
     WorkerBlockPlanIR,
-    WorkerBoundaryDecisionIR,
     WorkerFlowPlanIR,
     WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
 )
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
 
 # ------------------------------------------------------------------
 # Fixtures
@@ -367,7 +361,7 @@ class TestIRNotModified:
         with ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            result = orchestrator.run("test input")
+            orchestrator.run("test input")
 
         # WorkerPlanIR should not be mutated
         for w in plan.workers:
@@ -390,7 +384,7 @@ class TestIRNotModified:
         with ExitStack() as stack:
             for p in patches:
                 stack.enter_context(p)
-            result = orchestrator.run("test input")
+            orchestrator.run("test input")
 
         assert set(flow_plan.worker_flows.keys()) == original_flow_keys
 
@@ -551,11 +545,11 @@ class TestValidationFailureNoIRS:
             handoffs=[],
         )
 
-        flow_plan = _worker_flow_plan()
-        block_plan = _worker_block_plan()
-        symbols = SymbolTable()
+        _worker_flow_plan()
+        _worker_block_plan()
+        SymbolTable()
 
-        worker_scoped_resources = WorkerScopedResourceIR(
+        WorkerScopedResourceIR(
             global_resources=ResourceRegistryIR()
         )
         with (

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from nl2spl.adapters.structural_nl import StructuralNLAdapter
 
-
 STRUCTURAL_TEXT = """Task family:
 Internal reports.
 

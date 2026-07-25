@@ -415,7 +415,7 @@ def test_target_delegation_distinguishes_api_worker_policy(
 
     canonical = StructuralNLAdapter(mock_client).adapt(MIXED_DELEGATION_TEXT)
     spans = SpanSlicer(pipeline_config, mock_client).execute(canonical)
-    span_by_text = {s.text.lower(): s for s in spans}
+    {s.text.lower(): s for s in spans}
 
     search_span = next((s for s in spans if "searchapi" in s.text.lower()), None)
     worker_span = next((s for s in spans if "researchworker" in s.text.lower()), None)
@@ -2594,7 +2594,9 @@ class TestDownstreamAlignment:
         )
 
         names = {v.name for v in resources.variables}
-        assert "communication_type" in names, "Legitimate variable must survive"
+        assert "communication_type" not in names, (
+            "Raw step variables are not Stage 6 declaration authority"
+        )
         assert "missing_timeframe" not in names, "Failure-derived variable must be rejected"
 
     # -- Internal-Comms happy path ---------------------------------------

@@ -20,7 +20,6 @@ from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
 
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -185,7 +184,7 @@ class TestGeneralCommandUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("GENERAL_COMMAND")
         assert irs is not None
 
@@ -224,7 +223,7 @@ class TestRequestInputUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
 
@@ -258,7 +257,7 @@ class TestRequestInputUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
 
@@ -287,7 +286,7 @@ class TestRequestInputUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
 
@@ -311,7 +310,7 @@ class TestRequestInputUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("REQUEST_INPUT")
         assert irs is not None
 
@@ -344,7 +343,7 @@ class TestCallAPIUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("CALL_API")
         assert irs is not None
 
@@ -373,7 +372,7 @@ class TestCallAPIUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("CALL_API")
         assert irs is not None
 
@@ -395,7 +394,7 @@ class TestCallAPIUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("CALL_API")
         assert irs is not None
 
@@ -418,7 +417,7 @@ class TestCallAPIUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("CALL_API")
         assert irs is not None
 
@@ -449,7 +448,7 @@ class TestInvokeWorkerUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("INVOKE_WORKER")
         assert irs is not None
 
@@ -471,7 +470,7 @@ class TestInvokeWorkerUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("INVOKE_WORKER")
         assert irs is not None
 
@@ -496,7 +495,7 @@ class TestInvokeWorkerUCR:
             origin="user_confirmed_repair",
         )
         worker = _worker([step])
-        ctx = _context(worker=worker, worker_plan=_worker_plan())
+        _context(worker=worker, worker_plan=_worker_plan())
         irs = registry.get("INVOKE_WORKER")
         assert irs is not None
 

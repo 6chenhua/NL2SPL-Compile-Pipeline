@@ -18,7 +18,6 @@ from tests.fixtures.usage_prompt_expectations import (
     usage_stage_response,
 )
 
-
 pytestmark = [pytest.mark.prompt_test, pytest.mark.stage9]
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Unit tests for SPL Editing fail-closed gate.
 """
@@ -6,12 +5,13 @@ Unit tests for SPL Editing fail-closed gate.
 from __future__ import annotations
 
 from unittest.mock import MagicMock
+
 import pytest
 
-from nl2spl.compiler.spl_editing.core.service import SPLEditingService
-from nl2spl.compiler.spl_editing.core.model import RepairPatch, RepairEvidence, EditingSession
-from nl2spl.compiler.spl_editing.intent.model import ConstructRepairIntent
+from nl2spl.compiler.spl_editing.core.model import EditingSession, RepairEvidence, RepairPatch
 from nl2spl.compiler.spl_editing.core.revision import ArtifactSnapshot
+from nl2spl.compiler.spl_editing.core.service import SPLEditingService
+from nl2spl.compiler.spl_editing.intent.model import ConstructRepairIntent
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_plan_ir import WorkerStepPlanIR
 
@@ -102,7 +102,7 @@ def test_editing_service_fail_closed_on_multi_output_patched_snapshot() -> None:
         source_span_ids=["s20"],
         outputs=["out1", "out2"], # MULTIPLE OUTPUTS!
     )
-    
+
     patched_snapshot = MagicMock(spec=ArtifactSnapshot)
     patched_snapshot.compile_run_id = "run_123"
     patched_snapshot.snapshot_id = "snap_124"

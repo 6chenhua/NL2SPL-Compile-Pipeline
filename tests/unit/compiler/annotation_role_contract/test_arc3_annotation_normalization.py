@@ -7,9 +7,6 @@ are preserved only as diagnostics, not as authoritative fields.
 
 from __future__ import annotations
 
-import pytest
-
-
 # ===========================================================================
 # Helpers
 # ===========================================================================
@@ -218,7 +215,7 @@ class TestPathsProduceIdenticalShape:
         assert det.route_family == llm.route_family == "resource_contract"
         assert det.construct_target == llm.construct_target == "RESOURCE_CONTRACT"
         assert det.slot_target == llm.slot_target == "input"
-        assert det.executable == llm.executable == False
+        assert det.executable == llm.executable is False
 
         # LLM path produces diagnostics about raw values
         assert len(llm_result.diagnostics) >= 2
@@ -325,11 +322,8 @@ class TestHintConflictDiagnostics:
     ):
         """The annotation keeps the contract value; hint conflict is stored
         in metadata and diagnostics."""
-        from unittest.mock import MagicMock
 
         from nl2spl.canonical.compile_input import CompileHint
-        from nl2spl.ir.field_route_ir import RouteAnnotation
-        from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 
         # Build a contract-conformant annotation first
         from nl2spl.compiler.annotation_role_contract.normalize import (
@@ -371,11 +365,11 @@ class TestHintConflictDiagnostics:
         hint_meta = annotation.metadata.get("_hint_", {})
         if hint_construct != contract_construct:
             assert "construct_target" in hint_meta, (
-                f"Hint construct_target conflict not recorded"
+                "Hint construct_target conflict not recorded"
             )
         if hint_slot != contract_slot:
             assert "slot_target" in hint_meta, (
-                f"Hint slot_target conflict not recorded"
+                "Hint slot_target conflict not recorded"
             )
 
 

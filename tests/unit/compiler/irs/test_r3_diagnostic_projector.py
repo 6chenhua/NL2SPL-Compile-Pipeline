@@ -14,8 +14,9 @@ R3 test coverage:
 
 from __future__ import annotations
 
-import pytest
 from typing import Any
+
+import pytest
 
 from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
@@ -29,7 +30,6 @@ from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.compiler.irs.projector import DiagnosticProjector
 from nl2spl.compiler.irs.registry import IRSCheckerRegistry
 from nl2spl.compiler.irs.runner import IRSRunner
-
 
 # ============================================================================
 # Test fixtures
@@ -104,9 +104,9 @@ def test_projector_projects_slot_diagnostic_kind(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 1
     diagnostic = result.diagnostics[0]
     assert diagnostic.kind == "missing_handler"
@@ -133,9 +133,9 @@ def test_projector_uses_diagnostic_registry_defaults(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.severity == "warning"
     assert diagnostic.blocks_completion is True
@@ -160,9 +160,9 @@ def test_projector_uses_slot_explanation_before_spec_description(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert "Custom explanation for this specific case" in diagnostic.message
     assert "Exception flow has a condition" not in diagnostic.message
@@ -186,9 +186,9 @@ def test_projector_uses_report_construct_id_as_target_ref(
         completeness="partial",
         renderable=False,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.target_ref == "worker_candidate_1"
 
@@ -218,9 +218,9 @@ def test_projector_uses_slot_source_spans_before_report_source_spans(
         renderable=True,
         source_span_ids=["span_report_1"],
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.source_span_ids == ["span_slot_1", "span_slot_2"]
 
@@ -245,9 +245,9 @@ def test_projector_falls_back_to_report_source_spans(
         renderable=True,
         source_span_ids=["span_report_1", "span_report_2"],
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.source_span_ids == ["span_report_1", "span_report_2"]
 
@@ -272,9 +272,9 @@ def test_projector_allows_empty_source_spans(
         renderable=True,
         source_span_ids=[],
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.source_span_ids == []
 
@@ -302,9 +302,9 @@ def test_projector_warns_and_skips_unknown_diagnostic_kind(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 0
     assert len(result.warnings) == 1
     assert "unknown_kind" in result.warnings[0]
@@ -330,9 +330,9 @@ def test_projector_warns_and_skips_disabled_diagnostic_kind(
         completeness="complete",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 0
     assert len(result.warnings) == 1
     assert "disabled_kind" in result.warnings[0]
@@ -364,10 +364,10 @@ def test_projector_diagnostic_id_is_deterministic(
         completeness="partial",
         renderable=True,
     )
-    
+
     result1 = projector.project([report], context)
     result2 = projector.project([report], context)
-    
+
     assert result1.diagnostics[0].diagnostic_id == result2.diagnostics[0].diagnostic_id
     assert result1.diagnostics[0].diagnostic_id.startswith("irs_")
 
@@ -391,7 +391,7 @@ def test_projector_diagnostic_id_ignores_source_span_order(
         completeness="partial",
         renderable=True,
     )
-    
+
     report2 = ConstructSatisfactionReport(
         construct_id="exception_flow:ef_1",
         construct_type="EXCEPTION_FLOW",
@@ -406,10 +406,10 @@ def test_projector_diagnostic_id_ignores_source_span_order(
         completeness="partial",
         renderable=True,
     )
-    
+
     result1 = projector.project([report1], context)
     result2 = projector.project([report2], context)
-    
+
     assert result1.diagnostics[0].diagnostic_id == result2.diagnostics[0].diagnostic_id
 
 
@@ -438,9 +438,9 @@ def test_projector_deduplicates_same_kind_target_slot_source(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 1
 
 
@@ -467,9 +467,9 @@ def test_projector_keeps_different_slots_separate(
         completeness="partial",
         renderable=False,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 2
     slot_names = {d.message for d in result.diagnostics}
     assert any("promotion_input_contract" in msg for msg in slot_names)
@@ -501,9 +501,9 @@ def test_projector_keeps_different_sources_separate(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 2
 
 
@@ -530,9 +530,9 @@ def test_projector_blocks_rendering_when_report_not_renderable(
         completeness="partial",
         renderable=False,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.blocks_rendering is True
     assert diagnostic.blocks_completion is True
@@ -556,9 +556,9 @@ def test_projector_does_not_block_rendering_when_report_renderable(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.blocks_rendering is False
     assert diagnostic.blocks_completion is True
@@ -571,11 +571,11 @@ def test_projector_does_not_block_rendering_when_report_renderable(
 
 class FakeDiagnosticChecker(IRSChecker):
     """Fake checker that produces reports with diagnostic_kind."""
-    
+
     checker_id = "fake_diagnostic_checker"
     supported_construct_types = ("EXCEPTION_FLOW",)
     supported_stages = ("test_stage",)
-    
+
     def extract_instances(
         self,
         context: IRSCheckContext,
@@ -587,7 +587,7 @@ class FakeDiagnosticChecker(IRSChecker):
                 materialized=True,
             ),
         ]
-    
+
     def check_instance(
         self,
         instance: ConstructInstance,
@@ -617,16 +617,16 @@ def test_runner_with_projector_returns_projected_diagnostics(
     """Runner with projector returns projected diagnostics."""
     checker_registry = IRSCheckerRegistry()
     checker_registry.register(FakeDiagnosticChecker())
-    
+
     projector = DiagnosticProjector(diagnostic_registry=diagnostic_registry)
     runner = IRSRunner(
         registry=checker_registry,
         construct_registry=SPLConstructRegistry.default(),
         projector=projector,
     )
-    
+
     result = runner.run_stage("test_stage", context)
-    
+
     assert len(result.reports) == 1
     assert len(result.diagnostics) == 1
     diagnostic = result.diagnostics[0]
@@ -639,12 +639,12 @@ def test_runner_projector_warning_is_preserved(
     context: IRSCheckContext,
 ) -> None:
     """Runner preserves projector warnings."""
-    
+
     class FakeUnknownKindChecker(IRSChecker):
         checker_id = "fake_unknown_kind_checker"
         supported_construct_types = ("EXCEPTION_FLOW",)
         supported_stages = ("test_stage",)
-        
+
         def extract_instances(self, context: IRSCheckContext) -> list[ConstructInstance]:
             return [
                 ConstructInstance(
@@ -653,7 +653,7 @@ def test_runner_projector_warning_is_preserved(
                     materialized=True,
                 ),
             ]
-        
+
         def check_instance(
             self,
             instance: ConstructInstance,
@@ -673,19 +673,19 @@ def test_runner_projector_warning_is_preserved(
                 completeness="partial",
                 renderable=True,
             )
-    
+
     checker_registry = IRSCheckerRegistry()
     checker_registry.register(FakeUnknownKindChecker())
-    
+
     projector = DiagnosticProjector(diagnostic_registry=diagnostic_registry)
     runner = IRSRunner(
         registry=checker_registry,
         construct_registry=SPLConstructRegistry.default(),
         projector=projector,
     )
-    
+
     result = runner.run_stage("test_stage", context)
-    
+
     assert len(result.diagnostics) == 0
     assert len(result.warnings) > 0
     assert any("unknown_kind" in w for w in result.warnings)
@@ -697,15 +697,15 @@ def test_runner_without_projector_preserves_r2_no_diagnostic_behavior(
     """Runner without projector does not generate diagnostics (R2 behavior)."""
     checker_registry = IRSCheckerRegistry()
     checker_registry.register(FakeDiagnosticChecker())
-    
+
     runner = IRSRunner(
         registry=checker_registry,
         construct_registry=SPLConstructRegistry.default(),
         projector=None,
     )
-    
+
     result = runner.run_stage("test_stage", context)
-    
+
     assert len(result.reports) == 1
     assert len(result.diagnostics) == 0
 
@@ -733,9 +733,9 @@ def test_projector_does_not_create_diagnostic_without_diagnostic_kind(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 0
     assert len(result.warnings) == 0
 
@@ -758,9 +758,9 @@ def test_projector_does_not_infer_from_missing_slot_status(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 0
 
 
@@ -782,9 +782,9 @@ def test_projector_does_not_infer_from_report_completeness(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 0
 
 
@@ -813,9 +813,9 @@ def test_projector_populates_missing_slot_structure(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     diagnostic = result.diagnostics[0]
     assert diagnostic.missing_slot is not None
     assert diagnostic.missing_slot.slot_name == "handler_action"
@@ -847,9 +847,9 @@ def test_projector_different_slots_have_different_missing_slot_names(
         completeness="partial",
         renderable=False,
     )
-    
+
     result = projector.project([report], context)
-    
+
     assert len(result.diagnostics) == 2
     slot_names = {d.missing_slot.slot_name for d in result.diagnostics}
     assert slot_names == {"promotion_input_contract", "promotion_output_contract"}
@@ -880,12 +880,12 @@ def test_projector_copies_source_span_ids_from_slot(
         completeness="partial",
         renderable=True,
     )
-    
+
     result = projector.project([report], context)
-    
+
     # Modify original slot spans
     slot_spans.append("span_3")
-    
+
     # Diagnostic should not be affected
     diagnostic = result.diagnostics[0]
     assert diagnostic.source_span_ids == ["span_1", "span_2"]
@@ -913,12 +913,12 @@ def test_projector_copies_source_span_ids_from_report(
         renderable=True,
         source_span_ids=report_spans,
     )
-    
+
     result = projector.project([report], context)
-    
+
     # Modify original report spans
     report_spans.append("span_report_3")
-    
+
     # Diagnostic should not be affected
     diagnostic = result.diagnostics[0]
     assert diagnostic.source_span_ids == ["span_report_1", "span_report_2"]

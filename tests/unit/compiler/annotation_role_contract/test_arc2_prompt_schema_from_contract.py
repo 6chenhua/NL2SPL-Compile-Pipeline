@@ -7,7 +7,6 @@ the pre-ARC1 hardcoded values (zero behavior change).
 
 from __future__ import annotations
 
-
 # ===========================================================================
 # Pre-ARC1 hardcoded reference values (golden)
 # ===========================================================================
@@ -226,8 +225,8 @@ class TestAliasesExcludedFromPromptConstants:
         """failure_condition is internal — must not appear in any prompt constant."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             ALLOWED_SEMANTIC_ROLES,
-            NON_EXECUTABLE_ROLES,
             EXECUTABLE_ROLES,
+            NON_EXECUTABLE_ROLES,
         )
 
         assert "failure_condition" not in ALLOWED_SEMANTIC_ROLES, (
@@ -259,6 +258,7 @@ class TestRegistryDrivesConstants:
         """The module source must not contain hardcoded frozenset literals
         for the six constants."""
         import inspect
+
         from nl2spl.pipeline.stages import stage2_field_router_prompt as m
 
         source = inspect.getsource(m)
@@ -275,6 +275,7 @@ class TestRegistryDrivesConstants:
     def test_registry_import_present(self):
         """The prompt module imports from the registry."""
         import inspect
+
         from nl2spl.pipeline.stages import stage2_field_router_prompt as m
 
         source = inspect.getsource(m)
@@ -291,12 +292,12 @@ class TestConstantCompatibility:
 
     def test_all_constants_are_frozenset(self):
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            ALLOWED_CONSTRUCT_TARGETS,
             ALLOWED_FIELDS,
             ALLOWED_SEMANTIC_ROLES,
-            ALLOWED_CONSTRUCT_TARGETS,
             ALLOWED_SLOT_TARGETS,
-            NON_EXECUTABLE_ROLES,
             EXECUTABLE_ROLES,
+            NON_EXECUTABLE_ROLES,
         )
 
         assert isinstance(ALLOWED_FIELDS, frozenset)

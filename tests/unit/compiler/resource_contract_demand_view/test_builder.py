@@ -10,8 +10,6 @@ import pytest
 
 from nl2spl.compiler.resource_contract_demand_view import (
     DemandViewBuilder,
-    DemandViewDemand,
-    ResourceContractDemandView,
     ViewDiagnostic,
     ViewDiagnosticProjector,
 )
@@ -28,7 +26,6 @@ from nl2spl.compiler.resource_contract_demand_view.diagnostics import (
 from nl2spl.ir.diagnostics import CompileDiagnostic
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
-
 
 # =============================================================================
 # Helpers
@@ -906,17 +903,17 @@ def test_demand_view_is_frozen() -> None:
 
     # Attempt to set an attribute on DemandViewDemand
     demand = view.demands[0]
-    with pytest.raises(Exception):  # FrozenInstanceError or similar
+    with pytest.raises(Exception):  # noqa: B017 - FrozenInstanceError or similar
         demand.direction = "output"  # type: ignore[misc]
 
     # Attempt to set an attribute on ViewDiagnostic
     if view.view_diagnostics:
         diag = view.view_diagnostics[0]
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017 - FrozenInstanceError or similar
             diag.kind = "fake"  # type: ignore[misc]
 
     # Attempt to set on ResourceContractDemandView
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017 - FrozenInstanceError or similar
         view.demands = ()  # type: ignore[misc]
 
 

@@ -6,8 +6,6 @@ with appropriate checker registrations based on feature flags.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.irs import (
     IRSCheckContext,
     IRSCheckerRegistry,

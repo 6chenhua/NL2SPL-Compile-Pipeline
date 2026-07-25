@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.canonical.compile_input import (
     CanonicalCompileInput,
     EvidenceRef,
@@ -11,13 +9,12 @@ from nl2spl.canonical.compile_input import (
     SemanticPacket,
     VariableFact,
 )
-from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
+from nl2spl.ir.field_route_ir import RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage2_field_router import (
     _build_hard_fact_required_lookup,
     _normalize_to_variable_name,
 )
-
 
 # =============================================================================
 # Test _normalize_to_variable_name
@@ -527,7 +524,6 @@ def test_execute_with_mocked_llm_produces_requiredness() -> None:
     must be populated from packet.required."""
     from unittest.mock import MagicMock
 
-    from nl2spl.ir.field_route_ir import RouteAnnotation
     from nl2spl.config import PipelineConfig
     from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 

@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import inspect
 
-import pytest
-
 from nl2spl.compiler.irs import build_irs_checker_registry, build_irs_runner
 from nl2spl.compiler.irs.context import IRSCheckContext
 from nl2spl.config import PipelineConfig
@@ -18,7 +16,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerSpecIR,
 )
-
 
 # ------------------------------------------------------------------
 # R9.2: Configuration Audit
@@ -56,10 +53,10 @@ class TestR9ConfigSurface:
     def test_irs_lazy_exports_no_circular_import(self) -> None:
         """Lazy exports resolve without circular import error."""
         from nl2spl.compiler.irs import (
+            DiagnosticProjector,
             IRSCheckContext,
             IRSCheckerRegistry,
             IRSRunner,
-            DiagnosticProjector,
         )
         assert IRSCheckContext is not None
         assert IRSCheckerRegistry is not None
@@ -243,7 +240,6 @@ class TestR9InternalCommsIssue3:
 
     def test_diagnostic_projector_projects_promotion_diagnostics(self) -> None:
         """DiagnosticProjector projects type_or_contract_ambiguity for blocked promotion."""
-        from nl2spl.compiler.irs import build_irs_runner
 
         runner = build_irs_runner(enable_worker_delegation=True)
         candidate = CandidateTaskUnitIR(

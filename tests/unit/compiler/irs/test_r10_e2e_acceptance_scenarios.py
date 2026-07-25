@@ -15,8 +15,6 @@ Scenario coverage:
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.feedback_report_renderer import render_feedback_report
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
@@ -37,7 +35,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
 )
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
-
 
 # =============================================================================
 # Helpers
@@ -440,7 +437,7 @@ class TestScenario3SourceSignalPreservation:
             if report.metadata.get("synthetic_from_route_annotation"):
                 original_spans = report.metadata.get("original_source_span_ids", [])
                 assert "s_delegate" in original_spans, (
-                    f"original_source_span_ids must contain delegation span"
+                    "original_source_span_ids must contain delegation span"
                 )
 
 

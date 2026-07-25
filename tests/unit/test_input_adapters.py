@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-import pytest
-
 from nl2spl.adapters import GenericNLAdapter, InputAdapterRegistry, StructuralNLAdapter
 from nl2spl.adapters.morphology import ShapeGrammar, StructuralShapeDetector
 from nl2spl.canonical import (
@@ -16,8 +14,6 @@ from nl2spl.canonical import (
     SemanticPacket,
     VariableFact,
 )
-from nl2spl.config import load_config
-
 
 STRUCTURAL_TEXT = """Task family:
 Internal newsletters and announcements.

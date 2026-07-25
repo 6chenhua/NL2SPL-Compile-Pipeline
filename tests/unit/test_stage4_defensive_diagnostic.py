@@ -9,10 +9,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
-
 
 # ===========================================================================
 # Helper

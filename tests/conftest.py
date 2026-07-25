@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from nl2spl.config import LLMConfig, PipelineConfig
-from nl2spl.llm.client import LLMClient
 from nl2spl.ir import (
     AmbiguityInfo,
     BlockIR,
@@ -22,9 +21,8 @@ from nl2spl.ir import (
     SpanIR,
     StepIR,
     SymbolTable,
-    VariableSymbol,
 )
-
+from nl2spl.llm.client import LLMClient
 
 # =============================================================================
 # Configuration Fixtures

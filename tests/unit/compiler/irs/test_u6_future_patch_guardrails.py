@@ -6,8 +6,6 @@ Source-scanning tests that prevent regression of the UCR evidence contract.
 from __future__ import annotations
 
 import inspect
-import pathlib
-
 
 # =============================================================================
 # U6 Guardrail 1: No naked bool(step.source_span_ids) as sole renderable check

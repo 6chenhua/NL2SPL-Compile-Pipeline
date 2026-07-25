@@ -17,7 +17,6 @@ from tests.fixtures.usage_prompt_expectations import (
     usage_stage_response,
 )
 
-
 pytestmark = [pytest.mark.prompt_test, pytest.mark.stage7]
 
 
@@ -44,7 +43,7 @@ class TestUsageStage7Prompt:
         )
 
         assert steps == usage_stage7_steps()
-        assert updated_symbol_table.variables["communication_type"].producer_step == "st_1"
+        assert "communication_type" not in updated_symbol_table.variables
         assert updated_symbol_table.variables["user_request"].consumer_steps
         call_kwargs = mock_client.call_json.call_args.kwargs
         assert call_kwargs["stage_name"] == "stage7_step_extractor"

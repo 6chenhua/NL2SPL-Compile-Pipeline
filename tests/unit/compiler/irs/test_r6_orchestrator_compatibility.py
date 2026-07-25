@@ -23,7 +23,6 @@ from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
     check_worker_step_plan_irs,
 )
 
-
 # ------------------------------------------------------------------
 # Stage 4 wrapper compatibility
 # ------------------------------------------------------------------
@@ -204,10 +203,6 @@ class TestRegistryInjection:
 
     def test_stage4_wrapper_uses_passed_registry(self) -> None:
         """Stage 4 wrapper uses the passed construct registry."""
-        from nl2spl.compiler.construct_registry import (
-            SlotSpec,
-            ConstructIRS,
-        )
 
         # Create a registry with a custom EXCEPTION_FLOW spec
         # that has a different missing_diagnostic for condition

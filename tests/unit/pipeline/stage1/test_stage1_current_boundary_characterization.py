@@ -7,8 +7,10 @@ is split from the action 'produce a draft'.
 from __future__ import annotations
 
 from pathlib import Path
+
 from nl2spl.adapters import StructuralNLAdapter
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
+
 
 def test_stage1_current_span_boundary_characterization(pipeline_config, mock_client) -> None:
     # 1. Load the real internal_comms text

@@ -15,13 +15,9 @@ R1 规则：
 
 import typing
 
-import pytest
-
 from nl2spl.compiler.construct_registry import (
-    ConstructCompleteness,
     ConstructSatisfactionReport,
     SlotSatisfaction,
-    SPLConstructRegistry,
 )
 from nl2spl.compiler.irs import (
     ConstructEdge,
@@ -36,7 +32,6 @@ from nl2spl.pipeline.stages.stage4_flow_assembler.irs_checker import (
     check_exception_flows_irs,
 )
 from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import check_steps_irs
-
 
 # ===========================================================================
 # 7.1 ConstructEdge tests

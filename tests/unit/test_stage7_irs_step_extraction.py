@@ -1,6 +1,6 @@
 ﻿"""Unit tests for Stage 7 IRS step-level checker."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -24,7 +24,6 @@ from nl2spl.pipeline.stages.stage7_step_extractor.irs_checker import (
     check_steps_irs,
     check_worker_step_plan_irs,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

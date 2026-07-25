@@ -12,7 +12,6 @@ from pathlib import Path
 
 from nl2spl.adapters.structural_nl import StructuralNLAdapter
 
-
 FIXTURE_DIR = Path(__file__).parent.parent / "fixtures" / "resource_contract"
 
 

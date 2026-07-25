@@ -27,7 +27,6 @@ from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
 from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
 
-
 STRUCTURAL_TEXT = """Task family:
 Internal newsletters and announcements.
 
@@ -166,29 +165,19 @@ def test_orchestrator_records_adapter_intermediate_results(
     worker.child_workers = []
     worker.scoped_steps = False
 
-    setattr(orchestrator, "_run_stage1", MagicMock(return_value=[]))
-    setattr(orchestrator, "_run_stage2", MagicMock(return_value=(FieldRouteIR(), [])))
-    setattr(orchestrator, "_run_stage3", MagicMock(return_value=([], FieldRouteIR())))
-    setattr(orchestrator, "_run_stage3_5", MagicMock(return_value=worker_plan))
-    setattr(orchestrator, "_run_stage4", MagicMock(return_value=worker_flow_plan))
-    setattr(orchestrator, "_run_stage5", MagicMock(return_value=worker_block_plan))
-    setattr(
-        orchestrator,
-        "_run_stage6_worker_scoped",
-        MagicMock(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), MagicMock(), [])),
-    )
-    setattr(orchestrator, "_run_stage7_worker_scoped", MagicMock(return_value=(worker_step_plan, MagicMock(), [])))
-    setattr(orchestrator, "_run_stage8", MagicMock(return_value=MagicMock()))
-    setattr(orchestrator, "_run_stage9", MagicMock(return_value=[]))
-    setattr(
-        orchestrator,
-        "_run_normalization_worker_scoped",
-        MagicMock(
-            return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, MagicMock(), [], [])
-        ),
-    )
-    setattr(orchestrator, "_run_stage10_worker_scoped", MagicMock(return_value=worker))
-    setattr(orchestrator, "_run_stage11", MagicMock(return_value=("SPL", [], [])))
+    orchestrator._run_stage1 = MagicMock(return_value=[])
+    orchestrator._run_stage2 = MagicMock(return_value=(FieldRouteIR(), []))
+    orchestrator._run_stage3 = MagicMock(return_value=([], FieldRouteIR()))
+    orchestrator._run_stage3_5 = MagicMock(return_value=worker_plan)
+    orchestrator._run_stage4 = MagicMock(return_value=worker_flow_plan)
+    orchestrator._run_stage5 = MagicMock(return_value=worker_block_plan)
+    orchestrator._run_stage6_worker_scoped = MagicMock(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), MagicMock(), []))
+    orchestrator._run_stage7_worker_scoped = MagicMock(return_value=(worker_step_plan, MagicMock(), []))
+    orchestrator._run_stage8 = MagicMock(return_value=MagicMock())
+    orchestrator._run_stage9 = MagicMock(return_value=[])
+    orchestrator._run_normalization_worker_scoped = MagicMock(return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, MagicMock(), [], []))
+    orchestrator._run_stage10_worker_scoped = MagicMock(return_value=worker)
+    orchestrator._run_stage11 = MagicMock(return_value=("SPL", [], []))
 
     result = orchestrator.run(STRUCTURAL_TEXT)
 
@@ -204,7 +193,7 @@ def test_orchestrator_stage2_adapter_llm_failure_fails_fast(
     orchestrator = PipelineOrchestrator(pipeline_config)
     orchestrator.client = MagicMock()
     orchestrator.client.call_json.side_effect = RuntimeError("stage2 unavailable")
-    setattr(orchestrator, "_run_stage3", MagicMock())
+    orchestrator._run_stage3 = MagicMock()
 
     with pytest.raises(StageError) as exc_info:
         orchestrator.run(STRUCTURAL_TEXT)
@@ -359,7 +348,6 @@ class TestF3StructuralAnnotations:
             for call in mock_client.call_json.call_args_list
         )
 
-        packets_by_pid = {}  # We don't have canonical here, but check provenance
         for ann in routes.annotations:
             assert ann.span_id
             if ann.source_packet_id:
@@ -624,7 +612,9 @@ def test_d5_stage6_failure_variable_rejected_legitimate_kept(
     )
 
     names = {v.name for v in resources.variables}
-    assert "communication_type" in names, "Legitimate variable must survive"
+    assert "communication_type" not in names, (
+        "Raw step variables are not Stage 6 declaration authority"
+    )
     assert "missing_timeframe" not in names, (
         "Failure-derived variable must be rejected"
     )
@@ -829,7 +819,11 @@ def test_irs_no_delegation_annotation_emits_no_bridge_diagnostic(
 ) -> None:
     """Hard-fact-only delegation no longer triggers delegation IRS diagnostic."""
     from nl2spl.canonical import (
-        CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts, RawSection,
+        CanonicalCompileInput,
+        DelegationIntentFact,
+        EvidenceRef,
+        HardFacts,
+        RawSection,
     )
 
     section = RawSection(
@@ -907,7 +901,10 @@ def test_only_route_annotations_drive_delegation_irs_diagnostics(
 ) -> None:
     """Unrelated hard facts in the same section do not create diagnostics."""
     from nl2spl.canonical import (
-        CanonicalCompileInput, DelegationIntentFact, EvidenceRef, HardFacts,
+        CanonicalCompileInput,
+        DelegationIntentFact,
+        EvidenceRef,
+        HardFacts,
         RawSection,
     )
 
@@ -1025,9 +1022,14 @@ def test_d5_worker_scoped_stage6_child_failure_guard(
     """D5: child-owned failure span does not become child variable."""
     from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
     from nl2spl.ir.worker_plan_ir import (
-        WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerHandoffIR,
-        WorkerPlanIR, WorkerSpecIR, InputBindingIR,
-        InvokeLocationHintIR, OutputBindingIR,
+        InputBindingIR,
+        InvokeLocationHintIR,
+        OutputBindingIR,
+        WorkerBlockPlanIR,
+        WorkerFlowPlanIR,
+        WorkerHandoffIR,
+        WorkerPlanIR,
+        WorkerSpecIR,
     )
 
     main_flow = FlowStructureIR(main_flow_spans=["s_main"])
@@ -1112,7 +1114,9 @@ def test_d5_worker_scoped_stage6_child_failure_guard(
         assert "missing_timeframe" not in child_vars, (
             "Child failure-derived variable must be rejected"
         )
-        assert "child_var" in child_vars, "Legitimate child variable must survive"
+        assert "child_var" not in child_vars, (
+            "Raw child step variables are not Stage 6 declaration authority"
+        )
 
 
 def test_stage2_route_diagnostics_stay_internal(
@@ -1149,8 +1153,9 @@ def test_stage2_route_diagnostics_stay_internal(
 
     # Mock all other stages on the worker-aware path.
     from unittest.mock import MagicMock as M
-    from nl2spl.ir.worker_ir import WorkerIR
+
     from nl2spl.ir.resource_registry_ir import WorkerScopedResourceIR
+    from nl2spl.ir.worker_ir import WorkerIR
     from nl2spl.ir.worker_plan_ir import (
         WorkerBlockPlanIR,
         WorkerFlowPlanIR,
@@ -1187,25 +1192,17 @@ def test_stage2_route_diagnostics_stay_internal(
     )
     worker = WorkerIR(worker_name="Main", description="Main", steps=[])
 
-    setattr(orchestrator, "_run_stage3", M(return_value=(spans, routes)))
-    setattr(orchestrator, "_run_stage3_5", M(return_value=worker_plan))
-    setattr(orchestrator, "_run_stage4", M(return_value=worker_flow_plan))
-    setattr(orchestrator, "_run_stage5", M(return_value=worker_block_plan))
-    setattr(
-        orchestrator,
-        "_run_stage6_worker_scoped",
-        M(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), SymbolTable(), [])),
-    )
-    setattr(orchestrator, "_run_stage7_worker_scoped", M(return_value=(worker_step_plan, SymbolTable(), [])))
-    setattr(orchestrator, "_run_stage8", M(return_value=M()))
-    setattr(orchestrator, "_run_stage9", M(return_value=[]))
-    setattr(
-        orchestrator,
-        "_run_normalization_worker_scoped",
-        M(return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, SymbolTable(), [], [])),
-    )
-    setattr(orchestrator, "_run_stage10_worker_scoped", M(return_value=worker))
-    setattr(orchestrator, "_run_stage11", M(return_value=("SPL", [], [])))
+    orchestrator._run_stage3 = M(return_value=(spans, routes))
+    orchestrator._run_stage3_5 = M(return_value=worker_plan)
+    orchestrator._run_stage4 = M(return_value=worker_flow_plan)
+    orchestrator._run_stage5 = M(return_value=worker_block_plan)
+    orchestrator._run_stage6_worker_scoped = M(return_value=(WorkerScopedResourceIR(global_resources=ResourceRegistryIR()), SymbolTable(), []))
+    orchestrator._run_stage7_worker_scoped = M(return_value=(worker_step_plan, SymbolTable(), []))
+    orchestrator._run_stage8 = M(return_value=M())
+    orchestrator._run_stage9 = M(return_value=[])
+    orchestrator._run_normalization_worker_scoped = M(return_value=(worker_flow_plan, worker_block_plan, worker_step_plan, SymbolTable(), [], []))
+    orchestrator._run_stage10_worker_scoped = M(return_value=worker)
+    orchestrator._run_stage11 = M(return_value=("SPL", [], []))
 
     result = orchestrator.run(STRUCTURAL_TEXT)
 

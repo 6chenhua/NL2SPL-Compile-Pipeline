@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from nl2spl.ir.span_ir import SpanIR
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 
 

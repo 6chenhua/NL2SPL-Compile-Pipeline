@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nl2spl.llm.prompts import load_prompt
 
+
 def test_stage1_segmentation_prompts_contract() -> None:
     # 1. Load prompts
     sys_prompt = load_prompt("stage1_source_constrained")

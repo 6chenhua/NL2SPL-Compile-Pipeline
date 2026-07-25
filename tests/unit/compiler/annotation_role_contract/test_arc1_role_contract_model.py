@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ===========================================================================
 # Helpers
 # ===========================================================================
@@ -223,7 +222,7 @@ class TestTypedFieldsAndExplicitNone:
                 f"got {type(c).__name__}"
             )
             # Verify it is frozen (dataclass with frozen=True)
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017 - frozen dataclass raises implementation-specific error
                 c._immutable_test = True  # type: ignore[attr-defined]
 
     def test_construct_target_none_is_explicit_for_profile_domain(self):
@@ -284,6 +283,7 @@ class TestTypedFieldsAndExplicitNone:
     def test_contract_model_has_typed_llm_visible_field(self):
         """AnnotationRoleContract has a typed ``llm_visible: bool`` field."""
         import dataclasses
+
         from nl2spl.compiler.annotation_role_contract.model import (
             AnnotationRoleContract,
         )
@@ -325,6 +325,7 @@ class TestTypedFieldsAndExplicitNone:
     def test_internal_prior_roles_derived_from_typed_field_not_notes(self):
         """allowed_internal_prior_roles() uses llm_visible field, not notes matching."""
         import inspect
+
         from nl2spl.compiler.annotation_role_contract import (
             ROLE_CONTRACT_REGISTRY,
         )
@@ -353,6 +354,7 @@ class TestTypedFieldsAndExplicitNone:
     def test_clearing_notes_does_not_change_visibility(self):
         """Notes carry no machine semantics — visibility survives notes mutation."""
         from dataclasses import replace
+
         from nl2spl.compiler.annotation_role_contract import (
             ROLE_CONTRACT_REGISTRY,
         )
@@ -407,6 +409,7 @@ class TestRequirednessAbsent:
     def test_no_requiredness_field_in_contract_model(self):
         """AnnotationRoleContract has no 'requiredness' or 'required' attribute."""
         import dataclasses
+
         from nl2spl.compiler.annotation_role_contract.model import (
             AnnotationRoleContract,
         )
@@ -438,6 +441,7 @@ class TestRequirednessAbsent:
     def test_no_requiredness_in_alias_model(self):
         """AnnotationRoleAlias has no 'requiredness' field."""
         import dataclasses
+
         from nl2spl.compiler.annotation_role_contract.model import (
             AnnotationRoleAlias,
         )
@@ -771,7 +775,7 @@ class TestPromptVisibleSetPreserved:
         )
 
         assert ROLE_CONTRACT_REGISTRY.allowed_llm_semantic_roles() == ALLOWED_SEMANTIC_ROLES, (
-            f"allowed_llm_semantic_roles must equal ALLOWED_SEMANTIC_ROLES."
+            "allowed_llm_semantic_roles must equal ALLOWED_SEMANTIC_ROLES."
         )
 
     def test_allowed_construct_targets_equals_current_constant(self):

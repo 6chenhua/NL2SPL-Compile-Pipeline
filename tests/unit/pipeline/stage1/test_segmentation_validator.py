@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from nl2spl.canonical import CanonicalCompileInput, SemanticPacket
-from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SourceSectionReconstructor
 from nl2spl.pipeline.stages.stage1_segmentation import (
     LLMSpanSegment,
     Stage1SegmentationValidator,
 )
 from nl2spl.pipeline.stages.stage1_segmentation.diagnostics import (
-    PARAPHRASE_REJECTED,
     COVERAGE_GAP,
-    GUARDED_ACTION_MISSING_ELEMENTS,
     GUARD_ACTION_NOT_SUBSTRING,
+    GUARDED_ACTION_MISSING_ELEMENTS,
 )
+from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SourceSectionReconstructor
+
 
 def _prepare_buffers():
     packet1 = SemanticPacket(

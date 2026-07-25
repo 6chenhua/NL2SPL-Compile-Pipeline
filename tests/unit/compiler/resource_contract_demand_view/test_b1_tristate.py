@@ -2,30 +2,27 @@
 
 from __future__ import annotations
 
-import pytest
-
-from nl2spl.ir.worker_ir import WorkerInput, WorkerOutput
 from nl2spl.ir.resource_contract_ir import (
     ResourceContractDemandIR,
     ResourceContractFieldIR,
 )
+from nl2spl.ir.worker_ir import WorkerInput, WorkerOutput
 from nl2spl.ir.worker_plan_ir import ContractFieldIR
-from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import _required_keyword
 from nl2spl.pipeline.stages.stage6_resource_extractor.context_builder import (
     _requiredness_label,
 )
-
+from nl2spl.pipeline.stages.stage11_spl_renderer.renderer import _required_keyword
 
 # =============================================================================
 # Renderer _required_keyword tri-state
 # =============================================================================
 
 
-def test_required_keyword_true_returns_REQUIRED() -> None:
+def test_required_keyword_true_returns_REQUIRED() -> None:  # noqa: N802
     assert _required_keyword(True) == "REQUIRED"
 
 
-def test_required_keyword_false_returns_OPTIONAL() -> None:
+def test_required_keyword_false_returns_OPTIONAL() -> None:  # noqa: N802
     assert _required_keyword(False) == "OPTIONAL"
 
 

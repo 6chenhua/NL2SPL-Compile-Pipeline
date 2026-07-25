@@ -23,7 +23,6 @@ from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import (
     ContractFieldIR,
-    ControlComplexityRegionIR,
     InputBindingIR,
     InvokeLocationHintIR,
     OutputBindingIR,

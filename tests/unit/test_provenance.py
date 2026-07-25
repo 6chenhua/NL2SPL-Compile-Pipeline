@@ -16,8 +16,6 @@ from nl2spl.ir.worker_ir import (
     ChildWorkerIR,
     ExceptionFlowRef,
     FlowRef,
-    WorkerInput,
-    WorkerOutput,
     WorkerIR,
 )
 from nl2spl.pipeline.provenance import ProvenanceAggregator
@@ -325,9 +323,28 @@ class TestProvenanceAggregator:
     def test_profile_traces(self) -> None:
         """Profile generates persona, audience, and concept traces."""
         profile = AgentProfileIR(
-            persona=PersonaIR(role="Code Reviewer"),
-            audience_aspects=[Aspect(name="Developer", text="For developers")],
-            concepts=[Concept(term="PR", definition="Pull Request")],
+            persona=PersonaIR(
+                role="Code Reviewer",
+                source_span_ids=["s1"],
+                source_section_id="sec_profile",
+                provenance_relation="inferred",
+            ),
+            audience_aspects=[
+                Aspect(
+                    name="Developer",
+                    text="For developers",
+                    source_span_ids=["s2"],
+                    provenance_relation="direct",
+                )
+            ],
+            concepts=[
+                Concept(
+                    term="PR",
+                    definition="Pull Request",
+                    source_span_ids=["s3"],
+                    provenance_relation="normalized",
+                )
+            ],
         )
         aggregator = ProvenanceAggregator()
         traces, _ = aggregator.aggregate(
@@ -337,7 +354,56 @@ class TestProvenanceAggregator:
 
         profile_traces = [t for t in traces if t.target_ref.startswith("profile:")]
         assert len(profile_traces) == 3
+        assert {t.target_ref for t in profile_traces} == {
+            "profile:persona",
+            "profile:audience:0",
+            "profile:concept:0",
+        }
         assert any("Code Reviewer" in t.explanation for t in profile_traces)
+        persona_trace = next(t for t in profile_traces if t.target_ref == "profile:persona")
+        assert persona_trace.source_span_ids == ["s1"]
+        assert persona_trace.relation == "inferred"
+        assert persona_trace.needs_confirmation is True
+
+    def test_only_rendered_profile_role_without_source_blocks_completion(self) -> None:
+        """Only required ROLE blocks completion when optional profile items are unrendered."""
+        profile = AgentProfileIR(
+            persona=PersonaIR(role="Code Reviewer"),
+            audience_aspects=[Aspect(name="Developer", text="For developers")],
+            concepts=[Concept(term="PR", definition="Pull Request")],
+        )
+        aggregator = ProvenanceAggregator()
+        traces, diags = aggregator.aggregate(
+            WorkerIR("W", "Test"),
+            [], [], ResourceRegistryIR(), SymbolTable(), [], profile
+        )
+
+        profile_traces = [t for t in traces if t.target_ref.startswith("profile:")]
+        assert all(t.source_span_ids == [] for t in profile_traces)
+        assert all(t.relation == "assumed" for t in profile_traces)
+        missing = [
+            d for d in diags
+            if d.kind == "missing_provenance" and d.target_ref.startswith("profile:")
+        ]
+        assert {d.target_ref for d in missing} == {
+            "profile:persona",
+            "profile:audience:0",
+            "profile:concept:0",
+        }
+        blocking = [d for d in missing if d.blocks_completion]
+        nonblocking = [d for d in missing if not d.blocks_completion]
+        assert [d.target_ref for d in blocking] == ["profile:persona"]
+        assert {d.target_ref for d in nonblocking} == {
+            "profile:audience:0",
+            "profile:concept:0",
+        }
+        assert all(d.blocks_rendering is False for d in missing)
+        assert next(
+            d for d in missing if d.target_ref == "profile:persona"
+        ).metadata["rendered_profile_item"] is True
+        assert all(
+            d.metadata["rendered_profile_item"] is False for d in nonblocking
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +413,9 @@ class TestProvenanceAggregator:
 class TestHandoffTraces:
     def test_handoff_trace_created(self) -> None:
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, OutputBindingIR, WorkerHandoffIR,
+            InputBindingIR,
+            OutputBindingIR,
+            WorkerHandoffIR,
         )
         handoffs = [
             WorkerHandoffIR(
@@ -427,7 +495,9 @@ class TestHandoffVariableProvenance:
         """Variable produced by handoff output binding → relation=direct.
         No missing_provenance diagnostic."""
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, OutputBindingIR, WorkerHandoffIR,
+            InputBindingIR,
+            OutputBindingIR,
+            WorkerHandoffIR,
         )
         resources = ResourceRegistryIR(
             variables=[VariableSpec("result", "text", True, "Result", "output")]
@@ -477,7 +547,9 @@ class TestHandoffVariableProvenance:
         """P1: handoff with to_worker=None → inferred + missing_provenance.
         Invalid handoff must not serve as direct evidence."""
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, OutputBindingIR, WorkerHandoffIR,
+            InputBindingIR,
+            OutputBindingIR,
+            WorkerHandoffIR,
         )
         resources = ResourceRegistryIR(
             variables=[VariableSpec("result", "text", True, "Result", "output")]
@@ -536,7 +608,9 @@ class TestHandoffVariableProvenance:
         """P2: handoff to_worker='ghost' — known_child_worker_ids excludes it.
         Must NOT be direct provenance."""
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, OutputBindingIR, WorkerHandoffIR,
+            InputBindingIR,
+            OutputBindingIR,
+            WorkerHandoffIR,
         )
         resources = ResourceRegistryIR(
             variables=[VariableSpec("result", "text", True, "Result", "output")]
@@ -567,7 +641,9 @@ class TestHandoffVariableProvenance:
     def test_handoff_with_child_ids_valid_is_direct(self) -> None:
         """Handoff to_worker in known_child_worker_ids → direct."""
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, OutputBindingIR, WorkerHandoffIR,
+            InputBindingIR,
+            OutputBindingIR,
+            WorkerHandoffIR,
         )
         resources = ResourceRegistryIR(
             variables=[VariableSpec("result", "text", True, "Result", "output")]

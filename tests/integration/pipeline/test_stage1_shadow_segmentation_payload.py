@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock
 
-from nl2spl.config import LLMConfig, PipelineConfig, Stage1SegmentationConfig
 from nl2spl.canonical import CanonicalCompileInput, SemanticPacket
+from nl2spl.config import LLMConfig, PipelineConfig, Stage1SegmentationConfig
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
+
 
 def test_stage1_shadow_mode_observability_and_checkpointing(tmp_path: Path) -> None:
     # 1. Setup config in shadow mode
@@ -82,7 +82,7 @@ def test_stage1_shadow_mode_observability_and_checkpointing(tmp_path: Path) -> N
 
     checkpoint_data = json.loads(checkpoint_file.read_text(encoding="utf-8"))
     result_data = checkpoint_data.get("result", {})
-    
+
     assert "stage1_shadow_segmentation_records" in result_data
     assert "stage1_shadow_segmentation_payload" in result_data
     assert "stage1_shadow_segmentation_report" in result_data

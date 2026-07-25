@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
 from nl2spl.compiler.resource_contract_demand_view.model import (
     DemandViewDemand,
@@ -17,7 +15,6 @@ from nl2spl.ir.resource_registry_ir import (
     ResourceRegistryIR,
     VariableSpec,
 )
-
 
 # =============================================================================
 # Helpers
@@ -98,7 +95,7 @@ def test_demand_view_no_binding_missing_materialization() -> None:
     """DemandView has a demand but no binding → materialization missing."""
     from unittest.mock import MagicMock
 
-    dv = ResourceContractDemandView(demands=(
+    ResourceContractDemandView(demands=(
         _demand_dv("rcd_out_s1", "output", "required"),
     ))
     checker = PostNormalizeIRSCheckerV6()

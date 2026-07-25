@@ -8,7 +8,6 @@ from nl2spl.pipeline.stages.stage6_resource_extractor.resource_name_filter impor
     looks_like_ir_field,
 )
 
-
 # ---------------------------------------------------------------------------
 # looks_like_ir_field
 # ---------------------------------------------------------------------------
@@ -167,6 +166,7 @@ class TestDeterminism:
 class TestStage6ParseBoundary:
     def _make_stage(self, flag_enabled: bool):
         from unittest.mock import MagicMock
+
         from nl2spl.config import LLMConfig, PipelineConfig
         from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
         config = PipelineConfig(
@@ -238,6 +238,7 @@ class TestStage6ParseBoundary:
 class TestWorkerScopedParseBoundary:
     def _make_stage(self, flag_enabled: bool):
         from unittest.mock import MagicMock
+
         from nl2spl.config import LLMConfig, PipelineConfig
         from nl2spl.pipeline.stages.stage6_resource_extractor import ResourceExtractor
         config = PipelineConfig(
@@ -250,9 +251,10 @@ class TestWorkerScopedParseBoundary:
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
         from nl2spl.ir.span_ir import SpanIR
-        from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.ir.worker_plan_ir import (
-            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR,
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerPlanIR,
             WorkerSpecIR,
         )
 
@@ -305,9 +307,10 @@ class TestWorkerScopedParseBoundary:
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
         from nl2spl.ir.span_ir import SpanIR
-        from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.ir.worker_plan_ir import (
-            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR,
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerPlanIR,
             WorkerSpecIR,
         )
 
@@ -353,17 +356,19 @@ class TestWorkerScopedParseBoundary:
 
 class TestOrchestratorFilterWarnings:
     def test_filter_warning_in_adapter_warnings(self, tmp_path):
-        from pathlib import Path
         from unittest.mock import MagicMock, patch
+
         from nl2spl.config import LLMConfig, PipelineConfig
+        from nl2spl.ir.block_structure_ir import BlockStructureIR
         from nl2spl.ir.field_route_ir import FieldRouteIR
         from nl2spl.ir.flow_structure_ir import FlowStructureIR
-        from nl2spl.ir.block_structure_ir import BlockStructureIR
         from nl2spl.ir.resource_registry_ir import (
             ResourceRegistryIR,
             VariableSpec,
             WorkerScopedResourceIR,
         )
+        from nl2spl.ir.span_ir import SpanIR
+        from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.ir.worker_plan_ir import (
             WorkerBlockPlanIR,
             WorkerFlowPlanIR,
@@ -371,8 +376,6 @@ class TestOrchestratorFilterWarnings:
             WorkerSpecIR,
             WorkerStepPlanIR,
         )
-        from nl2spl.ir.span_ir import SpanIR
-        from nl2spl.ir.symbol_table import SymbolTable
         from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
         config = PipelineConfig(

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from nl2spl.ir.block_structure_ir import BlockIR, BlockStructureIR
+from nl2spl.ir.block_structure_ir import BlockStructureIR
 from nl2spl.ir.field_route_ir import FieldRouteIR
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.span_ir import SpanIR
@@ -25,7 +25,6 @@ from tests.fixtures.stage_prompt_fixtures import (
     generate_test_report,
     load_mock_response,
 )
-
 
 # =============================================================================
 # Pytest Markers

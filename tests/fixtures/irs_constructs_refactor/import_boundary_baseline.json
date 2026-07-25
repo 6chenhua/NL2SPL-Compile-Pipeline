@@ -1,0 +1,512 @@
+{
+  "irs_graph_frontier_patch_imports": {
+    "count": 6,
+    "matches": [
+      {
+        "line": 5,
+        "path": "tests/unit/compiler/irs/test_construct_graph.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructEdge, ConstructGraph"
+      },
+      {
+        "line": 34,
+        "path": "tests/unit/compiler/irs/test_r10_irs_subsystem_foundation.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructEdge, ConstructGraph"
+      },
+      {
+        "line": 13,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructGraph"
+      },
+      {
+        "line": 574,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructEdge"
+      },
+      {
+        "line": 594,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructEdge"
+      },
+      {
+        "line": 607,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.irs.graph import ConstructEdge"
+      }
+    ]
+  },
+  "legacy_construct_registry_imports": {
+    "count": 70,
+    "matches": [
+      {
+        "line": 11,
+        "path": "tests/integration/test_llm_adapter_engine_e2e.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 5,
+        "path": "tests/unit/test_construct_registry.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 10,
+        "path": "tests/unit/test_input_adapter_pipeline.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 5,
+        "path": "tests/unit/test_irs_prompt_builder.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 18,
+        "path": "tests/unit/test_irs_v6_r1_report_schema.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 12,
+        "path": "tests/unit/test_post_normalize_resource_contract_irs.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 4,
+        "path": "tests/unit/test_stage4_irs_exception_flow.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 7,
+        "path": "tests/unit/test_stage7_irs_step_extraction.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 15,
+        "path": "tests/unit/pipeline/test_r10_orchestrator_irs_promotion_characterization.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 14,
+        "path": "tests/unit/pipeline/test_r10_provenance_delegation_trace_characterization.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 1,
+        "path": "tests/unit/pipeline/test_resource_declaration_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 5,
+        "path": "tests/unit/pipeline/test_r_api_5_gate_renderer_cleanup.py",
+        "text": "from nl2spl.compiler.construct_registry import ConstructSatisfactionReport, SlotSatisfaction"
+      },
+      {
+        "line": 8,
+        "path": "tests/unit/compiler/irs/test_api_declaration_checker.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 5,
+        "path": "tests/unit/compiler/irs/test_api_declaration_registry.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 6,
+        "path": "tests/unit/compiler/irs/test_api_deferred_validation_contract.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 13,
+        "path": "tests/unit/compiler/irs/test_irs_contract_audit_guardrail.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 21,
+        "path": "tests/unit/compiler/irs/test_r10_delegation_intent_cleanup_characterization.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 18,
+        "path": "tests/unit/compiler/irs/test_r10_e2e_acceptance_scenarios.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 28,
+        "path": "tests/unit/compiler/irs/test_r10_irs_subsystem_foundation.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 7,
+        "path": "tests/unit/compiler/irs/test_r13_construct_satisfaction_feedback.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 23,
+        "path": "tests/unit/compiler/irs/test_r2_framework_skeleton.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 760,
+        "path": "tests/unit/compiler/irs/test_r2_framework_skeleton.py",
+        "text": "from nl2spl.compiler.construct_registry import ConstructSatisfactionReport"
+      },
+      {
+        "line": 21,
+        "path": "tests/unit/compiler/irs/test_r3_diagnostic_projector.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 21,
+        "path": "tests/unit/compiler/irs/test_r4_worker_delegation_checker.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 1048,
+        "path": "tests/unit/compiler/irs/test_r4_worker_delegation_checker.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 12,
+        "path": "tests/unit/compiler/irs/test_r6_exception_flow_checker.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 13,
+        "path": "tests/unit/compiler/irs/test_r6_orchestrator_compatibility.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 12,
+        "path": "tests/unit/compiler/irs/test_r6_step_checker.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 67,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 114,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 161,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 183,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 211,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 242,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 285,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 306,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 326,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 354,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 375,
+        "path": "tests/unit/compiler/irs/test_r8_graph_ready_hardening.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 179,
+        "path": "tests/unit/compiler/irs/test_r9_final_audit.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 14,
+        "path": "tests/unit/compiler/irs/test_user_confirmed_repair_evidence_contract.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 22,
+        "path": "tests/unit/compiler/irs/test_u_final_e2e_user_confirmed_request_input.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 1,
+        "path": "tests/unit/compiler/irs/test_worker_contract_partial_status.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 6,
+        "path": "tests/unit/compiler/spl_editing/test_b2_editable_issue_extractor.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 3,
+        "path": "tests/unit/compiler/spl_editing/test_b6_handler_contract.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 4,
+        "path": "tests/unit/compiler/spl_editing/test_b7a_worker_delegation_grouping.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 23,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SlotSpec"
+      },
+      {
+        "line": 34,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 62,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 85,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 95,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 112,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 258,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 406,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 435,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 446,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 26,
+        "path": "tests/unit/compiler/spl_editing/test_r0_readiness_baseline.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 15,
+        "path": "tests/unit/compiler/spl_editing/test_r1_diagnostic_metadata.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 16,
+        "path": "tests/unit/compiler/spl_editing/test_r2_repair_affordance.py",
+        "text": "from nl2spl.compiler.construct_registry import ("
+      },
+      {
+        "line": 18,
+        "path": "tests/unit/compiler/spl_editing/test_r3_repair_catalog.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 560,
+        "path": "tests/unit/compiler/spl_editing/test_r3_repair_catalog.py",
+        "text": "from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec"
+      },
+      {
+        "line": 596,
+        "path": "tests/unit/compiler/spl_editing/test_r3_repair_catalog.py",
+        "text": "from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec"
+      },
+      {
+        "line": 630,
+        "path": "tests/unit/compiler/spl_editing/test_r3_repair_catalog.py",
+        "text": "from nl2spl.compiler.construct_registry import ConstructIRS, RepairAffordanceSpec, SlotSpec"
+      },
+      {
+        "line": 17,
+        "path": "tests/unit/compiler/spl_editing/test_r5_worker_promotion.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 9,
+        "path": "tests/unit/compiler/spl_editing/construct_strategy/test_r12_2_strategy_catalog_projection.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 7,
+        "path": "tests/unit/compiler/spl_editing/construct_strategy/test_r12_contract_baseline.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 7,
+        "path": "tests/unit/compiler/spl_editing/construct_strategy/test_r13_0_missing_handler_strategy_wiring.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 8,
+        "path": "tests/unit/compiler/spl_editing/construct_strategy/test_strategy_transition_guards.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 9,
+        "path": "tests/unit/compiler/spl_editing/materialization/test_r4_materialization.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      },
+      {
+        "line": 288,
+        "path": "tests/integration/compiler/spl_editing/test_b10_integration_anti_fabrication.py",
+        "text": "from nl2spl.compiler.construct_registry import SPLConstructRegistry"
+      }
+    ]
+  },
+  "legacy_diagnostic_consolidator_imports": {
+    "count": 6,
+    "matches": [
+      {
+        "line": 6,
+        "path": "tests/unit/test_diagnostic_consolidator.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      },
+      {
+        "line": 316,
+        "path": "tests/unit/compiler/annotation_role_contract/test_arc7_diagnostic_projection.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      },
+      {
+        "line": 433,
+        "path": "tests/unit/compiler/annotation_role_contract/test_arc7_diagnostic_projection.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      },
+      {
+        "line": 294,
+        "path": "tests/unit/compiler/spl_editing/test_b_minus_1_readiness_gate.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      },
+      {
+        "line": 19,
+        "path": "tests/unit/compiler/spl_editing/test_r1_diagnostic_metadata.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      },
+      {
+        "line": 337,
+        "path": "tests/integration/compiler/spl_editing/test_s8_persisted_snapshot_e2e.py",
+        "text": "from nl2spl.compiler.diagnostic_consolidator import ("
+      }
+    ]
+  },
+  "legacy_diagnostic_registry_imports": {
+    "count": 3,
+    "matches": [
+      {
+        "line": 5,
+        "path": "tests/unit/test_diagnostic_registry.py",
+        "text": "from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry, DiagnosticSpec"
+      },
+      {
+        "line": 26,
+        "path": "tests/unit/compiler/irs/test_r3_diagnostic_projector.py",
+        "text": "from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry, DiagnosticSpec"
+      },
+      {
+        "line": 664,
+        "path": "tests/unit/compiler/spl_editing/test_r0_readiness_baseline.py",
+        "text": "from nl2spl.compiler.diagnostic_registry import DiagnosticRegistry"
+      }
+    ]
+  },
+  "legacy_irs_prompt_builder_imports": {
+    "count": 2,
+    "matches": [
+      {
+        "line": 34,
+        "path": "src/nl2spl/compiler/__init__.py",
+        "text": "from nl2spl.compiler.irs_prompt_builder import IRSDrivenPromptBuilder"
+      },
+      {
+        "line": 10,
+        "path": "tests/unit/test_irs_prompt_builder.py",
+        "text": "from nl2spl.compiler.irs_prompt_builder import IRSDrivenPromptBuilder"
+      }
+    ]
+  },
+  "legacy_report_renderer_imports": {
+    "count": 5,
+    "matches": [
+      {
+        "line": 14,
+        "path": "tests/integration/test_partial_spl_mvp.py",
+        "text": "from nl2spl.compiler.report_renderer import render_report"
+      },
+      {
+        "line": 6,
+        "path": "tests/unit/test_report_renderer.py",
+        "text": "from nl2spl.compiler.report_renderer import render_report"
+      },
+      {
+        "line": 14,
+        "path": "tests/unit/compiler/irs/test_r13_construct_satisfaction_feedback.py",
+        "text": "from nl2spl.compiler.report_renderer import render_report"
+      },
+      {
+        "line": 554,
+        "path": "tests/unit/compiler/spl_editing/test_r1_diagnostic_metadata.py",
+        "text": "from nl2spl.compiler.report_renderer import render_report"
+      },
+      {
+        "line": 620,
+        "path": "tests/unit/compiler/spl_editing/test_r1_diagnostic_metadata.py",
+        "text": "from nl2spl.compiler.report_renderer import render_report"
+      }
+    ]
+  },
+  "reporting_depends_on_irs_feedback": {
+    "count": 3,
+    "matches": [
+      {
+        "line": 113,
+        "path": "tests/unit/compiler/architecture/test_import_boundaries.py",
+        "text": "if \"nl2spl.compiler.irs.feedback_projector\" in imports:"
+      },
+      {
+        "line": 144,
+        "path": "tests/unit/compiler/architecture/test_import_boundaries.py",
+        "text": "\"nl2spl.compiler.irs.feedback_projector\","
+      },
+      {
+        "line": 11,
+        "path": "tests/unit/compiler/irs/test_r13_construct_satisfaction_feedback.py",
+        "text": "from nl2spl.compiler.irs.feedback_projector import ("
+      }
+    ]
+  }
+}

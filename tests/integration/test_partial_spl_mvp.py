@@ -627,11 +627,15 @@ def test_structural_delegation_section_provenance() -> None:
 
     del_span_id = del_spans[0].span_id
 
-    from nl2spl.ir.worker_plan_ir import (
-        InputBindingIR, InvokeLocationHintIR, OutputBindingIR,
-        WorkerHandoffIR, WorkerPlanIR, WorkerSpecIR,
-    )
     from nl2spl.ir.worker_ir import ChildWorkerIR, FlowRef, WorkerInput, WorkerOutput
+    from nl2spl.ir.worker_plan_ir import (
+        InputBindingIR,
+        InvokeLocationHintIR,
+        OutputBindingIR,
+        WorkerHandoffIR,
+        WorkerPlanIR,
+        WorkerSpecIR,
+    )
 
     worker = WorkerIR(
         worker_name="MainWorker",

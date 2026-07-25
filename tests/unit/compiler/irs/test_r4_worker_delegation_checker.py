@@ -17,7 +17,6 @@ Test coverage:
     - Related edges express relationships
 """
 
-import pytest
 
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
@@ -36,7 +35,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerSpecIR,
 )
 
-
 # ===========================================================================
 # Registry Tests
 # ===========================================================================
@@ -49,7 +47,7 @@ class TestR4ConstructRegistry:
         """WORKER_PROMOTION construct spec exists"""
         registry = SPLConstructRegistry.default()
         assert registry.has("WORKER_PROMOTION")
-        
+
         irs = registry.get("WORKER_PROMOTION")
         assert irs.construct_type == "WORKER_PROMOTION"
         assert len(irs.slots) == 4
@@ -62,7 +60,7 @@ class TestR4ConstructRegistry:
         """WORKER_HANDOFF construct spec exists"""
         registry = SPLConstructRegistry.default()
         assert registry.has("WORKER_HANDOFF")
-        
+
         irs = registry.get("WORKER_HANDOFF")
         assert irs.construct_type == "WORKER_HANDOFF"
         assert len(irs.slots) == 5
@@ -93,11 +91,11 @@ class TestR4ConstructRegistry:
         """WORKER_CANDIDATE description clarifies candidate vs promotion"""
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_CANDIDATE")
-        
+
         # Should mention candidate boundary, not promotion
         assert "candidate" in irs.description.lower()
         assert "boundary" in irs.description.lower()
-        
+
         # Slots should be about candidate identification, not promotion
         assert irs.get_slot("responsibility") is not None
         assert irs.get_slot("delegation_signal") is not None
@@ -123,7 +121,7 @@ class TestR4CheckerExtraction:
         """No worker_plan in context returns no instances"""
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=None)
-        
+
         instances = checker.extract_instances(context)
         assert instances == []
 
@@ -148,24 +146,24 @@ class TestR4CheckerExtraction:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         instances = checker.extract_instances(context)
-        
+
         assert len(instances) == 2
-        
+
         candidate_instances = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"]
         promotion_instances = [i for i in instances if i.construct_type == "WORKER_PROMOTION"]
-        
+
         assert len(candidate_instances) == 1
         assert len(promotion_instances) == 1
-        
+
         assert candidate_instances[0].construct_id == "worker_candidate:cand_1"
         assert candidate_instances[0].materialized is False
         assert candidate_instances[0].source_demanded is True
         assert candidate_instances[0].candidate_only is True
-        
+
         assert promotion_instances[0].construct_id == "worker_promotion:cand_1"
         assert promotion_instances[0].materialized is False
         assert promotion_instances[0].source_demanded is True
@@ -195,11 +193,11 @@ class TestR4CheckerExtraction:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         instances = checker.extract_instances(context)
-        
+
         assert len(instances) == 1
         assert instances[0].construct_type == "CHILD_WORKER"
         assert instances[0].construct_id == "child_worker:worker_child"
@@ -226,11 +224,11 @@ class TestR4CheckerExtraction:
                 )
             ],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         instances = checker.extract_instances(context)
-        
+
         assert len(instances) == 1
         assert instances[0].construct_type == "WORKER_HANDOFF"
         assert instances[0].construct_id == "worker_handoff:handoff_1"
@@ -492,7 +490,7 @@ class TestR4CandidateChecking:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -500,23 +498,23 @@ class TestR4CandidateChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_CANDIDATE")
-        
+
         instances = checker.extract_instances(context)
         candidate_instance = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"][0]
-        
+
         report = checker.check_instance(candidate_instance, irs, context)
-        
+
         assert report.construct_type == "WORKER_CANDIDATE"
         assert report.completeness == "complete"
         assert report.renderable is False
         assert report.frontier_status == "leaf"
         assert report.metadata["candidate_status"] == "identified"
-        
+
         # All slots satisfied
         assert len(report.slots) == 3
         assert all(s.status == "satisfied" for s in report.slots)
@@ -534,7 +532,7 @@ class TestR4CandidateChecking:
             signals=["delegation"],
             risks=["no_clear_input_contract", "no_clear_output_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -542,25 +540,25 @@ class TestR4CandidateChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
-        
+
         instances = checker.extract_instances(context)
         candidate_instance = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"][0]
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         candidate_report = checker.check_instance(
             candidate_instance, registry.get("WORKER_CANDIDATE"), context
         )
         promotion_report = checker.check_instance(
             promotion_instance, registry.get("WORKER_PROMOTION"), context
         )
-        
+
         # Candidate is complete
         assert candidate_report.completeness == "complete"
-        
+
         # But promotion is blocked
         assert promotion_report.completeness == "partial"
         assert promotion_report.metadata["promotion_status"] == "blocked"
@@ -589,7 +587,7 @@ class TestR4PromotionChecking:
             signals=["explicit_delegation"],
             risks=["no_clear_input_contract", "no_clear_output_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -597,17 +595,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         assert report.construct_type == "WORKER_PROMOTION"
         assert report.completeness == "partial"
         assert report.renderable is False
@@ -615,7 +613,7 @@ class TestR4PromotionChecking:
         assert report.cutline_reason == "missing_promotion_contract"
         assert report.metadata["promotion_status"] == "blocked"
         assert report.metadata["promotion_candidate_id"] == "cand_draft"
-        
+
         # Check missing slots have diagnostic_kind
         missing_slots = [s for s in report.slots if s.status == "missing"]
         assert len(missing_slots) > 0
@@ -635,7 +633,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=["no_clear_input_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -643,17 +641,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         input_slot = next(s for s in report.slots if s.slot_name == "promotion_input_contract")
         assert input_slot.status == "missing"
         assert input_slot.diagnostic_kind == "type_or_contract_ambiguity"
@@ -671,7 +669,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=["no_clear_output_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -679,17 +677,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         output_slot = next(s for s in report.slots if s.slot_name == "promotion_output_contract")
         assert output_slot.status == "missing"
         assert output_slot.diagnostic_kind == "type_or_contract_ambiguity"
@@ -707,7 +705,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=["no_parent_invocation_point"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -715,17 +713,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         invocation_slot = next(
             s for s in report.slots if s.slot_name == "promotion_invocation_point"
         )
@@ -745,7 +743,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=["unclear_result_handoff"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -753,17 +751,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         handoff_slot = next(
             s for s in report.slots if s.slot_name == "promotion_result_handoff"
         )
@@ -783,7 +781,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=[],  # No risks, but no handoff evidence either
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -791,17 +789,17 @@ class TestR4PromotionChecking:
             decisions=[],
             handoffs=[],  # No handoffs - promotion should be blocked
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         # Without handoff evidence, promotion should be blocked
         assert report.completeness == "partial"
         assert report.metadata["promotion_status"] == "blocked"
@@ -813,7 +811,7 @@ class TestR4PromotionChecking:
     def test_complete_promotion_with_all_evidence_is_ready(self):
         """Complete promotion with decision, child worker, handoff, and bindings is ready"""
         from nl2spl.ir.worker_plan_ir import WorkerBoundaryDecisionIR
-        
+
         candidate = CandidateTaskUnitIR(
             candidate_id="cand_1",
             source_span_ids=["s1"],
@@ -825,7 +823,7 @@ class TestR4PromotionChecking:
             signals=["delegation"],
             risks=[],
         )
-        
+
         child_worker = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -840,7 +838,7 @@ class TestR4PromotionChecking:
             decision_evidence=[],
             reason="",
         )
-        
+
         decision = WorkerBoundaryDecisionIR(
             candidate_id="cand_1",
             decision="extract_child_worker",
@@ -849,7 +847,7 @@ class TestR4PromotionChecking:
             rejection_reason=None,
             reason="Extracted as child worker",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -868,7 +866,7 @@ class TestR4PromotionChecking:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[child_worker],
@@ -876,17 +874,17 @@ class TestR4PromotionChecking:
             decisions=[decision],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         # With all evidence, promotion should be ready
         assert report.completeness == "complete"
         assert report.metadata["promotion_status"] == "ready"
@@ -919,7 +917,7 @@ class TestR4ChildWorkerAndHandoff:
             decision_evidence=[],
             reason="",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -938,7 +936,7 @@ class TestR4ChildWorkerAndHandoff:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker],
@@ -946,17 +944,17 @@ class TestR4ChildWorkerAndHandoff:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("CHILD_WORKER")
-        
+
         instances = checker.extract_instances(context)
         worker_instance = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
-        
+
         report = checker.check_instance(worker_instance, irs, context)
-        
+
         assert report.construct_type == "CHILD_WORKER"
         assert report.completeness == "complete"
         assert report.renderable is True
@@ -1145,7 +1143,7 @@ class TestR4ChildWorkerAndHandoff:
             decision_evidence=[],
             reason="",
         )
-        
+
         worker_child = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -1160,7 +1158,7 @@ class TestR4ChildWorkerAndHandoff:
             decision_evidence=[],
             reason="",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -1179,7 +1177,7 @@ class TestR4ChildWorkerAndHandoff:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_main, worker_child],  # Include both workers
@@ -1187,17 +1185,17 @@ class TestR4ChildWorkerAndHandoff:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_HANDOFF")
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         report = checker.check_instance(handoff_instance, irs, context)
-        
+
         assert report.construct_type == "WORKER_HANDOFF"
         assert report.completeness == "complete"
         assert report.renderable is False  # Handoff is not renderable
@@ -1219,7 +1217,7 @@ class TestR4ChildWorkerAndHandoff:
             decision_evidence=[],
             reason="",
         )
-        
+
         worker_child = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -1234,7 +1232,7 @@ class TestR4ChildWorkerAndHandoff:
             decision_evidence=[],
             reason="",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -1247,7 +1245,7 @@ class TestR4ChildWorkerAndHandoff:
             output_bindings=[],  # Missing
             invoke_location_hint=None,  # Missing - invocation_site will be missing
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_main, worker_child],
@@ -1255,23 +1253,23 @@ class TestR4ChildWorkerAndHandoff:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_HANDOFF")
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         report = checker.check_instance(handoff_instance, irs, context)
-        
+
         assert report.completeness == "partial"
-        
+
         missing_slots = [s for s in report.slots if s.status == "missing"]
         # Should have: input_bindings, output_bindings, invocation_site (ordering alone not sufficient)
         assert len(missing_slots) >= 3
-        
+
         for slot in missing_slots:
             assert slot.diagnostic_kind == "type_or_contract_ambiguity"
 
@@ -1297,7 +1295,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=["no_clear_input_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1305,22 +1303,22 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         # Capture original state
         original_candidates_count = len(plan.candidates)
         original_workers_count = len(plan.workers)
         original_handoffs_count = len(plan.handoffs)
         original_candidate_id = plan.candidates[0].candidate_id
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
-        
+
         instances = checker.extract_instances(context)
         for instance in instances:
             irs = registry.get(instance.construct_type)
             checker.check_instance(instance, irs, context)
-        
+
         # Verify no mutation
         assert len(plan.candidates) == original_candidates_count
         assert len(plan.workers) == original_workers_count
@@ -1340,7 +1338,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=["no_clear_input_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1348,17 +1346,17 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         # R8.2: promotes_to + blocked_by edges for each missing slot
         promotes = [e for e in report.related_edges if e.edge_type == "promotes_to"]
         assert len(promotes) == 1
@@ -1386,7 +1384,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         worker_child = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -1401,7 +1399,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -1420,7 +1418,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_main, worker_child],  # Include child worker
@@ -1428,17 +1426,17 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_HANDOFF")
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         report = checker.check_instance(handoff_instance, irs, context)
-        
+
         assert len(report.related_edges) == 1
         edge = report.related_edges[0]
         assert edge.from_id == "worker_handoff:handoff_1"
@@ -1458,7 +1456,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1466,13 +1464,13 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
-        
+
         instances = checker.extract_instances(context)
         candidate_instance = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"][0]
-        
+
         # Verify source provenance
         assert candidate_instance.ir_ref is candidate
         assert candidate_instance.source_span_ids == ["s1", "s2"]
@@ -1491,7 +1489,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1499,13 +1497,13 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         # Verify source provenance
         assert promotion_instance.ir_ref is candidate
         assert promotion_instance.source_span_ids == ["s1", "s2"]
@@ -1527,7 +1525,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker],
@@ -1535,13 +1533,13 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
-        
+
         instances = checker.extract_instances(context)
         worker_instance = [i for i in instances if i.construct_type == "CHILD_WORKER"][0]
-        
+
         # Verify source provenance
         assert worker_instance.ir_ref is worker
         assert worker_instance.source_span_ids == ["s3", "s4"]
@@ -1567,7 +1565,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1575,13 +1573,13 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         # Verify source provenance
         assert handoff_instance.ir_ref is handoff
         assert "s5" in handoff_instance.source_span_ids
@@ -1591,7 +1589,7 @@ class TestR4CheckerBehavior:
     def test_multiple_candidates_handoff_does_not_cross_wire(self):
         """Multiple candidates: handoff only matches the correct candidate, not others"""
         from nl2spl.ir.worker_plan_ir import WorkerBoundaryDecisionIR
-        
+
         # Two candidates with different source spans
         candidate_a = CandidateTaskUnitIR(
             candidate_id="cand_a",
@@ -1604,7 +1602,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         candidate_b = CandidateTaskUnitIR(
             candidate_id="cand_b",
             source_span_ids=["s5", "s6"],
@@ -1616,7 +1614,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         # Child worker for candidate_a with overlapping spans
         worker_a = WorkerSpecIR(
             worker_id="worker_a",
@@ -1632,7 +1630,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         # Decision for candidate_a only
         decision_a = WorkerBoundaryDecisionIR(
             candidate_id="cand_a",
@@ -1642,7 +1640,7 @@ class TestR4CheckerBehavior:
             rejection_reason=None,
             reason="Extracted as child worker",
         )
-        
+
         decision_b = WorkerBoundaryDecisionIR(
             candidate_id="cand_b",
             decision="extract_child_worker",
@@ -1651,7 +1649,7 @@ class TestR4CheckerBehavior:
             rejection_reason=None,
             reason="Extracted as child worker",
         )
-        
+
         # Handoff that matches candidate_a (overlapping spans with worker_a)
         handoff_a = WorkerHandoffIR(
             handoff_id="handoff_a",
@@ -1671,7 +1669,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_a],
@@ -1679,23 +1677,23 @@ class TestR4CheckerBehavior:
             decisions=[decision_a, decision_b],
             handoffs=[handoff_a],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_a = [i for i in instances if i.construct_id == "worker_promotion:cand_a"][0]
         promotion_b = [i for i in instances if i.construct_id == "worker_promotion:cand_b"][0]
-        
+
         report_a = checker.check_instance(promotion_a, irs, context)
         report_b = checker.check_instance(promotion_b, irs, context)
-        
+
         # candidate_a should be ready (has matching handoff)
         assert report_a.completeness == "complete"
         assert report_a.metadata["promotion_status"] == "ready"
-        
+
         # candidate_b should be blocked (no matching handoff)
         assert report_b.completeness == "partial"
         assert report_b.metadata["promotion_status"] == "blocked"
@@ -1715,7 +1713,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -1723,26 +1721,26 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
-        
+
         instances = checker.extract_instances(context)
         candidate_instance = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"][0]
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         candidate_report = checker.check_instance(
             candidate_instance, registry.get("WORKER_CANDIDATE"), context
         )
         promotion_report = checker.check_instance(
             promotion_instance, registry.get("WORKER_PROMOTION"), context
         )
-        
+
         # Verify construct_path is tuple, not string
         assert isinstance(candidate_report.construct_path, tuple)
         assert candidate_report.construct_path == ("worker_plan", "candidates", "cand_1")
-        
+
         assert isinstance(promotion_report.construct_path, tuple)
         assert promotion_report.construct_path == ("worker_plan", "promotion", "cand_1")
 
@@ -1762,7 +1760,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         worker_child = WorkerSpecIR(
             worker_id="worker_child",
             worker_name="Child",
@@ -1777,7 +1775,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
             from_worker="worker_main",
@@ -1796,7 +1794,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_main, worker_child],
@@ -1804,25 +1802,25 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_HANDOFF")
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         # Verify instance has source spans from invoke_location_hint
         assert "s3" in handoff_instance.source_span_ids
         assert "s4" in handoff_instance.source_span_ids
-        
+
         report = checker.check_instance(handoff_instance, irs, context)
-        
+
         # Verify report preserves source spans
         assert "s3" in report.source_span_ids
         assert "s4" in report.source_span_ids
-        
+
         # Verify slots also use handoff source spans
         for slot in report.slots:
             if slot.status == "satisfied":
@@ -1831,7 +1829,7 @@ class TestR4CheckerBehavior:
     def test_promotion_blocked_when_handoff_target_worker_missing(self):
         """Promotion blocked when handoff exists but target worker doesn't exist"""
         from nl2spl.ir.worker_plan_ir import WorkerBoundaryDecisionIR
-        
+
         candidate = CandidateTaskUnitIR(
             candidate_id="cand_1",
             source_span_ids=["s1", "s2"],
@@ -1843,7 +1841,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         decision = WorkerBoundaryDecisionIR(
             candidate_id="cand_1",
             decision="extract_child_worker",
@@ -1852,7 +1850,7 @@ class TestR4CheckerBehavior:
             rejection_reason=None,
             reason="Extracted as child worker",
         )
-        
+
         # Handoff points to non-existent worker_child
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
@@ -1872,7 +1870,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],  # No child worker materialized
@@ -1880,17 +1878,17 @@ class TestR4CheckerBehavior:
             decisions=[decision],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_PROMOTION")
-        
+
         instances = checker.extract_instances(context)
         promotion_instance = [i for i in instances if i.construct_type == "WORKER_PROMOTION"][0]
-        
+
         report = checker.check_instance(promotion_instance, irs, context)
-        
+
         # Without materialized child worker, promotion must be blocked
         assert report.completeness == "partial"
         assert report.metadata["promotion_status"] == "blocked"
@@ -1916,7 +1914,7 @@ class TestR4CheckerBehavior:
             decision_evidence=[],
             reason="",
         )
-        
+
         # Handoff to non-existent worker
         handoff = WorkerHandoffIR(
             handoff_id="handoff_1",
@@ -1936,7 +1934,7 @@ class TestR4CheckerBehavior:
                 block_hint="sequential",
             ),
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[worker_main],  # No child worker
@@ -1944,21 +1942,21 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[handoff],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         registry = SPLConstructRegistry.default()
         irs = registry.get("WORKER_HANDOFF")
-        
+
         instances = checker.extract_instances(context)
         handoff_instance = [i for i in instances if i.construct_type == "WORKER_HANDOFF"][0]
-        
+
         report = checker.check_instance(handoff_instance, irs, context)
-        
+
         # Target should be missing
         target_slot = next(s for s in report.slots if s.slot_name == "target")
         assert target_slot.status == "missing"
-        
+
         # Should not create graph edge to non-existent worker
         assert len(report.related_edges) == 0
 
@@ -1975,7 +1973,7 @@ class TestR4CheckerBehavior:
             signals=[],
             risks=[],
         )
-        
+
         exception_candidate = CandidateTaskUnitIR(
             candidate_id="cand_exception",
             source_span_ids=["s2"],
@@ -1987,7 +1985,7 @@ class TestR4CheckerBehavior:
             signals=[],
             risks=[],
         )
-        
+
         worker_candidate = CandidateTaskUnitIR(
             candidate_id="cand_worker",
             source_span_ids=["s3"],
@@ -1999,7 +1997,7 @@ class TestR4CheckerBehavior:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -2007,19 +2005,19 @@ class TestR4CheckerBehavior:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker = WorkerDelegationIRSChecker()
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
-        
+
         instances = checker.extract_instances(context)
-        
+
         # Should only extract instances for worker candidate
         candidate_instances = [i for i in instances if i.construct_type == "WORKER_CANDIDATE"]
         promotion_instances = [i for i in instances if i.construct_type == "WORKER_PROMOTION"]
-        
+
         assert len(candidate_instances) == 1
         assert candidate_instances[0].construct_id == "worker_candidate:cand_worker"
-        
+
         assert len(promotion_instances) == 1
         assert promotion_instances[0].construct_id == "worker_promotion:cand_worker"
 
@@ -2045,7 +2043,7 @@ class TestR4RunnerIntegration:
             signals=["explicit_delegation"],
             risks=["no_clear_input_contract", "no_clear_output_contract"],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -2053,36 +2051,36 @@ class TestR4RunnerIntegration:
             decisions=[],
             handoffs=[],
         )
-        
+
         # Setup runner with checker and projector
         checker_registry = IRSCheckerRegistry()
         checker = WorkerDelegationIRSChecker()
         checker_registry.register(checker)
-        
+
         construct_registry = SPLConstructRegistry.default()
         projector = DiagnosticProjector()
-        
+
         runner = IRSRunner(
             registry=checker_registry,
             construct_registry=construct_registry,
             projector=projector,
         )
-        
+
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         result = runner.run_stage("stage3_5", context)
-        
+
         # Verify reports
         assert len(result.reports) == 2  # WORKER_CANDIDATE + WORKER_PROMOTION
-        
+
         candidate_reports = [r for r in result.reports if r.construct_type == "WORKER_CANDIDATE"]
         promotion_reports = [r for r in result.reports if r.construct_type == "WORKER_PROMOTION"]
-        
+
         assert len(candidate_reports) == 1
         assert len(promotion_reports) == 1
-        
+
         # Verify diagnostics
         assert len(result.diagnostics) > 0
-        
+
         # All diagnostics should be type_or_contract_ambiguity
         for diagnostic in result.diagnostics:
             assert diagnostic.kind == "type_or_contract_ambiguity"
@@ -2099,19 +2097,19 @@ class TestR4RunnerIntegration:
         checker_registry = IRSCheckerRegistry()
         checker = WorkerDelegationIRSChecker()
         checker_registry.register(checker)
-        
+
         construct_registry = SPLConstructRegistry.default()
         projector = DiagnosticProjector()
-        
+
         runner = IRSRunner(
             registry=checker_registry,
             construct_registry=construct_registry,
             projector=projector,
         )
-        
+
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=None)
         result = runner.run_stage("stage3_5", context)
-        
+
         assert len(result.reports) == 0
         assert len(result.diagnostics) == 0
         assert len(result.warnings) == 0
@@ -2129,7 +2127,7 @@ class TestR4RunnerIntegration:
             signals=["delegation"],
             risks=[],
         )
-        
+
         plan = WorkerPlanIR(
             main_worker_id="worker_main",
             workers=[],
@@ -2137,23 +2135,23 @@ class TestR4RunnerIntegration:
             decisions=[],
             handoffs=[],
         )
-        
+
         checker_registry = IRSCheckerRegistry()
         checker = WorkerDelegationIRSChecker()
         checker_registry.register(checker)
-        
+
         construct_registry = SPLConstructRegistry.default()
         projector = DiagnosticProjector()
-        
+
         runner = IRSRunner(
             registry=checker_registry,
             construct_registry=construct_registry,
             projector=projector,
         )
-        
+
         context = IRSCheckContext(stage_name="stage3_5", worker_plan=plan)
         result = runner.run_stage("stage3_5", context)
-        
+
         # No warnings about unknown construct types
         unknown_warnings = [
             w for w in result.warnings if "Unknown construct type" in w

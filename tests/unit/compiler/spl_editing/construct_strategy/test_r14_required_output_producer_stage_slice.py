@@ -8,7 +8,6 @@ import pathlib
 import pytest
 
 from nl2spl.compiler.producer_index import ProducerIndex
-from nl2spl.compiler.spl_editing.closure.model import ConstructClosurePlan
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogEntry
 from nl2spl.compiler.spl_editing.core.model import EditableIssue, RepairTarget
 from nl2spl.compiler.spl_editing.intent.model import (
@@ -17,7 +16,9 @@ from nl2spl.compiler.spl_editing.intent.model import (
 )
 from nl2spl.compiler.spl_editing.materialization.id_allocator import IdAllocator
 from nl2spl.compiler.spl_editing.materialization.model import MaterializationInput
-from nl2spl.compiler.spl_editing.materialization.registry import build_default_materialization_registry
+from nl2spl.compiler.spl_editing.materialization.registry import (
+    build_default_materialization_registry,
+)
 from nl2spl.compiler.spl_editing.materialization.stage7.producer_step import (
     Stage7ProducerRepairMaterializer,
 )

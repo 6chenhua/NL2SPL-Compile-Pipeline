@@ -1,4 +1,4 @@
-﻿"""Worker-aware orchestrator path tests for Stage 4/5 migration."""
+"""Worker-aware orchestrator path tests for Stage 4/5 migration."""
 
 from __future__ import annotations
 
@@ -30,7 +30,9 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerHandoffIR,
     WorkerPlanIR,
     WorkerSpecIR,
+    WorkerStepPlanIR,
 )
+from nl2spl.pipeline import intermediate_keys as ik
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
 
 
@@ -237,6 +239,100 @@ def test_orchestrator_worker_aware_stage4_stage5_path_uses_wrappers(
         result.intermediate_results["stage6_resources"]
         is worker_scoped_resources.global_resources
     )
+
+
+def test_orchestrator_records_condition_variable_reference_plan(
+    tmp_path: Path,
+) -> None:
+    config = PipelineConfig(
+        llm=LLMConfig(api_key="test-key"),
+        output_dir=tmp_path / "output",
+        save_intermediate=False,
+    )
+    orchestrator = PipelineOrchestrator(config)
+    orchestrator.client = MagicMock()
+    orchestrator.client.call_json.return_value = {
+        "owner_ref": "condition:block:worker_main:main:b1",
+        "references": [],
+        "unresolved_candidates": [],
+    }
+    plan = worker_plan()
+    span_list = spans()
+    route_ir = routes()
+    flow_plan = worker_flow_plan()
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[
+                    BlockIR(
+                        block_id="b1",
+                        block_type="IF",
+                        condition_text="<REF>request</REF> is ready",
+                        spans=["s1"],
+                    )
+                ]
+            ),
+        }
+    )
+    symbols = SymbolTable()
+    symbols.declare_scoped(
+        name="request",
+        data_type="text",
+        source="input",
+        description="Request",
+        scope_kind="worker",
+        scope_id="worker_main",
+    )
+    worker_scoped_resources = WorkerScopedResourceIR(
+        global_resources=ResourceRegistryIR()
+    )
+    worker_step_plan = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": []},
+    )
+
+    with (
+        patch.object(orchestrator, "_run_stage1", return_value=span_list),
+        patch.object(orchestrator, "_run_stage2", return_value=(route_ir, [])),
+        patch.object(orchestrator, "_run_stage3", return_value=(span_list, route_ir)),
+        patch.object(orchestrator, "_run_stage3_5", return_value=plan),
+        patch.object(orchestrator, "_run_stage4", return_value=flow_plan),
+        patch.object(orchestrator, "_run_stage5", return_value=block_plan),
+        patch.object(
+            orchestrator,
+            "_run_stage6_worker_scoped",
+            return_value=(worker_scoped_resources, symbols, []),
+        ),
+        patch.object(
+            orchestrator,
+            "_run_stage7_worker_scoped",
+            return_value=(worker_step_plan, symbols, []),
+        ),
+        patch.object(orchestrator, "_run_stage8", return_value=MagicMock()),
+        patch.object(orchestrator, "_run_stage9", return_value=[]),
+        patch.object(
+            orchestrator,
+            "_run_normalization_worker_scoped",
+            return_value=(
+                flow_plan,
+                block_plan,
+                worker_step_plan,
+                symbols,
+                [],
+                [],
+            ),
+        ),
+        patch.object(orchestrator, "_run_stage10_worker_scoped", return_value=MagicMock()),
+        patch.object(orchestrator, "_run_stage11", return_value=("SPL", [], [])),
+    ):
+        result = orchestrator.run("test")
+
+    condition_plan = result.intermediate_results[ik.CONDITION_VARIABLE_REFERENCE_PLAN]
+    assert condition_plan.references[0].canonical_ref == "request"
+    assert condition_plan.references[0].owner_kind == "block_condition"
+    assert condition_plan.diagnostics == ()
+    payload = result.intermediate_results[f"{ik.CONDITION_VARIABLE_REFERENCE_PLAN}_payload"]
+    assert payload["references"][0]["canonical_ref"] == "request"
 
 
 def test_orchestrator_stage_helpers_call_worker_aware_assembler_inputs(

@@ -1,6 +1,5 @@
 """Unit tests for Stage 4 IRS exception flow checker."""
 
-import pytest
 
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.ir.flow_structure_ir import ExceptionFlow, FlowStructureIR
@@ -9,7 +8,6 @@ from nl2spl.pipeline.stages.stage4_flow_assembler.irs_checker import (
     check_exception_flows_irs,
     check_worker_flow_plan_exception_flows_irs,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

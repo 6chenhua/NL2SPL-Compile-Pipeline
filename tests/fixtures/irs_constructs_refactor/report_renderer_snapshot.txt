@@ -1,0 +1,64 @@
+NL2SPL Compile Report
+============================================================
+
+Status: partial
+
+Summary:
+  SPL draft generated: yes
+  Adapter warnings: 1
+  Diagnostics: 1 warning(s)
+  Validation errors: 0
+  Validation warnings: 1
+  Assumptions (not rendered): 1
+  Trace records: 1
+
+------------------------------------------------------------
+
+Adapter Warnings
+----------------------------------------
+  - phase0 adapter warning
+
+------------------------------------------------------------
+
+Diagnostics
+----------------------------------------
+
+  [WARNING] [missing_handler] D_PHASE0_001
+    Target: exception_flow:exc_phase0
+    Source spans: span_phase0_failure
+    Exception flow 'exc_phase0' has no handler step.
+    Suggested: Add a handler step for the failure condition.
+    Missing: handler_action (required for exception_flow:exc_phase0)
+    Question: What should happen on failure?
+
+------------------------------------------------------------
+
+Assumptions / Suggestions
+----------------------------------------
+
+  [ASM_PHASE0_001] Failure handler is missing.
+    Target: exception_flow:exc_phase0
+    Reason: Source does not specify handler action.
+    Action: Ask the user for a handler action.
+    Related diagnostic: [missing_handler] D_PHASE0_001 — Exception flow 'exc_phase0' has no handler step.
+
+------------------------------------------------------------
+
+Provenance Traces
+----------------------------------------
+  [direct] exception_flow:exc_phase0 spans=span_phase0_failure
+    Failure condition is source-backed.
+
+------------------------------------------------------------
+
+Validation
+----------------------------------------
+
+  Warnings (1):
+    - phase0 validation warning
+
+------------------------------------------------------------
+
+Generated SPL
+----------------------------------------
+[DEFINE_WORKER: MainWorker]

@@ -7,7 +7,6 @@ fields via the canonical role contract.
 
 from __future__ import annotations
 
-
 # ===========================================================================
 # Test 1: Minimal LLM response accepted by parser
 # ===========================================================================
@@ -323,13 +322,13 @@ class TestPromptPayloadIsMinimal:
     semantic_roles — no compiler-facing fields."""
 
     def test_prompt_allowed_schema_only_has_semantic_roles(self):
+        # Call with empty inputs — just check the payload structure
+        import json
+
+        from nl2spl.ir.span_ir import SpanIR
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             build_adapter_guided_user_prompt,
         )
-        from nl2spl.ir.span_ir import SpanIR
-
-        # Call with empty inputs — just check the payload structure
-        import json
         payload = build_adapter_guided_user_prompt(
             spans=[SpanIR(span_id="s1", text="test")],
             canonical_input=None,  # type: ignore

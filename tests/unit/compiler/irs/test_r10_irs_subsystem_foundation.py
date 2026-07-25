@@ -29,8 +29,8 @@ from nl2spl.compiler.construct_registry import (
     ConstructSatisfactionReport,
     SPLConstructRegistry,
 )
-from nl2spl.compiler.irs.checker import IRSChecker
 from nl2spl.compiler.irs.context import IRSCheckContext
+from nl2spl.compiler.irs.factory import build_irs_subsystem
 from nl2spl.compiler.irs.graph import ConstructEdge, ConstructGraph
 from nl2spl.compiler.irs.instance import ConstructInstance
 from nl2spl.compiler.irs.policy import IRSRuntimeConfig
@@ -38,9 +38,7 @@ from nl2spl.compiler.irs.registry import IRSCheckerRegistry
 from nl2spl.compiler.irs.result_store import IRSResultStore, IRSStageResult
 from nl2spl.compiler.irs.runner import IRSRunner, IRSRunResult
 from nl2spl.compiler.irs.subsystem import IRSSubsystem
-from nl2spl.compiler.irs.factory import build_irs_subsystem
 from nl2spl.ir.diagnostics import CompileDiagnostic
-
 
 # ------------------------------------------------------------------
 # Helpers
@@ -762,4 +760,4 @@ class TestNoOrchestratorImport:
                 )
             # Check for actual import statements referencing orchestrator module
             if "import" in stripped and "orchestrator" in stripped.lower():
-                assert False, f"{module_path} imports orchestrator module: {stripped}"
+                raise AssertionError(f"{module_path} imports orchestrator module: {stripped}")

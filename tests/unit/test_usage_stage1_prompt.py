@@ -9,10 +9,8 @@ import pytest
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
 from tests.fixtures.usage_prompt_expectations import (
     USAGE_RAW_TEXT,
-    usage_stage1_spans,
     usage_stage_response,
 )
-
 
 pytestmark = [pytest.mark.prompt_test, pytest.mark.stage1]
 

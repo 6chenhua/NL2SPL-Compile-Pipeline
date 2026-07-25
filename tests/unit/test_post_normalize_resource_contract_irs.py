@@ -9,10 +9,6 @@ Verifies that the post-normalize checker:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.post_normalize import PostNormalizeIRSCheckerV6
 from nl2spl.compiler.irs.context import IRSCheckContext
@@ -27,10 +23,9 @@ from nl2spl.ir.resource_registry_ir import (
     VariableSpec,
     WorkerScopedResourceIR,
 )
+from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.worker_ir import WorkerIR
 from nl2spl.ir.worker_plan_ir import WorkerPlanIR, WorkerSpecIR
-from nl2spl.ir.step_ir import StepIR
-
 
 # =============================================================================
 # Helpers

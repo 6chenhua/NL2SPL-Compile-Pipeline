@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from nl2spl.canonical import CanonicalCompileInput, SemanticPacket
-from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SourceSectionReconstructor
 from nl2spl.pipeline.stages.stage1_segmentation import (
     LLMSpanSegment,
     Stage1SegmentationValidator,
 )
 from nl2spl.pipeline.stages.stage1_segmentation.diagnostics import FABRICATED_PACKET_IDS
+from nl2spl.pipeline.stages.stage1_segmentation.source_buffer import SourceSectionReconstructor
+
 
 def _prepare_multi_packet_buffers():
     p1 = SemanticPacket(

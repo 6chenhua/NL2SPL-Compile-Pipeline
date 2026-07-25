@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.spl_editing.core.catalog import RepairCatalogBuilder
 

@@ -274,7 +274,7 @@ class TestStage95Checklist:
         # but it should exist in the registry
         registry = SPLConstructRegistry.default()
         assert registry.has("WORKER_PROMOTION")
-        
+
         irs = registry.get("WORKER_PROMOTION")
         slot_names = [s.slot_name for s in irs.slots]
         assert "promotion_input_contract" in slot_names

@@ -7,11 +7,11 @@ produces a guard-only command 'When enough required information is available'.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import patch
 
 from nl2spl.config import LLMConfig, PipelineConfig, Stage1SegmentationConfig
 from nl2spl.pipeline.orchestrator import PipelineOrchestrator
+
 
 def test_stage1_llm_segmentation_characterization_e2e(tmp_path: Path) -> None:
     # 1. Setup config (default mode is legacy_packet_passthrough)

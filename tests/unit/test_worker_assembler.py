@@ -338,8 +338,11 @@ class TestD3WorkerAssemblerExceptionRefs:
 
     def test_main_worker_exception_flow_ref_preserved(self) -> None:
         from nl2spl.ir.worker_plan_ir import (
-            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerPlanIR,
-            WorkerSpecIR, WorkerStepPlanIR,
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerPlanIR,
+            WorkerSpecIR,
+            WorkerStepPlanIR,
         )
 
         flow = FlowStructureIR(
@@ -398,9 +401,15 @@ class TestD3WorkerAssemblerExceptionRefs:
 
     def test_child_worker_exception_flow_ref_preserved(self) -> None:
         from nl2spl.ir.worker_plan_ir import (
-            InputBindingIR, InvokeLocationHintIR, OutputBindingIR,
-            WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerHandoffIR,
-            WorkerPlanIR, WorkerSpecIR, WorkerStepPlanIR,
+            InputBindingIR,
+            InvokeLocationHintIR,
+            OutputBindingIR,
+            WorkerBlockPlanIR,
+            WorkerFlowPlanIR,
+            WorkerHandoffIR,
+            WorkerPlanIR,
+            WorkerSpecIR,
+            WorkerStepPlanIR,
         )
 
         child_flow = FlowStructureIR(

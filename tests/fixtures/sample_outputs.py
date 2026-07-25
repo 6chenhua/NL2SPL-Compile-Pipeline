@@ -17,9 +17,7 @@ from nl2spl.ir import (
     SpanIR,
     StepIR,
     SymbolTable,
-    VariableSymbol,
 )
-
 
 # =============================================================================
 # Stage 1 Outputs (SpanSlicer)
@@ -304,7 +302,7 @@ def make_standard_pipeline_result() -> dict:
 def assert_spans_equal(actual: list[SpanIR], expected: list[SpanIR]) -> None:
     """Assert that two span lists are equal."""
     assert len(actual) == len(expected), f"Length mismatch: {len(actual)} != {len(expected)}"
-    for a, e in zip(actual, expected):
+    for a, e in zip(actual, expected, strict=False):
         assert a.span_id == e.span_id, f"span_id mismatch: {a.span_id} != {e.span_id}"
         assert a.text == e.text, f"text mismatch for {a.span_id}"
 

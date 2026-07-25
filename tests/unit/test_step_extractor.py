@@ -104,10 +104,10 @@ class TestStepExtractor:
         assert "user_request" in steps[0].inputs
         assert "communication_type" in steps[0].outputs
 
-    def test_new_variable_creation(
+    def test_raw_new_variables_do_not_declare_symbols(
         self, pipeline_config: MagicMock, mock_client: MagicMock
     ) -> None:
-        """Test new variable creation from steps."""
+        """Raw LLM new_variables are checkpoint data, not SymbolTable authority."""
         # Arrange
         spans = [SpanIR(span_id="s1", text="Produce communication type")]
         routes = FieldRouteIR(behavior=["s1"])
@@ -149,9 +149,8 @@ class TestStepExtractor:
         )
 
         # Assert
-        assert "communication_type" in updated_symbols.variables
-        assert updated_symbols.variables["communication_type"].source == "step"
-        assert updated_symbols.variables["communication_type"].producer_step == "st_1"
+        assert steps[0].outputs == ["communication_type"]
+        assert "communication_type" not in updated_symbols.variables
 
     def test_multiple_steps(
         self, pipeline_config: MagicMock, mock_client: MagicMock
@@ -544,9 +543,8 @@ class TestStepExtractor:
 
         # Assert
         assert updated_symbols.variables["user_request"].consumer_steps == ["st_1"]
-        assert updated_symbols.variables["communication_type"].producer_step == "st_1"
-        assert updated_symbols.variables["communication_type"].consumer_steps == ["st_2"]
-        assert updated_symbols.variables["missing_fields"].producer_step == "st_2"
+        assert "communication_type" not in updated_symbols.variables
+        assert "missing_fields" not in updated_symbols.variables
 
     def test_empty_input(
         self, pipeline_config: MagicMock, mock_client: MagicMock

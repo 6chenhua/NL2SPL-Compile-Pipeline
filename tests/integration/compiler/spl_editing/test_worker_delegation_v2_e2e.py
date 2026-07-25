@@ -279,6 +279,7 @@ def test_define_child_worker_complete_closure_lane_b() -> None:
         },
     )
     directive = presentation._directives.get(submitted.normalized_directive_id)
+    assert directive.result_usage[0].parent_temporary_name == "delegated_evidence"
     target = presentation._directive_context[directive.directive_id][2]
     bundle = build_worker_delegation_typed_plans(snapshot, target, directive)
     actual_plan_hashes = {value for _name, value in typed_plan_hashes(bundle)}
@@ -320,6 +321,8 @@ def test_define_child_worker_complete_closure_lane_b() -> None:
     rendered = editing._verifier._lane_b.replay(patched).rendered_spl
     assert "Gather approved source evidence" in rendered
     assert child.worker_name in rendered
+    assert "RESPONSE delegated_evidence: text SET" in rendered
+    assert "tmp_delegated_evidence" not in rendered
     assert "tmp_delegated_evidence" not in rendered.split("[END_VARIABLES]", 1)[0]
     patch = next(reversed(editing._applied_patches.values()))
     reused = editing._materialization.materialize(

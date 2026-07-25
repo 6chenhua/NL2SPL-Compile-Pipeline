@@ -18,8 +18,6 @@ After Phase 1-6, these tests will be updated/removed to reflect the new design.
 
 from __future__ import annotations
 
-import pytest
-
 from nl2spl.compiler.construct_registry import SPLConstructRegistry
 from nl2spl.compiler.irs.checkers.worker_delegation import WorkerDelegationIRSChecker
 from nl2spl.compiler.irs.context import IRSCheckContext
@@ -36,7 +34,6 @@ from nl2spl.ir.worker_plan_ir import (
     WorkerPlanIR,
     WorkerSpecIR,
 )
-
 
 # ===========================================================================
 # Characterization 1: DELEGATION_INTENT in registry
@@ -485,7 +482,7 @@ class TestCharWorkerPromotionMissingSlots:
                 f"blocks_rendering=False (slot-level override)"
             )
             assert diag.blocks_completion is True, (
-                f"Phase 3: blocks_completion must remain True"
+                "Phase 3: blocks_completion must remain True"
             )
 
 

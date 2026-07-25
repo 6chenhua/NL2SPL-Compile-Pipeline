@@ -172,6 +172,69 @@ class TestCanonicalJsonCompat:
         assert "SpanIR(" not in result
         assert "object at 0x" not in result
 
+    def test_agent_profile_serializer_preserves_provenance(self) -> None:
+        from nl2spl.compiler.artifacts.snapshot.serialization.registry import (
+            build_default_registry,
+        )
+        from nl2spl.ir.agent_profile_ir import AgentProfileIR, Aspect, Concept, PersonaIR
+
+        reg = build_default_registry()
+        profile = AgentProfileIR(
+            persona=PersonaIR(
+                role="Internal communications specialist",
+                aspects=[
+                    Aspect(
+                        name="EvidenceDriven",
+                        text="Maintains provenance.",
+                        source_span_ids=["s1"],
+                        source_section_id="sec_profile",
+                        source_packet_id="p_profile",
+                        provenance_relation="direct",
+                    )
+                ],
+                source_span_ids=["s1"],
+                source_section_id="sec_profile",
+                source_packet_id="p_profile",
+                provenance_relation="inferred",
+            ),
+            audience_aspects=[
+                Aspect(
+                    name="Executives",
+                    text="Senior leaders.",
+                    source_span_ids=["s2"],
+                    provenance_relation="direct",
+                )
+            ],
+            concepts=[
+                Concept(
+                    term="Provenance",
+                    definition="Traceable origin.",
+                    source_span_ids=["s3"],
+                    provenance_relation="normalized",
+                )
+            ],
+        )
+
+        restored = reg.deserialize(reg.serialize(profile))
+
+        assert restored == profile
+
+    def test_legacy_agent_profile_payload_defaults_to_assumed_without_spans(self) -> None:
+        from nl2spl.compiler.artifacts.snapshot.serialization.serializers_compile import (
+            PersonaIRSerializer,
+        )
+
+        restored = PersonaIRSerializer().from_canonical(
+            {
+                "$type": "PersonaIR",
+                "role": "General Assistant",
+                "aspects": [],
+            }
+        )
+
+        assert restored.source_span_ids == []
+        assert restored.provenance_relation == "assumed"
+
 
 class TestNoPythonReprInPayload:
     """Verify canonical payloads contain no Python object representations."""

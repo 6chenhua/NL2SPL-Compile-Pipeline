@@ -14,8 +14,8 @@ from tests.fixtures.multi_worker.scenarios import (
     same_child_multiple_handoffs,
     simple_single_worker,
     single_api_call_not_worker,
-    unused_child_worker_error,
     unresolved_invoke_worker_error,
+    unused_child_worker_error,
     worker_plan_validator_errors,
 )
 

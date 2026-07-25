@@ -24,7 +24,6 @@ from nl2spl.ir.span_ir import SpanIR
 from nl2spl.ir.step_ir import StepIR
 from nl2spl.ir.symbol_table import SymbolTable
 
-
 USAGE_RAW_TEXT = """
 Task family:
 Internal newsletters, announcements, update digests, executive briefs, and related
@@ -39,26 +38,26 @@ A draft communication artifact, a source/evidence set, a short assumptions log f
 unresolved items, and a completion status.
 
 Reusable process:
-First determine what kind of communication is requested. Then identify which required fields are still missing. 
-Ask only the highest-value clarifying questions needed to move forward. 
-If sources are needed and available, retrieve them using approved source recipes. 
-Maintain provenance for externally sourced facts. 
-When enough required information is available, produce a draft. 
-If the user asks for revision, revise while rechecking constraints. 
+First determine what kind of communication is requested. Then identify which required fields are still missing.
+Ask only the highest-value clarifying questions needed to move forward.
+If sources are needed and available, retrieve them using approved source recipes.
+Maintain provenance for externally sourced facts.
+When enough required information is available, produce a draft.
+If the user asks for revision, revise while rechecking constraints.
 Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.
 
 Policies:
-Do not invent links or unseen facts. 
-Require evidence for sourced claims. 
-Limit questions per turn. 
-Prefer tool evidence over unnecessary user questioning. 
+Do not invent links or unseen facts.
+Require evidence for sourced claims.
+Limit questions per turn.
+Prefer tool evidence over unnecessary user questioning.
 Deny finalization if critical slots are missing or provenance fails.
 
 Failure handling:
 Missing timeframe, conflicting instructions, insufficient source access, evidence shortage, user refusal to answer, and provenance failure.
 
 Delegation policy:
-Optional delegated subtasks such as source gathering or template matching may be used 
+Optional delegated subtasks such as source gathering or template matching may be used
 if bounded and the returned evidence is normalized into approved evidence carriers.
 """
 
@@ -832,7 +831,11 @@ def usage_stage6_resources() -> ResourceRegistryIR:
     """Return expected Stage 6 resource registry."""
     data = USAGE_STAGE6_RESPONSE
     return ResourceRegistryIR(
-        variables=[VariableSpec(**item) for item in data["variables"]],
+        variables=[
+            VariableSpec(**item)
+            for item in data["variables"]
+            if item.get("source") != "step"
+        ],
         files=[],
         apis=[],
         types=[],

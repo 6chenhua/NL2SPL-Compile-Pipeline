@@ -7,9 +7,6 @@ code for illegal single-field inference patterns.
 
 from __future__ import annotations
 
-import pytest
-
-
 # ===========================================================================
 # Behavioral tests: DemandView boundary hardening
 # ===========================================================================
@@ -158,6 +155,7 @@ class TestDemandExclusivelyFromSemanticRole:
         """Verify _select_contract_annotations() filters exclusively by
         semantic_role in _CONTRACT_ROLES, not by construct_target or route_family."""
         import inspect
+
         from nl2spl.compiler.resource_contract_demand_view.builder import (
             DemandViewBuilder,
         )
@@ -190,7 +188,9 @@ class TestStaticAuditNoSingleFieldInference:
     @staticmethod
     def _function_source(module_path: str, func_name: str) -> str | None:
         """Return the source of *func_name* in *module_path*, or ``None``."""
-        import importlib, inspect, os, sys
+        import importlib
+        import inspect
+        import os
         if not os.path.exists(module_path):
             return None
         # Derive module name from path
@@ -218,6 +218,7 @@ class TestStaticAuditNoSingleFieldInference:
         """The legacy planner's _contract_annotations() must NOT use
         route_family or construct_target as single-field demand gates."""
         import inspect
+
         from nl2spl.pipeline.stages.stage3_2_resource_contract_planner.planner import (
             ResourceContractPlanner,
         )
@@ -239,6 +240,7 @@ class TestStaticAuditNoSingleFieldInference:
         """The DemandView builder's _select_contract_annotations() must NOT
         use route_family or construct_target as single-field demand gates."""
         import inspect
+
         from nl2spl.compiler.resource_contract_demand_view.builder import (
             DemandViewBuilder,
         )
@@ -251,6 +253,7 @@ class TestStaticAuditNoSingleFieldInference:
     def test_no_slot_target_as_sole_direction_in_planner(self):
         """Planner must not use slot_target alone as direction authority."""
         import inspect
+
         from nl2spl.pipeline.stages.stage3_2_resource_contract_planner.planner import (
             ResourceContractPlanner,
         )

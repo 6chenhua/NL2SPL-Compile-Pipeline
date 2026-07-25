@@ -90,7 +90,7 @@ _CONSUMER_FILES_WITH_REQUIRED_ACCESS = [
 def test_consumer_files_still_exist() -> None:
     """Verify all consumer files with .required access still exist."""
     # Files that use the 'required=' keyword arg pattern (not .required attr access)
-    _KEYWORD_ONLY = {"pipeline/stages/stage10_worker_assembler/child_worker_builder.py"}
+    _KEYWORD_ONLY = {"pipeline/stages/stage10_worker_assembler/child_worker_builder.py"}  # noqa: N806
 
     for rel_path in _CONSUMER_FILES_WITH_REQUIRED_ACCESS:
         file_path = SRC_ROOT / rel_path

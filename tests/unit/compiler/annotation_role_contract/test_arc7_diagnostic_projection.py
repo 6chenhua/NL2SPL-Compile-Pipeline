@@ -7,7 +7,6 @@ the orchestrator.
 
 from __future__ import annotations
 
-
 # ===========================================================================
 # Test 1: Typed diagnostic projection with structured metadata
 # ===========================================================================
@@ -361,7 +360,10 @@ class TestEndToEndProfileDomainConflict:
         from unittest.mock import MagicMock as M
 
         from nl2spl.canonical.compile_input import (
-            CanonicalCompileInput, CompileHints, HardFacts, RawSection,
+            CanonicalCompileInput,
+            CompileHints,
+            HardFacts,
+            RawSection,
             SemanticPacket,
         )
         from nl2spl.ir.span_ir import SpanIR
@@ -505,6 +507,7 @@ class TestOrchestratorWiring:
 
     def test_projector_imported_in_orchestrator(self):
         import inspect
+
         from nl2spl.pipeline import orchestrator as orch
 
         source = inspect.getsource(orch)
@@ -512,6 +515,7 @@ class TestOrchestratorWiring:
 
     def test_stage2_diagnostics_not_hardcoded_empty(self):
         import inspect
+
         from nl2spl.pipeline import orchestrator as orch
 
         source = inspect.getsource(orch)
