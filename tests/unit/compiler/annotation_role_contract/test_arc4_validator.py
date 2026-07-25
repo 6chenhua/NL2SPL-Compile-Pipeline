@@ -169,7 +169,11 @@ class TestValidContractAnnotationsAccepted:
             executable=True,
         )
         from nl2spl.ir.span_ir import SpanIR
-        span = SpanIR(span_id="sp_eh", text="notify the user and return an error")
+        span = SpanIR(
+            span_id="sp_eh",
+            text="notify the user and return an error",
+            segmentation_kind="atomic_action_candidate",
+        )
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RouteRefinementResult,
         )

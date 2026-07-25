@@ -125,14 +125,14 @@ class TestStage3ChildInherit:
         assert children[1].span_id == "s5b"
         assert children[2].span_id == "s5c"
 
-    def test_child_without_parent_uses_llm_id(
+    def test_child_with_unknown_parent_is_rejected(
         self,
         resolver: AmbiguityResolver,
         parent_spans: list[SpanIR],
         routes: FieldRouteIR,
         mock_client: MagicMock,
     ) -> None:
-        """Child without a parent uses the LLM's span_id (fallback)."""
+        """An orphan child cannot introduce a new Stage 3 span identity."""
         mock_client.call_json.return_value = {
             "resolved_spans": [
                 {
@@ -149,8 +149,8 @@ class TestStage3ChildInherit:
             (parent_spans, routes, ambiguity_updates)
         )
 
-        children = [s for s in resolved_spans if s.span_id == "s_fallback"]
-        assert len(children) == 1
+        assert "s5" in {span.span_id for span in resolved_spans}
+        assert "s_fallback" not in {span.span_id for span in resolved_spans}
 
     # =========================================================================
     # L3-F7: Child inherits section_context from parent
@@ -214,14 +214,14 @@ class TestStage3ChildInherit:
         assert len(children) == 1
         assert children[0].section_context == "Failure Handling"
 
-    def test_child_no_parent_has_none_section_context(
+    def test_orphan_child_does_not_enter_resolved_spans(
         self,
         resolver: AmbiguityResolver,
         parent_spans: list[SpanIR],
         routes: FieldRouteIR,
         mock_client: MagicMock,
     ) -> None:
-        """Child without parent has section_context=None."""
+        """Unknown parent provenance fails closed to the original span."""
         mock_client.call_json.return_value = {
             "resolved_spans": [
                 {
@@ -238,9 +238,8 @@ class TestStage3ChildInherit:
             (parent_spans, routes, ambiguity_updates)
         )
 
-        children = [s for s in resolved_spans if s.span_id == "s_orphan"]
-        assert len(children) == 1
-        assert children[0].section_context is None
+        assert "s5" in {span.span_id for span in resolved_spans}
+        assert "s_orphan" not in {span.span_id for span in resolved_spans}
 
     # =========================================================================
     # is_placeholder propagation

@@ -220,7 +220,8 @@ class TestAmbiguityResolver:
         result_spans, result_routes = resolver.execute((spans, routes, ambiguity_updates))
 
         # Assert
-        assert len(result_spans) == 0  # Original span removed, no new spans added
+        assert [span.span_id for span in result_spans] == ["s1"]
+        assert result_routes.behavior == ["s1"]
 
     def test_overlap_detection(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test detection of overlapping spans in resolved routes."""
@@ -254,7 +255,58 @@ class TestAmbiguityResolver:
         result_spans, result_routes = resolver.execute((spans, routes, ambiguity_updates))
 
         # Assert
-        assert len(result_routes.validate_no_overlap()) > 0
+        assert result_routes.validate_no_overlap() == []
+        assert result_routes.identity == ["s1a"]
+        assert result_routes.rules == []
+        assert any(
+            "ignored overlapping route" in diagnostic
+            for diagnostic in result_routes.route_diagnostics
+        )
+
+    def test_phantom_routes_for_non_ambiguous_span_are_rejected(
+        self,
+        pipeline_config: MagicMock,
+        mock_client: MagicMock,
+    ) -> None:
+        mock_client.call_json.return_value = {
+            "resolved_spans": [
+                {"span_id": "s31a", "text": "Policy", "parent_span_id": "s31"},
+                {
+                    "span_id": "s31b",
+                    "text": "delegation intent",
+                    "parent_span_id": "s31",
+                },
+            ],
+            "resolved_routes": {
+                "rules": ["s31a"],
+                "behavior": ["s27a", "s27b", "s31b"],
+            },
+        }
+        resolver = AmbiguityResolver(pipeline_config, mock_client)
+        spans = [
+            SpanIR("s27", "If information is missing, ask the user."),
+            SpanIR("s31", "Policy and delegation intent."),
+        ]
+        routes = FieldRouteIR(behavior=["s27", "s31"])
+        ambiguity_updates = [
+            {
+                "span_id": "s31",
+                "is_ambiguous": True,
+                "reasons": ["mixed"],
+                "needs_split": True,
+            }
+        ]
+
+        result_spans, result_routes = resolver.execute(
+            (spans, routes, ambiguity_updates)
+        )
+
+        result_span_ids = {span.span_id for span in result_spans}
+        assert result_span_ids == {"s27", "s31a", "s31b"}
+        assert "s27" in result_routes.behavior
+        assert "s27a" not in result_routes.behavior
+        assert "s27b" not in result_routes.behavior
+        assert result_routes.get_all_span_ids() <= result_span_ids
 
     def test_checkpoint_saved(self, pipeline_config: MagicMock, mock_client: MagicMock) -> None:
         """Test that checkpoint is saved."""

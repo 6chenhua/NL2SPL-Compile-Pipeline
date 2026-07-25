@@ -91,6 +91,146 @@ def test_rephrased_provenance_maintenance_does_not_produce_source_evidence() -> 
     )
 
 
+def test_display_message_never_owns_output_relation() -> None:
+    step = StepIR(
+        step_id="st_display",
+        text="Display the draft communication artifact.",
+        source_span_ids=["s1"],
+        command_type="DISPLAY_MESSAGE",
+        outputs=["draft_communication_artifact"],
+    )
+    worker_steps = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": [step]},
+    )
+
+    plan = _build_step_variable_relation_plan(
+        worker_steps,
+        SymbolTable(),
+        span_by_id={
+            "s1": SpanIR(
+                span_id="s1",
+                text="Output the draft communication artifact.",
+            )
+        },
+    )
+
+    assert step.outputs == []
+    assert step.command_type == "DISPLAY_MESSAGE"
+    assert step.text.startswith("Output the draft communication artifact")
+    assert plan.producing_relations() == ()
+    assert plan.diagnostics == (
+        "step_variable_relation_ambiguous:st_display:draft_communication_artifact",
+    )
+
+
+def test_output_statement_does_not_produce_listed_variables() -> None:
+    step = StepIR(
+        step_id="st_output",
+        text="Produce the draft, unresolved items, and completion status.",
+        source_span_ids=["s1"],
+        command_type="GENERAL_COMMAND",
+        outputs=[
+            "draft_communication_artifact",
+            "record_of_unresolved_items",
+            "completion_status",
+        ],
+    )
+    worker_steps = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": [step]},
+    )
+
+    plan = _build_step_variable_relation_plan(
+        worker_steps,
+        SymbolTable(),
+        span_by_id={
+            "s1": SpanIR(
+                span_id="s1",
+                text=(
+                    "Output the draft communication artifact, record of "
+                    "unresolved items, and completion status."
+                ),
+            )
+        },
+    )
+
+    assert step.outputs == []
+    assert step.command_type == "DISPLAY_MESSAGE"
+    assert step.text.startswith("Output the draft communication artifact")
+    assert plan.producing_relations() == ()
+    assert len(plan.diagnostics) == 3
+
+
+def test_description_overlap_does_not_create_output_relation() -> None:
+    step = StepIR(
+        step_id="st_analyze",
+        text="Analyze the request and produce a draft.",
+        source_span_ids=["s1"],
+        command_type="GENERAL_COMMAND",
+        outputs=["draft_communication_artifact"],
+    )
+    worker_steps = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": [step]},
+    )
+    symbols = SymbolTable()
+    symbols.declare(
+        "draft_communication_artifact",
+        "text",
+        "output",
+        "Draft communication artifact produced for the user.",
+    )
+
+    plan = _build_step_variable_relation_plan(
+        worker_steps,
+        symbols,
+        span_by_id={
+            "s1": SpanIR(
+                span_id="s1",
+                text=(
+                    "Analyze the user request to clarify the type of "
+                    "communication material."
+                ),
+            )
+        },
+    )
+
+    assert step.outputs == []
+    assert plan.producing_relations() == ()
+
+
+def test_delegation_verification_does_not_produce_unresolved_items() -> None:
+    step = StepIR(
+        step_id="st_verify",
+        text="Verify delegated results and produce unresolved items.",
+        source_span_ids=["s1"],
+        command_type="GENERAL_COMMAND",
+        outputs=["unresolved_items"],
+    )
+    worker_steps = WorkerStepPlanIR(
+        main_worker_id="worker_main",
+        worker_steps={"worker_main": [step]},
+    )
+
+    plan = _build_step_variable_relation_plan(
+        worker_steps,
+        SymbolTable(),
+        span_by_id={
+            "s1": SpanIR(
+                span_id="s1",
+                text=(
+                    "The main process shall verify that delegated results "
+                    "comply with task scope and user requirements."
+                ),
+            )
+        },
+    )
+
+    assert step.outputs == []
+    assert plan.producing_relations() == ()
+
+
 def test_control_condition_inputs_are_not_action_inputs() -> None:
     step = StepIR(
         step_id="st_draft",
@@ -135,7 +275,7 @@ def test_control_condition_input_name_variants_are_not_action_inputs() -> None:
     assert step.inputs == ["user_request"]
 
 
-def test_source_backed_output_mention_recovers_llm_omitted_completion_status() -> None:
+def test_relation_planner_does_not_add_llm_omitted_completion_status() -> None:
     step = StepIR(
         step_id="st_finalize",
         text="Record unresolved assumptions.",
@@ -175,14 +315,13 @@ def test_source_backed_output_mention_recovers_llm_omitted_completion_status() -
         },
     )
 
-    assert step.outputs == ["assumptions_log", "completion_status"]
-    assert "set completion status" in step.text
+    assert step.outputs == ["assumptions_log"]
+    assert "set completion status" not in step.text
     assert {
         (relation.step_id, relation.variable_name, relation.relation)
         for relation in plan.relations
     } == {
         ("st_finalize", "assumptions_log", "produces"),
-        ("st_finalize", "completion_status", "produces"),
     }
 
 
@@ -323,7 +462,20 @@ def test_revision_step_refines_existing_output_instead_of_producing_duplicate() 
         "Draft communication artifact produced by the process.",
     )
 
-    plan = _build_step_variable_relation_plan(worker_steps, symbols)
+    plan = _build_step_variable_relation_plan(
+        worker_steps,
+        symbols,
+        span_by_id={
+            "s20": SpanIR(
+                span_id="s20",
+                text="Produce the draft communication artifact.",
+            ),
+            "s21": SpanIR(
+                span_id="s21",
+                text="Revise the draft communication artifact.",
+            ),
+        },
+    )
 
     relations = {
         (item.step_id, item.variable_name): item.relation

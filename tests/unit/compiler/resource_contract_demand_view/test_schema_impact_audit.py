@@ -276,8 +276,8 @@ def test_total_required_reference_count_in_consumer_files() -> None:
         fpath = SRC_ROOT / rel_path
         content = fpath.read_text(encoding="utf-8")
         total += content.count(".required")
-    # B5r3: total .required = 78 (+1 legacy compat in post_normalize).
-    assert total == 78, (
+    # Contract canonicalization adds four audited requiredness reads.
+    assert total == 82, (
         f"Total .required references across {len(_CONSUMER_FILES_WITH_REQUIRED_ACCESS)} "
         f"consumer files: {total}. If this increased, expand the audit. "
         f"If it decreased, B1 has already removed some — update this assertion."

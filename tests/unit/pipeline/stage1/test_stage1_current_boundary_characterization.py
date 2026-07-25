@@ -37,8 +37,8 @@ def test_stage1_current_span_boundary_characterization(pipeline_config, mock_cli
     s16 = s16_candidates[0]
     s17 = s17_candidates[0]
 
-    # Current bad behavior locks:
-    # 'When enough required information is available' is at the tail of s16
-    assert s16.text.endswith("When enough required\ninformation is available")
-    # 'produce a draft' is at the head of s17
-    assert s17.text.startswith("produce a draft")
+    # The adapter must preserve the guarded action as one source unit.
+    assert s16 is s17
+    assert s16.text == (
+        "When enough required\ninformation is available, produce a draft"
+    )

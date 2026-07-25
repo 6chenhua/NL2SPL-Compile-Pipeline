@@ -40,7 +40,13 @@ class TestUsageStage3Prompt:
         )
 
         assert spans == usage_stage3_spans()
-        assert routes == usage_stage3_routes()
+        expected_routes = usage_stage3_routes()
+        assert routes.get_all_span_ids() == expected_routes.get_all_span_ids()
+        assert routes.annotations == expected_routes.annotations
+        assert all(
+            diagnostic.startswith("Stage 3: split child 's18")
+            for diagnostic in routes.route_diagnostics
+        )
         call_kwargs = mock_client.call_json.call_args.kwargs
         assert call_kwargs["stage_name"] == "stage3_ambiguity_resolver"
         assert '"span_id": "s18"' in call_kwargs["user_prompt"]

@@ -159,6 +159,81 @@ def test_structural_adapter_strips_inline_bold_failure_items() -> None:
     assert len(packet_texts) == 3
 
 
+def test_structural_adapter_does_not_split_process_prose_on_commas() -> None:
+    text = """Reusable process:
+Generate a draft communication artifact and verify if it meets the user's
+specified requirements for target audience, tone, language, length, structure,
+and format. If not, revise it based on the verification results.
+"""
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    packet_texts = [
+        " ".join(packet.text.split()) for packet in canonical.semantic_packets
+    ]
+    assert any(
+        "target audience, tone, language, length, structure, and format"
+        in packet_text
+        for packet_text in packet_texts
+    )
+    assert any(
+        packet_text == "If not, revise it based on the verification results"
+        for packet_text in packet_texts
+    )
+    assert not any(packet_text == "tone" for packet_text in packet_texts)
+
+
+def test_structural_adapter_does_not_split_failure_actions_on_commas() -> None:
+    text = """Failure handling:
+Missing Critical Information: If information is lacking, inquire with the user.
+If it cannot be obtained, record missing items, do not generate a full draft,
+and mark the task as incomplete.
+"""
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+
+    packet_texts = [
+        " ".join(packet.text.split()) for packet in canonical.semantic_packets
+    ]
+    assert any(
+        "record missing items, do not generate a full draft, and mark the task"
+        in packet_text
+        for packet_text in packet_texts
+    )
+
+
+def test_structural_adapter_applies_section_level_input_requiredness() -> None:
+    text = """Inputs for Each Run:
+A user's communication request, known topics, timeframe, background information,
+target audience, available information sources, and format preferences. The user
+request is a required input; all other content is optional.
+"""
+
+    canonical = StructuralNLAdapter(None).adapt(text)
+    packets = [
+        packet
+        for packet in canonical.semantic_packets
+        if packet.packet_type == "list_item"
+    ]
+
+    assert [packet.text for packet in packets] == [
+        "A user's communication request",
+        "known topics",
+        "timeframe",
+        "background information",
+        "target audience",
+        "available information sources",
+        "format preferences",
+    ]
+    required_by_text = {packet.text: packet.required for packet in packets}
+    assert required_by_text["A user's communication request"] is True
+    assert all(
+        required is False
+        for text, required in required_by_text.items()
+        if text != "A user's communication request"
+    )
+
+
 def test_structural_adapter_semantic_packets_cover_neutral_types(mock_client) -> None:
     """F0 Baseline: adapter produces all 7 canonical sections and neutral semantic packet types."""
     canonical = StructuralNLAdapter(mock_client).adapt(F0_STRUCTURAL_TEXT)

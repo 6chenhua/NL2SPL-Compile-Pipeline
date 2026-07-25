@@ -251,9 +251,61 @@ def test_resolver_rejects_llm_symbol_outside_candidate_view() -> None:
 
     assert plan.references[0].status == "rejected"
     assert plan.references[0].reason == "selected_symbol_not_in_candidate_symbols"
-    assert {diag.kind for diag in plan.diagnostics} == {
-        "condition_variable_llm_candidate_rejected",
-    }
+    assert not plan.diagnostics
+
+
+def test_llm_unresolved_concept_stays_audit_only() -> None:
+    symbols = SymbolTable()
+    symbols.declare_scoped(
+        name="background_information",
+        data_type="text",
+        source="input",
+        description="Background information",
+        scope_kind="worker",
+        scope_id="worker_main",
+    )
+    block_plan = WorkerBlockPlanIR(
+        worker_blocks={
+            "worker_main": BlockStructureIR(
+                main_flow_blocks=[
+                    BlockIR(
+                        block_id="b1",
+                        block_type="IF",
+                        condition_text="facts and background information are available",
+                        spans=["s1"],
+                    )
+                ]
+            )
+        }
+    )
+    client = FakeConditionRefClient(
+        {
+            "owner_ref": "condition:block:worker_main:main:b1",
+            "references": [],
+            "unresolved_candidates": [
+                {
+                    "proposed_symbol_text": "facts",
+                    "evidence_text": "facts",
+                    "reason": "No matching declared symbol.",
+                }
+            ],
+        }
+    )
+
+    plan = resolve_condition_variable_references(
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={"worker_main": FlowStructureIR()}
+        ),
+        worker_block_plan=block_plan,
+        symbol_table=symbols,
+        resource_registry=ResourceRegistryIR(),
+        llm_client=client,
+    )
+
+    assert len(plan.references) == 1
+    assert plan.references[0].status == "unresolved"
+    assert plan.references[0].evidence_kind == "llm_unresolved_condition_symbol"
+    assert not plan.diagnostics
 
 
 def test_admission_accepts_minimal_variable_substring() -> None:
@@ -317,14 +369,14 @@ def test_admission_accepts_minimal_variable_substring() -> None:
 def test_admission_rejects_full_phrase_evidence_text() -> None:
     # 1. Direct admission level check:
     # _admit_llm_reference returns status="rejected" and reason="full_condition_overmatch"
-    from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver.resolver import (
-        ConditionReferenceResolver,
-    )
     from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver.candidate_symbols import (
         CandidateSymbol,
     )
     from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver.owner import (
         ConditionOwner,
+    )
+    from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver.resolver import (
+        ConditionReferenceResolver,
     )
     from nl2spl.pipeline.stages.stage6_5_condition_reference_resolver.response_parser import (
         LLMConditionReferenceCandidate,

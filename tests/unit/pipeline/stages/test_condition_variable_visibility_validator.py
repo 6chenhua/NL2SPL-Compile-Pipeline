@@ -11,6 +11,10 @@ from nl2spl.ir.condition_variable_reference_ir import (
 )
 from nl2spl.ir.flow_structure_ir import FlowStructureIR
 from nl2spl.ir.step_ir import StepIR
+from nl2spl.ir.step_variable_relation_ir import (
+    StepVariableRelation,
+    StepVariableRelationPlan,
+)
 from nl2spl.ir.symbol_table import SymbolTable
 from nl2spl.ir.worker_plan_ir import WorkerBlockPlanIR, WorkerFlowPlanIR, WorkerStepPlanIR
 from nl2spl.pipeline.stages.stage9_5_normalizer.condition_variable_validator import (
@@ -146,6 +150,97 @@ def test_validator_distinguishes_visibility_and_execution_availability() -> None
     assert {
         diagnostic.kind for diagnostic in plan.diagnostics
     } == {"condition_variable_not_available_before_decision"}
+
+
+def test_validator_accepts_any_typed_producer_available_before_decision() -> None:
+    symbols = SymbolTable()
+    symbols.declare_scoped(
+        name="draft",
+        data_type="text",
+        source="step",
+        description="draft",
+        scope_kind="worker",
+        scope_id="worker_main",
+    )
+    symbols.add_producer("draft", "st_late")
+    before = BlockIR(
+        block_id="b0",
+        block_type="SEQUENTIAL",
+        spans=["s0"],
+    )
+    decision = BlockIR(
+        block_id="b1",
+        block_type="IF",
+        condition_text="<REF>draft</REF> needs revision",
+        spans=["s1"],
+    )
+    reference = ConditionVariableReferenceIR(
+        reference_id="cond_ref_owner_0",
+        owner_kind="block_condition",
+        owner_ref="condition:block:worker_main:main:b1",
+        condition_text=decision.condition_text or "",
+        ref_text="<REF>draft</REF>",
+        canonical_ref="draft",
+        top_level_name="draft",
+        qualified_path=("draft",),
+        status="resolved",
+        source_span_ids=("s1",),
+        worker_id="worker_main",
+        flow_ref="main",
+        block_ref="b1",
+    )
+    steps = [
+        StepIR(
+            step_id="st_early",
+            text="Produce draft",
+            source_span_ids=["s0"],
+            command_type="GENERAL_COMMAND",
+            outputs=["draft"],
+            block_ref="b0",
+            flow_ref="main",
+        ),
+        StepIR(
+            step_id="st_late",
+            text="Revise draft",
+            source_span_ids=["s1"],
+            command_type="GENERAL_COMMAND",
+            outputs=["draft"],
+            block_ref="b1",
+            flow_ref="main",
+        ),
+    ]
+    relation_plan = StepVariableRelationPlan(
+        relations=(
+            _produces("st_early", "draft", "s0"),
+            _produces("st_late", "draft", "s1"),
+        )
+    )
+
+    plan = ConditionVariableVisibilityValidator().validate_and_rewrite(
+        plan=ConditionVariableReferencePlan(references=(reference,)),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={"worker_main": FlowStructureIR()}
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "worker_main": BlockStructureIR(
+                    main_flow_blocks=[before, decision]
+                ),
+            }
+        ),
+        worker_step_plan=WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={"worker_main": steps},
+            step_variable_relation_plan=relation_plan,
+        ),
+        symbol_table=symbols,
+    )
+
+    assert not {
+        diagnostic.kind
+        for diagnostic in plan.diagnostics
+        if diagnostic.kind == "condition_variable_not_available_before_decision"
+    }
 
 
 def test_validator_materializes_llm_semantic_condition_reference() -> None:
@@ -322,6 +417,70 @@ def test_materializer_does_not_rewrite_full_condition_overmatch() -> None:
     # Condition text remains raw text and unchanged
     assert block.condition_text == "user refusal to answer"
     assert len(plan.text_rewrites) == 0
+
+
+def test_validator_keeps_llm_unresolved_concept_as_audit_only() -> None:
+    reference = ConditionVariableReferenceIR(
+        reference_id="cond_ref_owner_unresolved_0",
+        owner_kind="block_condition",
+        owner_ref="condition:block:worker_main:main:b1",
+        condition_text="facts are available",
+        ref_text=None,
+        canonical_ref=None,
+        top_level_name=None,
+        qualified_path=(),
+        status="unresolved",
+        source_span_ids=("s1",),
+        worker_id="worker_main",
+        flow_ref="main",
+        block_ref="b1",
+        evidence_kind="llm_unresolved_condition_symbol",
+        evidence_text="facts",
+        proposed_symbol_text="facts",
+    )
+
+    plan = ConditionVariableVisibilityValidator().validate_and_rewrite(
+        plan=ConditionVariableReferencePlan(references=(reference,)),
+        worker_flow_plan=WorkerFlowPlanIR(
+            worker_flows={"worker_main": FlowStructureIR()}
+        ),
+        worker_block_plan=WorkerBlockPlanIR(
+            worker_blocks={
+                "worker_main": BlockStructureIR(
+                    main_flow_blocks=[
+                        BlockIR(
+                            block_id="b1",
+                            block_type="IF",
+                            condition_text="facts are available",
+                            spans=["s1"],
+                        )
+                    ]
+                )
+            }
+        ),
+        worker_step_plan=WorkerStepPlanIR(
+            main_worker_id="worker_main",
+            worker_steps={"worker_main": []},
+        ),
+        symbol_table=SymbolTable(),
+    )
+
+    assert plan.references == (reference,)
+    assert not plan.diagnostics
+
+
+def _produces(
+    step_id: str,
+    variable_name: str,
+    source_span_id: str,
+) -> StepVariableRelation:
+    return StepVariableRelation(
+        step_id=step_id,
+        variable_name=variable_name,
+        relation="produces",
+        source_span_ids=(source_span_id,),
+        evidence_kind="source_text",
+    )
 
 
 def _composite_plan(rewrite: ReferenceRewrite) -> CompositeOutputPlan:

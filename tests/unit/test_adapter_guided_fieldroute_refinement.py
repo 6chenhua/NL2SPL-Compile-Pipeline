@@ -36,7 +36,10 @@ from nl2spl.ir.field_route_ir import FieldRouteIR, RouteAnnotation
 from nl2spl.ir.span_ir import SpanIR
 from nl2spl.llm.client import LLMClient
 from nl2spl.pipeline.stages.stage1_span_slicer import SpanSlicer
-from nl2spl.pipeline.stages.stage2_field_router import FieldRouter
+from nl2spl.pipeline.stages.stage2_field_router import (
+    FieldRouter,
+    _complete_guarded_exception_slots,
+)
 
 # ---------------------------------------------------------------------------
 # Shared input texts
@@ -63,6 +66,45 @@ Missing timeframe: ask one clarifying question.
 Delegation policy:
 Optional source gathering if bounded.
 """
+
+
+def test_guarded_exception_sidecar_completes_missing_handler_slot() -> None:
+    span = SpanIR(
+        span_id="s1",
+        text="If information is missing, ask the user.",
+        source_section_id="sec_failure",
+        source_packet_id="p_s1",
+        segmentation_kind="guarded_action",
+        guard_text_exact="information is missing",
+        action_text_exact="ask the user",
+    )
+    annotations = [
+        RouteAnnotation(
+            span_id="s1",
+            field="behavior",
+            semantic_role="failure_mode",
+            route_family="flow_relevant",
+            source_section_id="sec_failure",
+            source_packet_id="p_s1",
+            construct_target="EXCEPTION_FLOW",
+            slot_target="condition",
+            executable=False,
+        )
+    ]
+
+    diagnostics = _complete_guarded_exception_slots(annotations, [span])
+
+    assert diagnostics == [
+        "stage1_guarded_action_completed_handler_slot:s1"
+    ]
+    assert {
+        (annotation.slot_target, annotation.executable)
+        for annotation in annotations
+    } == {
+        ("condition", False),
+        ("handler", True),
+    }
+
 
 CONDITION_ONLY_FAILURE_TEXT = """Task family:
 Internal communications.
@@ -1944,8 +1986,13 @@ class TestRouteRefinementValidator:
                 ),
             ],
         )
-        # Source text must contain a handler action verb
-        spans = [SpanIR("s1", "ask one clarifying question.")]
+        spans = [
+            SpanIR(
+                "s1",
+                "ask one clarifying question.",
+                segmentation_kind="atomic_action_candidate",
+            )
+        ]
 
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
@@ -1955,8 +2002,8 @@ class TestRouteRefinementValidator:
         assert ann.semantic_role == "exception_handler_action"
         assert ann.executable is True
 
-    def test_validator_rejects_handler_without_action_verb(self) -> None:
-        """Validator rejects exception_handler_action without action verb in text."""
+    def test_validator_rejects_handler_without_action_boundary(self) -> None:
+        """A condition label cannot be promoted into a handler action."""
         from nl2spl.pipeline.stages.stage2_field_router_prompt import (
             RefinedAnnotation,
             RouteRefinementResult,
@@ -1977,14 +2024,53 @@ class TestRouteRefinementValidator:
                 ),
             ],
         )
-        # No action verb in source text
         spans = [SpanIR("s1", "Missing timeframe.")]
 
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
         assert len(result.rejected) == 1
-        assert "handler action verb" in result.rejected[0].reason.lower()
+        assert "executable-action boundary" in result.rejected[0].reason.lower()
+
+    def test_validator_accepts_handler_without_verb_whitelist_match(self) -> None:
+        """Validated action boundaries do not depend on a fixed verb list."""
+        from nl2spl.pipeline.stages.stage2_field_router_prompt import (
+            RefinedAnnotation,
+            RouteRefinementResult,
+        )
+        from nl2spl.pipeline.stages.stage2_field_router_validator import (
+            RouteRefinementValidator,
+        )
+
+        llm_result = RouteRefinementResult(
+            annotations=[
+                RefinedAnnotation(
+                    span_id="s1",
+                    field="behavior",
+                    semantic_role="exception_handler_action",
+                    construct_target="EXCEPTION_FLOW",
+                    slot_target="handler",
+                    executable=True,
+                ),
+            ],
+        )
+        spans = [
+            SpanIR(
+                "s1",
+                "document the specific conflicts.",
+                segmentation_kind="atomic_action_candidate",
+            )
+        ]
+
+        result = RouteRefinementValidator().validate(
+            llm_result,
+            spans,
+            canonical_input=None,
+            structural_priors=[],
+            deterministic_annotations=[],
+        )
+
+        assert len(result.accepted) == 1
 
     def test_validator_diagnoses_delegation_intent_executable(self) -> None:
         """ARC6: Validator diagnoses delegation_intent with executable=True."""
@@ -2223,10 +2309,10 @@ class TestRouteRefinementValidator:
         validator = RouteRefinementValidator()
         result = validator.validate(llm_result, spans, canonical_input=None, structural_priors=[], deterministic_annotations=[])
 
-        # Segment still present but warning emitted
-        assert len(result.split_recommendations) == 1
-        assert any("not found in parent span" in d for d in result.diagnostics), (
-            f"Expected segment warning, got: {result.diagnostics}"
+        # A segment outside the parent source boundary is not admissible.
+        assert result.split_recommendations == []
+        assert any("Split recommendation rejected" in d for d in result.diagnostics), (
+            f"Expected split rejection, got: {result.diagnostics}"
         )
 
 

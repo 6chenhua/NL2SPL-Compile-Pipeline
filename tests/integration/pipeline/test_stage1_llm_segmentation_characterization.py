@@ -212,10 +212,20 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
     for pkt in canonical_input.semantic_packets:
         pkts_by_sec.setdefault(pkt.source_section_id, []).append(pkt)
 
-    rp_pkts = [pkt.packet_id for pkt in pkts_by_sec.get("sec_reusable_process", [])]
-    rules_pkts = [pkt.packet_id for pkt in pkts_by_sec.get("sec_policies", [])]
-    fm_pkts = [pkt.packet_id for pkt in pkts_by_sec.get("sec_failure_handling", [])]
-    int_pkts = [pkt.packet_id for pkt in pkts_by_sec.get("sec_delegation_policy", [])]
+    rp_packets = pkts_by_sec.get("sec_reusable_process", [])
+    rules_packets = pkts_by_sec.get("sec_policies", [])
+    fm_packets = pkts_by_sec.get("sec_failure_handling", [])
+    int_packets = pkts_by_sec.get("sec_delegation_policy", [])
+    rp_pkts = [pkt.packet_id for pkt in rp_packets]
+    rules_pkts = [pkt.packet_id for pkt in rules_packets]
+    fm_pkts = [pkt.packet_id for pkt in fm_packets]
+    int_pkts = [pkt.packet_id for pkt in int_packets]
+
+    def packet_text(packets: list, *indices: int) -> str:
+        return " ".join(
+            " ".join(packets[index].text.split())
+            for index in indices
+        )
 
     orchestrator = PipelineOrchestrator(config)
 
@@ -225,52 +235,57 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
             user_prompt = kwargs.get("user_prompt", "")
             if "sec_reusable_process" in user_prompt:
                 return {
-                    "segments": [
-                        {
-                            "segment_text_exact": "First determine what kind of communication is requested.",
-                            "segmentation_kind": "atomic_action_candidate",
-                            "source_packet_ids": [rp_pkts[0]]
-                        },
-                        {
-                            "segment_text_exact": "Then identify which required fields are still missing. Ask only the highest-value clarifying questions needed to move forward.",
-                            "segmentation_kind": "atomic_action_candidate",
-                            "source_packet_ids": [rp_pkts[0]]
-                        },
-                        {
-                            "segment_text_exact": "If sources are needed and available retrieve them using approved source recipes.",
-                            "segmentation_kind": "guarded_action",
-                            "guard_text_exact": "sources are needed and available",
-                            "action_text_exact": "retrieve them using approved source recipes",
-                            "source_packet_ids": [rp_pkts[0], rp_pkts[1]],
-                            "continuation_repaired": True
-                        },
-                        {
-                            "segment_text_exact": "Maintain provenance for externally sourced facts.",
-                            "segmentation_kind": "atomic_action_candidate",
-                            "source_packet_ids": [rp_pkts[1]]
-                        },
-                        {
-                            "segment_text_exact": "When enough required information is available produce a draft.",
-                            "segmentation_kind": "guarded_action",
-                            "guard_text_exact": "enough required information is available",
-                            "action_text_exact": "produce a draft",
-                            "source_packet_ids": [rp_pkts[1], rp_pkts[2]],
-                            "continuation_repaired": True
-                        },
-                        {
-                            "segment_text_exact": "If the user asks for revision revise while re checking constraints. Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
-                            "segmentation_kind": "guarded_action",
-                            "guard_text_exact": "the user asks for revision",
-                            "action_text_exact": "revise while re checking constraints. Do not finalize if required slots remain missing unless the draft is explicitly marked as assumption-bearing and the user confirms.",
-                            "source_packet_ids": [rp_pkts[2], rp_pkts[3]],
-                            "continuation_repaired": True
-                        },
-                        {
-                            "segment_text_exact": "At the end record a short assumptions log for any unresolved items and set a completion status for the run",
-                            "segmentation_kind": "atomic_action_candidate",
-                            "source_packet_ids": [rp_pkts[3], rp_pkts[4]],
-                            "continuation_repaired": True
-                        }
+                        "segments": [
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 0),
+                                "segmentation_kind": "atomic_action_candidate",
+                                "source_packet_ids": [rp_pkts[0]],
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 1, 2),
+                                "segmentation_kind": "atomic_action_candidate",
+                                "source_packet_ids": [rp_pkts[1], rp_pkts[2]],
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 3),
+                                "segmentation_kind": "guarded_action",
+                                "guard_text_exact": "sources are needed and available",
+                                "action_text_exact": "retrieve them using approved source recipes",
+                                "source_packet_ids": [rp_pkts[3]],
+                                "continuation_repaired": False,
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 4),
+                                "segmentation_kind": "atomic_action_candidate",
+                                "source_packet_ids": [rp_pkts[4]],
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 5),
+                                "segmentation_kind": "guarded_action",
+                                "guard_text_exact": "enough required information is available",
+                                "action_text_exact": "produce a draft",
+                                "source_packet_ids": [rp_pkts[5]],
+                                "continuation_repaired": False,
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 6, 7),
+                                "segmentation_kind": "guarded_action",
+                                "guard_text_exact": "the user asks for revision",
+                                "action_text_exact": (
+                                    "revise while re checking constraints Do not finalize "
+                                    "if required slots remain missing unless the draft is "
+                                    "explicitly marked as assumption-bearing and the user "
+                                    "confirms"
+                                ),
+                                "source_packet_ids": [rp_pkts[6], rp_pkts[7]],
+                                "continuation_repaired": True,
+                            },
+                            {
+                                "segment_text_exact": packet_text(rp_packets, 8),
+                                "segmentation_kind": "atomic_action_candidate",
+                                "source_packet_ids": [rp_pkts[8]],
+                                "continuation_repaired": False,
+                            },
                     ]
                 }
             elif "sec_policies" in user_prompt:
@@ -281,23 +296,51 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
                 p24 = rules_pkts[4] if len(rules_pkts) > 4 else "s24"
                 return {
                     "segments": [
-                        {"segment_text_exact": "Do not invent links or unseen facts", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": [p20]},
-                        {"segment_text_exact": "Require evidence for sourced claims", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": [p21]},
-                        {"segment_text_exact": "Limit questions per turn", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": [p22]},
-                        {"segment_text_exact": "Prefer tool evidence over unnecessary user questioning", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": [p23]},
-                        {"segment_text_exact": "Deny finalization if critical slots are missing or provenance fails", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": [p24]}
+                        {
+                            "segment_text_exact": packet_text(rules_packets, 0),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": [p20],
+                        },
+                        {
+                            "segment_text_exact": packet_text(rules_packets, 1),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": [p21],
+                        },
+                        {
+                            "segment_text_exact": packet_text(rules_packets, 2),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": [p22],
+                        },
+                        {
+                            "segment_text_exact": packet_text(rules_packets, 3),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": [p23],
+                        },
+                        {
+                            "segment_text_exact": packet_text(rules_packets, 4),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": [p24],
+                        },
                     ]
                 }
             elif "sec_failure_handling" in user_prompt:
-                segs = []
-                for idx, text in enumerate(["Missing timeframe", "conflicting instructions", "insufficient source access", "evidence shortage", "user refusal to answer", "provenance failure"]):
-                    pkt_id = fm_pkts[idx] if idx < len(fm_pkts) else f"s{25+idx}"
-                    segs.append({"segment_text_exact": text, "segmentation_kind": "atomic_text_unit", "source_packet_ids": [pkt_id]})
-                return {"segments": segs}
+                return {
+                    "segments": [
+                        {
+                            "segment_text_exact": packet_text(fm_packets, 0),
+                            "segmentation_kind": "atomic_text_unit",
+                            "source_packet_ids": [fm_pkts[0]],
+                        }
+                    ]
+                }
             elif "sec_delegation_policy" in user_prompt:
                 return {
                     "segments": [
-                        {"segment_text_exact": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers", "segmentation_kind": "atomic_action_candidate", "source_packet_ids": int_pkts}
+                        {
+                            "segment_text_exact": packet_text(int_packets, 0),
+                            "segmentation_kind": "atomic_action_candidate",
+                            "source_packet_ids": int_pkts,
+                        }
                     ]
                 }
             return {"segments": []}
@@ -318,12 +361,7 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
                     {"span_id": "s11", "field": "rules", "semantic_role": "policy", "executable": False},
                     {"span_id": "s12", "field": "rules", "semantic_role": "policy", "executable": False},
                     {"span_id": "s13", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s14", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s15", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s16", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s17", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s18", "field": "behavior", "semantic_role": "failure_mode", "executable": False},
-                    {"span_id": "s19", "field": "integrations", "semantic_role": "delegation_intent", "executable": True}
+                        {"span_id": "s14", "field": "integrations", "semantic_role": "delegation_intent", "executable": True}
                 ],
                 "ambiguity_updates": [],
             },
@@ -334,8 +372,8 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
                     "audience": [],
                     "rules": ["s8", "s9", "s10", "s11", "s12"],
                     "domain": [],
-                    "integrations": ["s19"],
-                    "behavior": ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s13", "s14", "s15", "s16", "s17", "s18"],
+                        "integrations": ["s14"],
+                        "behavior": ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s13"],
                 },
             },
             "stage3_5a_candidate_task_units": {
@@ -455,4 +493,3 @@ def test_stage1_llm_segmentation_active_e2e(tmp_path: Path) -> None:
         assert "When enough required information is available" not in result.spl_text or "[IF enough required information is available]" in result.spl_text
         assert "COMMAND When enough required information is available" not in result.spl_text
         assert "[COMMAND When enough required information is available]" not in result.spl_text
-
