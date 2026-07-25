@@ -27,6 +27,28 @@ place to register arbitrary route labels, planner records, or diagnostic names.
 IRS does not parse raw NL, call LLMs, render SPL, modify IR, generate new
 constructs, or fill missing slots.
 
+## Current Package Boundaries
+
+Use the v2 package owners for new imports:
+
+- construct domain specs, satisfaction reports, graph schema, and default
+  construct registry: `nl2spl.compiler.constructs`
+- pure repair linkage metadata: `nl2spl.compiler.repair_contracts`
+- diagnostic specs, registry, consolidator, and IRS-neutral authority DTOs:
+  `nl2spl.compiler.diagnostics`
+- IRS runtime context, checker, runner, projector, result store, and traversal:
+  `nl2spl.compiler.irs`
+- human-readable feedback and report rendering:
+  `nl2spl.compiler.reporting`
+- deterministic cross-layer IRS contract audit backend:
+  `nl2spl.compiler.architecture_audit`
+
+Legacy paths such as `nl2spl.compiler.construct_registry`,
+`nl2spl.compiler.irs.graph`, `nl2spl.compiler.irs.frontier`,
+`nl2spl.compiler.irs.patch_type_meta`, `nl2spl.compiler.irs.feedback_projector`,
+and `nl2spl.compiler.irs.audit` are compatibility shims. Do not introduce new
+production imports through those paths.
+
 ## Core Concept
 
 Use this mental model:
@@ -105,11 +127,11 @@ configured through `IRSRuntimeConfig`.
 |---|---|
 | Construct slot satisfaction | IRS / Post-normalize IRS |
 | Stage-local early reports | IRSSubsystem stage-local runtime |
-| Final diagnostic merge / dedup | DiagnosticConsolidator |
+| Final diagnostic merge / dedup | `diagnostics.consolidator.DiagnosticConsolidator` over IRS-neutral authority DTOs |
 | Step renderability | ExecutableElementGate |
 | Required output producer | ProducerIndex |
 | Cross-construct graph consistency | Stage 9.5 / normalizer / dedicated graph checker |
-| Feedback text | Report projector / renderer only |
+| Feedback text | `reporting` renderers only |
 
 Feedback report renders existing reports and diagnostics.  It must not redo
 IRS checks or infer missing slots.

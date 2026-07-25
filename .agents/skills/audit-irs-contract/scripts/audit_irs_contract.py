@@ -27,7 +27,7 @@ def _load_backend(repo_root: Path) -> Any:
     src_root = repo_root / "src"
     if str(src_root) not in sys.path:
         sys.path.insert(0, str(src_root))
-    return import_module("nl2spl.compiler.irs.audit")
+    return import_module("nl2spl.compiler.architecture_audit.irs_contract_audit")
 
 
 def _parser() -> argparse.ArgumentParser:

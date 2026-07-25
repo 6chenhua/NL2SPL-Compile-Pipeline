@@ -5,6 +5,7 @@
 The skill CLI is intentionally thin. CI requires all of these repository files:
 
 - src/nl2spl/compiler/irs/audit.py
+- src/nl2spl/compiler/architecture_audit/irs_contract_audit.py
 - .agents/skills/audit-irs-contract/scripts/audit_irs_contract.py
 - .agents/skills/audit-irs-contract/waivers.json
 - scripts/check_skill_mirrors.py

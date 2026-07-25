@@ -1,7 +1,8 @@
 ﻿# IRS Repair Affordance Specification
 
 Use this reference when creating or modifying `SlotSpec.repair_affordances` in
-an IRS `ConstructIRS`.
+an IRS `ConstructIRS`. The types live in `nl2spl.compiler.repair_contracts`;
+`compiler.irs.patch_type_meta` is only a legacy compatibility shim.
 
 `RepairAffordanceSpec` is pure registry metadata. It links a missing IRS slot to
 an approved SPL Editing capability. It does not execute repair behavior and it

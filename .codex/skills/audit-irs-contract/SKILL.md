@@ -40,15 +40,17 @@ This is a repository-integrated skill, not a standalone audit implementation.
 - CLI wrapper:
   .agents/skills/audit-irs-contract/scripts/audit_irs_contract.py
 - Deterministic backend:
-  src/nl2spl/compiler/irs/audit.py
+  src/nl2spl/compiler/architecture_audit/irs_contract_audit.py
 - CI guardrail:
   tests/unit/compiler/irs/test_irs_contract_audit_guardrail.py
 - Mirror verifier:
   scripts/check_skill_mirrors.py
 
-The CLI must fail clearly when the NL2SPL package or deterministic backend is
-not available. Do not copy the backend into the skill package; that would
-create a second registry interpretation.
+The legacy module `src/nl2spl/compiler/irs/audit.py` is a compatibility shim.
+The CLI must import the architecture-audit backend directly and fail clearly
+when the NL2SPL package or deterministic backend is not available. Do not copy
+the backend into the skill package; that would create a second registry
+interpretation.
 
 ## CI Gate
 

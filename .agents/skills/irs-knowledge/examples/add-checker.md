@@ -6,7 +6,10 @@ raw NL, mutate IR, or create SPL constructs.
 
 ## Step 1: Add or Update ConstructIRS
 
-Edit `src/nl2spl/compiler/construct_registry.py`.
+Edit the construct definition in `src/nl2spl/compiler/constructs/definitions/`
+or the default registry assembly in `src/nl2spl/compiler/constructs/defaults.py`.
+Do not add new construct definitions to the legacy
+`src/nl2spl/compiler/construct_registry.py` shim.
 
 ```python
 SlotSpec(
@@ -17,7 +20,7 @@ SlotSpec(
 )
 ```
 
-The registry is the source of truth for slot names, requiredness, and
+The `constructs` registry is the source of truth for slot names, requiredness, and
 diagnostic kinds.  Do not hard-code a parallel slot contract inside the
 checker.
 

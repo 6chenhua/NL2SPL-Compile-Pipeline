@@ -11,15 +11,12 @@ src/nl2spl/compiler/irs/
   policy.py            IRSRuntimeConfig
   context.py           IRSCheckContext
   instance.py          ConstructInstance
-  graph.py             ConstructEdge / ConstructGraph
-  frontier.py          FrontierStatus / CutlineReason
   checker.py           IRSChecker protocol
   registry.py          IRSCheckerRegistry
   runner.py            IRSRunner / IRSRunResult
   projector.py         DiagnosticProjector
   result_store.py      IRSResultStore
   subsystem.py         IRSSubsystem
-  feedback_projector.py
   factory.py           build_irs_subsystem / registry helpers
   checkers/
     worker_delegation.py
@@ -28,13 +25,24 @@ src/nl2spl/compiler/irs/
 ## Registry and Reports
 
 ```text
-src/nl2spl/compiler/construct_registry.py
+src/nl2spl/compiler/constructs/
+  spec.py
   SlotSpec
   ConstructIRS
+  satisfaction.py
   SlotSatisfaction
   ConstructSatisfactionReport
+  graph.py
+  ConstructEdge / ConstructGraph
+  registry.py
   SPLConstructRegistry
+  defaults.py
+  definitions/
 ```
+
+Legacy modules such as `compiler.construct_registry`, `compiler.irs.graph`,
+`compiler.irs.frontier`, and `compiler.irs.feedback_projector` are compatibility
+shims. New production code should import from `constructs` and `reporting`.
 
 `ConstructSatisfactionReport` must carry v6 shape fields:
 
@@ -53,14 +61,17 @@ IRSChecker
   -> ConstructSatisfactionReport
   -> DiagnosticProjector
   -> IRSResultStore
-  -> DiagnosticConsolidator
+  -> irs.diagnostic_authority_adapter
+  -> diagnostics.consolidator.DiagnosticConsolidator
   -> compile_diagnostics
 ```
 
-`src/nl2spl/compiler/diagnostic_consolidator.py` is the single diagnostic
-merge/dedup authority.  Stage-local IRS diagnostics are early signals and are
-suppressed from final compile diagnostics unless the runtime policy explicitly
-includes them.
+`src/nl2spl/compiler/diagnostics/consolidator.py` is the single diagnostic
+merge/dedup authority. It consumes IRS-neutral authority DTOs from
+`diagnostics.authority`; conversion from `IRSResultStore` belongs in
+`irs.diagnostic_authority_adapter`. Stage-local IRS diagnostics are early
+signals and are suppressed from final compile diagnostics unless the runtime
+policy explicitly includes them.
 
 ## Configuration
 
@@ -109,4 +120,5 @@ intermediate["irs_graph_snapshots"][stage_name]
 ## Feedback
 
 `ConstructSatisfactionFeedbackProjector` renders existing reports into feedback
-text.  It does not run IRS, infer slots, or create diagnostics.
+text from `compiler.reporting.construct_satisfaction_renderer`.  It does not
+run IRS, infer slots, or create diagnostics.
