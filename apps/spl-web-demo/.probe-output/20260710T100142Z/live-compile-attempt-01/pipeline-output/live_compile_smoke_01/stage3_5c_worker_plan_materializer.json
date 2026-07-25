@@ -1,0 +1,143 @@
+{
+  "stage": "stage3_5c_worker_plan_materializer",
+  "timestamp": "2026-07-10T18:02:05.041003",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s2",
+          "s3",
+          "s4"
+        ],
+        "input_contract": [],
+        "output_contract": [],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": "",
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null,
+        "partial_reason": null
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_create_newsletter_draft",
+        "source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "task_text": "Prepare an internal newsletter draft by collecting approved updates, checking that sourced claims have evidence, and matching the approved newsletter template.",
+        "purpose": "Produce the newsletter draft for the caller to review or use.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "newsletter_draft",
+            "data_type": "text",
+            "required": true,
+            "description": "The completed newsletter draft.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "ordinary_sequential_step",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "source_span_ids": [
+          "s3"
+        ],
+        "task_text": "Ask for missing information needed to complete the newsletter draft before finalizing it.",
+        "purpose": "Obtain missing required details so the draft can be completed.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "alternative_flow",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_create_newsletter_draft",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_create_newsletter_draft",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

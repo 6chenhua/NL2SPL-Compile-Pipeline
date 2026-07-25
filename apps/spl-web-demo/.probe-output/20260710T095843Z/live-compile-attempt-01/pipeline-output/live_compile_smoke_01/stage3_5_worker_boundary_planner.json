@@ -1,0 +1,143 @@
+{
+  "stage": "stage3_5_worker_boundary_planner",
+  "timestamp": "2026-07-10T17:59:07.455660",
+  "metadata": {},
+  "result": {
+    "main_worker_id": "worker_main",
+    "workers": [
+      {
+        "worker_id": "worker_main",
+        "worker_name": "MainWorker",
+        "kind": "main",
+        "purpose": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "owned_span_ids": [
+          "s2",
+          "s3"
+        ],
+        "input_contract": [],
+        "output_contract": [],
+        "depends_on": [],
+        "constraints": [],
+        "boundary_kind": "main_worker",
+        "decision_evidence": [],
+        "reason": "",
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null,
+        "partial_reason": null
+      }
+    ],
+    "handoffs": [],
+    "candidates": [
+      {
+        "candidate_id": "candidate_collect_verify_and_template_newsletter",
+        "source_span_ids": [
+          "s2"
+        ],
+        "task_text": "Collect approved internal updates, verify sourced claims have evidence, match the approved newsletter template, and produce a newsletter draft.",
+        "purpose": "Prepare a newsletter draft from approved internal updates while enforcing evidence and template requirements.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "newsletter_draft",
+            "data_type": "text",
+            "required": true,
+            "description": "The drafted newsletter",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "insufficient_semantic_boundary",
+          "ordinary_sequential_step"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "source_span_ids": [
+          "s3"
+        ],
+        "task_text": "Ask for missing required information before finalizing the draft.",
+        "purpose": "Resolve incomplete inputs by requesting missing information so the draft can be completed.",
+        "candidate_kind": "failure_recovery_protocol",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "independent_failure_policy",
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "no_parent_invocation_point",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ],
+    "decisions": [
+      {
+        "candidate_id": "candidate_collect_verify_and_template_newsletter",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "failure_recovery_protocol",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "rejected_candidates": [
+      {
+        "candidate_id": "candidate_collect_verify_and_template_newsletter",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "ordinary_sequential_step",
+        "reason": "Auto-rejected: blocking risk ordinary_sequential_step",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "failure_recovery_protocol",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ],
+    "control_complexity_regions": [],
+    "unassigned_span_ids": [],
+    "warnings": []
+  }
+}

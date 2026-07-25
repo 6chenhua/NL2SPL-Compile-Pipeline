@@ -1,0 +1,32 @@
+[DEFINE_AGENT: MainWorker "Orchestrate the end-to-end process and delegate to sub-tasks."]
+    [DEFINE_PERSONA:]
+        ROLE: Internal newsletter coordinator
+    [END_PERSONA]
+    [DEFINE_CONCEPTS:]
+        Internalnewsletter: A newsletter intended for internal organizational communication.
+        Approvedinternalupdates: Internal information items that have been reviewed and approved for inclusion.
+        Sourcedclaims: Statements or assertions that come from a source and require evidence verification.
+        Evidence: Supporting proof used to verify sourced claims.
+        Approvednewslettertemplate: The sanctioned format or structure that the newsletter draft must follow.
+        Newsletterdraft: A preliminary version of the newsletter produced as the final output.
+    [END_CONCEPTS]
+    [DEFINE_WORKER: "Orchestrate the end-to-end process and delegate to sub-tasks." MainWorker]
+        [INPUTS]
+        [END_INPUTS]
+        [OUTPUTS]
+        [END_OUTPUTS]
+        [MAIN_FLOW]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-1 [COMMAND Collect approved internal updates]
+                COMMAND-2 [COMMAND Verify evidence for sourced claims]
+                COMMAND-3 [COMMAND Match the approved newsletter template]
+                COMMAND-4 [COMMAND Produce the newsletter draft]
+            [END_SEQUENTIAL_BLOCK]
+        [END_MAIN_FLOW]
+        [EXCEPTION_FLOW: required information is missing]
+            [SEQUENTIAL_BLOCK]
+                COMMAND-5 [INPUT Ask for missing information VALUE user_input:text SET]
+            [END_SEQUENTIAL_BLOCK]
+        [END_EXCEPTION_FLOW]
+    [END_WORKER]
+[END_AGENT]

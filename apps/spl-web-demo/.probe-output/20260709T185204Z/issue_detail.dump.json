@@ -1,0 +1,74 @@
+{
+  "advanced": {
+    "authority": "selected_promoted_stage_local_irs",
+    "diagnostic_kind": "type_or_contract_ambiguity",
+    "irs_construct_id": "worker_promotion:del_s37a",
+    "irs_construct_type": "WORKER_PROMOTION",
+    "irs_slot_name": "promotion_input_contract",
+    "primary_diagnostic_id": "irs_b07e4440a217",
+    "related_diagnostic_ids": [
+      "irs_4003814ca554",
+      "irs_47b7c7feaabc",
+      "irs_b07e4440a217",
+      "irs_bc2ac4dfedc3"
+    ],
+    "repairability_metadata": [
+      [
+        "issue_group_id",
+        "worker_promotion_group:worker_promotion:del_s37a"
+      ],
+      [
+        "issue_role",
+        "primary"
+      ],
+      [
+        "repairability",
+        "editable"
+      ]
+    ],
+    "target_ref": "worker_promotion:del_s37a"
+  },
+  "available_repairs": [
+    {
+      "availability": "available",
+      "description": "Create a complete child worker, handoff, invocation, and result binding.",
+      "interaction_contract_id": "worker_delegation.define_child_worker.v1",
+      "interaction_summary": "Create a complete child worker, handoff, invocation, and result binding.",
+      "label": "Define this work as a child worker",
+      "option_id": "define_child_worker",
+      "patch_types": [
+        "DefineChildWorkerClosure"
+      ],
+      "strategy_id": "worker_delegation.complete_closure.v2",
+      "unavailable_reason": null,
+      "verification_lane": "B"
+    },
+    {
+      "availability": "available",
+      "description": "Materialize the confirmed responsibility as a main-workflow command.",
+      "interaction_contract_id": "worker_delegation.keep_in_main_flow.v1",
+      "interaction_summary": "Materialize the confirmed responsibility as a main-workflow command.",
+      "label": "Keep this work in the main workflow",
+      "option_id": "keep_in_main_flow",
+      "patch_types": [
+        "ConvertDelegationIntentToMainFlowStep"
+      ],
+      "strategy_id": "worker_delegation.complete_closure.v2",
+      "unavailable_reason": null,
+      "verification_lane": "B"
+    }
+  ],
+  "issue_id": "irs_b07e4440a217",
+  "missing_items": [
+    "input contract",
+    "output contract",
+    "invocation point",
+    "result handoff"
+  ],
+  "presentation_quality": "complete",
+  "source_context": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers",
+  "suggested_resolution": null,
+  "title": "Potential child-worker responsibility is incomplete: Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evi...",
+  "what_was_detected": "The delegation intent for Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers is incomplete.",
+  "why_it_matters": "Without a complete handoff contract, the compiler cannot safely decide what to pass to the child worker, when to invoke it, or how to bind the result back."
+}

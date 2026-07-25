@@ -1,0 +1,9 @@
+{
+  "stage": "control_region_plan",
+  "timestamp": "2026-07-10T17:58:52.790059",
+  "metadata": {},
+  "result": {
+    "regions": [],
+    "diagnostics": []
+  }
+}

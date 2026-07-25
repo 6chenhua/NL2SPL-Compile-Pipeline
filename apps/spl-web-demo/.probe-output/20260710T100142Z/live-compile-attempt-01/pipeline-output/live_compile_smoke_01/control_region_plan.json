@@ -1,0 +1,29 @@
+{
+  "stage": "control_region_plan",
+  "timestamp": "2026-07-10T18:02:07.266222",
+  "metadata": {},
+  "result": {
+    "regions": [
+      {
+        "region_id": "cr_local_if_s3_s4",
+        "region_kind": "local_if",
+        "condition_text": "required information is missing, it must ask for the missing information before finalizing the draft",
+        "action_span_ids": [
+          "s4"
+        ],
+        "condition_source_span_ids": [
+          "s3"
+        ],
+        "worker_id": "worker_main",
+        "source": "stage1_cross_packet_guard_repair",
+        "status": "validated",
+        "reason": "guard_tail_precedes_accepted_action",
+        "relation": "derived",
+        "classification_source": "deterministic_evidence",
+        "confidence": "medium",
+        "notes": []
+      }
+    ],
+    "diagnostics": []
+  }
+}

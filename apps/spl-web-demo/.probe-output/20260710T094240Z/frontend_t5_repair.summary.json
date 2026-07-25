@@ -1,0 +1,117 @@
+{
+  "schema_version": "spl_web_demo.t5_frontend_repair_summary.v1",
+  "generated_at_utc": "2026-07-10T09:42:40Z",
+  "frontend_url": "http://127.0.0.1:5173/",
+  "backend_url": "http://127.0.0.1:8000/",
+  "source_snapshot": "examples/output/demo/spl_editing_snapshot.json",
+  "initial_run": {
+    "run_id": "demo",
+    "snapshot_id": "snap_b61a1efdd39c",
+    "overlay_version": 0,
+    "revision_token": "demo:snap_b61a1efdd39c:0",
+    "projection_status": "available",
+    "construct_count": 27,
+    "issue_count": 8
+  },
+  "repair_contract": {
+    "issue_id": "irs_b07e4440a217",
+    "option_id": "keep_in_main_flow",
+    "contract_id": "worker_delegation.keep_in_main_flow.v1",
+    "interaction_fields": [
+      {
+        "field_id": "task_selection",
+        "input_type": "single_choice",
+        "required": true
+      },
+      {
+        "field_id": "additional_instruction",
+        "input_type": "long_text",
+        "required": false
+      }
+    ],
+    "selected_business_value": "source gathering"
+  },
+  "cancel_flow": {
+    "directive_id": "directive_e83400868f090e4b1afc",
+    "session_id": "sess_demo_irs_b07e4440a217",
+    "suggestion_id": "suggestion_directive_e83400868f090e4b1afc",
+    "preview_id": "prev_00df81ab461aa78a10553f2f85243a79618acf2f6ea392cf17d79314d2a5d2f8",
+    "preview_request_count": 1,
+    "apply_request_count": 0,
+    "overlay_version_after_cancel": 0,
+    "revision_token_after_cancel": "demo:snap_b61a1efdd39c:0",
+    "verification_panel_present": false,
+    "preview_cleared": true,
+    "configure_repair_restored": true
+  },
+  "apply_flow": {
+    "directive_id": "directive_78ae2894af4df16f5a64",
+    "session_id": "sess_demo_irs_b07e4440a217",
+    "suggestion_id": "suggestion_directive_78ae2894af4df16f5a64",
+    "preview_id": "prev_39aaccf9c10832d7652990ab5e1619f01d8dc995db05d742f53f5f4211d78c78",
+    "additional_instruction": "Keep the evidence check explicit.",
+    "preview_request_count": 1,
+    "apply_request_count": 1,
+    "verification": {
+      "accepted": true,
+      "lane": "B",
+      "failure_reasons": [],
+      "resolved_diagnostic_count": 4,
+      "new_blocking_diagnostic_count": 0
+    },
+    "overlay_version_after_apply": 1,
+    "revision_token_after_apply": "demo:snap_b61a1efdd39c:1",
+    "updated_issue_count": 8,
+    "projection_status": "projection_unavailable",
+    "visible_construct_card_count": 0,
+    "rendered_spl": null
+  },
+  "responsive_checks": [
+    {
+      "requested_viewport": "1440x900",
+      "client_width": 1425,
+      "scroll_width": 1425,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "1024x900",
+      "client_width": 1009,
+      "scroll_width": 1009,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "768x900",
+      "client_width": 753,
+      "scroll_width": 753,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "390x844",
+      "client_width": 375,
+      "scroll_width": 375,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    }
+  ],
+  "browser_console": {
+    "warning_count": 0,
+    "error_count": 0
+  },
+  "verification_gates": {
+    "typescript_typecheck": "passed",
+    "vitest": "14 passed",
+    "production_build": "passed",
+    "vite_modules_transformed": 34,
+    "npm_audit": "0 vulnerabilities",
+    "frontend_forbidden_boundary_search": "no matches",
+    "source_line_length_check": "no lines over 120 columns",
+    "scoped_git_diff_check": "passed"
+  }
+}

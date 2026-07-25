@@ -1,0 +1,375 @@
+{
+  "run_id": "demo",
+  "sections": [
+    {
+      "items": [
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_03",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_02b0da72bfd4",
+            "related_diagnostic_ids": [
+              "irs_02b0da72bfd4"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_03"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_03"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 1,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_02b0da72bfd4",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "Missing timeframe",
+          "suggested_resolution": "Add a handler step for 'Missing <REF>timeframe</REF>', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: Missing <REF>timeframe</REF>"
+        },
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_02",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_1353fbe13843",
+            "related_diagnostic_ids": [
+              "irs_1353fbe13843"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_02"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_02"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 2,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_1353fbe13843",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "insufficient source access",
+          "suggested_resolution": "Add a handler step for 'insufficient source access', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: insufficient source access"
+        },
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_01",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_5dcf003db873",
+            "related_diagnostic_ids": [
+              "irs_5dcf003db873"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_01"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_01"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 3,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_5dcf003db873",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "evidence shortage",
+          "suggested_resolution": "Add a handler step for 'evidence shortage', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: evidence shortage"
+        },
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_05",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_818c56cbc102",
+            "related_diagnostic_ids": [
+              "irs_818c56cbc102"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_05"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_05"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 4,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_818c56cbc102",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "user refusal to answer",
+          "suggested_resolution": "Add a handler step for 'user refusal to answer', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: user refusal to answer"
+        },
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_04",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_92ae165af1b0",
+            "related_diagnostic_ids": [
+              "irs_92ae165af1b0"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_04"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_04"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 5,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_92ae165af1b0",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "provenance failure",
+          "suggested_resolution": "Add a handler step for 'provenance failure', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: provenance failure"
+        },
+        {
+          "advanced": {
+            "authority": "selected_promoted_stage_local_irs",
+            "diagnostic_kind": "type_or_contract_ambiguity",
+            "irs_construct_id": "worker_promotion:del_s37a",
+            "irs_construct_type": "WORKER_PROMOTION",
+            "irs_slot_name": "promotion_input_contract",
+            "primary_diagnostic_id": "irs_b07e4440a217",
+            "related_diagnostic_ids": [
+              "irs_4003814ca554",
+              "irs_47b7c7feaabc",
+              "irs_b07e4440a217",
+              "irs_bc2ac4dfedc3"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "worker_promotion_group:worker_promotion:del_s37a"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker_promotion:del_s37a"
+          },
+          "can_fix": true,
+          "category": "worker_delegation",
+          "display_id": 6,
+          "fix_label": "Define this work as a child worker / Keep this work in the main workflow",
+          "impact": "The compiler detected a possible delegated worker, but the handoff contract is incomplete.",
+          "issue_id": "irs_b07e4440a217",
+          "missing_items": [
+            "input contract",
+            "output contract",
+            "invocation point",
+            "result handoff"
+          ],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evidence is normalized into approved evidence carriers",
+          "suggested_resolution": null,
+          "title": "Potential child-worker responsibility is incomplete: Optional delegated subtasks such as source gathering or template matching may be used if bounded and the returned evi..."
+        },
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "missing_handler",
+            "irs_construct_id": "worker:worker_main.exception_flow:exc_adapter_00",
+            "irs_construct_type": "EXCEPTION_FLOW",
+            "irs_slot_name": "handler_action",
+            "primary_diagnostic_id": "irs_eae84cf20dcd",
+            "related_diagnostic_ids": [
+              "irs_eae84cf20dcd"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "editable_group:worker:worker_main.exception_flow:exc_adapter_00"
+              ],
+              [
+                "issue_role",
+                "primary"
+              ],
+              [
+                "repairability",
+                "editable"
+              ]
+            ],
+            "target_ref": "worker:worker_main.exception_flow:exc_adapter_00"
+          },
+          "can_fix": true,
+          "category": "exception_handling",
+          "display_id": 7,
+          "fix_label": "Add handler step",
+          "impact": "The SPL has an exception flow for this condition, but no action to take.",
+          "issue_id": "irs_eae84cf20dcd",
+          "missing_items": [],
+          "presentation_quality": "complete",
+          "repairability": "editable",
+          "source_excerpt": "conflicting instructions",
+          "suggested_resolution": "Add a handler step for 'conflicting instructions', or mark this exception as acknowledged without handling.",
+          "title": "Exception has no handler: conflicting instructions"
+        }
+      ],
+      "label": "Editable issues",
+      "section_key": "editable_issues",
+      "section_kind": "editable",
+      "visible_by_default": true
+    },
+    {
+      "items": [],
+      "label": "Review needed",
+      "section_key": "review_needed",
+      "section_kind": "review_needed",
+      "visible_by_default": false
+    },
+    {
+      "items": [
+        {
+          "advanced": {
+            "authority": "post_normalize_irs",
+            "diagnostic_kind": "deferred_api_contract_validation",
+            "irs_construct_id": "api_declaration:api:ApprovedSourceRecipesAPI",
+            "irs_construct_type": "API_DECLARATION",
+            "irs_slot_name": "functions",
+            "primary_diagnostic_id": "irs_70bf830821c3",
+            "related_diagnostic_ids": [
+              "irs_4922b19aef41",
+              "irs_70bf830821c3"
+            ],
+            "repairability_metadata": [
+              [
+                "issue_group_id",
+                "api_contract_deferred:api:ApprovedSourceRecipesAPI"
+              ],
+              [
+                "issue_role",
+                "alias"
+              ],
+              [
+                "repairability",
+                "review_only"
+              ]
+            ],
+            "target_ref": "api_declaration:api:ApprovedSourceRecipesAPI"
+          },
+          "can_fix": false,
+          "category": "api_contract_review",
+          "display_id": 8,
+          "fix_label": "Review issue",
+          "impact": "The API declaration is structurally renderable, but the real API contract must be validated downstream.",
+          "issue_id": "irs_70bf830821c3",
+          "missing_items": [],
+          "presentation_quality": "degraded",
+          "repairability": "review_only",
+          "source_excerpt": "If sources are needed and available retrieve them using approved source recipes.",
+          "suggested_resolution": "Provide function declarations or explicitly confirm the API has no callable functions.",
+          "title": "API contract validation is deferred"
+        }
+      ],
+      "label": "Deferred validation",
+      "section_key": "deferred_validation",
+      "section_kind": "deferred_validation",
+      "visible_by_default": true
+    }
+  ],
+  "snapshot_id": "snap_b61a1efdd39c",
+  "summary": [
+    {
+      "category": "api_contract_review",
+      "count": 1,
+      "label": "API contract validation"
+    },
+    {
+      "category": "exception_handling",
+      "count": 6,
+      "label": "Exception handling"
+    },
+    {
+      "category": "worker_delegation",
+      "count": 1,
+      "label": "Worker delegation"
+    }
+  ]
+}

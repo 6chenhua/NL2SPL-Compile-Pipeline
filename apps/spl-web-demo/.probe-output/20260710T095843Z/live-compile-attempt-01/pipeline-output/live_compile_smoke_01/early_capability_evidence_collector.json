@@ -1,0 +1,13 @@
+{
+  "stage": "early_capability_evidence_collector",
+  "timestamp": "2026-07-10T17:58:56.053150",
+  "metadata": {},
+  "result": {
+    "candidates": [],
+    "rejected_evidence_ids": [],
+    "metadata": {
+      "authority": "non_authoritative",
+      "collector_version": "EarlyCapabilityEvidenceCollectorV1"
+    }
+  }
+}

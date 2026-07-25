@@ -1,0 +1,73 @@
+{
+  "schema_version": "spl_web_demo.t1_card_projection_summary.v1",
+  "generated_at_utc": "2026-07-10T07:12:04Z",
+  "source_snapshot": "examples/output/demo/spl_editing_snapshot.json",
+  "request": "GET /api/demo/v1/runs/demo/constructs",
+  "status_code": 200,
+  "run_id": "demo",
+  "snapshot_id": "snap_b61a1efdd39c",
+  "overlay_version": 0,
+  "revision_token": "demo:snap_b61a1efdd39c:0",
+  "projection_status": "available",
+  "construct_count": 27,
+  "construct_type_counts": {
+    "CONSTRAINT": 7,
+    "EXCEPTION_FLOW": 6,
+    "PROFILE": 1,
+    "REQUIRED_OUTPUT": 3,
+    "STEP": 9,
+    "WORKER": 1
+  },
+  "sample_constructs": [
+    {
+      "construct_ref": "worker_6595f304ee371751",
+      "construct_type": "WORKER",
+      "title": "MainWorker",
+      "status": "available",
+      "payload_summary": {
+        "worker_name": "MainWorker",
+        "worker_kind": "main",
+        "description": "Orchestrate the end-to-end process and delegate to sub-tasks.",
+        "input_count": 5,
+        "output_count": 3,
+        "step_count": 9,
+        "exception_flow_count": 6
+      },
+      "provenance_summary": {
+        "kind": "inferred",
+        "source_span_count": 0
+      },
+      "source_span_ids": []
+    },
+    {
+      "construct_ref": "step_6888610231e8cfd7",
+      "construct_type": "STEP",
+      "title": "st_1: Determine the requested communication type.",
+      "status": "available",
+      "payload_summary": {
+        "worker_name": "MainWorker",
+        "step_id": "st_1",
+        "text": "Determine the requested communication type.",
+        "command_type": "GENERAL_COMMAND",
+        "flow_ref": "main",
+        "inputs": [
+          "user_request"
+        ],
+        "outputs": []
+      },
+      "provenance_summary": {
+        "kind": "source_backed",
+        "source_span_count": 1
+      },
+      "source_span_ids": [
+        "s15"
+      ]
+    }
+  ],
+  "verification": {
+    "pytest": "19 passed",
+    "ruff_check": "passed",
+    "ruff_format_check": "12 files already formatted",
+    "forbidden_boundary_search": "no matches"
+  }
+}

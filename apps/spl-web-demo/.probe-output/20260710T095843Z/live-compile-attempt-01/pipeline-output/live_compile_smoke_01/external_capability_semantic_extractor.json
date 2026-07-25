@@ -1,0 +1,45 @@
+{
+  "stage": "external_capability_semantic_extractor",
+  "timestamp": "2026-07-10T17:59:03.628688",
+  "metadata": {},
+  "result": {
+    "status": "available",
+    "failure_reason": null,
+    "candidates": [],
+    "dispositions": [
+      {
+        "source_span_id": "s1",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "internal_agent_instruction"
+      },
+      {
+        "source_span_id": "s2",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "generic_internal_workflow"
+      },
+      {
+        "source_span_id": "s3",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "missing_info_handling"
+      },
+      {
+        "source_span_id": "s4",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "deliverable_only"
+      }
+    ],
+    "diagnostics": [],
+    "metadata": {
+      "coverage_policy": "all_resolved_spans",
+      "model_config_fingerprint": "122ca40284b3b01520ce108a94dc8b3e86ee956588ab89419d924d6d9d41fca0",
+      "prompt_version": "external-capability-semantic-extractor.v1",
+      "resolved_span_count": 4,
+      "schema_version": "ExternalCapabilityIntentCandidateIR.v1",
+      "stage_name": "external_capability_semantic_extractor"
+    }
+  }
+}

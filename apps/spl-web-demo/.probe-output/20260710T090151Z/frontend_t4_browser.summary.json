@@ -1,0 +1,76 @@
+{
+  "schema_version": "spl_web_demo.t4_frontend_browser_summary.v1",
+  "generated_at_utc": "2026-07-10T09:01:51Z",
+  "frontend_url": "http://127.0.0.1:5173/",
+  "backend_url": "http://127.0.0.1:8000/",
+  "source_snapshot": "examples/output/demo/spl_editing_snapshot.json",
+  "loaded_run": {
+    "run_id": "demo",
+    "snapshot_id": "snap_b61a1efdd39c",
+    "overlay_version": 0,
+    "revision_token": "demo:snap_b61a1efdd39c:0",
+    "projection_status": "available",
+    "construct_count": 27,
+    "issue_count": 8
+  },
+  "interaction_checks": {
+    "snapshot_bootstrap": "passed",
+    "construct_selection": "passed",
+    "provenance_selection": "passed",
+    "span_detail": "passed",
+    "issue_selection": "passed",
+    "cached_explanation": "passed",
+    "unresolved_span_display": "passed"
+  },
+  "responsive_checks": [
+    {
+      "requested_viewport": "1440x900",
+      "client_width": 1425,
+      "scroll_width": 1425,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "1024x900",
+      "client_width": 1009,
+      "scroll_width": 1009,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "768x900",
+      "client_width": 753,
+      "scroll_width": 753,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "390x844",
+      "client_width": 375,
+      "scroll_width": 375,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    }
+  ],
+  "browser_console": {
+    "warning_count": 0,
+    "error_count": 0
+  },
+  "dependency_versions": {
+    "node": "24.14.1",
+    "vite": "7.3.6",
+    "vitest": "4.1.10",
+    "vite_react_plugin": "5.2.0"
+  },
+  "verification": {
+    "npm_typecheck": "passed",
+    "vitest": "8 passed",
+    "production_build": "passed",
+    "npm_audit": "0 vulnerabilities",
+    "frontend_forbidden_boundary_search": "no matches"
+  }
+}

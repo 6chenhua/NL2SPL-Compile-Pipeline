@@ -1,0 +1,20 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-07-10T17:59:29.051623",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "The final output must be the newsletter draft.",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s4"
+        ]
+      }
+    ]
+  }
+}

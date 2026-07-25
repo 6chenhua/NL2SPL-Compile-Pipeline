@@ -1,0 +1,65 @@
+{
+  "schema_version": "spl_web_demo.t3_explanation_lifecycle_summary.v1",
+  "generated_at_utc": "2026-07-10T08:21:56Z",
+  "source_snapshot": "examples/output/demo/spl_editing_snapshot.json",
+  "transition_fixture": "temporary copy of canonical snapshot with deterministic injected scheduler",
+  "issue_id": "irs_b07e4440a217",
+  "ready_trigger": {
+    "http_status": 200,
+    "explanation_status": "ready",
+    "scheduling_requested": false,
+    "scheduling_accepted": false
+  },
+  "missing_to_pending": {
+    "http_status": 202,
+    "explanation_status": "pending",
+    "scheduling_requested": true,
+    "scheduling_accepted": true
+  },
+  "duplicate_pending_trigger": {
+    "http_status": 202,
+    "explanation_status": "pending",
+    "scheduling_requested": true,
+    "scheduling_accepted": false,
+    "scheduler_call_count": 1
+  },
+  "pending_to_ready": {
+    "http_status": 200,
+    "explanation_status": "ready"
+  },
+  "pending_to_error": {
+    "http_status": 200,
+    "explanation_status": "error",
+    "error": "failed"
+  },
+  "scheduler_unavailable": {
+    "http_status": 503,
+    "error_code": "explanation_scheduler_unavailable"
+  },
+  "scheduler_start_failure": {
+    "http_status": 503,
+    "error_code": "explanation_schedule_failed"
+  },
+  "batch_executor_submit_failure": {
+    "raised_error": "batch executor unavailable",
+    "cache_status_after_failure": "error",
+    "item_status_after_failure": "error",
+    "pending_cache_remained": false
+  },
+  "preview_cancel": {
+    "contract": "client_discard_without_apply",
+    "overlay_version_before": 0,
+    "overlay_version_after": 0,
+    "revision_token_before": "demo:snap_b61a1efdd39c:0",
+    "revision_token_after": "demo:snap_b61a1efdd39c:0",
+    "verification_remained_absent": true,
+    "issue_state_unchanged": true
+  },
+  "verification": {
+    "pytest": "35 passed",
+    "ruff_check": "passed",
+    "ruff_format_check": "17 files already formatted",
+    "forbidden_boundary_search": "no matches",
+    "testclient_httpx_warning": "known non-blocking warning"
+  }
+}

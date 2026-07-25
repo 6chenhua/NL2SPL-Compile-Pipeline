@@ -1,0 +1,31 @@
+{
+  "stage": "stage9_constraint_extractor",
+  "timestamp": "2026-07-10T17:59:08.540779",
+  "metadata": {},
+  "result": {
+    "constraints": [
+      {
+        "constraint_id": "c_1",
+        "text": "If required information is missing, it must ask for the missing information before finalizing the draft.",
+        "kind": "gate",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s3"
+        ]
+      },
+      {
+        "constraint_id": "c_2",
+        "text": "The final output is the newsletter draft.",
+        "kind": "requirement",
+        "targets": [
+          "global"
+        ],
+        "source_span_ids": [
+          "s4"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+Create an internal newsletter coordinator agent.
+
+The agent must collect approved internal updates, verify that sourced claims have evidence, match the approved newsletter template, and produce a newsletter draft. If required information is missing, it must ask for the missing information before finalizing the draft. The final output is the newsletter draft.

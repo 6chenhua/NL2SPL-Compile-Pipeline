@@ -1,0 +1,51 @@
+{
+  "status": "pass",
+  "generated_at": "2026-07-10T15:42:27Z",
+  "routes": {
+    "generate": "/",
+    "workbench": "/runs/demo",
+    "reload_passed": true,
+    "back_forward_passed": true
+  },
+  "document_projection": {
+    "projection_status": "available",
+    "projection_fidelity": "structured",
+    "revision_token": "demo:snap_b61a1efdd39c:0",
+    "visible_sections": [
+      "AGENT",
+      "PROFILE",
+      "AUDIENCE",
+      "CONCEPTS",
+      "CONSTRAINTS",
+      "RESOURCES",
+      "TYPES",
+      "VARIABLES",
+      "FILES",
+      "APIS",
+      "WORKERS",
+      "INPUTS",
+      "OUTPUTS"
+    ],
+    "issue_count": 8,
+    "source_backed_provenance_checked": true,
+    "span_detail_checked": true
+  },
+  "responsive": [
+    {"viewport": "1440x900", "page_horizontal_overflow": false},
+    {"viewport": "1024x900", "page_horizontal_overflow": false},
+    {"viewport": "768x900", "page_horizontal_overflow": false},
+    {"viewport": "390x844", "page_horizontal_overflow": false}
+  ],
+  "browser_console": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "gates": {
+    "backend_pytest": "49 passed",
+    "backend_ruff": "passed",
+    "frontend_typecheck": "passed",
+    "frontend_vitest": "20 passed",
+    "frontend_build": "passed",
+    "boundary_search": "passed"
+  }
+}

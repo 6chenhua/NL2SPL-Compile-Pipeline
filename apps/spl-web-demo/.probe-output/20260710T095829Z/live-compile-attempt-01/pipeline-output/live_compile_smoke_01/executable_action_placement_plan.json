@@ -1,0 +1,70 @@
+{
+  "stage": "executable_action_placement_plan",
+  "timestamp": "2026-07-10T17:58:50.823949",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "action_s1",
+        "source_span_ids": [
+          "s1"
+        ],
+        "action_text": "Create an internal newsletter coordinator agent.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s2",
+        "source_span_ids": [
+          "s2"
+        ],
+        "action_text": "The agent must collect approved internal updates, verify that sourced claims have evidence, match the approved newsletter template, and produce a newsletter draft.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      }
+    ],
+    "placements": [
+      {
+        "candidate_id": "action_s1",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s2",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      }
+    ],
+    "worker_actions": [
+      {
+        "worker_id": "worker_main",
+        "placement_span_ids": [
+          "s1",
+          "s2"
+        ],
+        "generic_step_extraction_span_ids": [
+          "s1",
+          "s2"
+        ],
+        "materialization_exclusions": []
+      }
+    ],
+    "diagnostics": [],
+    "audit": {
+      "total_candidates": 2,
+      "source": "stage1/routes/construct_plan"
+    }
+  }
+}

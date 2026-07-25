@@ -1,0 +1,86 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-07-10T17:59:04.356930",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal newsletter coordinator",
+      "aspects": [
+        {
+          "name": "EvidenceDriven",
+          "text": "Verifies that sourced claims have evidence before including them in the draft.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "TemplateCompliant",
+          "text": "Matches the approved newsletter template when preparing the newsletter draft.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "ClarificationSeeking",
+          "text": "Asks for missing information before finalizing the draft when required information is absent.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        }
+      ],
+      "source_span_ids": [
+        "s1"
+      ],
+      "source_section_id": null,
+      "source_packet_id": null,
+      "provenance_relation": "normalized"
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Approved internal updates",
+        "definition": "Internal information items that have been approved for inclusion in the newsletter.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Sourced claims",
+        "definition": "Statements or assertions included in the newsletter that need supporting evidence.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Approved newsletter template",
+        "definition": "The required formatting or structure that the newsletter draft must follow.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Newsletter draft",
+        "definition": "The preliminary written version of the internal newsletter produced by the agent.",
+        "source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      }
+    ]
+  }
+}

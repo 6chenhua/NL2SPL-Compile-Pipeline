@@ -1,0 +1,43 @@
+{
+  "stage": "external_capability_intent_resolver",
+  "timestamp": "2026-07-10T17:59:03.631013",
+  "metadata": {},
+  "result": {
+    "plan_id": "cap_plan_e67132118c63454d",
+    "intents": [],
+    "dispositions": [
+      {
+        "source_span_id": "s1",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "internal_agent_instruction"
+      },
+      {
+        "source_span_id": "s2",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "generic_internal_workflow"
+      },
+      {
+        "source_span_id": "s3",
+        "status": "policy_only",
+        "related_candidate_ids": [],
+        "reason_code": "missing_info_handling"
+      },
+      {
+        "source_span_id": "s4",
+        "status": "no_external_boundary",
+        "related_candidate_ids": [],
+        "reason_code": "deliverable_only"
+      }
+    ],
+    "candidate_resolution_map": {},
+    "diagnostics": [],
+    "metadata": {
+      "authority": "external_capability_intent_plan",
+      "binding_view_available": true,
+      "extraction_status": "available",
+      "resolver_version": "ExternalCapabilityIntentResolverV1"
+    }
+  }
+}

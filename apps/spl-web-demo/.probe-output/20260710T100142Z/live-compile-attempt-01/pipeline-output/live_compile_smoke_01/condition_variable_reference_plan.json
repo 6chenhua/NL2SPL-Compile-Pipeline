@@ -1,0 +1,15 @@
+{
+  "stage": "condition_variable_reference_plan",
+  "timestamp": "2026-07-10T18:02:40.285736",
+  "metadata": {},
+  "result": {
+    "schema_version": "condition_variable_reference_plan.v2",
+    "references": [],
+    "text_rewrites": [],
+    "diagnostics": [],
+    "metadata": {
+      "authority": "stage6_5_condition_reference_extractor",
+      "final_authority": "stage9_5_condition_variable_visibility_validator"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "advanced": {
+    "base_snapshot_id": "",
+    "compile_run_id": "",
+    "parent_snapshot_id": null,
+    "snapshot_path": "C:\\WorkingLocation\\UGAiForge\\nl2spl_improve\\nl2spl\\examples\\output\\demo\\spl_editing_snapshot.json"
+  },
+  "deferred_validation_count": 1,
+  "developer_issue_count": 0,
+  "editable": true,
+  "editable_issue_count": 7,
+  "issue_count": 8,
+  "issue_summary": [
+    {
+      "category": "api_contract_review",
+      "count": 1,
+      "label": "API contract validation"
+    },
+    {
+      "category": "exception_handling",
+      "count": 6,
+      "label": "Exception handling"
+    },
+    {
+      "category": "worker_delegation",
+      "count": 1,
+      "label": "Worker delegation"
+    }
+  ],
+  "overlay_version": 0,
+  "review_issue_count": 0,
+  "run_id": "demo",
+  "run_label": "demo",
+  "snapshot_id": "snap_b61a1efdd39c",
+  "snapshot_status": "available"
+}

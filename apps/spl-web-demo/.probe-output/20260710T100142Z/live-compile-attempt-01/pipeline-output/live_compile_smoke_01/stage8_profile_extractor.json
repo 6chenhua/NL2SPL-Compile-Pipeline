@@ -1,0 +1,106 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-07-10T18:02:38.471485",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal newsletter coordinator",
+      "aspects": [
+        {
+          "name": "EvidenceBased",
+          "text": "Verifies that sourced claims have evidence before including them in the newsletter.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "TemplateCompliant",
+          "text": "Matches the approved newsletter template when producing the draft.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        },
+        {
+          "name": "ClarificationSeeking",
+          "text": "Asks for missing information before finalizing the draft when required information is incomplete.",
+          "source_span_ids": [],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "assumed"
+        }
+      ],
+      "source_span_ids": [
+        "s1"
+      ],
+      "source_section_id": null,
+      "source_packet_id": null,
+      "provenance_relation": "direct"
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Internal newsletter",
+        "definition": "A newsletter intended for internal organizational communication.",
+        "source_span_ids": [
+          "s1"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Approved internal updates",
+        "definition": "Internal information items that have been reviewed and approved for inclusion.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Sourced claims",
+        "definition": "Statements or assertions that come from a source and require evidence verification.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Evidence",
+        "definition": "Supporting proof used to verify sourced claims.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Approved newsletter template",
+        "definition": "The sanctioned format or structure that the newsletter draft must follow.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Newsletter draft",
+        "definition": "A preliminary version of the newsletter produced as the final output.",
+        "source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "stage": "executable_action_placement_plan",
+  "timestamp": "2026-07-10T18:02:05.042885",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "action_s2",
+        "source_span_ids": [
+          "s2"
+        ],
+        "action_text": "The agent must collect approved internal updates, verify that sourced claims have evidence, match the approved newsletter template, and produce a newsletter draft.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s3",
+        "source_span_ids": [
+          "s3"
+        ],
+        "action_text": "If required information is missing, it must ask for the missing information before finalizing the draft.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      },
+      {
+        "candidate_id": "action_s4",
+        "source_span_ids": [
+          "s4"
+        ],
+        "action_text": "The final output is the newsletter draft.",
+        "source": "route_executable_role",
+        "status": "accepted",
+        "reason": "accepted_executable_source",
+        "command_type_hint": null,
+        "guard_text": null
+      }
+    ],
+    "placements": [
+      {
+        "candidate_id": "action_s2",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s3",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      },
+      {
+        "candidate_id": "action_s4",
+        "worker_id": "worker_main",
+        "flow_ref": null,
+        "block_ref": null,
+        "status": "placed",
+        "reason": "worker_owned"
+      }
+    ],
+    "worker_actions": [
+      {
+        "worker_id": "worker_main",
+        "placement_span_ids": [
+          "s2",
+          "s3",
+          "s4"
+        ],
+        "generic_step_extraction_span_ids": [
+          "s2",
+          "s3",
+          "s4"
+        ],
+        "materialization_exclusions": []
+      }
+    ],
+    "diagnostics": [],
+    "audit": {
+      "total_candidates": 3,
+      "source": "stage1/routes/construct_plan"
+    }
+  }
+}

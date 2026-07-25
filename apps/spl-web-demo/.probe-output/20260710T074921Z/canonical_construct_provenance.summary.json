@@ -1,0 +1,99 @@
+{
+  "schema_version": "spl_web_demo.t2_provenance_summary.v1",
+  "generated_at_utc": "2026-07-10T07:49:21Z",
+  "source_snapshot": "examples/output/demo/spl_editing_snapshot.json",
+  "run_id": "demo",
+  "snapshot_id": "snap_b61a1efdd39c",
+  "construct_count": 27,
+  "trace_status_counts": {
+    "available": 27
+  },
+  "provenance_kind_counts": {
+    "assumed": 1,
+    "direct": 25,
+    "mixed": 1
+  },
+  "resolved_span_count": 26,
+  "unresolved_span_count": 3,
+  "unresolved_span_ids": [
+    "s21a",
+    "s37a",
+    "s37b"
+  ],
+  "source_backed_construct_sample": {
+    "construct_ref": "step_6888610231e8cfd7",
+    "construct_type": "STEP",
+    "title": "st_1: Determine the requested communication type.",
+    "trace_status": "available",
+    "provenance_kind": "direct",
+    "matched_target_refs": [
+      "step:st_1"
+    ],
+    "source_span_ids": [
+      "s15"
+    ],
+    "unresolved_span_ids": [],
+    "traces": [
+      {
+        "target_ref": "step:st_1",
+        "relation": "direct",
+        "explanation": "Step 'st_1' maps to source span(s).",
+        "needs_confirmation": false,
+        "source_section_id": null,
+        "source_packet_id": null,
+        "source_span_ids": [
+          "s15"
+        ],
+        "repair": null
+      }
+    ],
+    "spans": [
+      {
+        "span_id": "s15",
+        "text": "First determine what kind of communication is requested.",
+        "source_section_id": "sec_reusable_process",
+        "source_packet_id": "p_list_item_first_determine_what_kind_of_communication_is_requested_then_identify_which_required_fields_are_still_missing_ask_only_the_highest_value_clarifying_questions_needed_to_move_forward_if_sources_are_needed_and_available",
+        "section_context": null,
+        "is_placeholder": false,
+        "ambiguity": {
+          "is_ambiguous": false,
+          "reasons": [],
+          "needs_split": false
+        }
+      }
+    ]
+  },
+  "no_source_construct_sample": {
+    "construct_ref": "required_output_3e446a0030b4d329",
+    "construct_type": "REQUIRED_OUTPUT",
+    "title": "Required output: source_evidence_set",
+    "trace_status": "available",
+    "provenance_kind": "assumed",
+    "matched_target_refs": [
+      "variable:source_evidence_set"
+    ],
+    "source_span_ids": [],
+    "unresolved_span_ids": [],
+    "traces": [
+      {
+        "target_ref": "variable:source_evidence_set",
+        "relation": "assumed",
+        "explanation": "Variable 'source_evidence_set' is declared as worker output contract with no source evidence.",
+        "needs_confirmation": true,
+        "source_section_id": null,
+        "source_packet_id": null,
+        "source_span_ids": [],
+        "repair": null
+      }
+    ],
+    "spans": []
+  },
+  "verification": {
+    "pytest": "27 passed",
+    "ruff_check": "passed",
+    "ruff_format_check": "14 files already formatted",
+    "forbidden_boundary_search": "no matches",
+    "user_confirmed_repair_projection_tested": true,
+    "duplicate_span_id_fail_closed_tested": true
+  }
+}

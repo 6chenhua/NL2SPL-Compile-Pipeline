@@ -1,0 +1,92 @@
+{
+  "stage": "stage8_profile_extractor",
+  "timestamp": "2026-07-10T17:59:24.330129",
+  "metadata": {},
+  "result": {
+    "persona": {
+      "role": "Internal newsletter coordinator",
+      "aspects": [
+        {
+          "name": "InferredRole",
+          "text": "Role directly stated in the identity span; no inference needed.",
+          "source_span_ids": [
+            "s1"
+          ],
+          "source_section_id": null,
+          "source_packet_id": null,
+          "provenance_relation": "direct"
+        }
+      ],
+      "source_span_ids": [
+        "s1"
+      ],
+      "source_section_id": null,
+      "source_packet_id": null,
+      "provenance_relation": "direct"
+    },
+    "audience_aspects": [],
+    "concepts": [
+      {
+        "term": "Internal newsletter",
+        "definition": "A newsletter intended for internal organizational communication.",
+        "source_span_ids": [
+          "s1"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Approved internal updates",
+        "definition": "Internal news or status updates that have been approved for inclusion in the newsletter.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Sourced claims",
+        "definition": "Statements included in the draft that are expected to be backed by evidence.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Evidence",
+        "definition": "Supporting proof used to verify that a claim is valid.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Newsletter template",
+        "definition": "The approved format or structure the newsletter draft must follow.",
+        "source_span_ids": [
+          "s2"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "normalized"
+      },
+      {
+        "term": "Newsletter draft",
+        "definition": "A preliminary version of the newsletter produced as the final output.",
+        "source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "source_section_id": null,
+        "source_packet_id": null,
+        "provenance_relation": "derived"
+      }
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "adapter_warnings": 0,
+  "assumptions": 1,
+  "compile_diagnostics": 1,
+  "compile_elapsed_seconds": 43.84437430000071,
+  "completeness": "partial",
+  "final_ir_package_available": true,
+  "final_spl_path": "C:\\WorkingLocation\\UGAiForge\\nl2spl_improve\\nl2spl\\apps\\spl-web-demo\\.probe-output\\20260710T095843Z\\live-compile-attempt-01\\pipeline-output\\live_compile_smoke_01\\final_spl.txt",
+  "pipeline_result_fields": [
+    {
+      "name": "spl_text",
+      "runtime_type": "str"
+    },
+    {
+      "name": "validation_errors",
+      "runtime_type": "list"
+    },
+    {
+      "name": "validation_warnings",
+      "runtime_type": "list"
+    },
+    {
+      "name": "compile_diagnostics",
+      "runtime_type": "list"
+    },
+    {
+      "name": "traces",
+      "runtime_type": "list"
+    },
+    {
+      "name": "adapter_warnings",
+      "runtime_type": "list"
+    },
+    {
+      "name": "completeness",
+      "runtime_type": "str"
+    },
+    {
+      "name": "assumptions",
+      "runtime_type": "list"
+    },
+    {
+      "name": "readable_report",
+      "runtime_type": "str"
+    },
+    {
+      "name": "intermediate_results",
+      "runtime_type": "dict"
+    },
+    {
+      "name": "final_spl_path",
+      "runtime_type": "WindowsPath"
+    },
+    {
+      "name": "final_ir_package",
+      "runtime_type": "FinalIRPackage"
+    },
+    {
+      "name": "rendered_artifacts",
+      "runtime_type": "tuple"
+    },
+    {
+      "name": "spl_editing_snapshot_path",
+      "runtime_type": "WindowsPath"
+    },
+    {
+      "name": "spl_editing_snapshot_status",
+      "runtime_type": "str"
+    },
+    {
+      "name": "spl_editing_snapshot_error",
+      "runtime_type": "NoneType"
+    },
+    {
+      "name": "spl_editing_explanation_status",
+      "runtime_type": "str"
+    },
+    {
+      "name": "spl_editing_explanation_error",
+      "runtime_type": "NoneType"
+    }
+  ],
+  "rendered_artifact_count": 1,
+  "spl_editing_explanation_error": null,
+  "spl_editing_explanation_status": "not_requested",
+  "spl_editing_snapshot_error": null,
+  "spl_editing_snapshot_path": "C:\\WorkingLocation\\UGAiForge\\nl2spl_improve\\nl2spl\\apps\\spl-web-demo\\.probe-output\\20260710T095843Z\\live-compile-attempt-01\\pipeline-output\\live_compile_smoke_01\\spl_editing_snapshot.json",
+  "spl_editing_snapshot_status": "available",
+  "spl_length": 1837,
+  "traces": 17,
+  "validation_errors": 0,
+  "validation_warnings": 0
+}

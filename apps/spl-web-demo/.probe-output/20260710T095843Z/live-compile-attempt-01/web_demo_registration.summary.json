@@ -1,0 +1,18 @@
+{
+  "construct_count": 9,
+  "editing_available": false,
+  "http_like_statuses": {
+    "constructs": 200,
+    "create": 200,
+    "issues": 200,
+    "run": 200,
+    "spl": 200
+  },
+  "issue_count": 0,
+  "projection_status": "available",
+  "rendered_spl_length": 1837,
+  "run_id": "live_compile_smoke_01",
+  "snapshot_id": "snap_2d7908dc56db",
+  "snapshot_status": "available",
+  "status": "fail"
+}

@@ -1,0 +1,104 @@
+{
+  "schema_version": "spl_web_demo.t6_live_compile_http_e2e.v1",
+  "generated_at_utc": "2026-07-10T10:15:06Z",
+  "contract_probe": {
+    "artifact": "apps/spl-web-demo/.probe-output/20260710T100142Z/live_compile_smoke.summary.json",
+    "status": "pass",
+    "attempts_requested": 1,
+    "attempts_succeeded": 1,
+    "success_rate": 1.0,
+    "compile_elapsed_seconds": 56.19027710000046,
+    "sync_budget_seconds": 120.0,
+    "transport_recommendation": "synchronous_candidate",
+    "snapshot_status": "available",
+    "editing_available": true,
+    "projection_status": "available",
+    "rendered_spl_length": 1636,
+    "construct_count": 8,
+    "issue_count": 0
+  },
+  "contract_correction": {
+    "initial_failed_artifact": "apps/spl-web-demo/.probe-output/20260710T095843Z/live_compile_smoke.summary.json",
+    "initial_failure": "editing_available was incorrectly projected from RunPresentationView.editable",
+    "corrected_semantics": "editing_available reflects successful snapshot registration; issue editability remains presentation metadata",
+    "regression_test": "test_editing_available_reflects_snapshot_registration_not_fixable_issues"
+  },
+  "http_browser_e2e": {
+    "frontend_url": "http://127.0.0.1:5173/",
+    "backend_url": "http://127.0.0.1:8000/",
+    "post_runs_request_count": 1,
+    "post_runs_status": 200,
+    "pipeline_log_started_at": "2026-07-10T18:14:12+08:00",
+    "pipeline_log_completed_at": "2026-07-10T18:15:06+08:00",
+    "run_id": "web_demo_20260710T101412862765Z_09c0c72b",
+    "snapshot_id": "snap_d9381e93c8e9",
+    "overlay_version": 0,
+    "revision_token": "web_demo_20260710T101412862765Z_09c0c72b:snap_d9381e93c8e9:0",
+    "snapshot_status": "available",
+    "editing_available": true,
+    "projection_status": "available",
+    "rendered_spl_length": 1544,
+    "construct_count": 6,
+    "issue_count": 0,
+    "read_api_statuses": {
+      "run": 200,
+      "spl": 200,
+      "constructs": 200,
+      "issues": 200,
+      "provenance": 200
+    },
+    "loading_state_visible": true,
+    "construct_workspace_visible": true,
+    "provenance_visible": true,
+    "issue_console_visible": true,
+    "rendered_spl_control_visible": true
+  },
+  "responsive_checks": [
+    {
+      "requested_viewport": "1440x900",
+      "client_width": 1425,
+      "scroll_width": 1425,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "1024x900",
+      "client_width": 1009,
+      "scroll_width": 1009,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "768x900",
+      "client_width": 753,
+      "scroll_width": 753,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    },
+    {
+      "requested_viewport": "390x844",
+      "client_width": 375,
+      "scroll_width": 375,
+      "horizontal_overflow": false,
+      "offscreen_element_count": 0,
+      "text_overflow_count": 0
+    }
+  ],
+  "browser_console": {
+    "warning_count": 0,
+    "error_count": 0
+  },
+  "verification_gates": {
+    "backend_pytest": "47 passed",
+    "backend_ruff": "passed",
+    "backend_format": "23 files already formatted",
+    "frontend_typecheck": "passed",
+    "frontend_vitest": "16 passed",
+    "frontend_build": "passed",
+    "frontend_npm_audit": "0 vulnerabilities",
+    "scoped_git_diff_check": "passed"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-07-10T18:02:23.847761",
+  "metadata": {},
+  "result": {
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s2"
+            ]
+          },
+          {
+            "block_id": "b_cr_local_if_s3_s4",
+            "block_type": "IF",
+            "condition_text": "required information is missing, it must ask for the missing information before finalizing the draft",
+            "spans": [
+              "s4"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {
+          "exc_1": [
+            {
+              "block_id": "b_2",
+              "block_type": "IF",
+              "condition_text": "required information is missing",
+              "spans": [
+                "s3"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "control_complexity_regions": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "stage": "stage5_block_assembler",
+  "timestamp": "2026-07-10T17:59:13.242944",
+  "metadata": {},
+  "result": {
+    "worker_blocks": {
+      "worker_main": {
+        "main_flow_blocks": [
+          {
+            "block_id": "b_1",
+            "block_type": "SEQUENTIAL",
+            "condition_text": null,
+            "spans": [
+              "s2"
+            ]
+          }
+        ],
+        "alternative_flow_blocks": {},
+        "exception_flow_blocks": {
+          "exc_1": [
+            {
+              "block_id": "b_2",
+              "block_type": "IF",
+              "condition_text": "required information is missing",
+              "spans": [
+                "s3"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "control_complexity_regions": [],
+    "warnings": []
+  }
+}

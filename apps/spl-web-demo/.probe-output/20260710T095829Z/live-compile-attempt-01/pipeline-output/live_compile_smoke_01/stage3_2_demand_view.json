@@ -1,0 +1,10 @@
+{
+  "stage": "stage3_2_demand_view",
+  "timestamp": "2026-07-10T17:58:46.423981",
+  "metadata": {},
+  "result": {
+    "demands": [],
+    "view_diagnostics": [],
+    "warnings": []
+  }
+}

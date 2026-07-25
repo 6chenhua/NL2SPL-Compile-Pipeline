@@ -1,0 +1,58 @@
+{
+  "availability": "available",
+  "contract_id": "worker_delegation.keep_in_main_flow.v1",
+  "contract_version": "1",
+  "fields": [
+    {
+      "description": null,
+      "fact_schema_id": null,
+      "field_id": "task_selection",
+      "input_type": "single_choice",
+      "label": "Task boundary",
+      "object_schema_id": null,
+      "options": [
+        {
+          "description": null,
+          "label": "Source gathering",
+          "option_id": "source_gathering",
+          "value": "source gathering"
+        },
+        {
+          "description": null,
+          "label": "Template matching",
+          "option_id": "template_matching",
+          "value": "template matching"
+        },
+        {
+          "description": null,
+          "label": "Both",
+          "option_id": "both",
+          "value": "source gathering and template matching"
+        }
+      ],
+      "ref_role": null,
+      "required": true,
+      "value": null
+    },
+    {
+      "description": null,
+      "fact_schema_id": null,
+      "field_id": "additional_instruction",
+      "input_type": "long_text",
+      "label": "Additional instruction",
+      "object_schema_id": null,
+      "options": [],
+      "ref_role": null,
+      "required": false,
+      "value": null
+    }
+  ],
+  "input_readiness": "input_required",
+  "interaction_kind": "structured_with_notes",
+  "issue_id": "irs_b07e4440a217",
+  "option_id": "keep_in_main_flow",
+  "revision_token": "demo:snap_b61a1efdd39c:0",
+  "schemas": [],
+  "strategy_id": "worker_delegation.complete_closure.v2",
+  "validation_errors": []
+}

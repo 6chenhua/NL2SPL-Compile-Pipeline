@@ -1,0 +1,27 @@
+{
+  "stage": "stage3_5b_worker_boundary_decisions",
+  "timestamp": "2026-07-10T18:02:05.040219",
+  "metadata": {},
+  "result": {
+    "decisions": [
+      {
+        "candidate_id": "candidate_create_newsletter_draft",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "decision": "keep_in_main_worker",
+        "boundary_strength": "weak",
+        "boundary_kind": "bounded_subtask",
+        "rejection_reason": "insufficient_semantic_boundary",
+        "reason": "Auto-rejected: blocking risk insufficient_semantic_boundary",
+        "evidence": []
+      }
+    ]
+  }
+}

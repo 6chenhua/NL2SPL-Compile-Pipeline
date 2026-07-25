@@ -1,0 +1,27 @@
+{
+  "stage": "stage4_flow_assembler",
+  "timestamp": "2026-07-10T18:02:07.265354",
+  "metadata": {},
+  "result": {
+    "worker_flows": {
+      "worker_main": {
+        "main_flow_spans": [
+          "s2",
+          "s4"
+        ],
+        "alternative_flows": [],
+        "exception_flows": [
+          {
+            "flow_id": "exc_1",
+            "condition_text": "required information is missing",
+            "spans": [
+              "s3"
+            ]
+          }
+        ],
+        "delegation_candidates": []
+      }
+    },
+    "warnings": []
+  }
+}

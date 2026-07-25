@@ -1,0 +1,17 @@
+{
+  "directive_id": "directive_e83400868f090e4b1afc",
+  "evidence_user_text_length": 371,
+  "preview": {
+    "base_snapshot_id": "snap_b61a1efdd39c",
+    "preview_id": "prev_00df81ab461aa78a10553f2f85243a79618acf2f6ea392cf17d79314d2a5d2f8",
+    "rendered_preview": "COMMAND-1 [COMMAND Source gathering]",
+    "typed_artifact_type": "TypedRepairPreviewArtifact",
+    "typed_construct_node_count": 2,
+    "typed_construct_roles": [
+      "main_flow_command",
+      "main_flow_placement"
+    ]
+  },
+  "session_id": "sess_demo_irs_b07e4440a217",
+  "suggestion_id": "suggestion_directive_e83400868f090e4b1afc"
+}

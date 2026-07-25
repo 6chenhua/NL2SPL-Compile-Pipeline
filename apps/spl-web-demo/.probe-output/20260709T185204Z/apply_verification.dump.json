@@ -1,0 +1,86 @@
+{
+  "patched_snapshot": {
+    "final_spl_available": false,
+    "overlay_version": 1,
+    "promotion_resolution_marker_count": 1,
+    "snapshot_id": "snap_b61a1efdd39c"
+  },
+  "refreshed_issue_summary": [
+    {
+      "category": "api_contract_review",
+      "count": 1,
+      "label": "API contract validation"
+    },
+    {
+      "category": "exception_handling",
+      "count": 6,
+      "label": "Exception handling"
+    },
+    {
+      "category": "worker_delegation",
+      "count": 1,
+      "label": "Worker delegation"
+    }
+  ],
+  "session": {
+    "artifact_snapshot_id": "snap_b61a1efdd39c",
+    "compile_run_id": "demo",
+    "created_at": "",
+    "issue": {
+      "affordance_ids": [
+        "worker_promotion.resolve_contract"
+      ],
+      "authority": "selected_promoted_stage_local_irs",
+      "blocks_completion": true,
+      "blocks_rendering": false,
+      "default_affordance_id": "worker_promotion.resolve_contract",
+      "irs_ref": {
+        "construct_id": "worker_promotion:del_s37a",
+        "construct_path": [
+          "routes",
+          "annotations",
+          "s37a"
+        ],
+        "construct_type": "WORKER_PROMOTION",
+        "slot_name": "promotion_input_contract",
+        "source_authority": "selected_promoted_stage_local_irs"
+      },
+      "issue_group_id": "worker_promotion_group:worker_promotion:del_s37a",
+      "issue_id": "irs_b07e4440a217",
+      "kind": "type_or_contract_ambiguity",
+      "message": "Missing clear input contract [construct=worker_promotion:del_s37a, slot=promotion_input_contract]",
+      "missing_slot": "promotion_input_contract",
+      "primary_diagnostic_id": "irs_b07e4440a217",
+      "related_diagnostic_ids": [
+        "irs_4003814ca554",
+        "irs_47b7c7feaabc",
+        "irs_b07e4440a217",
+        "irs_bc2ac4dfedc3"
+      ],
+      "repairability": "editable",
+      "repairable": true,
+      "source_span_ids": [
+        "s37a"
+      ],
+      "suggested_resolution": null,
+      "target_ref": "worker_promotion:del_s37a"
+    },
+    "overlay_version": 1,
+    "session_id": "sess_demo_irs_b07e4440a217"
+  },
+  "verification": {
+    "accepted": true,
+    "diagnostic_diff_summary": "4 resolved, 10 unchanged",
+    "failure_reasons": [],
+    "lane": "B",
+    "new_blocking_diagnostic_ids": [],
+    "patch_id": "patch_directive_e83400868f090e4b1afc",
+    "resolved_diagnostic_ids": [
+      "irs_4003814ca554",
+      "irs_47b7c7feaabc",
+      "irs_b07e4440a217",
+      "irs_bc2ac4dfedc3"
+    ],
+    "session_id": ""
+  }
+}

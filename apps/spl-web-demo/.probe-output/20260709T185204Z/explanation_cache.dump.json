@@ -1,0 +1,46 @@
+{
+  "cache_language": "zh-CN",
+  "cache_status": "ready",
+  "selected_issue_explanation": {
+    "generation_source": "llm",
+    "generation_warning": null,
+    "headline": "子任务责任定义不完整",
+    "impact": "如果这些信息不明确，编译器就无法可靠判断这项工作应如何被执行、结果如何接回主流程，也就容易产生类型或契约上的歧义。",
+    "issue_id": "irs_b07e4440a217",
+    "language": "zh-CN",
+    "missing_information": [
+      "input contract",
+      "output contract",
+      "invocation point",
+      "result handoff"
+    ],
+    "options": [
+      {
+        "available": true,
+        "description": "Create a complete child worker, handoff, invocation, and result binding.",
+        "label": "Define this work as a child worker",
+        "option": 1,
+        "tradeoff": "需要补齐更多结构性信息，定义成本更高。",
+        "when_to_choose": "当这项工作确实需要作为独立的子任务来处理，并且你能补全完整的子 worker、交接、调用和结果绑定时。"
+      },
+      {
+        "available": true,
+        "description": "Materialize the confirmed responsibility as a main-workflow command.",
+        "label": "Keep this work in the main workflow",
+        "option": 2,
+        "tradeoff": "不会形成独立子 worker，灵活性更低。",
+        "when_to_choose": "当你希望把这项已确认的责任直接放进主流程中处理时。"
+      }
+    ],
+    "problem": "编译器发现这段工作里可能涉及可委派的子任务，但目前缺少必要的契约信息：输入契约、输出契约、调用点和结果交接都不完整。",
+    "questions": [
+      "这项工作是否必须独立作为子 worker 存在，还是可以直接放入主流程？",
+      "如果要作为子 worker，输入契约、输出契约、调用点和结果交接是否都能补全？"
+    ],
+    "recommendation_reason": "根据当前给出的信息，缺失的是子任务所需的完整契约与交接信息；在可用选项中，将这项已确认责任保留在主流程里，更符合现有事实，也避免依赖尚未定义完整的子 worker 结构。",
+    "recommended_option": 2,
+    "schema_version": "issue_explanation.v1",
+    "source_interpretation": "源文本表示：只有在范围受限、且返回的证据被规范化为允许的证据载体时，才可以使用诸如来源收集或模板匹配之类的可选委派子任务。"
+  },
+  "selected_issue_status": "ready"
+}

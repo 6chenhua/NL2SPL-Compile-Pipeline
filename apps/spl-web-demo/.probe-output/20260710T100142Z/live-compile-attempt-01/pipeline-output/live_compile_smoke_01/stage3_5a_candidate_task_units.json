@@ -1,0 +1,135 @@
+{
+  "stage": "stage3_5a_candidate_task_units",
+  "timestamp": "2026-07-10T18:02:05.038953",
+  "metadata": {},
+  "result": {
+    "candidates": [
+      {
+        "candidate_id": "candidate_create_newsletter_draft",
+        "source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "task_text": "Prepare an internal newsletter draft by collecting approved updates, checking that sourced claims have evidence, and matching the approved newsletter template.",
+        "purpose": "Produce the newsletter draft for the caller to review or use.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [
+          {
+            "name": "newsletter_draft",
+            "data_type": "text",
+            "required": true,
+            "description": "The completed newsletter draft.",
+            "source": "output",
+            "contract_demand_id": null,
+            "source_span_ids": [],
+            "source_section_id": null,
+            "source_packet_id": null,
+            "resource_kind": null,
+            "requiredness": "unspecified"
+          }
+        ],
+        "signals": [
+          "bounded_io",
+          "multi_step_process",
+          "testability"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "ordinary_sequential_step",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      },
+      {
+        "candidate_id": "candidate_request_missing_information",
+        "source_span_ids": [
+          "s3"
+        ],
+        "task_text": "Ask for missing information needed to complete the newsletter draft before finalizing it.",
+        "purpose": "Obtain missing required details so the draft can be completed.",
+        "candidate_kind": "bounded_subtask",
+        "possible_inputs": [],
+        "possible_outputs": [],
+        "signals": [
+          "complex_control"
+        ],
+        "risks": [
+          "no_clear_input_contract",
+          "no_clear_output_contract",
+          "alternative_flow",
+          "insufficient_semantic_boundary"
+        ],
+        "input_contract_status": "unknown",
+        "output_contract_status": "unknown",
+        "input_contract_status_source": null,
+        "output_contract_status_source": null
+      }
+    ],
+    "worker_boundary_exclusion_view": {
+      "api_consumed_span_ids": [],
+      "api_residual_span_ids": [],
+      "api_call_demand_ids_by_span": {},
+      "exclusion_authority": "external_capability_intent_plan",
+      "audit_payload": {
+        "authority": "external_capability_intent_plan",
+        "intent_count": 0,
+        "intents": []
+      }
+    },
+    "sanitization_results": [
+      {
+        "original_candidate_id": "candidate_create_newsletter_draft",
+        "result_kind": "unchanged",
+        "residual_candidate_id": "candidate_create_newsletter_draft",
+        "residual_source_span_ids": [
+          "s2",
+          "s4"
+        ],
+        "removed_api_span_ids": [],
+        "auto_decision": null,
+        "residual_policy_reason": null,
+        "requires_residual_re_evaluation": false,
+        "audit": {
+          "api_call_demand_ids": {},
+          "candidate_source_span_ids": [
+            "s2",
+            "s4"
+          ],
+          "exclusion_authority": "external_capability_intent_plan",
+          "removed_api_span_ids": [],
+          "residual_source_span_ids": [
+            "s2",
+            "s4"
+          ]
+        }
+      },
+      {
+        "original_candidate_id": "candidate_request_missing_information",
+        "result_kind": "unchanged",
+        "residual_candidate_id": "candidate_request_missing_information",
+        "residual_source_span_ids": [
+          "s3"
+        ],
+        "removed_api_span_ids": [],
+        "auto_decision": null,
+        "residual_policy_reason": null,
+        "requires_residual_re_evaluation": false,
+        "audit": {
+          "api_call_demand_ids": {},
+          "candidate_source_span_ids": [
+            "s3"
+          ],
+          "exclusion_authority": "external_capability_intent_plan",
+          "removed_api_span_ids": [],
+          "residual_source_span_ids": [
+            "s3"
+          ]
+        }
+      }
+    ]
+  }
+}
